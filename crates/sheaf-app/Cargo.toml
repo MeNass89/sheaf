@@ -32,11 +32,12 @@ lopdf.workspace = true
 # ⌘V of an image onto a page (reader). Already in the graph through Slint; images too here.
 arboard = { version = "3.6", default-features = false, features = ["image-data"] }
 
-# "Open With" from Finder (src/open_with.rs). Same versions winit and rfd already pull in.
+# "Open With" from Finder (src/open_with.rs) and the scanner panel (src/scan_mac.rs). Same versions
+# winit and rfd already pull in.
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSURL"] }
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder"] }
+objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSURL", "NSString", "NSGeometry"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSWindow", "NSGraphics", "NSRunningApplication", "NSText"] }
 
 # A pinch sent to the reader's gesture handler in a test (tests/pinch.rs, C-reader-010): Xvfb has no
 # gesture events. The same versions Slint already pulls in.

@@ -426,6 +426,12 @@ fn wire_viewer(ui: &AppWindow) {
 fn main() -> Result<(), slint::PlatformError> {
     use winit::window::Theme as WinitTheme;
 
+    // `--scan-to`: the macOS scanner panel's helper process (run::scan_page), no window of its own.
+    #[cfg(target_os = "macos")]
+    if let Some(status) = sheaf_app::scan_mac::helper(std::env::args()) {
+        std::process::exit(status);
+    }
+
     // SHEAF_THEME=dark|light forces the appearance (debug, screenshots) over the preference.
     let forced = match std::env::var("SHEAF_THEME").as_deref() {
         Ok("light") => Some(ThemePref::Light),

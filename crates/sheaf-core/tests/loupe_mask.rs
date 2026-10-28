@@ -14,7 +14,7 @@ fn page(dir: &Path, content: &[u8]) -> PathBuf {
     let mut doc = lopdf::Document::with_version("1.7");
     let pages = doc.new_object_id();
     let content = doc.add_object(Stream::new(dictionary! {}, content.to_vec()));
-    let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "Contents" => content, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()] });
+    let page = doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "Contents" => content, "Resources" => dictionary! {}, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()] });
     doc.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
     let catalog = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
     doc.trailer.set("Root", catalog);

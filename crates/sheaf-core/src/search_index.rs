@@ -260,6 +260,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("not-a-real-pdf.pdf");
         std::fs::write(&path, b"not parsed during search or unchanged updates").unwrap();
+        // Catalogs keep canonical paths (macOS: /private/var for /var).
+        let path = path.canonicalize().unwrap();
         let catalog = Catalog::from_sources(vec![Source {
             fingerprint: fingerprint(&path).unwrap(), stamp: stamp(&path), path: path.clone(),
             pages: vec!["Contract 日本語の文書 punctuation: (foo-bar)".into()], normalized: Vec::new(),

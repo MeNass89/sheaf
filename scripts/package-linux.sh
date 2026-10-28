@@ -15,6 +15,9 @@ stage="target/$name"
 
 sh scripts/fetch-pdfium.sh
 sh scripts/fetch-models.sh
+# Shipped builds must embed the non-Latin faces (.cargo/config.toml): fail rather than build without.
+sh scripts/fetch-fonts.sh
+export CRAFT_FONTS_REQUIRED=1
 cargo build --release -p sheaf-app -p sheaf-cli
 
 rm -rf "$stage"

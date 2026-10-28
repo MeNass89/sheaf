@@ -6963,3 +6963,15 @@ msgstr "Choisissez limite du noir, recouvrement glissant et réduction entre 0 e
 #: ../sheaf-core/src/trap.rs
 msgid "Use a black density from 0.001 to 10"
 msgstr "Choisissez une densité du noir entre 0,001 et 10"
+
+#: src/run.rs
+msgid "Import from Scanner"
+msgstr "Importer depuis le scanner"
+
+#: src/run.rs
+msgid "Scan cancelled"
+msgstr "Numérisation annulée"
+
+#: src/run.rs
+msgid "No scanner yet: turn on a scanner connected to this Mac or on its network."
+msgstr "Aucun scanner pour l’instant : allumez un scanner relié à ce Mac ou sur son réseau."

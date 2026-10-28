@@ -27,6 +27,8 @@ pub mod prefs;
 pub mod print;
 pub mod reader;
 pub mod saved_options;
+#[cfg(target_os = "macos")]
+pub mod scan_mac;
 pub mod security_policies;
 pub mod store_file;
 pub mod sign_preview;

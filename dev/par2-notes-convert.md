@@ -134,3 +134,16 @@ Gap (Sol rev36a): the PDF/A-2b step under PDF/E removed 3D annotations, which PD
 now gives 3D annotations a held subtype before that step and their own back after it; PDF/E's check no longer
 counts PDF/A's ban on 3D. Test `pdfe_keeps_a_3d_annotation_and_its_model` (tests/pdfa.rs): a page's 3D
 annotation and its U3D stream come through, the file checks clean, no held subtype is left.
+
+## Round 36 (28/10, Opus, on the MBP): macOS scanner, LibreOffice 26 pictures, fonts in every build
+
+- Scanner on macOS (C-convert-006, C-files-018, C-organize-011): Preview's panel, ImageKit's IKDeviceBrowserView
+  and IKScannerDeviceView, in Sheaf started again as `--scan-to` (src/scan_mac.rs; AppKit needs a main thread).
+  USB and network scanners, Show Details; with none, a message says what to do. Checked on the MBP (no scanner
+  there): panel drawn by SHEAF_TEST_SCAN_SHOT, DEVICES 0 / SHARED 0 and the message centred.
+- LibreOffice 26.8 (the MBP's) no longer loads linked local pictures in HTML (24.2 did): local `<img>` go in as
+  data URIs (html_source::inline_pictures), HTML and Markdown, both layouts.
+- Craft fonts (Arabic, Japanese, Thai, Georgian) were embedded only by builds through dev/scripts/cargo.sh: the
+  .dmg and CI built without them. `.cargo/config.toml` sets CRAFT_FONTS_DIR; release scripts require it.
+- macOS unit layer green on the MBP (cargo test --workspace + pdfcraft libs). Test-only fixes: canonical paths
+  (/private/var), a fixture page without /Resources (qpdf 12 warns), lopdf's text of LibreOffice 26 PDFs.

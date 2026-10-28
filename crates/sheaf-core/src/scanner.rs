@@ -15,7 +15,7 @@ pub fn scan_to_png(to: &Path) -> Result<()> {
             "$d = New-Object -ComObject WIA.CommonDialog; $i = $d.ShowAcquireImage(1, 1, 0, '{{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}}'); \
              if ($i) {{ $i.SaveFile('{path}'); exit 0 }}; exit 1"
         );
-        acquire(Command::new("powershell").args(["-NoProfile", "-STA", "-Command", &script]), to)
+        scan_with(Command::new("powershell").args(["-NoProfile", "-STA", "-Command", &script]), to)
     }
     #[cfg(not(windows))]
     {
@@ -44,10 +44,13 @@ fn sane_program_from(path: Option<std::ffi::OsString>, installed: &[&Path]) -> s
 
 #[cfg(not(windows))]
 fn sane_to_png(scanner: &Path, to: &Path) -> Result<()> {
-    acquire(Command::new(scanner).args(["--format=png", "--resolution", "300", "-o"]).arg(to), to)
+    scan_with(Command::new(scanner).args(["--format=png", "--resolution", "300", "-o"]).arg(to), to)
 }
 
-fn acquire(command: &mut Command, to: &Path) -> Result<()> {
+/// Runs `command`, a scanner program that writes one page to `to`, and checks the page (the
+/// macOS app's ImageKit panel, SANE, WIA). Err: the program's last line on stderr, or why the page
+/// is refused.
+pub fn scan_with(command: &mut Command, to: &Path) -> Result<()> {
     // WIA refuses to overwrite, and a successful driver with no output must not reuse old pixels.
     if to.exists() { std::fs::remove_file(to)?; }
     let result = (|| {

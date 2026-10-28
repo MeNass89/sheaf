@@ -1,0 +1,4 @@
+[env]
+# The faces PdfCraft embeds for text WinAnsi cannot write (scripts/fetch-fonts.sh): every build gets
+# them when the checkout is there, not only builds started through dev/scripts/cargo.sh.
+CRAFT_FONTS_DIR = { value = "vendor/craft-fonts", relative = true }

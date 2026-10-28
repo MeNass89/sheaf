@@ -21,12 +21,13 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
-## Last landing (28/10/2026, round 35)
+## Last landing (28/10/2026, round 36)
 
-Verdict: ALL GREEN (bash scripts/test.sh, full run, round 35, 1137 s). Trap Presets with Sheaf's own raster
-trapping (trap.rs; Output Preview of the traps, trapped plates as TIFF; smoke 346) and PDF/E keeping 3D
-annotations. Open: sheaf-core's `pages` tests crashed once in PDFium (SIGSEGV) under load, never in 50 idle runs.
-Next: Sol reviews C-optimize-014 and C-convert-019; macOS unit failures on the MBP (ssh nassimlecornet@mbpn).
+Verdict: ALL GREEN (bash scripts/test.sh, full run, round 36, 1375 s). macOS scanner (ImageKit panel, scan_mac.rs),
+local pictures through LibreOffice 26, craft fonts in every build (.cargo/config.toml); macOS unit layer green on
+the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci; tight disk: build with CARGO_PROFILE_DEV_DEBUG=0, delete test
+binaries after). Pinch checked on the MBP with synthetic magnify events (CGEvent type 29, round 37 notes).
+Next: pinch dead zone past 800 % in one gesture; Sol reviews the scanner trio and C-reader-010; BAMA pass.
 
 ## Where things are
 

@@ -30,6 +30,9 @@ version="$(cargo metadata --no-deps --format-version 1 |
 sh scripts/fetch-pdfium.sh
 [ -f "$pdfium/lib/libpdfium.dylib" ] || { echo "error: $pdfium/lib/libpdfium.dylib missing" >&2; exit 1; }
 sh scripts/fetch-models.sh
+# Shipped builds must embed the non-Latin faces (.cargo/config.toml): fail rather than build without.
+sh scripts/fetch-fonts.sh
+export CRAFT_FONTS_REQUIRED=1
 for m in text-detection.rten text-recognition.rten latin-recognition.onnx latin-dict.txt; do
     [ -f "vendor/models/$m" ] || { echo "error: vendor/models/$m missing" >&2; exit 1; }
 done

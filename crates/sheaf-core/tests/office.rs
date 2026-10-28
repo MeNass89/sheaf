@@ -46,7 +46,8 @@ fn markdown_and_mail_use_the_chosen_html_paper_and_keep_attachments() {
         let media = page.get(b"MediaBox").unwrap().as_array().unwrap();
         assert!((media[2].as_float().unwrap() - media[0].as_float().unwrap() - 792.0).abs() < 1.0);
         assert!((media[3].as_float().unwrap() - media[1].as_float().unwrap() - 612.0).abs() < 1.0);
-        assert!(common::page_texts(&out)[0].contains("Paper settings"));
+        // As readers show it: lopdf misreads LibreOffice 26's text (letters doubled).
+        assert!(common::shown_texts(&out)[0].contains("Paper settings"));
         if source == &mail {
             assert!(std::fs::read(&out).unwrap().windows(11).any(|w| w == b"figures.csv"));
         }
@@ -257,7 +258,7 @@ fn a_markdown_file_a_mail_and_postscript_become_pdfs() {
         let eml = t.path().join("mail.eml");
         std::fs::write(&eml, "From: Ada <ada@x.org>\r\nSubject: Quarterly figures\r\nContent-Type: multipart/mixed; boundary=b\r\n\r\n--b\r\nContent-Type: text/plain\r\n\r\nThe figures are attached.\r\n--b\r\nContent-Disposition: attachment; filename=\"figures.csv\"\r\n\r\na,b\r\n--b--\r\n").unwrap();
         let pdf = office_to_pdf(&eml, &t.path().join("mail.pdf")).unwrap();
-        let text = common::page_texts(&pdf).join(" ");
+        let text = common::shown_texts(&pdf).join(" ");
         assert!(text.contains("Quarterly figures") && text.contains("The figures are attached"), "{text}");
         let raw = std::fs::read(&pdf).unwrap();
         assert!(raw.windows(11).any(|w| w == b"figures.csv"), "the attachment is in the PDF");

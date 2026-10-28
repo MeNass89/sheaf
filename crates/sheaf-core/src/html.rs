@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 #[path = "html_source.rs"]
 mod source;
+pub(crate) use source::inline_pictures;
 #[path = "html_long_page.rs"]
 mod long_page;
 #[path = "html_browser.rs"]

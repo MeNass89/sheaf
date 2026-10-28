@@ -57,6 +57,7 @@ fn incremental_folder_catalog_reuses_unchanged_sources_and_purges_removed_ones()
     assert_eq!(updated.sources(), [(b.canonicalize().unwrap(), 2)]);
     assert_eq!(updated.search("page 2").unwrap().len(), 1);
     assert_eq!(catalog.search("page 1").unwrap().len(), 1);
-    assert_eq!(catalog.stale_sources(), [a]);
+    // Catalogs keep canonical paths (macOS: /private/var for /var); `a` is gone, so its folder is resolved.
+    assert_eq!(catalog.stale_sources(), [folder.canonicalize().unwrap().join("a.pdf")]);
     assert!(matches!(catalog.update(&[Input::new(&folder)], &mut |_, _| false), Err(OpdfError::Cancelled)));
 }

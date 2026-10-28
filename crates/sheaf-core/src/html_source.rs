@@ -132,7 +132,59 @@ pub(super) fn prepare(source: &str, original: &str) -> Result<String> {
     }
     replacements.sort_by_key(|(span, _)| std::cmp::Reverse(span.start));
     for (span, value) in replacements { out.replace_range(span, &value); }
-    Ok(out)
+    Ok(inline_pictures(&out, original))
+}
+
+/// LibreOffice 26 no longer loads linked local pictures (24.2 did): `<img>` sources that are local
+/// files, resolved against the document's base or else `original`, go in as data URIs.
+pub(crate) fn inline_pictures(source: &str, original: &str) -> String {
+    let lower = source.to_ascii_lowercase();
+    let base = base_attribute(source).map_or_else(|| original.to_string(), |span| resolve(original, &source[span]));
+    let mut replacements = Vec::new();
+    let mut from = 0;
+    while let Some(span) = super::tag_span(&lower[from..], "img") {
+        let span = from + span.start..from + span.end;
+        if let Some(a) = attributes(&source[span.clone()]).into_iter().find(|a| a.name.eq_ignore_ascii_case("src")) {
+            let value = span.start + a.value.start..span.start + a.value.end;
+            if let Some(data) = local_image(&resolve(&base, &source[value.clone()])) { replacements.push((value, data)); }
+        }
+        from = span.end;
+    }
+    let mut out = source.to_string();
+    for (span, value) in replacements.into_iter().rev() { out.replace_range(span, &value); }
+    out
+}
+
+/// A `file:` URL's picture as a data URI; None for other URLs, HTML entities, a missing or large file.
+fn local_image(url: &str) -> Option<String> {
+    let path = url.strip_prefix("file://")?.split(['?', '#']).next()?;
+    if path.contains('&') { return None; }
+    let bytes = path.as_bytes();
+    let mut decoded = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| (b as char).to_digit(16);
+        match (bytes[i], bytes.get(i + 1).and_then(|&b| hex(b)), bytes.get(i + 2).and_then(|&b| hex(b))) {
+            (b'%', Some(h), Some(l)) => { decoded.push((h * 16 + l) as u8); i += 3; }
+            (b, ..) => { decoded.push(b); i += 1; }
+        }
+    }
+    let path = String::from_utf8(decoded).ok()?;
+    // file:///C:/… on Windows.
+    let path = if path.as_bytes().get(2) == Some(&b':') { &path[1..] } else { path.as_str() };
+    let path = std::path::Path::new(path);
+    let mime = match path.extension()?.to_str()?.to_ascii_lowercase().as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "bmp" => "image/bmp",
+        "svg" => "image/svg+xml",
+        "tif" | "tiff" => "image/tiff",
+        _ => return None,
+    };
+    if std::fs::metadata(path).ok()?.len() > 32 << 20 { return None; }
+    Some(format!("data:{mime};base64,{}", crate::textdocs::base64_encode(&std::fs::read(path).ok()?)))
 }
 
 /// Local browser printing must not follow a meta refresh out of the supplied file.
@@ -179,5 +231,19 @@ mod tests {
         assert_eq!(resolve("file:///C:/docs/page.html", "/assets/"), "file:///C:/assets/");
         assert_eq!(resolve("file:///tmp/page.html", "/assets/"), "file:///assets/");
         assert_eq!(resolve("file:///tmp/page.html", "https://example.org/assets/"), "https://example.org/assets/");
+    }
+
+    #[test]
+    fn local_pictures_go_in_as_data_and_others_stay_linked() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("a b")).unwrap();
+        std::fs::write(dir.path().join("a b/dot.png"), b"PNG").unwrap();
+        let page = crate::office::file_url(&dir.path().join("page.html"));
+        let source = "<img src='a%20b/dot.png?v=1'><IMG alt=x SRC=\"missing.png\"><img src='https://example.org/x.png'><p>img src='a%20b/dot.png'</p>";
+        let text = prepare(source, &page).unwrap();
+        assert!(text.starts_with("<img src='data:image/png;base64,UE5H'>"), "{text}");
+        assert!(text.contains("SRC=\"missing.png\"") && text.contains("https://example.org/x.png") && text.contains("<p>img src='a%20b/dot.png'</p>"));
+        let based = prepare("<base href='a%20b/'><img src='dot.png'>", &page).unwrap();
+        assert!(based.contains("src='data:image/png;base64,UE5H'"), "{based}");
     }
 }

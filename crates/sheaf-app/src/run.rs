@@ -915,14 +915,30 @@ pub fn clipboard_to_pdf(c: &ClipPages, path: &std::path::Path) -> sheaf_core::Re
 }
 
 /// A page scanned (Acrobat's Create PDF ▸ Scanner) to `to` as PNG; blocks until it is done: the
-/// Windows scan dialog (WIA), SANE's scanimage on Linux and macOS. Debug builds copy the image
-/// `SHEAF_TEST_SCAN` names instead (gui-smoke). Err: what went wrong, said to the user.
+/// Windows scan dialog (WIA), Preview's scanner panel on macOS (ImageKit, `scan_mac`), SANE's
+/// scanimage on Linux. Debug builds copy the image `SHEAF_TEST_SCAN` names instead (gui-smoke).
+/// Err: what went wrong, said to the user.
 pub fn scan_page(to: &std::path::Path) -> std::result::Result<(), String> {
     if cfg!(debug_assertions)
         && let Some(image) = std::env::var_os("SHEAF_TEST_SCAN")
     {
         return std::fs::copy(image, to).map(|_| ()).map_err(|e| e.to_string());
     }
+    scan_natively(to)
+}
+
+/// Preview's scanner panel, in Sheaf started again as a helper: AppKit needs a main thread.
+#[cfg(target_os = "macos")]
+fn scan_natively(to: &std::path::Path) -> std::result::Result<(), String> {
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let mut helper = std::process::Command::new(exe);
+    helper.arg("--scan-to").arg(to).arg(sheaf_app::i18n::tr("Import from Scanner")).arg(sheaf_app::i18n::tr("Scan cancelled"))
+        .arg(sheaf_app::i18n::tr("No scanner yet: turn on a scanner connected to this Mac or on its network."));
+    sheaf_core::scanner::scan_with(&mut helper, to).map_err(|e| e.to_string())
+}
+
+#[cfg(not(target_os = "macos"))]
+fn scan_natively(to: &std::path::Path) -> std::result::Result<(), String> {
     sheaf_core::scanner::scan_to_png(to).map_err(|e| e.to_string())
 }
 

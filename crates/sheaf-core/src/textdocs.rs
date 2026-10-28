@@ -80,7 +80,8 @@ fn markdown_file_html(input: &Path, md: &str) -> Result<String> {
     let base = escape(&crate::office::file_url(&original));
     // The conversion HTML lives in a temporary folder. Its base must remain the Markdown file,
     // for both Original layout and the chosen paper/browser layout.
-    Ok(markdown_to_html(md).replacen("<head>", &format!("<head><base href=\"{base}\">"), 1))
+    let html = markdown_to_html(md).replacen("<head>", &format!("<head><base href=\"{base}\">"), 1);
+    Ok(crate::html::inline_pictures(&html, &base))
 }
 
 /// A MIME part: its headers (names lower case, values unfolded) and its body.
@@ -179,7 +180,7 @@ fn base64(data: &[u8]) -> Vec<u8> {
     out
 }
 
-fn base64_encode(data: &[u8]) -> String {
+pub(crate) fn base64_encode(data: &[u8]) -> String {
     const A: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
     for c in data.chunks(3) {
