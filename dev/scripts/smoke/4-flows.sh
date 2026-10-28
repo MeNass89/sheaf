@@ -842,8 +842,11 @@ answer ""; quit
 # ID added with its password (full rights) and a colleague's certificate (read only by default), saved as an
 # encrypted copy (Adobe.PubSec, one envelope per permission set). Opened again, the copy asks for the digital ID it
 # was sent to: a wrong password is refused, the right one opens it in place (its tab named after it, its words shown).
+# My ID is an ECC one (P-256, key agreement: Acrobat accepts them), the colleague's RSA: the copy holds both kinds of
+# CMS recipient, and opening it in place goes through EC key agreement.
 CD="$PWD/$OUT/certs"; mkdir -p "$CD"
-for n in me colleague; do openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/$n.key" -out "$CD/$n.pem" -days 2 -subj "/CN=Smoke $n" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1; done
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout "$CD/me.key" -out "$CD/me.pem" -days 2 -subj "/CN=Smoke me" -addext keyUsage=digitalSignature,keyAgreement >/dev/null 2>&1
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/colleague.key" -out "$CD/colleague.pem" -days 2 -subj "/CN=Smoke colleague" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1
 openssl pkcs12 -export -passout pass:smokepw -inkey "$CD/me.key" -in "$CD/me.pem" -out "$CD/me.p12" >/dev/null 2>&1
 cp "$OUT/text.pdf" "$OUT/certsrc.pdf"; rm -f "$OUT/certenc.pdf"; launch "$OUT/certsrc.pdf"; sleep 1
 click 1108 61 0.8; click 1008 659 0.8
@@ -1577,3 +1580,48 @@ DL=$(ai_chip Delete); sleep 0.8; IM=$(ai_chip Import); sleep 1.2; T7=$(ai_text);
 SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(len(s), s[-1]["files"][-1].endswith("/ai.pdf"))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
 check "a space exported with relative paths is imported back (new $NS, export $EX, delete $DL, import $IM; file lists $REL; spaces $SP; $(echo "$T7" | grep -o 'Space: Space ([0-9] PDF)' | head -1))" "[ \"$REL\" = \"['../ai.pdf']\" ] && [ \"$SP\" = '1 True' ] && echo \"$T7\" | grep -q 'Space: Space (1 PDF)'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
+
+# 371. Preferences ▸ Signatures ▸ Add a smart card or token… (C-sign-013, Acrobat's PKCS#11 Modules and Tokens ▸
+# Attach Module): a SoftHSM token holding a P-256 key and its certificate, as a smart card does; its module chosen,
+# the card's ID joins the list without the PIN being asked, named after its holder and token, and is kept as a
+# pkcs11: reference (it signs with the PIN in 372).
+SH=$(for m in /usr/lib/softhsm/libsofthsm2.so /usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so /opt/homebrew/lib/softhsm/libsofthsm2.so; do [ -f "$m" ] && echo "$m" && break; done)
+TK="$PWD/$OUT/token"; rm -rf "$TK"; mkdir -p "$TK/tokens"
+printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' "$TK/tokens" > "$TK/softhsm2.conf"
+# The app inherits it from launch: SoftHSM reads its tokens there, never the user's.
+export SOFTHSM2_CONF="$TK/softhsm2.conf"
+if [ -n "$SH" ] && command -v pkcs11-tool >/dev/null; then
+    softhsm2-util --init-token --free --label "Smoke card" --so-pin 123456 --pin 4321 >/dev/null 2>&1
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$TK/card.key" 2>/dev/null
+    openssl req -new -x509 -key "$TK/card.key" -days 2 -subj "/CN=Smoke Card Holder" -addext keyUsage=critical,digitalSignature,nonRepudiation -outform DER -out "$TK/card.der" 2>/dev/null
+    softhsm2-util --import "$TK/card.key" --token "Smoke card" --label holder --id 01 --pin 4321 >/dev/null 2>&1
+    pkcs11-tool --module "$SH" --token-label "Smoke card" --login --pin 4321 --write-object "$TK/card.der" --type cert --id 01 --label holder >/dev/null 2>&1
+fi
+launch; key ctrl+comma; sleep 0.8
+answer "$SH"; read SX SY <<< "$(pref_find smart)"; [ -n "$SY" ] && click $SX $SY 1
+for _ in $(seq 1 20); do grep -q pkcs11: "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null && break; sleep 0.5; done; answer ""; sleep 0.8
+shot 371-token
+# The list starts at x 234, left of pref_find's crop.
+LIST=$(ocr 1040x710+226+90)
+REF=$(python3 -c 'import json, sys; print(next((d for d in json.load(open(sys.argv[1])).get("digital_ids", []) if d.startswith("pkcs11:")), ""))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "Add a smart card or token lists the card's digital ID without its PIN (module ${SH:-none}; button ${SY:-not found}; listed: $(echo "$LIST" | grep -o 'Smoke Card Holder ([^)]*)' | head -1); kept: $(echo "$REF" | cut -c1-60))" "echo \"$LIST\" | grep -q 'Smoke Card Holder (Smoke card)' && echo \"$REF\" | grep -q '^pkcs11:token=Smoke%20card;.*module-path='"
+quit
+
+# 372. Sign with the smart card (C-sign-013): Tools ▸ Sign, a typed name, Use a digital ID; the card's ID chosen from
+# the IDs Preferences keeps (it has no file), its PIN typed in a field that asks for a PIN: the signed copy carries
+# a digital signature by Smoke Card Holder, made on the token.
+cp "$OUT/text.pdf" "$OUT/cardsign.pdf"; rm -f "$OUT"/cardsign-*.pdf
+launch "$OUT/cardsign.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "sign"; key Return; sleep 2
+# The panel (x 1004–1252): a typed name, placed with a click on the page, then the digital ID below.
+click 1127 281 0.4; xdotool type --delay 20 "Ada"; sleep 0.5; click 500 400 1
+UD=$(at Use 280x700+1000+90); [ -n "$UD" ] && click $UD 0.8
+CH=$(at Smoke 280x700+1000+90); [ -n "$CH" ] && click $CH 0.6
+# The PIN field is below the panel's fold.
+xdotool mousemove 1130 500 click 5 click 5 click 5 click 5; sleep 0.6
+PN=$(at PIN 280x700+1000+90); [ -n "$PN" ] && { click $(echo $PN | awk '{ print $1 + 40, $2 + 30 }') 0.4; xdotool type --delay 20 4321; }
+shot 372-panel; PT=$(ocr 280x700+1000+90)
+click 1133 755 6; shot 372-signed
+SG=$(ls "$OUT"/cardsign-*.pdf 2>/dev/null | head -1); SIG=$( [ -n "$SG" ] && pdfsig -nocert "$SG" 2>&1 | tr '\n' ' ')
+check "the card's ID signs with its PIN (use ${UD:-?}, card ${CH:-?}, PIN field ${PN:-?}: $(echo "$PT" | grep -o 'PIN of the smart card' | head -1); ${SG:-no file}: $(echo "$SIG" | grep -o 'Common Name: [A-Za-z ]*Holder\|Signature is [A-Za-z]*' | tr '\n' ' '))" "echo \"$PT\" | grep -q 'PIN of the smart card' && echo \"$SIG\" | grep -q 'Common Name: Smoke Card Holder' && echo \"$SIG\" | grep -q 'Signature is Valid'"
+quit

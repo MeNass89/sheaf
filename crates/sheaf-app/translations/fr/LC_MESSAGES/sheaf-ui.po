@@ -2573,8 +2573,8 @@ msgid "Repeat it to fill the box"
 msgstr "Le répéter pour remplir le cadre"
 
 #: ui/screens/options.slint
-msgid "Use a certificate (.p12)"
-msgstr "Utiliser un certificat (.p12)"
+msgid "Use a digital ID (.p12 or smart card)"
+msgstr "Utiliser un identifiant numérique (.p12 ou carte à puce)"
 
 #: ui/screens/options.slint
 msgid "Signs the document digitally with your digital ID, so changes made after signing can be detected."
@@ -2589,8 +2589,16 @@ msgid "Change certificate file"
 msgstr "Changer de certificat"
 
 #: ui/screens/options.slint
+msgid "PIN of the smart card or token"
+msgstr "Code PIN de la carte à puce ou du jeton"
+
+#: ui/screens/options.slint
 msgid "Certificate password"
 msgstr "Mot de passe du certificat"
+
+#: ui/screens/options.slint
+msgid "Its PIN"
+msgstr "Son code PIN"
 
 #: ui/screens/options.slint
 msgid "Password of the .p12 file"
@@ -3255,6 +3263,10 @@ msgstr "Aucun pour l’instant : celui choisi pour signer est conservé ici."
 #: ui/screens/preferences.slint
 msgid "Add a digital ID…"
 msgstr "Ajouter un identifiant numérique…"
+
+#: ui/screens/preferences.slint
+msgid "Add a smart card or token…"
+msgstr "Ajouter une carte à puce ou un jeton…"
 
 #: ui/screens/preferences.slint
 msgid "Create a digital ID…"
@@ -5053,6 +5065,10 @@ msgid "Remove link"
 msgstr "Supprimer le lien"
 
 #: ui/screens/reader.slint
+msgid "Preview of {}: a PDF made to read it. Save As keeps it as a PDF."
+msgstr "Aperçu de {} : un PDF fait pour le lire. Enregistrer sous le garde en PDF."
+
+#: ui/screens/reader.slint
 msgid "✓ Sync scroll and zoom"
 msgstr "✓ Synchroniser défilement et zoom"
 
@@ -5711,7 +5727,3 @@ msgstr "Caviarder un PDF"
 #: ../sheaf-core/src/tools.rs
 msgid "Compare PDF"
 msgstr "Comparer des PDF"
-
-#: ui/screens/reader.slint
-msgid "Preview of {}: a PDF made to read it. Save As keeps it as a PDF."
-msgstr "Aperçu de {} : un PDF fait pour le lire. Enregistrer sous le garde en PDF."

@@ -409,7 +409,12 @@ fn push_prefs(ui: &AppWindow) {
     });
     ui.set_display_profile(display_name.into());
     ui.set_show_boxes(p.show_boxes);
-    ui.set_digital_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())).collect::<Vec<_>>())));
+    let labels: Vec<slint::SharedString> = p.digital_ids.iter().map(|d| sheaf_core::digital_id::label(d).into()).collect();
+    ui.set_digital_ids(ModelRc::new(VecModel::from(labels.clone())));
+    // The sign panel offers the same IDs, a smart card's among them (it has no file to choose).
+    let picked = ui.global::<sheaf_app::Picked>();
+    picked.set_id_labels(ModelRc::new(VecModel::from(labels)));
+    picked.set_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.to_string_lossy().as_ref())).collect::<Vec<_>>())));
     ui.set_trusted_certs(ModelRc::new(VecModel::from(
         sheaf_core::pdfcraft::trusted_certificates().iter().map(|c| slint::SharedString::from(format!("{} (until {}-{:02})", c.display_name(), c.not_after.year, c.not_after.month))).collect::<Vec<_>>(),
     )));
@@ -527,7 +532,8 @@ pub fn create_digital_id(ui: &AppWindow, spec: sheaf_core::digital_id::NewId, pa
 }
 
 /// Preferences ▸ Signatures: `what` 0 a digital ID added from a file, 1 digital ID `k` taken off
-/// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed.
+/// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed, 4 the
+/// digital IDs on a smart card or token added from its PKCS #11 module.
 pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
     match what {
         0 => {
@@ -560,8 +566,36 @@ pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
             }
             push_prefs(ui);
         }
+        4 => add_token_ids(ui),
         _ => {}
     }
+}
+
+/// Preferences ▸ Signatures ▸ Add a smart card or token… (Acrobat's PKCS#11 Modules and Tokens
+/// ▸ Attach Module): the card maker's module chosen, every digital ID on its tokens joins the list.
+/// The PIN is asked only when signing.
+fn add_token_ids(ui: &AppWindow) {
+    // Where systems keep their modules (p11-kit's folder, OpenSC's on macOS).
+    let folder = ["/usr/lib/x86_64-linux-gnu/pkcs11", "/usr/lib/aarch64-linux-gnu/pkcs11", "/usr/lib/pkcs11", "/Library/OpenSC/lib", "/usr/local/lib"]
+        .into_iter().map(std::path::Path::new).find(|p| p.is_dir());
+    let mut d = crate::dialog::new(ui).set_title("The PKCS #11 module of your smart card or token").add_filter("PKCS #11 module", &["so", "dylib", "dll"]);
+    if let Some(f) = folder { d = d.set_directory(f); }
+    crate::dialog::pick_file(ui, d, |ui, module| {
+        crate::flow::toast(ui, "Reading the smart card or token…");
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let found = sheaf_core::pkcs11::identities(&module);
+            let _ = weak.upgrade_in_event_loop(move |ui| match found {
+                Ok(ids) if ids.is_empty() => crate::flow::toast(&ui, "No digital ID on the tokens this module reads: insert the card, then add it again"),
+                Ok(ids) => {
+                    for id in ids.iter().rev() { remember_digital_id(&ui, std::path::Path::new(&id.reference)); }
+                    let names: Vec<_> = ids.iter().map(|i| i.name.as_str()).collect();
+                    crate::flow::toast(&ui, &format!("Added from {}: {}", ids[0].token, names.join(", ")));
+                }
+                Err(e) => crate::flow::toast(&ui, &format!("No smart card or token read: {e}")),
+            });
+        });
+    });
 }
 
 /// Preferences ▸ Page display, read on every refresh: boxes shown, pages by their place.

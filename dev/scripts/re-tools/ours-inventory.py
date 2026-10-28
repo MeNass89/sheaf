@@ -169,7 +169,7 @@ g(SG,"Signature size","Choose Small (100 pt), Medium (150 pt) or Large (220 pt).
 g(SG,"Place signature by click","Click on a page to place the signature centred there.",[S+"viewer_ui.rs:316"],"One signature per run; cannot place on several pages.")
 g(SG,"Move signature","Click elsewhere or drag to move it.",[U+"screens/sign-panel.slint:84",S+"viewer_ui.rs:331"],"")
 g(SG,"Placed-on-page indicator","Panel shows 'Placed on page N'.",[U+"screens/sign-panel.slint:193"],"")
-g(SG,"Digital signature with .p12","Tick 'Use a certificate (.p12)', choose the file and password to sign digitally.",[O+":692",S+"sign_ui.rs:115",C+"sign.rs:1"],"No timestamp server, no signature validation view.")
+g(SG,"Digital signature with .p12","Tick 'Use a digital ID (.p12 or smart card)', choose the file or a smart card's ID from Preferences, and its password or PIN, to sign digitally.",[O+":692",S+"sign_ui.rs:115",C+"sign.rs:1"],"No timestamp server, no signature validation view.")
 g(SG,"Signature reason and location","Type optional Reason and Location for the certificate signature.",[O+":730"],"")
 g(SG,"Protected PDFs refused","A protected PDF added to Sign is refused: 'Unlock the PDF first, then sign it'.",[S+"files.rs:136"],"")
 g(SG,"Request signatures / initials / date fields","(Not implemented) no initials, date or form fill.",[C+"sign.rs:1"],"No fill-in of form fields, no request-signature flow.")

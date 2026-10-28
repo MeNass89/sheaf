@@ -52,8 +52,7 @@ pub(super) fn detail(c: &Certificate) -> String {
 /// rights so you can reopen and change the copy.
 fn add(recipients: &mut Vec<Recipient>, certificate: Certificate, permissions: Permissions) -> Result<String, String> {
     if recipients.iter().any(|r| r.certificate.raw == certificate.raw) { return Err(format!("{} is already a recipient", name(&certificate))); }
-    if !matches!(certificate.public_key, sheaf_core::pdfcraft::engine::sign::PublicKey::Rsa { .. }) { return Err(format!("{} has no RSA key: certificate encryption needs one", name(&certificate))); }
-    if certificate.key_usage.is_some_and(|bits| bits & (1 << 2) == 0) { return Err(format!("{}'s certificate does not allow encryption", name(&certificate))); }
+    if let Some(problem) = sheaf_core::certificate_security::recipient_problem(&certificate) { return Err(format!("{}: {problem}", name(&certificate))); }
     let added = format!("Added {}", name(&certificate));
     recipients.push(Recipient { certificate, permissions });
     Ok(added)
@@ -184,7 +183,8 @@ thread_local! {
 /// Ask for the digital ID that opens `path` (`error`: why the last try failed).
 pub fn ask(ui: &AppWindow, path: PathBuf, error: &str) {
     let id = ASK.with(|a| a.borrow().as_ref().filter(|(p, _)| *p == path).and_then(|(_, id)| id.clone()))
-        .or_else(|| crate::home::prefs().digital_ids.first().cloned());
+        // A smart card's ID signs; opening with it is not done yet, so the first file is offered.
+        .or_else(|| crate::home::prefs().digital_ids.into_iter().find(|p| !sheaf_core::pkcs11::is_reference(p)));
     ui.set_pw_id(id.as_deref().map(file_name).unwrap_or_default().into());
     ui.set_pw_file(file_name(&path).into());
     ASK.with(|a| *a.borrow_mut() = Some((path, id)));

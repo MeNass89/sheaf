@@ -452,7 +452,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 let der = sheaf_core::pdfcraft::certificate_der(&bytes).ok_or_else(|| OpdfError::Unsupported(format!("{} is not an X.509 certificate", path.display())))?;
                 sheaf_core::pdfcraft::engine::sign::Certificate::parse(&der).map_err(|e| OpdfError::Unsupported(e.to_string()))
             }).collect::<sheaf_core::Result<Vec<_>>>()?;
-            note!("Offline RSA/AES-256 encryption. All recipients have full permissions; include the sender's certificate to reopen. Reopen via unlock-certificate; external object streams are not supported yet.");
+            note!("Offline RSA or EC (P-256/P-384) and AES-256 encryption. All recipients have full permissions; include the sender's certificate to reopen. Reopen via unlock-certificate; external object streams are not supported yet.");
             one(sheaf_core::certificate_security::encrypt(&input(source), &certificates, scope.core(), &out))
         }
         Cmd::UnlockCertificate { input, identity, id_password, out } => {

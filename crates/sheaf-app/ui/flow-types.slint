@@ -1248,6 +1248,10 @@ export global Picked {
     in property <int> watermark-seq;
     in property <string> p12;
     in property <int> p12-seq;
+    // Preferences ▸ Signatures's digital IDs (files, and smart cards as pkcs11: references), and
+    // how they read; the sign panel offers them.
+    in property <[string]> ids;
+    in property <[string]> id-labels;
 }
 
 export global SignBridge {

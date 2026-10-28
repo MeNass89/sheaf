@@ -466,7 +466,7 @@ export component PreferencesScreen inherits Rectangle {
                     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: d; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                     SecondaryButton { text: @tr("Remove"); clicked => { root.signature-prefs(1, k); } }
                 }
-                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; spacing: 8px; SecondaryButton { text: @tr("Add a digital ID…"); clicked => { root.signature-prefs(0, 0); } } SecondaryButton { text: @tr("Create a digital ID…"); clicked => { root.creating-id = !root.creating-id; } } }
+                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; spacing: 8px; SecondaryButton { text: @tr("Add a digital ID…"); clicked => { root.signature-prefs(0, 0); } } SecondaryButton { text: @tr("Add a smart card or token…"); clicked => { root.signature-prefs(4, 0); } } SecondaryButton { text: @tr("Create a digital ID…"); clicked => { root.creating-id = !root.creating-id; } } }
                 if root.creating-id: VerticalLayout {
                     spacing: 6px;
                     Text { text: @tr("A self-signed digital ID saved in a password-protected file (.p12), valid five years. Send its certificate to people who encrypt for you."); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }

@@ -41,6 +41,7 @@ pub mod rotate;
 pub mod security;
 pub mod certificate_security;
 pub mod digital_id;
+pub mod pkcs11;
 pub mod certificate_policy;
 pub mod security_policy;
 pub mod search_index;
