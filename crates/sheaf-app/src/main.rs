@@ -24,6 +24,7 @@ mod platform_ui;
 mod ai_ui;
 mod settings_ui;
 mod feedback_ui;
+mod updates_ui;
 mod plugins_ui;
 mod windows;
 
@@ -712,6 +713,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ai_ui::install(&ui);
     settings_ui::install(&ui);
     feedback_ui::install(&ui);
+    updates_ui::install(&ui);
     plugins_ui::install(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();

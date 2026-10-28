@@ -645,3 +645,16 @@ The macOS app stays signed ad hoc (Gatekeeper asks once). **Would change it.** A
 forms (C-forms-016), accounts (C-platform-008), shared AI spaces (C-ai-006). (2) Check for updates reads the
 GitHub releases (C-platform-001). (3) onnxruntime is adopted for the OCR recognition model (C-optimize-006),
 reversing 24/10: rten stays 1.45× slower than Tesseract per core. **Would change it.** A Sheaf online service.
+
+## 2026-10-28 · Check for updates: manual always, the daily check off by default
+
+**Decision.** Check for Updates… (Help; the app menu on a Mac) always works and asks
+`api.github.com/repos/MeNass89/sheaf/releases/latest`. The automatic check ("Once a day", Preferences ▸ Startup,
+and a tick box in the dialog itself) is **off by default**. Why: C-platform-013 promises that Sheaf contacts the
+network only on the user's action, and the brief makes Sheaf local-first; iLovePDF and Acrobat check by default,
+but a silent request at every launch would break the promise for everyone to serve those who want it. Offering the
+tick box in the dialog a user opens to check puts the choice where the need shows. When on: once a day at launch,
+counted when it starts (no retry loop offline), a small notice bottom right, never a dialog by itself; Skip This
+Version silences the notice for that version only. Download opens the file (else the release page) in the browser;
+Sheaf installs nothing. **Would change it.** Signed builds with an in-place updater, or Nassim wanting update reach
+over the offline promise.

@@ -147,3 +147,43 @@ main.slint then shows Preferences); Zoom takes the window from 1280 × 832 to 18
 1280 × 832 window off the screen and a 120 × 118 tile shows at the Dock's edge (AXMinimized reads another of the
 app's windows, the menu bar's, hence false). Preferences itself is not seen (Slint's text is not in the AX tree and
 screen capture is refused over ssh).
+
+## C-platform-001 Check for updates (28/10, Opus, vpsn)
+
+**What they do.** iLovePDF Desktop: Help ▸ Check for Updates (`MainPanel.qml:1774–1791`), "Checking for
+updates...", then "iLovePDF Desktop is up to date" / "Update Available — There are some updates available. Do you
+want to update now?"; on Windows its update manager installs in place, elsewhere it opens ilovepdf.com/desktop; a
+preference "Check for updates when starting the application" and Help ▸ Release notes. Acrobat: Help ▸ "Check for
+Updates..." (`Primary.txt:785`), "Checking for updates..." (3148), an Updater preferences panel with a frequency
+(17301, AvUpdaterPanelName).
+
+**What Sheaf does.** Check for Updates… in Help (Windows, Linux) and in the app menu after About on a Mac
+(`mac_menu.rs`, put back after every Slint menu rebuild, as Settings…). Core `sheaf_core::updates`: GET
+`api.github.com/repos/MeNass89/sheaf/releases/latest` over the existing `ureq` (User-Agent `Sheaf/<version>`, GitHub
+media type, 20 s timeout); drafts, prereleases and prerelease tags ignored; semver compare (`0.10.0 > 0.9.9`,
+`1.0.0 > 1.0.0-rc.1`); this computer's download picked by extension and processor (`.dmg` on macOS; `.msi`, `.exe`,
+then the portable `windows` zip; `.AppImage`, `.deb`, then the `linux` tarball; a file naming another processor is
+never chosen, one naming ours beats a universal one). The dialog: checking → up to date ("Version 0.2.1 is the latest
+version", or no release published yet) / Sheaf X is available, the notes as plain text (Markdown read by
+pulldown-cmark), the file Download opens with its size, Skip This Version, Later, Download (opens the file, else
+the release page, in the browser; nothing installed) / an error said plainly (offline, GitHub's rate limit with the
+time it lifts, an HTTP error, an unreadable answer) with Try Again. Preferences ▸ Startup ▸ Updates: Only when I
+ask (default, DECISIONS 28/10: C-platform-013's offline promise) / Once a day, plus Check Now; the same choice as a
+tick box in the dialog. Daily check at launch, counted when it starts; a newer, not-skipped version shows a small
+notice bottom right (Not Now / See What's New), never a dialog by itself. Debug builds read
+`SHEAF_TEST_UPDATES_URL`. French for every new text.
+
+**Tests.** `sheaf-core` unit (`updates::tests`, 6): tags parsed, compare, GitHub answers (404, draft, prerelease,
+403 rate limit with reset, 429, 5xx, garbage), outcome, asset choice per OS/arch including today's package names,
+notes to text. `sheaf-core/tests/updates.rs` (3): a mock GitHub on a local `TcpListener` thread — a newer release
+found with this computer's download and the request's User-Agent and Accept checked; same version and 404 up to
+date; 403 rate limit, 500 and a closed port (offline). `sheaf-app` unit (`updates::tests`, 4): the daily check off by
+default then once a day (clock set back), skipped version quiet but a newer one told, sizes, old prefs load with
+the check off; `tests/history.rs` round-trips the new prefs; `every_interface_text_has_its_french`.
+
+**Not verified here.** `mac_menu.rs` is compiled only on macOS: not compiled on vpsn (the MBP is the place:
+the item after About, still there after a menu rebuild, opening the dialog). No GUI smoke step (one Xvfb run by
+hand, below). The real GitHub address is not called by any test (no release published yet: it would say "No
+release has been published yet").
+
+**Self-grade.** F 9 · A 8 · P 9 (see the final report of this round for the evidence and gaps).

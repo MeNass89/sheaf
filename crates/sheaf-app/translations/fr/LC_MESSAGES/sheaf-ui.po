@@ -3049,8 +3049,24 @@ msgid "Quit at once"
 msgstr "Quitter tout de suite"
 
 #: ui/screens/preferences-more.slint
-msgid "Sheaf works offline: it never checks for updates or goes through a proxy."
-msgstr "Sheaf fonctionne hors ligne : il ne cherche jamais de mises à jour et ne passe par aucun proxy."
+msgid "Updates"
+msgstr "Mises à jour"
+
+#: ui/screens/preferences-more.slint
+msgid "Only when I ask"
+msgstr "Quand je le demande"
+
+#: ui/screens/preferences-more.slint
+msgid "Once a day"
+msgstr "Une fois par jour"
+
+#: ui/screens/preferences-more.slint
+msgid "Check Now"
+msgstr "Vérifier maintenant"
+
+#: ui/screens/preferences-more.slint
+msgid "Sheaf works offline. It asks GitHub for its latest release only when you check, or once a day at launch if you choose it, and never goes through a proxy."
+msgstr "Sheaf fonctionne hors ligne. Il ne demande à GitHub sa dernière version que lorsque vous vérifiez, ou une fois par jour au lancement si vous le choisissez, et ne passe par aucun proxy."
 
 #: ui/screens/preferences-more.slint
 msgid "Open a page of “{}”?"
@@ -6983,3 +6999,99 @@ msgstr "Réglages…"
 #: ui/main.slint
 msgid "Minimize"
 msgstr "Réduire"
+
+#: ui/main.slint src/platform_ui.rs
+msgid "Check for Updates…"
+msgstr "Rechercher des mises à jour…"
+
+#: ui/screens/updates.slint
+msgid "Download opens {} in your browser. Install it as you installed Sheaf."
+msgstr "Télécharger ouvre {} dans votre navigateur. Installez-le comme vous avez installé Sheaf."
+
+#: ui/screens/updates.slint
+msgid "This release has no download for this computer: Download opens its page."
+msgstr "Cette version n’a pas de fichier pour cet ordinateur : Télécharger ouvre sa page."
+
+#: ui/screens/updates.slint
+msgid "Check for updates automatically, once a day"
+msgstr "Rechercher les mises à jour automatiquement, une fois par jour"
+
+#: ui/screens/updates.slint
+msgid "Sheaf asks GitHub for its latest release only when you check, or once a day when this is ticked. It sends nothing about you or your files, and installs nothing by itself."
+msgstr "Sheaf ne demande à GitHub sa dernière version que lorsque vous vérifiez, ou une fois par jour si cette case est cochée. Il n’envoie rien sur vous ni sur vos fichiers, et n’installe rien de lui-même."
+
+#: ui/screens/updates.slint
+msgid "Skip This Version"
+msgstr "Ignorer cette version"
+
+#: ui/screens/updates.slint
+msgid "Try Again"
+msgstr "Réessayer"
+
+#: ui/screens/updates.slint
+msgid "Later"
+msgstr "Plus tard"
+
+#: ui/screens/updates.slint
+msgid "Download"
+msgstr "Télécharger"
+
+#: ui/screens/updates.slint
+msgid "Not Now"
+msgstr "Pas maintenant"
+
+#: ui/screens/updates.slint
+msgid "See What's New"
+msgstr "Voir les nouveautés"
+
+#: src/updates_ui.rs
+msgid "GitHub could not be reached. Check your internet connection, then try again."
+msgstr "GitHub est injoignable. Vérifiez votre connexion à Internet, puis réessayez."
+
+#: src/updates_ui.rs
+msgid "GitHub limits how often one network may check. Try again after {}."
+msgstr "GitHub limite le nombre de vérifications par réseau. Réessayez après {}."
+
+#: src/updates_ui.rs
+msgid "GitHub limits how often one network may check. Try again in an hour."
+msgstr "GitHub limite le nombre de vérifications par réseau. Réessayez dans une heure."
+
+#: src/updates_ui.rs
+msgid "GitHub answered with error {}. Try again later."
+msgstr "GitHub a répondu par l’erreur {}. Réessayez plus tard."
+
+#: src/updates_ui.rs
+msgid "GitHub's answer could not be read. Try again later."
+msgstr "La réponse de GitHub est illisible. Réessayez plus tard."
+
+#: src/updates_ui.rs
+msgid "Sheaf {} is available"
+msgstr "Sheaf {} est disponible"
+
+#: src/updates_ui.rs
+msgid "You have version {}."
+msgstr "Vous avez la version {}."
+
+#: src/updates_ui.rs
+msgid "Sheaf is up to date"
+msgstr "Sheaf est à jour"
+
+#: src/updates_ui.rs
+msgid "Version {} is the latest version."
+msgstr "La version {} est la plus récente."
+
+#: src/updates_ui.rs
+msgid "You have version {}. No release has been published yet."
+msgstr "Vous avez la version {}. Aucune version n’a encore été publiée."
+
+#: src/updates_ui.rs
+msgid "Could not check for updates"
+msgstr "Impossible de rechercher les mises à jour"
+
+#: src/updates_ui.rs
+msgid "Checking for updates…"
+msgstr "Recherche de mises à jour…"
+
+#: src/updates_ui.rs
+msgid "Sheaf {} is available."
+msgstr "Sheaf {} est disponible."

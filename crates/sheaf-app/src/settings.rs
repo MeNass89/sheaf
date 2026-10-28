@@ -17,6 +17,8 @@ pub struct SettingsPrefs {
     /// Quitting while a task still runs asks first (iLovePDF's "Show a warning message when
     /// exiting a task that is still processing"); true turns the question off.
     pub no_quit_warning: bool,
+    /// Check for updates: the daily check (off unless turned on), when it last ran, the version skipped.
+    pub updates: crate::updates::UpdatePrefs,
 }
 
 /// How the print sheet opens (iLovePDF's Printer preferences, Acrobat's Print defaults): each
