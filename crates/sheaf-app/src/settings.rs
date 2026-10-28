@@ -36,6 +36,9 @@ pub struct PrintDefaults {
     pub orientation: u8,
     /// Pages per sheet as the sheet's Layout list: 0–5 1, 2, 4, 6, 9, 16; 6 a booklet.
     pub layout: u8,
+    /// Print quality (iLovePDF's Printer preferences, CUPS `print-quality`): 0 the printer's own,
+    /// 1 draft, 2 normal, 3 high.
+    pub quality: u8,
 }
 
 impl PrintDefaults {
@@ -45,6 +48,7 @@ impl PrintDefaults {
             paper: if (self.paper as usize) <= crate::print::PAPERS.len() { self.paper } else { 0 },
             orientation: if self.orientation <= 2 { self.orientation } else { 0 },
             layout: if self.layout <= 6 { self.layout } else { 0 },
+            quality: if self.quality <= 3 { self.quality } else { 0 },
             ..self
         }
     }
@@ -270,7 +274,7 @@ mod tests {
     fn print_defaults_start_as_the_sheet_did_and_bad_numbers_fall_back() {
         let d = PrintDefaults::default();
         assert!(!d.two_sided && d.paper == 0 && !d.gray && !d.no_comments && !d.actual_size && d.orientation == 0 && d.layout == 0);
-        let bad = PrintDefaults { paper: 99, orientation: 7, layout: 9, gray: true, ..d }.clamped();
+        let bad = PrintDefaults { paper: 99, orientation: 7, layout: 9, quality: 8, gray: true, ..d }.clamped();
         assert_eq!(bad, PrintDefaults { gray: true, ..d });
         let good = PrintDefaults { paper: crate::print::PAPERS.len() as u8, orientation: 2, layout: 6, ..d };
         assert_eq!(good.clamped(), good);

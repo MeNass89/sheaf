@@ -35,6 +35,7 @@ pub fn push(ui: &AppWindow) {
     g.set_print_fit(!p.actual_size);
     g.set_print_orientation(p.orientation as i32);
     g.set_print_layout(p.layout as i32);
+    g.set_print_quality(p.quality as i32);
     g.set_enhanced(s.trust.enhanced);
     g.set_web(s.trust.web as i32);
     g.set_other_apps(s.trust.other_apps);
@@ -99,9 +100,15 @@ pub fn install(ui: &AppWindow) {
                 actual_size: !fit,
                 orientation: orientation.clamp(0, 255) as u8,
                 layout: layout.clamp(0, 255) as u8,
+                quality: s.print.quality,
             }
             .clamped();
         });
+    });
+    let w = ui.as_weak();
+    g.on_set_print_quality(move |q| {
+        let Some(ui) = w.upgrade() else { return };
+        update(&ui, |s| s.print = sheaf_app::settings::PrintDefaults { quality: q.clamp(0, 255) as u8, ..s.print }.clamped());
     });
     let w = ui.as_weak();
     g.on_set_trust(move |enhanced, web, other_apps| {

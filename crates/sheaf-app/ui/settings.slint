@@ -13,6 +13,8 @@ export global SettingsBridge {
     in property <bool> print-comments: true;
     in property <bool> print-fit: true;
     in property <int> print-orientation;
+    in property <int> print-quality;
+    callback set-print-quality(int);
     in property <int> print-layout;
     callback set-print-defaults(two-sided: bool, paper: int, gray: bool, comments: bool, fit: bool, orientation: int, layout: int);
 

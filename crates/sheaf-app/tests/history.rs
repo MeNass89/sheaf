@@ -143,7 +143,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             language: Some("French".into()),
         },
         settings: sheaf_app::settings::SettingsPrefs {
-            print: sheaf_app::settings::PrintDefaults { two_sided: true, paper: 1, gray: true, ..Default::default() },
+            print: sheaf_app::settings::PrintDefaults { two_sided: true, paper: 1, gray: true, quality: 3, ..Default::default() },
             trust: sheaf_app::settings::TrustPrefs { web: 2, locations: vec![PathBuf::from("/docs/trusted")], ..Default::default() },
             open_at_login: true,
             no_quit_warning: true,
