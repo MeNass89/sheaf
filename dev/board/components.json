@@ -9148,6 +9148,17 @@
      "overall": 8
     },
     "proof": "Sol rev30 27/10: Un paragraphe mêlant deux polices ou du gras est recollé dans une seule police standard et perd ses styles, contrairement au collage avec mise en forme de PDF Expert ; le test ne copie que du Great Vibes uniforme : third_party/pdfcraft-engine/src/copy_image.rs:209 ; third_party/pdfcraft-engine/src/copy_image.rs:171 ; crates/sheaf-core/tests/engine_patches.rs:846."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol rev32 27/10: Un mot rouge ou de taille différente, dans la même police que le reste du paragraphe, perd encore sa couleur ou sa taille au collage ; PDF Expert conserve la mise en forme. La détection des runs ne compare que police, gras et italique ; le test ajouté ne fait varier que la police : third_party/pdfcraft-engine/src/copy_image.rs:200 ; third_party/pdfcraft-engine/src/copy_image.rs:167 ; crates/sheaf-core/tests/engine_patches.rs:1090."
    }
   ]
  },
@@ -10798,6 +10809,17 @@
      "overall": 8
     },
     "proof": "Sol rev30 27/10: Invert laisse inchangés les scans monochromes à 1 bit (CCITT/JBIG2), alors que Stirling inverse la page rendue ; le test ajouté ne couvre que les JPEG CMYK à 8 bits : crates/sheaf-core/src/compress.rs:365 ; crates/sheaf-core/src/adjust.rs:242 ; crates/sheaf-core/tests/adjust.rs:49."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol rev32 27/10: Invert laisse encore les images à palette /Indexed inchangées, y compris un scan noir et blanc à palette, alors que Stirling inverse tous les pixels de la page rendue ; le nouveau test CCITT ne couvre pas cette voie, ignorée avant même adjust_image : crates/sheaf-core/src/adjust.rs:128 ; crates/sheaf-core/src/grayscale.rs:203 ; crates/sheaf-core/tests/adjust.rs:74."
    }
   ]
  },
@@ -19833,14 +19855,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19874,6 +19896,17 @@
      "overall": 8
     },
     "proof": "Sol rev30 27/10: En RTL, les cases à cocher et les boutons radio restent à gauche du libellé ; le test de mirroring ne parcourt pas ces widgets, contrairement au mirroring hérité du concurrent : crates/sheaf-app/ui/widgets/check.slint:23 ; crates/sheaf-app/ui/widgets/radio-card.slint:19 ; crates/sheaf-app/src/platform.rs:849."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10)"
    }
   ]
  },
@@ -21402,14 +21435,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21443,6 +21476,17 @@
      "overall": 8
     },
     "proof": "Sol rev30 27/10: Impossible de choisir une qualité d’impression par défaut (Haute/Moyenne/Brouillon dans les préférences iLovePDF) ; PrintDefaults ne la stocke pas, et les tests cités ne prouvent que les réglages proposés : crates/sheaf-app/src/settings.rs:26 ; crates/sheaf-app/ui/screens/preferences-more.slint:47."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10)"
    }
   ]
  },
@@ -22675,8 +22719,8 @@
   "ours": [],
   "grade": {
    "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
+   "aesthetics": 9,
+   "performance": 9,
    "overall": 8
   },
   "status": "open",
@@ -22726,6 +22770,17 @@
      "overall": 8
     },
     "proof": "Sol b25-built 26/10: Code et tests géométriques inspectés ; la preuve requise sur un véritable trackpad macOS manque toujours, explicitement signalée dans dev/HANDOFF.md:125."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol rev32 27/10: La parité du pincement natif macOS reste non établie : le maintien du point sous les doigts dans un long PDF et le défilement lent/rapide ne sont pas vérifiés. Code du gestionnaire et tests/pinch.rs inspectés ; ces tests remplacent le zoom réel et le changement de panneau par des callbacks, sans trackpad ni rendu : crates/sheaf-app/tests/pinch.rs:36 ; dev/HANDOFF.md:107."
    }
   ]
  },
@@ -25769,14 +25824,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -25832,6 +25887,17 @@
      "overall": 8
     },
     "proof": "Sol rev30 27/10: Les PDF illisibles ou protégés sont ignorés sans avertissement, puis inclus dans le total présenté comme recherché ; Acrobat signale les fichiers sautés. Le nouveau test valide précisément ce bilan avec 600 PDF invalides : crates/sheaf-app/src/reader_ui/folder_search.rs:104 ; crates/sheaf-app/src/reader_doc/tests/mod.rs:948."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10)"
    }
   ]
  },
@@ -26561,14 +26627,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -26580,6 +26646,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10)"
    }
   ]
  },
@@ -30598,14 +30675,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -30672,6 +30749,17 @@
      "overall": 8
     },
     "proof": "Sol rev30 27/10: Déplacer une copie la fait échapper à la suppression groupée : les copies sont reconnues par leur géométrie, sans identifiant de groupe comme chez iLovePDF ; le nouveau test affirme même que la copie déplacée est exclue : crates/sheaf-app/src/reader_ui/edits.rs:945 ; crates/sheaf-app/src/reader_ui/sign.rs:231."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10)"
    }
   ]
  },
