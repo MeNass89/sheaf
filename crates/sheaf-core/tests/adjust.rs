@@ -66,3 +66,27 @@ fn a_cmyk_jpeg_is_inverted_as_shown_with_or_without_its_decode() {
         }
     }
 }
+
+/// Invert on a monochrome scan, a CCITT Group 4 picture (ImageMagick's, as scanners write them): the
+/// black half turns white and the white half black, as Stirling's Invert of the rendered page
+/// (Sol, 28/10: 1-bit CCITT and JBIG2 pictures were left as they were).
+#[test]
+fn a_ccitt_scan_is_inverted() {
+    let t = tempfile::tempdir().unwrap();
+    let src = t.path().join("scan.pdf");
+    let made = std::process::Command::new("convert")
+        .args(["-size", "40x40", "xc:white", "-fill", "black", "-draw", "rectangle 0,0 19,39", "-monochrome", "-compress", "Group4"])
+        .arg(&src)
+        .status();
+    assert!(made.is_ok_and(|s| s.success()), "ImageMagick's convert makes the CCITT PDF");
+    let doc = lopdf::Document::load(&src).unwrap();
+    assert!(doc.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.dict.get(b"Filter").ok().and_then(|f| f.as_array().ok().and_then(|a| a.first()).or(Some(f))).and_then(|f| f.as_name().ok()) == Some(b"CCITTFaxDecode"))), "a CCITT picture");
+    let out = t.path().join("inv.pdf");
+    let (out, kept) = adjust_colours(&Input::new(&src), &Adjust { invert: true, ..Default::default() }, &out).unwrap();
+    assert_eq!(kept, 0, "nothing left as it was");
+    let (w, h, before) = common::render(&src, 0);
+    let (_, _, after) = common::render(&out, 0);
+    let at = |px: &[u8], fx: usize| px[((h as usize / 2) * w as usize + fx * w as usize / 4) * 4];
+    assert!(at(&before, 1) < 50 && at(&before, 3) > 200, "black left, white right: {} {}", at(&before, 1), at(&before, 3));
+    assert!(at(&after, 1) > 200 && at(&after, 3) < 50, "white left, black right: {} {}", at(&after, 1), at(&after, 3));
+}

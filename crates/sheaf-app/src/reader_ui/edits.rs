@@ -1089,13 +1089,18 @@ pub(super) fn paste_objects(ui: &AppWindow, tab_id: i32) -> bool {
         // Paragraphs come back as text, editable (Acrobat's); the rest as one item. One undo step.
         let rest = clip.rest.iter().map(|(pdf, s)| Edit::AddArtwork { page: to, rect: moved(*s), pdf: pdf.clone() });
         // Each in its own embedded font when it has one that writes it (PDF Expert's).
-        let texts = clip.texts.iter().enumerate().map(|(k, t)| {
-            let mut text = t.clone();
-            text.rect = moved(t.rect);
-            match clip.fonts.get(k).cloned().flatten() {
+        let one = |mut text: sheaf_core::pdfcraft::engine::AddedText, font: Option<String>| {
+            text.rect = moved(text.rect);
+            match font {
                 Some(font) => Edit::AddTextInCopiedFont { page: to, text, pdf: clip.pdf.clone(), font },
                 None => Edit::AddText { page: to, text },
             }
+        };
+        // A paragraph mixing fonts or bold goes run by run, each in its own font (PDF Expert's
+        // formatted paste; Sol, 28/10: it became one standard font).
+        let texts = clip.texts.iter().enumerate().flat_map(|(k, t)| match clip.runs.get(k).cloned().flatten() {
+            Some(runs) => runs.into_iter().map(|(t, f)| one(t, f)).collect::<Vec<_>>(),
+            None => vec![one(t.clone(), clip.fonts.get(k).cloned().flatten())],
         });
         (to, Edit::Batch { label: "Paste objects".into(), edits: rest.chain(texts).collect() })
     });

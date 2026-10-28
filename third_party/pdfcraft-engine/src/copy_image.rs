@@ -152,26 +152,16 @@ impl Document {
     /// copied paragraphs as text, still editable (Sol, 26/10: they became one drawn item). Their
     /// box is the caller's to place.
     pub fn objects_texts(&self, page: usize, targets: &[pdfcraft_edit::ObjectTarget]) -> Vec<Option<pdfcraft_edit::AddedText>> {
-        use pdfcraft_edit::{Content, Family, ObjectKind};
+        use pdfcraft_edit::{Content, ObjectKind};
         let blocks = self.text_blocks(page);
         let added: Vec<_> = self.editor.as_ref().map(|e| pdfcraft_edit::list_added(&e.cos).into_iter().filter(|a| a.page == page).collect()).unwrap_or_default();
-        let family = |font: &str| {
-            let f = font.to_ascii_lowercase();
-            if ["times", "serif", "georgia", "garamond", "roman"].iter().any(|k| f.contains(k)) && !f.contains("sans") {
-                Family::Times
-            } else if ["courier", "mono", "consol"].iter().any(|k| f.contains(k)) {
-                Family::Courier
-            } else {
-                Family::Helvetica
-            }
-        };
         targets
             .iter()
             .map(|t| match t.kind {
                 ObjectKind::Text => blocks.get(t.index).filter(|b| b.rotation.abs() < 0.5 && !b.text.trim().is_empty()).map(|b| pdfcraft_edit::AddedText {
                     rect: b.rect,
                     text: b.text.clone(),
-                    family: family(&b.base_font),
+                    family: family_of(&b.base_font),
                     bold: b.bold,
                     italic: b.italic,
                     size: b.size,
@@ -184,6 +174,52 @@ impl Document {
                     _ => None,
                 },
                 _ => None,
+            })
+            .collect()
+    }
+
+    /// Sheaf: per target, a paragraph that mixes fonts or styles (a bold word, two faces) as its
+    /// runs, each run of one font as text in its box on the page (user space): its own font
+    /// resource when that font writes its text again, else `None` and the nearest standard family
+    /// in its weight and slant. PDF Expert's formatted paste keeps each run's font (Sol, 28/10: a
+    /// mixed paragraph was pasted in one standard font). `None` for a paragraph in one font (see
+    /// [`Self::objects_text_fonts`]) and for what is not text.
+    pub fn objects_text_runs(&self, page: usize, targets: &[pdfcraft_edit::ObjectTarget]) -> Vec<Option<Vec<(pdfcraft_edit::AddedText, Option<String>)>>> {
+        let Some(editor) = self.editor.as_ref() else { return vec![None; targets.len()] };
+        let blocks = self.text_blocks(page);
+        let lines = self.text_lines(page);
+        targets
+            .iter()
+            .map(|t| {
+                if t.kind != pdfcraft_edit::ObjectKind::Text {
+                    return None;
+                }
+                let b = blocks.get(t.index).filter(|b| b.rotation.abs() < 0.5 && !b.invisible)?;
+                let runs: Vec<&pdfcraft_edit::TextLine> = b.lines.iter().filter_map(|&i| lines.get(i)).filter(|l| !l.text.trim().is_empty()).collect();
+                let first = runs.first()?;
+                let style = |l: &pdfcraft_edit::TextLine| (l.font.clone(), l.bold, l.italic);
+                if runs.iter().all(|l| style(l) == style(first)) {
+                    return None;
+                }
+                Some(
+                    runs.into_iter()
+                        .map(|l| {
+                            let text = pdfcraft_edit::AddedText {
+                                rect: l.rect,
+                                text: l.text.trim_end().to_string(),
+                                family: family_of(&l.base_font),
+                                bold: l.bold,
+                                italic: l.italic,
+                                size: l.size,
+                                color: l.color,
+                                align: Default::default(),
+                                underline: false,
+                            };
+                            let own = (l.decodable && pdfcraft_edit::font_writes(&editor.cos, page, &l.font, &text.text)).then(|| l.font.clone());
+                            (text, own)
+                        })
+                        .collect(),
+                )
             })
             .collect()
     }
@@ -212,6 +248,19 @@ impl Document {
                 pdfcraft_edit::font_writes(&editor.cos, page, &first, &b.editor_text).then(|| (first, b.editor_text.clone()))
             })
             .collect()
+    }
+}
+
+/// The standard family nearest a font's name.
+fn family_of(font: &str) -> pdfcraft_edit::Family {
+    use pdfcraft_edit::Family;
+    let f = font.to_ascii_lowercase();
+    if ["times", "serif", "georgia", "garamond", "roman"].iter().any(|k| f.contains(k)) && !f.contains("sans") {
+        Family::Times
+    } else if ["courier", "mono", "consol"].iter().any(|k| f.contains(k)) {
+        Family::Courier
+    } else {
+        Family::Helvetica
     }
 }
 

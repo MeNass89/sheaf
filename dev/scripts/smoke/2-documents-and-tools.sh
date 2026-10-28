@@ -413,6 +413,39 @@ key ctrl+w; sleep 1.2; CW=$(ntabs)
 check "a document copied from and saved closes without asking ($CW tabs)" "[ \"$CW\" = 0 ]"
 quit
 
+# 20e. A paragraph mixing fonts copied and pasted (C-edit-010, PDF Expert's formatted paste): "Payment is due within"
+# in Helvetica, "thirty days" in Helvetica-Bold, a second line in Helvetica; picked with the Edit tool, ⌘C, page 2,
+# ⌘V, saved: page 2 holds the words in a bold and a regular font (it was one standard font, the bold lost).
+python3 - "$OUT/mixed.pdf" <<'PY'
+import sys
+objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", "<< /Type /Catalog /Pages 3 0 R >>", "<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>"]
+c = "BT /F1 24 Tf 72 700 Td (Payment is due within ) Tj /F2 24 Tf (thirty days) Tj /F1 24 Tf 0 -30 Td (of the invoice date.) Tj ET"
+objs.append(f"<< /Length {len(c)} >>\nstream\n{c}\nendstream")
+res = "/Resources << /Font << /F1 1 0 R /F2 6 0 R >> >>"
+objs.append(f"<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R {res} >>")
+objs.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+# Page 2 empty, with no fonts of its own: what the paste brings is all pdffonts lists there.
+objs.append("<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] >>")
+b = b"%PDF-1.7\n"; offs = []
+for i, o in enumerate(objs, 1):
+    offs.append(len(b)); b += f"{i} 0 obj\n{o}\nendobj\n".encode()
+x = len(b)
+b += f"xref\n0 {len(objs)+1}\n0000000000 65535 f \n".encode() + b"".join(f"{n:010d} 00000 n \n".encode() for n in offs)
+b += f"trailer\n<< /Size {len(objs)+1} /Root 2 0 R >>\nstartxref\n{x}\n%%EOF\n".encode()
+open(sys.argv[1], "wb").write(b)
+PY
+launch "$OUT/mixed.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
+P=$(at Payment 1020x700+255+90)
+if [ -n "$P" ]; then
+    set -- $P; xdotool mousemove $1 $2 keydown shift click 1 keyup shift; sleep 0.8
+    # Page 2 by its thumbnail (Page Down only scrolls page 1 at this zoom).
+    key ctrl+c; sleep 1.5; click 124 474 1.5; key ctrl+v; sleep 2; shot 20e-pasted; key ctrl+s; sleep 2
+fi
+F2=$(pdffonts -f 2 -l 2 "$OUT/mixed.pdf" 2>/dev/null | tail -n +3 | awk '{print $1}' | tr '\n' ' ')
+T2=$(pdftotext -f 2 -l 2 "$OUT/mixed.pdf" - 2>/dev/null | tr '\n' ' ' | tr -s ' ')
+check "a pasted paragraph mixing fonts keeps its bold run bold (${P:-not found}; page 2 fonts: $F2; text: $T2)" "echo \"$F2\" | grep -q 'Bold' && echo \"$F2\" | tr ' ' '\n' | grep -v Bold | grep -q 'Helvetica\|Arial\|Liberation' && echo \"$T2\" | grep -q 'thirty days' && echo \"$T2\" | grep -q 'invoice date'"
+quit
+
 # 20d. Header & footer with Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering), in the Page numbers tool
 # found by "bates" (its description): No page number, "Case {bates}" in the top left, prefix ACME-, run: page 1
 # carries "Case ACME-000001", page 2 "Case ACME-000002".
