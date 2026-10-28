@@ -25,7 +25,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          # 24.04: onnxruntime's prebuilt static library (OCR) needs glibc 2.38 and GCC 13's
+          # libstdc++ to link, which 22.04 lacks. The package then runs on glibc 2.39 or later.
+          - os: ubuntu-24.04
             script: package-linux.sh
             artifact: linux-x64.tar.gz
             cli: bin/sheaf

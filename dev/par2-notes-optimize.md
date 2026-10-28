@@ -145,3 +145,42 @@ benchmark (`release_ocr_mici_benchmark…`, prepacked): warm median 3.33 s/page,
 (3.4 cores busy). Reading pages two to four at once (run_with on worker threads) gave 3.17 s/page: within noise,
 reverted. The gap is per-core model speed (Conv 72–75 % of model time, RTEN_TIMING), as on 24/10: 1.45× Tesseract.
 The lever is still a faster inference engine for the recognition model (onnxruntime, DECISIONS 24/10).
+
+## C-optimize-006 OCR recognition on onnxruntime (28/10, Opus)
+
+Decision of 28/10 (DECISIONS: onnxruntime for the recognition model). PaddleOCR's Latin model now runs on
+onnxruntime 1.31 through the `ort` crate (2.0.0-rc.15, pinned); detection stays on rten (0.8 s of a page's
+time). `third_party/pdfcraft-ocr/src/onnx.rs`: one environment a process (onnxruntime refuses a second), a
+pool of sessions with one thread each (lines are already spread over every core by `read_latin`), the
+convolution weights packed once and shared (`PrepackedWeights`), no memory pattern (each line has its own
+width). rten stays the fallback: when onnxruntime is not built for the target, when it cannot load the
+model (stderr says why), or with `SHEAF_OCR_ENGINE=rten`. The benchmark line now names the engine and can
+write the searchable PDF (`SHEAF_OCR_BENCH_OUT`).
+
+Same release binary, same VM (8 vCPU = 4 cores), back to back, other builds running (load 4–9):
+
+| | warm median s/page (prepacked) | words | peak RSS (/usr/bin/time %M) | CPU user, 2 × 4 runs |
+|---|---|---|---|---|
+| rten (`SHEAF_OCR_ENGINE=rten`) | 4.00 (3.33 measured quiet earlier today) | 1789 | 450 MB | 376 s |
+| onnxruntime | 1.41 (1.55 with shared weights under more load) | 1789 | 841 MB (639 MB with MALLOC_ARENA_MAX=2, as cargo.sh's 1) | 226 s |
+| Tesseract 5 fra | 2.3 | | 8 MB | |
+
+The words and their places are identical: the benchmark's equality check passed across a run whose first
+engine was onnxruntime and second rten, and `pdftotext -raw` of the two searchable PDFs is byte for byte the
+same. Words of the source found (`pdftotext -raw` of "ITEM-R2C 282 - MICI-V2.pdf", per page, each source
+word counted once): p1 96.1 %, p2 97.7 %, p3 95.9 %, p4 88.9 %, all 95.7 % (1680/1755), accented 368/384:
+unchanged. Tried and dropped: no CPU arena (no memory saved, slower). Memory is the cost: one session per
+line read at once, each with its own buffers.
+
+Platforms (pyke's prebuilt static libraries, `build.rs` sets `cfg(onnxruntime)`, the `ort` dependency is
+target-specific to match): Linux x64 and arm64, macOS arm64, Windows x64 MSVC. Elsewhere (macOS x64, …)
+rten reads the lines as before. Packaging:
+- Linux: statically linked, +24 MB binary (sheaf-core's ocr test binary 44.5 → 68.6 MB, gzip +8.9 MB).
+  pyke's library needs glibc 2.38 and GCC 13's libstdc++ to link: release.yml's Linux job moves from
+  ubuntu-22.04 to 24.04, so the package needs glibc 2.39 (README updated). To keep 22.04-era distros, the
+  other way is Microsoft's own `libonnxruntime.so` (manylinux) loaded at run time and shipped in `lib/`.
+- macOS arm64: statically linked (the archive is libonnxruntime.a only; CoreML and Foundation frameworks are
+  system ones). Size about the same as Linux; not built here.
+- Windows x64: statically linked, but pyke's build imports `DirectML.dll` (18.5 MB, in the same archive):
+  `copy-dylibs` puts it in target/release and package-windows.sh ships it beside Sheaf.exe. Not built here.
+- Licences: `licenses/onnxruntime-LICENSE.txt` (MIT) in every package, a THIRD_PARTY.md row.

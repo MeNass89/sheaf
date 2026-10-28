@@ -42,7 +42,7 @@ Download from [Releases](../../releases):
 
 - **macOS** (12+, Apple Silicon): `Sheaf-x.y.z-arm64.dmg`. Open it and drag **Sheaf** to Applications. The build is ad-hoc signed (not notarized), so on first launch macOS will refuse to open it: right-click **Sheaf → Open**, or run `xattr -dr com.apple.quarantine /Applications/Sheaf.app`.
 - **Windows** (10+, x64): `Sheaf-x.y.z-windows-x64.zip`. Unzip it anywhere and run `Sheaf.exe`. The build is not code-signed, so SmartScreen may warn on first launch: **More info → Run anyway**.
-- **Linux** (x64, glibc 2.35+): `Sheaf-x.y.z-linux-x64.tar.gz`. Unpack it anywhere and run `bin/sheaf-app`. `share/applications/sheaf.desktop` adds it to the app menu if copied to `~/.local/share/applications/` (adjust its `Exec=` to the full path).
+- **Linux** (x64, glibc 2.39+: Ubuntu 24.04, Debian 13, Fedora 40 or later): `Sheaf-x.y.z-linux-x64.tar.gz`. Unpack it anywhere and run `bin/sheaf-app`. `share/applications/sheaf.desktop` adds it to the app menu if copied to `~/.local/share/applications/` (adjust its `Exec=` to the full path).
 
 The Windows and Linux builds are compiled and smoke-tested by CI on every release; day-to-day testing happens on macOS.
 

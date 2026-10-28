@@ -87,6 +87,7 @@ cp vendor/models/*.rten vendor/models/latin-recognition.onnx vendor/models/latin
 cp "$mac/ocr-models-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-models-NOTICE.txt"
 cp "$mac/ocr-latin-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-latin-NOTICE.txt"
 cp third_party/pdfcraft-ocr/LICENSE-APACHE "$app/Contents/Resources/licenses/ocr-latin-LICENSE-APACHE.txt"
+cp "$mac/onnxruntime-LICENSE.txt" "$app/Contents/Resources/licenses/onnxruntime-LICENSE.txt"
 cp target/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 # AppleScript's dictionary (Info.plist: OSAScriptingDefinition), handled by src/scripting_mac.rs.
 cp "$mac/Sheaf.sdef" "$app/Contents/Resources/Sheaf.sdef"

@@ -14,4 +14,11 @@ ocrs = { version = "0.13.1", default-features = false, features = ["rten"] }
 rten = { version = "0.26.0", default-features = false, features = ["rten_format", "onnx_format"] }
 rten-tensor = "0.26.0"
 rten-imageproc = "0.26.0"
+
+# Sheaf: onnxruntime reads the lines (about 2.5× rten's speed). pyke's prebuilt library is linked
+# statically, only on the targets it is published for (keep in step with build.rs); rten stays the
+# fallback. Windows' build imports DirectML.dll, which copy-dylibs puts beside the executables
+# (package-windows.sh ships it). Linux's needs glibc 2.38 and GCC 13's libstdc++ to link.
+[target.'cfg(any(all(target_os = "linux", any(target_arch = "x86_64", target_arch = "aarch64")), all(target_os = "macos", target_arch = "aarch64"), all(target_os = "windows", target_arch = "x86_64", target_env = "msvc")))'.dependencies]
+ort = { version = "=2.0.0-rc.15", default-features = false, features = ["std", "download-binaries", "copy-dylibs", "tls-rustls"] }
 thiserror = "2"
