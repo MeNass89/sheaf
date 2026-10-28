@@ -44,14 +44,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "MCP server covers agent access",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -85,6 +85,17 @@
      "overall": 8
     },
     "proof": "Sol rev31ai 27/10: Opening the assistant overlays up to 380 px of the PDF instead of reserving a pane beside it; the page layout reserves width only for OCR review. Smoke 360 checks panel text, not whether the PDF remains visible, crates/sheaf-app/ui/screens/reader.slint:379, crates/sheaf-app/ui/screens/reader.slint:1327."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f"
    }
   ]
  },
@@ -127,14 +138,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -168,6 +179,17 @@
      "overall": 8
     },
     "proof": "Sol rev31ai 27/10: Unlike Acrobat's source inspection, cited pages cannot be opened from an answer: replies are plain Text without citation actions. The long-document test supplies its own cited answer, proving transport rather than grounded, navigable references, crates/sheaf-app/ui/screens/ai-panel.slint:195, crates/sheaf-core/tests/ai.rs:171."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f"
    }
   ]
  },
@@ -231,14 +253,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -272,6 +294,17 @@
      "overall": 8
     },
     "proof": "Sol rev31ai 27/10: PDF Expert can highlight the main points in the PDF; Sheaf only asks for a bullet list and displays it, without creating highlights. The named test accepts the literal mock answer \"Done.\" and smoke 361 only finds \"Mockpoint\", crates/sheaf-core/src/ai/tasks.rs:194, crates/sheaf-core/tests/ai.rs:212."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f"
    }
   ]
  },
@@ -317,14 +350,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -358,6 +391,17 @@
      "overall": 8
     },
     "proof": "Sol rev31ai 27/10: An Arabic translation saved as PDF can change a decimal's displayed value: the RTL ordering splits Latin/number runs at punctuation, so 12.50 becomes 50.12. The searchable-PDF test covers Cyrillic, Greek and Japanese extraction, not RTL layout, crates/sheaf-core/src/ai/unicode_pdf.rs:224, crates/sheaf-core/tests/ai.rs:431."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f"
    }
   ]
  },
@@ -392,10 +436,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -433,6 +477,17 @@
      "overall": 7
     },
     "proof": "Sol rev31ai 27/10: Japanese, Arabic and other non-Western slide text becomes \"?\" before both PDF and PowerPoint export. The unit test explicitly expects that corruption; the named deck test checks a Western example and PPTX ZIP entries, not intact multilingual slides. Audio generation now exists, crates/sheaf-core/src/ai/deck.rs:49, crates/sheaf-core/src/ai/deck.rs:182."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol AGREE 9 (rev34ai); author a8: eSpeak voices robotic, non-Western decks without bold titles"
    }
   ]
  },
@@ -465,10 +520,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
+   "function": 8,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -506,6 +561,17 @@
      "overall": 7
     },
     "proof": "Sol rev31ai 27/10: Acrobat's shared PDF Spaces support recipients and collaboration; Sheaf stores only a local name and absolute file paths, with no sharing or portable space. The save/name/source/drop tests establish local grouping, not a shared project, crates/sheaf-core/src/ai/spaces.rs:11, crates/sheaf-app/src/ai_ui.rs:672."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev34ai: shared spaces with recipients need an online service; export/import only"
    }
   ]
  },
@@ -534,10 +600,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 6
+   "function": 9,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -575,6 +641,17 @@
      "overall": 6
     },
     "proof": "Sol rev31ai 27/10: Stirling persists classification labels in PDF metadata and groups files by them; Sheaf returns only a transient chat sentence listing filenames. Reopening the files loses their classification, and the named tests only assert returned category strings, crates/sheaf-app/src/ai_ui.rs:462, crates/sheaf-core/tests/ai.rs:245."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol AGREE 9 (rev34ai); author a8: the category filter is a plain list"
    }
   ]
  },

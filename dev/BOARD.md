@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 258 · open 73, closed 258
+331 components · at parity (≥9): 262 · closed 262, open 69
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -48,30 +48,30 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 39 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
 | 40 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
 | 41 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 42 | C-ai-007 | light | Classify documents with AI | stirling | 6 · 7 · 8 → **6** | light |
-| 43 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
-| 44 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
-| 45 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
-| 46 | C-ai-005 | light | Generate podcast or presentation | acrobat | 7 · 7 · 8 → **7** | light |
-| 47 | C-ai-006 | light | Group documents in AI spaces | acrobat | 7 · 7 · 8 → **7** | light |
-| 48 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 49 | C-platform-007 | light | OS automation of PDF actions | preview | 7 · 7 · 9 → **7** | CLI and MCP cover scripting |
-| 50 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 51 | C-sign-013 | light | Manage digital IDs | acrobat | 7 · 8 · 9 → **7** | light |
-| 52 | C-ai-001 | light | Open the AI assistant | pdfexpert | 8 · 8 · 9 → **8** | MCP server covers agent access |
-| 53 | C-ai-002 | light | Ask AI about the document | acrobat | 8 · 8 · 8 → **8** | light |
-| 54 | C-ai-003 | light | Summarize with AI | pdfexpert | 8 · 8 · 8 → **8** | light |
-| 55 | C-ai-004 | light | Translate with AI | pdfexpert | 8 · 8 · 8 → **8** | light |
-| 56 | C-convert-007 | light | Convert other formats to PDF | stirling | 8 · 8 · 9 → **8** | light |
-| 57 | C-edit-009 | light | Align and arrange objects | acrobat | 8 · 9 · 9 → **8** | after core |
-| 58 | C-edit-028 | light | Adjust or invert colours | stirling | 8 · 9 · 9 → **8** | light |
-| 59 | C-files-008 | light | Local file library | stirling | 9 · 8 · 9 → **8** | light |
-| 60 | C-files-017 | light | System integration and default app | ilovepdf | 8 · 9 · 9 → **8** | default-app registration (Linux .desktop done; macOS pending a Mac) |
+| 42 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
+| 43 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
+| 44 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
+| 45 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 46 | C-platform-007 | light | OS automation of PDF actions | preview | 7 · 7 · 9 → **7** | CLI and MCP cover scripting |
+| 47 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 48 | C-sign-013 | light | Manage digital IDs | acrobat | 7 · 8 · 9 → **7** | light |
+| 49 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
+| 50 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
+| 51 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
+| 52 | C-convert-007 | light | Convert other formats to PDF | stirling | 8 · 8 · 9 → **8** | light |
+| 53 | C-edit-009 | light | Align and arrange objects | acrobat | 8 · 9 · 9 → **8** | after core |
+| 54 | C-edit-028 | light | Adjust or invert colours | stirling | 8 · 9 · 9 → **8** | light |
+| 55 | C-files-008 | light | Local file library | stirling | 9 · 8 · 9 → **8** | light |
+| 56 | C-files-017 | light | System integration and default app | ilovepdf | 8 · 9 · 9 → **8** | default-app registration (Linux .desktop done; macOS pending a Mac) |
+| 57 | C-forms-011 | light | Add special fields | acrobat | 8 · 8 · 9 → **8** | light |
+| 58 | C-optimize-005 | light | Advanced optimization | acrobat | 8 · 9 · 9 → **8** | light |
+| 59 | C-optimize-013 | light | Convert colours or grayscale | stirling | 8 · 9 · 9 → **8** | light |
+| 60 | C-organize-005 | light | Auto-rotate pages by orientation | stirling | 9 · 9 · 8 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
-| ai | 7 | 7.4 | 0 |
+| ai | 7 | 8.6 | 4 |
 | annotate | 38 | 8.7 | 35 |
 | batch | 9 | 3.0 | 3 |
 | compare | 7 | 9.0 | 7 |
@@ -91,6 +91,10 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 ## Closed
 | id | component | overall | last proof |
 |---|---|---|---|
+| C-ai-001 | Open the AI assistant | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
+| C-ai-002 | Ask AI about the document | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
+| C-ai-003 | Summarize with AI | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
+| C-ai-004 | Translate with AI | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
 | C-annotate-001 | Show annotation toolbar | 9 | Joint 9: Opus (F-014 annotation gaps) and Sol AGREE 9 (re-review b19-annot, 26/10) |
 | C-annotate-002 | Highlight selected text | 9 | Highlight: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file |
 | C-annotate-003 | Underline selected text | 9 | Underline: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file |
