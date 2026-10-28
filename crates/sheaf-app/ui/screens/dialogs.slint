@@ -266,18 +266,21 @@ export component UnsavedDialog inherits Modal {
 // Bottom-centre message (rejected files, errors).
 export component Toast inherits Rectangle {
     in property <string> text;
-    height: 36px;
+    height: max(36px, label.preferred-height + 16px);
     width: min(label.preferred-width + 32px, 640px);
     border-radius: 18px;
     background: Theme.toast-bg;
     drop-shadow-blur: 10px;
     drop-shadow-color: #00000030;
     label := Text {
+        x: 16px;
+        y: 8px;
         width: parent.width - 32px;
+        height: parent.height - 16px;
         text: root.text;
         font-size: Theme.fs-label;
         color: Theme.on-toast;
         horizontal-alignment: center;
-        overflow: elide;
+        wrap: word-wrap;
     }
 }

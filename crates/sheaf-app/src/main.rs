@@ -265,6 +265,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_toggle_horizontal, |ui, id| reader_ui::toggle_horizontal(&ui, id));
     wire_global!(ui, rb, on_split_view, |ui, id, m| split::open(&ui, id, m));
     wire_global!(ui, rb, on_split_focus, |ui, id| split::focus(&ui, id));
+    rb.on_split_press_other(split::press_other);
     wire_global!(ui, rb, on_split_sync, |ui, id| split::toggle_sync(&ui, id));
     rb.on_split_frac(split::set_frac);
     wire_global!(ui, rb, on_split_with, |ui, id, k| split::open_with(&ui, id, k));
@@ -648,6 +649,8 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
+    wire!(ui, on_choose_display_profile, |ui| home::choose_display_profile(&ui));
+    wire!(ui, on_reset_display_profile, |ui| home::reset_display_profile(&ui));
     wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     wire!(ui, on_set_metric, |ui, m| home::set_metric(&ui, m));

@@ -527,6 +527,9 @@ keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && cl
 prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
 # The steps below change the platform preferences: put back as they were.
 platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("platform", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+# Saved actions left by the batch steps (35x) put "Custom tools" in the reader's toolbar and on the Tools page,
+# which moves every later click there: the steps that click those bars start without any (28/10).
+actions_reset() { rm -f "$PWD/$OUT/profile/data/Sheaf/actions.json"; }
 
 # 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
@@ -535,7 +538,14 @@ shortcut_search "find"
 # The rows' places come from the search field's (OCR found "Find…" and "Next" a row off while the
 # list was still laying out): Find… first, Find Next second.
 KF=$(( SR - 48 )); KG=$(( SR - 6 ))
-[ "$SR" -gt 48 ] && click 1157 $KF 0.5; sleep 0.5; key ctrl+alt+f; sleep 1
+# Recording starts on the box's click; under load a click can land before the list has settled, so the keys
+# are pressed again (box clicked anew, from Find…'s row read on screen) until the preferences hold them.
+kp() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+for _ in 1 2 3; do
+    [ "$SR" -gt 48 ] && click 1157 $KF 0.5; sleep 0.5; key ctrl+alt+f; sleep 1.5
+    kp | grep -q "'find'" && break
+    key Escape; sleep 0.5; read _ FY <<< "$(at Next 1020x700+250+90)"; case "$FY" in ''|*[!0-9]*) ;; *) KG=$FY; KF=$(( FY - 42 ));; esac
+done
 [ "$KF" -gt 0 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
 # Quotes and other shell characters are taken out of the read text: the grammar line above the
 # shortcuts quotes "a" and "an", which broke the check below.
@@ -587,8 +597,11 @@ launch; key ctrl+comma; sleep 0.8
 shortcut_search "highlight"
 # The key's box holds "H" alone (at() matches the start of a word, and "Highlight" starts with H).
 at_word() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", 250 + ($7 + $9 / 2) / 2, 90 + ($8 + $10 / 2) / 2; exit }'; }
-KH=$(keybox Highlight); key q; sleep 0.8
-TK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+# As in 221: the box's click can land before the list settles under load, so the letter is given again
+# until the preferences hold it.
+tk() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
+for _ in 1 2 3; do KH=$(keybox Highlight); key q; sleep 1.2; tk | grep -q "'highlight'" && break; key Escape; sleep 0.5; done
+TK=$(tk)
 quit
 cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
 key q; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v; key ctrl+s; sleep 1.5
@@ -741,6 +754,19 @@ read QA QB QY <<< "$(span quick 510x700+770+90)"
 read RA RB RY <<< "$(span quick 510x700+770+90)"
 check "⌘ + wheel over another document's pane zooms that document (quick ${QA:-?}–${QB:-?} → ${RA:-?}–${RB:-?})" "[ -n \"$QB\" ] && [ -n \"$RB\" ] && [ \$(( RB - RA )) -gt \$(( (QB - QA) * 11 / 10 )) ]"
 quit
+
+# 207b. … ▸ Split with another document, a double-click on a word of the other pane (C-reader-045): its tab comes
+# forward at the first click's release, and the second makes it a double-click there: the word alone is selected,
+# ⌘C copies "quick" (the tab change split the pair; the second was a plain click).
+launch "$OUT/split6t.pdf" "$OUT/split6a.pdf"; sleep 3
+layout_item with >/dev/null; sleep 1.5
+read QX QY <<< "$(at quick 510x700+770+90)"
+echo -n | xclip -selection clipboard >/dev/null 2>&1
+[ -n "$QY" ] && { xdotool mousemove $QX $QY click --repeat 2 --delay 120 1; sleep 0.8; key ctrl+c; }
+SC7=$(xclip -o -selection clipboard 2>/dev/null | head -1)
+shot 207b-double-click
+check "a double-click on another document's pane selects the word there (quick at ${QX:-?} ${QY:-?}; copied '$SC7')" "echo \"$SC7\" | grep -qx ' *quick *'"
+quit
 # 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
 # "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
 # added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
@@ -786,26 +812,29 @@ check "right to left mirrors Preferences' rows and the tool options bar (Centime
 quit; platform_reset
 
 # 310. A text file opened with Sheaf (C-reader-064, Stirling's non-PDF viewer): it opens in the reader to browse, its
-# lines on the page, as a preview PDF in Sheaf's temporary folder (the .txt itself unchanged), not refused.
+# lines on the page, as a preview PDF in Sheaf's temporary folder (the .txt itself unchanged), not refused; a note at the
+# top of the pages says it is a preview of notes.txt (C-reader-064, Sol's gap: no preview banner).
 printf 'Shopping list\nMilk and bread\n' > "$OUT/notes.txt"
 launch "$OUT/notes.txt"; sleep 3
-TB=$(ocr 1280x80+0+0); PG=$(ocr 900x500+190+90)
+TB=$(ocr 1280x80+0+0); PG=$(ocr 900x500+190+90); PB=$(import -window root -crop 700x40+400+86 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr "\n" " ")
 shot 310-text-preview
+check "a preview says so on the page ($(echo "$PB" | grep -o 'Preview of[^:]*' | head -1))" "echo \"$PB\" | grep -q 'Preview of notes.txt'"
 check "a .txt opens in the reader (tab: $(echo "$TB" | grep -o 'notes[^ ]*' | head -1); page: $(echo "$PG" | grep -o 'Shopping list' | head -1))" "echo \"$PG\" | grep -q 'Shopping list' && echo \"$PG\" | grep -q 'Milk' && ls \"$OUT\"/profile/tmp/sheaf-previews/*/notes.txt.pdf >/dev/null 2>&1 && [ \"\$(cat \"$OUT/notes.txt\")\" = \"\$(printf 'Shopping list\nMilk and bread')\" ]"
 quit
 
 # 311. Search ▸ In a folder… (C-reader-037, Acrobat's Advanced Search ▸ All PDF documents in a folder) reads every
-# PDF of the folder: "quick" is found in the copy of text.pdf that sorts after 600 other PDFs, and the sheet says
-# how many PDFs it read.
+# PDF of the folder: "quick" is found in the copy of text.pdf that sorts after 600 damaged PDFs and one locked by a
+# password; the sheet counts only the PDF read, and lists the 601 not searched with why, as Acrobat lists the
+# documents it skipped (the locked one, 0-locked.pdf, first).
 mkdir -p "$OUT/many"; for i in $(seq -w 1 600); do printf '%%PDF-1.4 empty\n' > "$OUT/many/a$i.pdf"; done
-cp "$OUT/text.pdf" "$OUT/many/z-last.pdf"
+cp "$OUT/text.pdf" "$OUT/many/z-last.pdf"; qpdf --encrypt pw pw 256 -- "$OUT/text.pdf" "$OUT/many/0-locked.pdf"
 launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 answer "$PWD/$OUT/many"
 FS=$(at folder 300x30+0+160); [ -n "$FS" ] && click $FS 4
-FT=$(ocr 800x560+240+100)
+FT=$(ocr 800x560+240+100 | tr '\n' ' ' | tr -s ' ')
 shot 311-folder-search
-check "In a folder… reads all 601 PDFs (link at ${FS:-?}; sheet: $(echo "$FT" | grep -o '[0-9]* page[s]* found in [0-9]* PDFs' | head -1))" "echo \"$FT\" | grep -q 'found in 601 PDFs' && echo \"$FT\" | grep -q 'z-last'"
+check "In a folder… counts the PDF read and lists the 601 not searched with why (link at ${FS:-?}; sheet: $(echo "$FT" | cut -c1-220))" "echo \"$FT\" | grep -q 'found in 1 PDF\. 601 PDFs could not be searched' && echo \"$FT\" | grep -q 'z-last' && echo \"$FT\" | grep -q '0-locked.pdf Protected by a password' && echo \"$FT\" | grep -q 'Damaged or not a PDF'"
 # The app quit and the dialog answer cleared: left running, its window took the next steps' keys (round 30's
 # 320–363 failed so), and later file dialogs all answered this folder.
 answer ""; quit
@@ -844,12 +873,16 @@ quit
 rm -f "$OUT/smoke-id.p12" "$OUT/smoke-id.cer"
 launch; key ctrl+comma; sleep 0.8
 read CX CY <<< "$(pref_find Create)"; [ -n "$CY" ] && click $CX $CY 0.8
-# The Name field is under its label, just below the button and the line about the file.
-[ -n "$CY" ] && { click 700 $(( CY + 89 )) 0.4; xdotool type --delay 20 "Smoke Signer"; }
-# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226.
+# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226. Each
+# field is found from its own label once the form has opened and the page has stopped moving (the Name
+# field was clicked at a place computed from the button, before the form had settled: left empty, 28/10).
 form_find() { local f=""; for _ in $(seq 1 10); do f=$(at "$1" 1040x700+226+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
-read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
-read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.4; xdotool type --delay 20 smokepw1; }
+sleep 0.8
+# "Name" alone also starts other words on the page: the Name field is the one just above the
+# Organizational unit label.
+read _ NY <<< "$(form_find Organizational)"; [ -n "$NY" ] && { click 700 $(( NY - 31 )) 0.6; xdotool type --delay 30 "Smoke Signer"; }
+read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.6; xdotool type --delay 30 smokepw1; }
+read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.6; xdotool type --delay 30 smokepw1; }
 shot 321-form
 # Create and save… sits under the "Use it for certificate encryption too" box.
 xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.4
@@ -881,22 +914,28 @@ check "a barcode field draws the form's data as a QR Code and follows the typing
 quit
 # The AI steps' provider: a mock OpenAI-compatible server (smoke/ai-mock.py) on a free local port, set as
 # Preferences ▸ AI ▸ OpenAI-compatible server; each request it gets is logged in $OUT/ai-requests.jsonl.
-ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl"; touch "$OUT/ai-requests.jsonl"; python3 dev/scripts/smoke/ai-mock.py "$OUT/ai-port" "$OUT/ai-requests.jsonl" >/dev/null 2>&1 & AI_MOCK=$!; for _ in $(seq 1 20); do [ -s "$OUT/ai-port" ] && break; sleep 0.2; done; prefs_set "p['ai'] = {'provider': 'compatible', 'base_urls': {'compatible': 'http://127.0.0.1:$(cat "$OUT/ai-port")/v1'}, 'notice_seen': ['compatible'] if '${1:-}' == 'seen' else []}"; }
+ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl" "$OUT/profile/data/Sheaf/ai-spaces.json"; touch "$OUT/ai-requests.jsonl"; python3 dev/scripts/smoke/ai-mock.py "$OUT/ai-port" "$OUT/ai-requests.jsonl" >/dev/null 2>&1 & AI_MOCK=$!; for _ in $(seq 1 20); do [ -s "$OUT/ai-port" ] && break; sleep 0.2; done; prefs_set "p['ai'] = {'provider': 'compatible', 'base_urls': {'compatible': 'http://127.0.0.1:$(cat "$OUT/ai-port")/v1'}, 'notice_seen': ['compatible'] if '${1:-}' == 'seen' else []}"; }
 ai_stop() { [ -n "${AI_MOCK:-}" ] && kill "$AI_MOCK" 2>/dev/null; AI_MOCK=; prefs_set "p.pop('ai', None)"; }
 # ✦ AI Assistant, left of the wrench in the reader's toolbar.
-ai_open() { click 1204 61 1.5; }
+# (the pointer then leaves the button, so its tooltip does not cover the panel)
+ai_open() { click 1204 61 0.3; xdotool mousemove 600 450; sleep 1.2; }
 ai_text() { ocr 380x700+900+100; }
 ai_wait() { for _ in $(seq 1 30); do ai_text | grep -q "$1" && break; sleep 0.5; done; }
-ai_chip() { local c; c=$(at "$1" 380x700+900+100); [ -n "$c" ] && click $c 0.5; echo "${c:-no $1}"; }
+# Clicks the first word of $1 seen in the panel, else its other words ("Main points": Main, then points).
+ai_chip() { local c w; for w in $1; do c=$(at "$w" 380x700+900+100); [ -n "$c" ] && break; done; [ -n "$c" ] && click $c 0.5; echo "${c:-no $1}"; }
+# The last word starting with $1 in the panel (a message's button, under its text).
+ai_last() { import -window root -crop 380x700+900+100 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" 'index($12, w) == 1 { p = sprintf("%d %d", 900 + ($7 + $9 / 2) / 2, 100 + ($8 + $10 / 2) / 2) } END { print p }'; }
 ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
 
 # 360. The AI panel (C-ai-001, C-ai-002; PDF Expert's AI Copilot, Acrobat's AI Assistant): ✦ in the toolbar opens it
 # beside the pages, naming the provider; the first request waits on the note that only the text is sent (OK
 # sends it); a question typed is answered from the pages: the request carries page 1's text and the question.
+actions_reset
 ai_mock
 cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; T1=$(ai_text)
-QF=$(at Ask 380x120+900+680); read QX QY <<< "$QF"; [ -n "$QY" ] && click $(( QX + 60 )) $QY 0.4
+# The question field: the panel's bottom row, left of Ask (the panel is anchored to the window's bottom right).
+click 1040 768 0.4
 xdotool type --delay 15 "Who jumps?"; key Return; sleep 1
 N0=$(ai_requests)
 # OK sits left of Turn off AI (white on red, which OCR does not read).
@@ -904,19 +943,22 @@ read TX TY <<< "$(at Turn 380x500+900+100)"; [ -n "$TY" ] && click $(( TX - 60 )
 ai_wait Mockanswer; T2=$(ai_text); shot ai-360
 SEEN=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["ai"]["notice_seen"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 tail -1 "$OUT/ai-requests.jsonl" > "$OUT/ai-last.json" 2>/dev/null
-check "the AI panel names the provider, holds the first request for the note, then answers from the pages (note: $(echo "$T1" | grep -o 'never the file' | head -1); held: $N0 requests; seen $SEEN; answer: $(echo "$T2" | grep -o 'Mockanswer[a-z ]*' | head -1))" \
-    "echo \"$T1\" | grep -q 'Assistant' && echo \"$T1\" | grep -q 'never the file' && [ \"$N0\" = 0 ] && echo \"$SEEN\" | grep -q compatible && echo \"$T2\" | grep -q Mockanswer && grep -q 'Who jumps' $OUT/ai-last.json && grep -q 'p. 1' $OUT/ai-last.json && grep -q 'quick brown fox' $OUT/ai-last.json"
+check "the AI panel names the provider, holds the first request for the note, then answers from the pages, streamed (note: $(echo "$T1" | grep -o 'never the file' | head -1); held: $N0 requests; seen $SEEN; answer: $(echo "$T2" | grep -o 'Mockanswer[a-z ]*' | head -1))" \
+    "echo \"$T1\" | grep -q 'Assistant' && echo \"$T1\" | grep -q 'never the file' && [ \"$N0\" = 0 ] && echo \"$SEEN\" | grep -q compatible && echo \"$T2\" | grep -q Mockanswer && grep -q 'Who jumps' $OUT/ai-last.json && grep -q 'p. 1' $OUT/ai-last.json && grep -q 'quick brown fox' $OUT/ai-last.json && grep -q '\"stream\": true' $OUT/ai-last.json"
 quit; ai_stop
 
 # 361. Summarize and translate (C-ai-003, C-ai-004; PDF Expert's): the Main points chip and Translate (French) each
 # send the pages' text with their own request, and their answers show in the panel.
 ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; N1=$(ai_requests)
-P1=$(ai_chip Main); ai_wait Mockpoint
+P1=$(ai_chip "Main points"); ai_wait Mockpoint
+T2M=$(ai_text)
+# The tools fold once the conversation starts: Tools in the panel's header unfolds them.
+read TX TY <<< "$(at Tools 380x60+900+90)"; [ -n "$TY" ] && click $TX $TY 0.6
 P2=$(ai_chip Translate); ai_wait renard; T3=$(ai_text); shot ai-361
 RQ=$(tail -2 "$OUT/ai-requests.jsonl" 2>/dev/null | tr -d "'")
 check "Main points and Translate ask the provider and show the answers (chips $P1 / $P2; requests $N1 → $(ai_requests); $(echo "$T3" | grep -o 'Mockpoint\|renard' | tr '\n' ' '))" \
-    "echo \"$T3\" | grep -q Mockpoint && echo \"$T3\" | grep -q renard && echo '$RQ' | grep -q 'main points' && echo '$RQ' | grep -q 'Translate into English'"
+    "echo \"$T2M\" | grep -q Mockpoint && echo \"$T3\" | grep -q renard && echo '$RQ' | grep -q 'main points' && echo '$RQ' | grep -q 'Translate into English'"
 quit; ai_stop
 
 # 362. Slides (C-ai-005, Acrobat's Generate presentation): Slides (PDF) asks for an outline, saves it as a deck
@@ -934,14 +976,17 @@ quit; rm -f "$OUT/dialog-answer"; ai_stop
 # is kept in ai-spaces.json with its two files.
 ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; cp "$OUT/text.pdf" "$OUT/ai-two.pdf"; echo "$PWD/$OUT/ai-two.pdf" > "$OUT/dialog-answer"
 launch "$OUT/ai.pdf"; sleep 1
-# New space sits at the right of the spaces list ("This document"), Add PDFs… left of Delete space.
-ai_open; read _ NS <<< "$(at This 380x300+900+100)"; [ -n "$NS" ] && click 1214 $NS 0.8
-read _ A1 <<< "$(at Delete 380x400+900+100)"; [ -n "$A1" ] && click 955 $A1 1
+# New space, right of the spaces list; then Add PDFs… (the space's row, under it).
+ai_open; NS=$(ai_chip New); sleep 0.8; A1=$(ai_chip Add); sleep 1; shot ai-363a
 CF=$(at Categories 380x700+900+100); read CX CY <<< "$CF"; [ -n "$CY" ] && click $CX $CY 0.4; xdotool type --delay 15 "Animals, Invoices"
 N2=$(ai_requests); C1=$(ai_chip Classify); ai_wait 'Animals:'; T4=$(ai_text); shot ai-363
 SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(s[0]["name"], len(s[0]["files"]))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
-check "a space holds two PDFs and Classify sorts them (new $NS, add $A1, classify $C1; requests $N2 → $(ai_requests); space: $SP; $(echo "$T4" | grep -o 'Animals: [a-z.,-]*' | head -1))" \
-    "[ \"$SP\" = 'Space 2' ] && [ \$(( \$(ai_requests) - $N2 )) = 2 ] && echo \"$T4\" | grep -q 'Animals: ai'"
+# Stirling keeps the class in each PDF: both files carry Category Animals (pdfinfo's custom metadata), and the
+# space lists them with it.
+sleep 1.5; T4B=$(ai_text)
+L1=$(pdfinfo -custom "$OUT/ai.pdf" 2>/dev/null | awk -F': *' '/^Category/ { print $2 }'); L2=$(pdfinfo -custom "$OUT/ai-two.pdf" 2>/dev/null | awk -F': *' '/^Category/ { print $2 }')
+check "a space holds two PDFs and Classify sorts them, the class kept in each PDF (new $NS, add $A1, classify $C1; requests $N2 → $(ai_requests); space: $SP; $(echo "$T4" | grep -o 'Animals: [a-z.,-]*' | head -1); labels '$L1' '$L2'; list: $(echo "$T4B" | grep -o 'ai.pdf . Animals' | head -1))" \
+    "[ \"$SP\" = 'Space 2' ] && [ \$(( \$(ai_requests) - $N2 )) = 2 ] && echo \"$T4\" | grep -q 'Animals: ai' && [ \"$L1\" = Animals ] && [ \"$L2\" = Animals ] && echo \"$T4B\" | grep -q 'pdf . Animals'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
 # 300. Right to left on Home's Tools page and the reader's print sheet (C-platform-004, iLovePDF's right-to-left
 # interface): the Tools page's title row reads from the right (the search field left of Custom tools), and the print sheet's
@@ -1041,7 +1086,7 @@ unset SHEAF_TEST_MENU_BAR
 # Locate controls in the actual options scroller, then inspect the produced PDF, not just the UI.
 optimize_option() { local found=; for _ in $(seq 1 16); do found=$(at "$1" 310x640+965+90); [ -n "$found" ] && break; xdotool mousemove 1160 500 click 5 click 5; sleep 0.3; done; echo "$found"; }
 cp "$OUT/text.pdf" "$OUT/web.pdf"; launch "$OUT/web.pdf"; sleep 1
-click $WRENCH_X 61 1; xdotool type --delay 20 "compress"; key Return; sleep 2
+click $WRENCH_X 61 1; click 990 76 0.4; xdotool type --delay 20 "compress"; key Return; sleep 2
 OA=$(optimize_option Advanced); [ -n "$OA" ] && click $OA 0.5
 OF=$(optimize_option Flatten); [ -n "$OF" ] && click $OF 0.5
 OW=$(optimize_option Fast); [ -n "$OW" ] && click $OW 0.5
@@ -1051,11 +1096,54 @@ for _ in $(seq 1 20); do [ -f "$OUT/web-compressed.pdf" ] && break; sleep 0.5; d
 check "340 optimizer saves flattened Fast Web View ($OA; $OF; $OW)" "[ -n \"$OF\" ] && [ -n \"$OW\" ] && head -c 2048 \"$OUT/web-compressed.pdf\" | grep -aq /Linearized && head -c 8 \"$OUT/web-compressed.pdf\" | grep -q %PDF-1.3 && qpdf --check-linearization \"$OUT/web-compressed.pdf\" >/dev/null 2>&1 && [ \"\$(npages \"$OUT/web-compressed.pdf\")\" = 4 ] && pdftotext \"$OUT/web-compressed.pdf\" - | grep -q 'Page 1'"
 quit
 
+# 341. Acrobat's display colour management: choose a real monitor ICC, keep it, reset to sRGB.
+launch; key ctrl+comma; sleep 0.8
+IC=$(pref_find monitor); answer "/usr/share/color/icc/ghostscript/a98.icc"; [ -n "$IC" ] && click $IC 1; answer ""
+IP=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("display_profile"))' "$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+shot 341-display-profile
+IS=$(at sRGB 1020x700+250+90); [ -n "$IS" ] && click $IS 0.5
+IR=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("display_profile"))' "$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "341 display ICC persists and resets to sRGB ($IC; $IP; $IR)" "[ \"$IP\" = '/usr/share/color/icc/ghostscript/a98.icc' ] && [ \"$IR\" = None ]"
+quit
+
+# 342. Acrobat's Output Preview: the captured page has selectable process ink plates.
+optimize_print_tool() { click 1108 61 0.8; click 1008 659 0.8; local found=; for _ in $(seq 1 12); do found=$(at "$1" 300x690+880+85); [ -n "$found" ] && break; xdotool mousemove 1050 530 click 5 click 5; sleep 0.3; done; [ -n "$found" ] && click $found 1; echo "$found"; }
+INK_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
+launch "$OUT/text.pdf"; PP=$(optimize_print_tool preflight)
+PI=$(at Ink); [ -n "$PI" ] && click $PI 1
+# Read the complete button column below the selected-plate heading, then choose Black.
+# The old x=0..250 crop cut words in half and clicked "Black shows ink" in the help.
+for _ in $(seq 1 20); do PB=$(at Black 180x180+195+175); [ -n "$PB" ] && break; sleep 0.5; done
+PM=$(at Magenta 180x180+195+175); PY=$(at Yellow 180x180+195+175)
+[ -n "$PB" ] && click $PB 0.5
+PC=$(at Cyan 180x180+195+175)
+# Only the page image: exclude the coloured plate buttons and include its top text.
+optimize_ink_dark() { import -window root -crop 500x300+450+180 -depth 8 png:- 2>/dev/null | convert - -threshold 25% -format "%[fx:1-mean]" info:; }
+INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark); key Down; sleep 0.5; INK_RETURN=$(optimize_ink_dark)
+shot 342-ink-plates
+check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
+key Escape; quit
+
+# 343. Acrobat's Flattener Preview: compare the working page and actual PDF 1.3 conversion.
+FLAT_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
+launch "$OUT/text.pdf"; PF=$(optimize_print_tool hairlines)
+FP=
+for _ in $(seq 1 14); do FP=$(at Flattener 700x660+0+80); [ -n "$FP" ] && break; xdotool mousemove 400 500 click 5 click 5; sleep 0.3; done
+[ -n "$FP" ] && click $FP 1
+for _ in $(seq 1 20); do FA=$(at Flattened 180x180+195+175); [ -n "$FA" ] && break; sleep 0.5; done
+F_ORIGINAL=$(ocr 660x500+382+180)
+[ -n "$FA" ] && click $FA 0.5
+F_FLATTENED=$(ocr 660x500+382+180)
+FO=$(at Original 180x180+195+175)
+shot 343-flattener-preview
+check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ] && echo \"$F_ORIGINAL\" | grep -q 'Page 1' && echo \"$F_FLATTENED\" | grep -q 'Page 1' && [ \"$FLAT_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
+key Escape; quit
+
 # 344. iLovePDF's searchable OCR: automatic backend from the real options panel, with local packs.
 convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
 convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"
 launch "$OUT/fast-ocr-input.pdf"; sleep 1
-click $WRENCH_X 61 1; xdotool type --delay 20 "ocr"; key Return; sleep 2
+click $WRENCH_X 61 1; click 990 76 0.4; xdotool type --delay 20 "ocr"; key Return; sleep 2
 OR=$(optimize_option Require)
 shot 344-ocr-options
 click 1140 755 4
@@ -1064,43 +1152,32 @@ OT=$(pdftotext "$OUT/fast-ocr-input-ocr.pdf" - 2>/dev/null | tr '\n' ' ')
 check "344 automatic OCR writes searchable text ($OR; $OT)" "[ -n \"$OR\" ] && echo \"$OT\" | grep -q 'Sheaf OCR' && qpdf --check \"$OUT/fast-ocr-input-ocr.pdf\" >/dev/null 2>&1"
 quit
 
-# 342. Acrobat's Output Preview: the captured page has selectable process ink plates.
-optimize_print_tool() { click 1108 61 0.8; click 1008 659 0.8; local found=; for _ in $(seq 1 12); do found=$(at "$1" 300x690+880+85); [ -n "$found" ] && break; xdotool mousemove 1050 530 click 5 click 5; sleep 0.3; done; [ -n "$found" ] && click $found 1; echo "$found"; }
-INK_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
-launch "$OUT/text.pdf"; PP=$(optimize_print_tool preflight)
-PI=$(at Ink); [ -n "$PI" ] && click $PI 1
-for _ in $(seq 1 20); do PC=$(at Cyan 250x650+0+90); [ -n "$PC" ] && break; sleep 0.5; done
-PM=$(at Magenta 250x650+0+90); PY=$(at Yellow 250x650+0+90); PB=$(at Black 250x650+0+90)
-[ -n "$PB" ] && click $PB 0.5
-optimize_ink_dark() { import -window root -crop 500x300+280+260 -depth 8 png:- 2>/dev/null | convert - -threshold 25% -format "%[fx:1-mean]" info:; }
-INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark); key Down; sleep 0.5; INK_RETURN=$(optimize_ink_dark)
-shot 342-ink-plates
-check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
-key Escape; quit
-
-# 343. Acrobat's Flattener Preview: compare the working page and actual PDF 1.3 conversion.
-launch "$OUT/text.pdf"; PF=$(optimize_print_tool hairlines)
-FP=
-for _ in $(seq 1 14); do FP=$(at Flattener 700x660+0+80); [ -n "$FP" ] && break; xdotool mousemove 400 500 click 5 click 5; sleep 0.3; done
-[ -n "$FP" ] && click $FP 1
-for _ in $(seq 1 20); do FA=$(at Flattened 300x650+0+90); [ -n "$FA" ] && break; sleep 0.5; done
-FO=$(at Original 300x650+0+90); [ -n "$FA" ] && click $FA 0.5
-shot 343-flattener-preview
-check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ]"
-key Escape; quit
 # 350. Stirling Folder Scanning's outputFileName survives import, and Export Stirling retains
 # it in a portable file. Inspection checks both the saved action and the exported pipeline.
+# First-launch rendering can outlast launch()'s initial draw. Wait for the actual Actions
+# header before using its controls; repeating the navigation click is safe and idempotent.
+batch_actions() {
+    local point
+    for _ in $(seq 1 20); do
+        point=$(at Import 140x60+220+180)
+        [ -n "$point" ] && return 0
+        point=$(at Actions 190x80+0+200)
+        [ -n "$point" ] && click $point 0.5
+        sleep 0.3
+    done
+    return 1
+}
 python3 - "$OUT/350-pipeline.json" <<'PY350'
 import json, sys
 json.dump({"name":"Naming review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
            "outputDir":"{outputFolder}", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
 PY350
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/350-pipeline.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM 1
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM 1
 answer "$PWD/$OUT/350-export.json"
-EX=$(at Export 400x60+850+170); [ -n "$EX" ] && click $EX 1
+EX=$(at Export 200x50+1080+230); [ -n "$EX" ] && click $EX 1
 shot 350-stirling-naming
 check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
 quit
@@ -1108,27 +1185,29 @@ quit
 # 351. Acrobat's suggested action becomes an independent saved copy; the Suggested filter
 # keeps the original and Saved actions contains the copy after reopening the app.
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
-SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+batch_actions
+# The placeholder is deliberately pale; target the calibrated field after the header is ready.
+SH="330 345"; click $SH 0.3
 xdotool type --clearmodifiers --delay 10 "confidential watermark"; sleep 0.5
-QS=$(ocr 220x400+240+320)
+QS=$(ocr 220x370+220+370)
 check "351 suggested-action search matches words in its name and description (${SH:-no Search})" "echo \"$QS\" | grep -q 'Confidential' && ! echo \"$QS\" | grep -q 'Distribution'"
-CA=$(at Confidential 230x600+235+150); [ -n "$CA" ] && click $CA
-SA=$(at Save 600x160+485+400); [ -n "$SA" ] && click $SA 1
+CA=$(at Mark 220x370+220+370); [ -n "$CA" ] && click $CA
+SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
 shot 351-suggested-copy
 check "351 Save a copy keeps the suggested watermark configuration (${CA:-no suggestion}; ${SA:-no Save})" "python3 -c 'import json; a=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert any(x[\"name\"] == \"Mark as Confidential (2)\" and x[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\" for x in a)'"
+# A populated search field no longer shows its placeholder; reuse its observed position.
 # A suggestion's full limitations stay readable, rather than hidden in a one-line description.
-SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+[ -n "$SH" ] && click $SH 0.3
 key ctrl+a; xdotool type --clearmodifiers --delay 10 "accessibility"; sleep 0.5
-AS=$(at Accessibility 230x500+235+300); [ -n "$AS" ] && click $AS 0.8
-DS=$(ocr 740x200+500+300); shot 351-suggestion-description
+AS=$(at Accessibility 220x370+220+370); [ -n "$AS" ] && click $AS 0.8
+DS=$(ocr 790x100+460+375); shot 351-suggestion-description
 check "351 suggestion description shows its refusal and certification limits (${AS:-no suggestion})" "echo \"$DS\" | grep -q 'Refuses' && echo \"$DS\" | grep -q 'certification'"
 quit
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 # The list filter is the first combobox in the left column; Home then Down twice selects Saved.
-click 340 273; key Home; key Down; key Down; key Return
-LS=$(ocr 220x450+240+300); shot 351-saved-filter
+click 340 305; key Home; key Down; key Down; key Return
+LS=$(ocr 220x370+220+370); shot 351-saved-filter
 check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
 quit
 
@@ -1144,15 +1223,23 @@ PY352
 cp "$OUT/text.pdf" "$OUT/352-custom.pdf"
 launch "$OUT/352-custom.pdf"
 click 24 62 0.8
-AP=$(at Apply 620x440+330+180); [ -n "$AP" ] && click $AP 1.5
+AP=$(at Apply 220x55+345+380); [ -n "$AP" ] && click $AP 1.5
 shot 352-custom-pages
 key ctrl+s; sleep 1.5
 P2=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
 T2=$(first_text "$OUT/352-custom.pdf" 1); T3=$(first_text "$OUT/352-custom.pdf" 2)
 key ctrl+z; sleep 1; key ctrl+s; sleep 1.5
 P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+shot 352-custom-undone
 check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
 quit
+# The custom command goes again: while one exists the reader's toolbar gains Custom tools at its
+# left, which moves every later step's toolbar clicks 32 px (AI steps 364–367 failed so, 28/10).
+python3 - "$OUT/profile/data/Sheaf/actions.json" <<'PY352B'
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1])
+if p.exists(): p.write_text(json.dumps([a for a in json.loads(p.read_text()) if not a.get("custom_tool")]))
+PY352B
 
 # 353. Acrobat's Specify Settings: edit labelled watermark fields, preserve the next step and
 # its prompt, save, run, and inspect real output. The serialized text includes a literal pipe.
@@ -1164,15 +1251,15 @@ json.dump({"version":1,"name":"Wizard settings","steps":[
 PY353
 cp "$OUT/text.pdf" "$OUT/353-source.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/353-wizard.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 ED=$(at Edit 200x250+1040+450); [ -n "$ED" ] && click $ED
 # Labelled fields can be below the editor's fold; scroll only that editor until the label is visible.
 batch_label() {
     local point
     for _ in $(seq 1 30); do
-        point=$(at "$1" 740x440+500+290)
+        point=$(at "$1" 790x360+460+290)
         if [ -n "$point" ]; then echo "$point"; return; fi
         xdotool mousemove 1245 650 click 5; sleep 0.15
     done
@@ -1180,8 +1267,9 @@ batch_label() {
 batch_field() {
     local bx by
     read bx by <<< "$(batch_label "$1")"
-    [ -n "$by" ] && click "$bx" $(( by + 32 )) 0.2
-    key ctrl+a; xdotool type --clearmodifiers --delay 5 "$2"; sleep 0.3
+    [ -n "$by" ] || return 1
+    click "$bx" $(( by + 32 )) 0.2
+    key ctrl+a; xdotool type --clearmodifiers --delay 5 -- "$2"; sleep 0.3
 }
 batch_field Mark "After | review"
 batch_field Font "24"
@@ -1190,7 +1278,7 @@ batch_field Opacity "0.35"
 batch_field Rotation "-30"
 shot 353-labelled-settings
 xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
-SA=$(at Save 600x180+485+380); [ -n "$SA" ] && click $SA 1
+SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
 check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
 xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
 answer "$PWD/$OUT/353-source.pdf"
@@ -1210,9 +1298,9 @@ PY354
 cp "$OUT/text.pdf" "$OUT/354-valid.pdf"
 printf 'Not a PDF' > "$OUT/354-broken.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/354-run.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 # Run is at the end of the right editor's scroll area.
 xdotool mousemove 1245 650; for _ in $(seq 1 35); do xdotool click 5; done; sleep 1
 answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.pdf"
@@ -1265,11 +1353,11 @@ PY356
 mkdir -p "$OUT/356-input/nested"
 cp "$OUT/text.pdf" "$OUT/356-input/first.pdf"; cp "$OUT/text.pdf" "$OUT/356-input/nested/second.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/356-folder-action.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
-IN=$(at Include 740x440+500+290); [ -n "$IN" ] && click $IN 0.3
+IN=$(at Include 790x440+460+290); [ -n "$IN" ] && click $IN 0.3
 answer "$PWD/$OUT/356-input"
 RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
@@ -1277,6 +1365,7 @@ shot 356-folder-results
 check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
 # 330. Acrobat's Create PDF from Scanner through the real process adapter: the fake SANE driver
 # returns pixels, not SHEAF_TEST_SCAN's image-copy seam. Also used by the macOS SANE fallback.
+actions_reset
 scanner_driver() {
     SCANNER_APP=$APP; SCANNER_PATH=$PATH
     mkdir -p "$OUT/scanner-bin"
@@ -1300,7 +1389,10 @@ quit; scanner_restore
 scanner_driver
 cp "$OUT/text.pdf" "$OUT/driver-insert.pdf"; launch "$OUT/driver-insert.pdf"; sleep 1
 xdotool mousemove 120 230 click 3; sleep 0.8; IS=$(at scanner 300x420+20+200); [ -n "$IS" ] && click $IS 2
-key ctrl+s; sleep 1.5; N1=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
+# The keys go to the pages: after the thumbnail's menu the keyboard stayed with the panel, and in the
+# full suite ⌘S saved nothing (4/4/4 with five pages shown, 28/10). The save is waited for.
+click 760 500 0.4
+key ctrl+s; for _ in $(seq 1 10); do N1=$(npages "$OUT/driver-insert.pdf" 2>/dev/null); [ "$N1" = 5 ] && break; sleep 0.5; done
 SN=$(pdftoppm -r 20 -f 2 -l 2 -png "$OUT/driver-insert.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
 key ctrl+z; sleep 0.8; key ctrl+s; sleep 1; N2=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
 key ctrl+shift+z; sleep 0.8; key ctrl+s; sleep 1; N3=$(npages "$OUT/driver-insert.pdf" 2>/dev/null)
@@ -1310,9 +1402,23 @@ quit; scanner_restore
 
 # 335. iLovePDF's complete PDF/A selector: a Unicode profile produces the selected identifier,
 # not a b-level file with the wrong success label. Pictures contain no unmapped text.
+pdfa_reader_tool() {
+    # Custom tools adds a 32 px button. Find the wrench by its tooltip in either layout;
+    # the old coordinate opened AI Assistant after earlier steps saved a custom toolbox.
+    local x tip
+    for x in 1236 1268; do
+        xdotool mousemove "$x" 61; sleep 0.4
+        tip=$(ocr 500x30+780+80)
+        if echo "$tip" | grep -q 'Use a tool'; then
+            click "$x" 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+            return 0
+        fi
+    done
+    return 1
+}
 convert -size 120x80 xc:'#2a9d4b' "$OUT/unicode-archive.pdf"
 launch "$OUT/unicode-archive.pdf"; sleep 1
-click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+pdfa_reader_tool
 CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
 shot 335-pdfa-levels
 xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Return; sleep 0.8
@@ -1326,18 +1432,30 @@ quit
 
 # 336. An a-level needs tags. With Keep a copy unchecked, an untagged input is refused and no
 # falsely conforming output appears; the source stays readable.
+# Reproduce the full suite's saved custom toolbox, which shifts the wrench past the AI button.
+AF="$OUT/profile/data/Sheaf/actions.json"; [ ! -f "$AF" ] || cp "$AF" "$OUT/pdfa-actions-before.json"
+python3 - "$AF" <<'PY'
+import json, os, sys
+p = sys.argv[1]
+a = json.load(open(p)) if os.path.exists(p) else []
+a.append({"version": 1, "name": "PDF/A toolbar regression", "custom_tool": True,
+          "steps": [{"tool": "open_tool", "argument": "pdf_to_pdfa"}]})
+json.dump(a, open(p, "w"))
+PY
 convert -size 120x80 xc:'#2a9d4b' "$OUT/untagged-archive.pdf"
 launch "$OUT/untagged-archive.pdf"; sleep 1
-click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+pdfa_reader_tool
 CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
 xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Down Return; sleep 0.8
 KC=$(at Keep 1000x700+250+90); [ -n "$KC" ] && click $KC 0.6
 STRICT=$(ocr 1000x700+250+90)
 shot 336-pdfa-strict-options
-click 1140 755 3
-AR=$(ocr 1280x800+0+0); shot 336-pdfa-strict-result
+# A refusal returns to the options with a three-second toast: read it before it expires.
+click 1140 755 0.5
+shot 336-pdfa-strict-result; AR=$(ocr 1280x800+0+0)
 check "336 strict PDF/A-2a refuses untagged content without saving a false archive" "[ -n \"$KC\" ] && echo \"\$STRICT\" | grep -qi 'PDF/A-2a' && echo \"\$STRICT\" | grep -qi 'no output' && [ ! -e $OUT/untagged-archive-pdfa.pdf ] && [ \"\$(npages $OUT/untagged-archive.pdf 2>/dev/null)\" = 1 ] && echo \"\$AR\" | grep -qi 'did not pass'"
 quit
+if [ -f "$OUT/pdfa-actions-before.json" ]; then mv "$OUT/pdfa-actions-before.json" "$AF"; else rm -f "$AF"; fi
 
 # 305. Right to left on tick boxes (C-platform-004; iLovePDF's mirrored interface): in Report an Issue, the ticked
 # box of "Include this computer's details" sits right of its label, left of it left to right.
@@ -1359,6 +1477,59 @@ done
 unset SHEAF_TEST_MENU_BAR
 check "tick boxes mirror right to left (left to right: box ${LG:-?} < label ${LX:-?}; right to left: box ${RG:-?} > label ${RX:-?})" "[ -n \"$LG\" ] && [ -n \"$RG\" ] && [ \"$LG\" -lt \"$LX\" ] && [ \"$RG\" -gt \"$RX\" ]"
 platform_reset
+# 364. The AI panel's error and empty states (C-ai-001, C-ai-002): a provider limiting requests is said plainly with
+# Try again (which asks again); a cloud provider with no key is told where to add it, with Open AI settings…; the
+# panel then still opens and the app answers (no freeze).
+actions_reset
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; click 1040 768 0.4; xdotool type --delay 15 "Rate me"; key Return
+ai_wait limiting; E1=$(ai_text); N3=$(ai_requests)
+read RX RY <<< "$(ai_last Try)"; [ -n "$RY" ] && click $RX $RY 1.5
+N4=$(ai_requests); shot ai-364a
+quit; ai_stop
+prefs_set "p['ai'] = {'provider': 'openai', 'notice_seen': ['openai']}"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; click 1040 768 0.4; xdotool type --delay 15 "Hello"; key Return
+ai_wait 'API key'; E2=$(ai_text); shot ai-364b
+read SX SY <<< "$(ai_last Open)"; [ -n "$SY" ] && click $SX $SY 1.2
+PG=$(ocr 1280x120+0+40); shot ai-364c
+check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Preferences' | head -1); settings: $(echo "$PG" | grep -o Preferences | head -1))" \
+    "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Preferences' && echo \"$PG\" | grep -q Preferences"
+quit; ai_stop
+
+# 365. AI spaces renamed (C-ai-006, Acrobat's Rename space): New space, Rename, "Contracts" typed and Enter: the
+# list and ai-spaces.json name it so. (Files dropped on the document while a space is shown join it: not automatable
+# here — Xvfb has no drag source for files from outside; the routing is unit-tested, ai_ui drop_space.)
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; NS=$(ai_chip New); sleep 0.8; RN=$(ai_chip Rename); sleep 0.5
+key ctrl+a; key BackSpace; xdotool type --delay 15 "Contracts"; key Return; sleep 0.8; T5=$(ai_text); shot ai-365
+SN=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[0]["name"])' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
+check "a space is renamed (new $NS, rename $RN; saved '$SN'; list: $(echo "$T5" | grep -o 'Space: [A-Za-z]*' | head -1))" "[ \"$SN\" = Contracts ] && echo \"$T5\" | grep -q 'Space: Contracts'"
+quit; ai_stop
+
+# 366. The podcast spoken (C-ai-005, Acrobat's Generate podcast): Podcast script, then Save audio… (the dialog answered
+# $OUT/ai-pod.wav) records the two hosts with the computer's voices into one WAV of a few seconds.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; rm -f "$OUT/ai-pod.wav"; echo "$PWD/$OUT/ai-pod.wav" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; PC=$(ai_chip Podcast); ai_wait Welcome
+read AX AY <<< "$(ai_last audio)"; [ -n "$AY" ] && click $AX $AY 0.5
+for _ in $(seq 1 40); do [ -s "$OUT/ai-pod.wav" ] && break; sleep 0.5; done; sleep 0.5; ai_wait 'audio saved'; T6=$(ai_text); shot ai-366
+WV=$(python3 -c 'import sys, wave; w = wave.open(sys.argv[1]); print(w.getnchannels(), w.getframerate(), round(w.getnframes() / w.getframerate(), 1))' "$OUT/ai-pod.wav" 2>/dev/null)
+check "Save audio… speaks the podcast into a WAV (chip $PC, button ${AY:-none}; wav: ${WV:-none}; $(echo "$T6" | grep -o 'audio saved' | head -1))" "[ -n \"$WV\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > 2 else 1)' \$(echo $WV | cut -d' ' -f3) && echo \"$T6\" | grep -q 'audio saved'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop
+
+# 367. A translation into Japanese saved as a PDF (C-ai-004): Translate (Japanese chosen), Save… as $OUT/ai-ja.pdf:
+# the PDF holds the Japanese text, searchable (set in a font that draws it, not refused).
+ai_mock seen; prefs_set "p['ai']['language'] = 'Japanese'"; cp "$OUT/text.pdf" "$OUT/ai.pdf"; rm -f "$OUT/ai-ja.pdf"; echo "$PWD/$OUT/ai-ja.pdf" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+# Translate: the row above the categories field (whose placeholder OCR reads; the language list's chevron and the
+# chips' outlines garble the row itself), right of the language list.
+ai_open; read _ CY <<< "$(at Categories 380x300+900+300)"; [ -n "$CY" ] && click 1076 $(( CY - 44 )) 0.5; TR="${CY:-no Categories}"; sleep 2
+read SX SY <<< "$(ai_last Save)"; [ -n "$SY" ] && click $SX $SY 0.5
+for _ in $(seq 1 20); do [ -s "$OUT/ai-ja.pdf" ] && break; sleep 0.5; done; shot ai-367
+JT=$(pdftotext "$OUT/ai-ja.pdf" - 2>/dev/null | tr -d '\n')
+check "a Japanese translation is saved as a searchable PDF (translate $TR, save ${SY:-none}; text: $JT)" "echo \"$JT\" | grep -q '東京の素早い'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop
 
 # 306. Preferences ▸ Interface ▸ Language (C-preferences-003, iLovePDF's Language): French chosen, Home reads
 # Outils and Préférences in its sidebar and the Tools page Fusionner des PDF (a name made in Rust); Language ▸
@@ -1374,3 +1545,35 @@ SB2=$(ocr 250x300+0+40); shot 306b-english
 LG=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["platform"]["language"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "the interface switches to French and back (sidebar: $(echo $SB | cut -c1-60); Tools page: $(echo "$TP" | grep -o 'Fusionner[^ ]*' | head -1); then $(echo $SB2 | cut -c1-50); language $LG)" "echo \"$SB\" | grep -q 'Outils' && echo \"$SB\" | grep -q 'Préférences' && echo \"$TP\" | grep -q 'Fusionner' && echo \"$SB2\" | grep -q 'Tools' && echo \"$SB2\" | grep -q 'Preferences' && [ \"$LG\" = 1 ]"
 quit; platform_reset
+
+# 368. The AI panel has its own pane (C-ai-001; PDF Expert's Copilot never covers the page): with it open, the
+# page's last word "fox" shows left of the panel. An answer's cited page (C-ai-002, Acrobat's citations) is a button:
+# p. 3 shows page 3 (its text "Page 3" at the top of the pages).
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; sleep 1; read FX _ <<< "$(at fox 650x700+250+90)"
+click 1040 768 0.4; xdotool type --delay 15 "Who jumps?"; key Return; ai_wait Mockanswer; sleep 0.5
+# The cite button sits above the answer's Copy and Save… row, at its left.
+read _ PY <<< "$(ai_last Copy)"; [ -n "$PY" ] && click 946 $(( PY - 36 )) 1.2; shot ai-368
+PF=$(ocr 600x80+260+140 | grep -o 'Page [0-9]' | head -1)
+check "the AI pane leaves the page whole and a cited page opens (fox at x ${FX:-none}; cite ${PY:-none}; shown: $PF)" "[ -n \"$FX\" ] && [ \"$FX\" -lt 900 ] && [ \"$PF\" = 'Page 3' ]"
+quit; ai_stop
+
+# 369. Highlight main points (C-ai-003, PDF Expert's): Main points, then Highlight in PDF: the point's sentence ("Page 2
+# the quick brown fox") gets a real highlight annotation on page 2, the point as its note; saved with ⌘S.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; ai_chip "Main points" >/dev/null; ai_wait Mockpoint; sleep 0.5
+read HX HY <<< "$(ai_last Highlight)"; [ -n "$HY" ] && click $HX $HY 1; key Escape; key ctrl+s; sleep 1.5; shot ai-369
+HL="$(qpdf --qdf --object-streams=disable "$OUT/ai.pdf" - 2>/dev/null | grep -ac '/Subtype /Highlight') $(qpdf --qdf --object-streams=disable "$OUT/ai.pdf" - 2>/dev/null | python3 -c 'import re, sys; t = sys.stdin.buffer.read().decode("latin-1"); print(",".join(n for n, body in re.findall(r"%% Page (\d+)\n(.*?)(?=%% Contents|%% Page|\Z)", t, re.S) if "/Annots" in body))') $(qpdf --qdf --object-streams=disable "$OUT/ai.pdf" - 2>/dev/null | grep -aq Mockpoint && echo True)"
+check "Highlight in PDF adds a highlight on the point's sentence, the point as its note (highlights, pages, note: $HL)" "[ \"$HL\" = '1 2 True' ]"
+quit; ai_stop
+
+# 370. A space shared as a file (C-ai-006, Acrobat's shared spaces): Export space… writes $OUT/share/ai.sheafspace with
+# the PDF's path relative to it (../ai.pdf); the space deleted, Import space… brings it back with that PDF.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; mkdir -p "$OUT/share"; rm -f "$OUT/share/"*; echo "$PWD/$OUT/share/ai.sheafspace" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; NS=$(ai_chip New); sleep 0.8; EX=$(ai_chip Export); sleep 1
+REL=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["files"])' "$OUT/share/ai.sheafspace" 2>/dev/null)
+DL=$(ai_chip Delete); sleep 0.8; IM=$(ai_chip Import); sleep 1.2; T7=$(ai_text); shot ai-370
+SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(len(s), s[-1]["files"][-1].endswith("/ai.pdf"))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
+check "a space exported with relative paths is imported back (new $NS, export $EX, delete $DL, import $IM; file lists $REL; spaces $SP; $(echo "$T7" | grep -o 'Space: Space ([0-9] PDF)' | head -1))" "[ \"$REL\" = \"['../ai.pdf']\" ] && [ \"$SP\" = '1 True' ] && echo \"$T7\" | grep -q 'Space: Space (1 PDF)'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop

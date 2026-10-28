@@ -284,6 +284,10 @@ pub struct CommentClip {
     pub page: usize,
 }
 
+/// A paragraph's runs, each of one font: its text in its box, and its font in the copied PDF
+/// (`None`: the nearest standard family).
+pub type TextRuns = Vec<(sheaf_core::pdfcraft::engine::AddedText, Option<String>)>;
+
 /// Objects copied with the Edit tool: a PDF of them alone, where they showed (display rect), the
 /// file and page they came from, and the size of their picture put on the system clipboard.
 #[derive(Clone)]
@@ -297,11 +301,31 @@ pub struct ObjectsClip {
     pub texts: Vec<sheaf_core::pdfcraft::engine::AddedText>,
     /// Per paragraph of `texts`, its own font in `pdf` (pasted in it), or `None`.
     pub fonts: Vec<Option<String>>,
+    /// Per paragraph of `texts`, when it mixes fonts or styles: its runs, each in its box as shown
+    /// and its own font in `pdf` (or `None`: the nearest standard family): pasted run by run.
+    pub runs: Vec<Option<TextRuns>>,
     /// With paragraphs, the other objects: their PDF and where they showed.
     pub rest: Option<CopiedRest>,
 }
 
 impl ObjectsClip {
+    /// A mixed paragraph's runs (boxes in its page's user space, the paragraph's `from`) moved to
+    /// where the paragraph showed (`shown`), each box a little wider so its words keep one line.
+    pub fn place_runs(
+        runs: TextRuns,
+        from: [f64; 4],
+        shown: [f64; 4],
+    ) -> TextRuns {
+        let (dx, dy) = (shown[0] - from[0], shown[1] - from[1]);
+        runs.into_iter()
+            .map(|(mut t, font)| {
+                let r = t.rect;
+                t.rect = [r[0] + dx, r[1] + dy, r[2] + dx + 0.04 * (r[2] - r[0]) + 2.0, r[3] + dy];
+                (t, font)
+            })
+            .collect()
+    }
+
     /// The paragraphs copied, placed in their box as shown (`layout`, one per object; a little
     /// wider so the text keeps its lines in another font), and the rest's box as shown.
     pub fn split(

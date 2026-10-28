@@ -749,7 +749,7 @@ export component ReaderPanel inherits Rectangle {
                                     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
                                     pm := TouchArea {
                                         clicked => {
-                                            if o.k < 0 { root.transition-open = true; root.number-open = false; root.extract-open = false; } else { ReaderBridge.page-op(root.id, o.k); }
+                                            if o.k < 0 { root.transition-open = true; root.number-open = false; root.extract-open = false; } else { ReaderBridge.page-op(root.id, o.k); root.focus-pages(); }
                                         }
                                     }
                                 }

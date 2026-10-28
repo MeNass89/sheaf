@@ -376,7 +376,9 @@ export component ReaderScreen inherits Rectangle {
         // A flexbox so that right to left (Preferences ▸ Interface ▸ Direction) puts the side panel
         // on the right of the pages (Slint's rows have no direction of their own).
         FlexboxLayout {
-            padding-right: root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
+            // The AI panel, like OCR review, gets its own pane beside the pages (PDF Expert's
+            // Copilot never covers the document).
+            padding-right: AiBridge.open && AiBridge.tab == root.tab.id ? min(380px, root.width - 24px) : root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
             vertical-stretch: 1;
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
@@ -1056,14 +1058,15 @@ export component ReaderScreen inherits Rectangle {
                             // the click goes on to it there, at the same point (a link, a comment, a note
                             // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
                             // Its drag goes on there too, a selection or a comment dragged (Sol, 27/10: the press
-                            // was a click at once). The tab's pages took this pane's place and scroll.
+                            // was a click at once). That tab is laid out as this pane at the press; it comes
+                            // forward when the button is let go, so this screen keeps the pointer meanwhile
+                            // (round 30: handed over at the press, the screen hid and the drag was lost).
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" && root.other-press < 0 {
-                                let other = root.tab.split-other;
+                                let other = ReaderBridge.split-press-other(root.id);
                                 root.op-cx0 = self.mouse-x;
                                 root.op-cy0 = self.mouse-y;
                                 root.op-wx0 = self.absolute-position.x + self.mouse-x;
                                 root.op-wy0 = self.absolute-position.y + self.mouse-y;
-                                ReaderBridge.split-focus(root.id);
                                 if other >= 0 {
                                     root.other-press = other;
                                     ReaderBridge.pressed(other, root.op-cx0, root.op-cy0, e.modifiers.shift ? 17 : 1);
@@ -1075,6 +1078,7 @@ export component ReaderScreen inherits Rectangle {
                                     let other = root.other-press;
                                     root.other-press = -1;
                                     ReaderBridge.released(other, root.op-cx0 + (self.absolute-position.x + self.mouse-x - root.op-wx0), root.op-cy0 + (self.absolute-position.y + self.mouse-y - root.op-wy0));
+                                    ReaderBridge.split-focus(root.id);
                                 }
                                 return;
                             }
@@ -1136,6 +1140,26 @@ export component ReaderScreen inherits Rectangle {
                                     : (self.absolute-position.y + self.mouse-y - pages-area.absolute-position.y) / pages-area.height);
                             }
                         }
+                    }
+                }
+                // A text file or picture opened in the reader (Stirling's viewer): said on the page, not only in
+                // the toast that goes, so the PDF is not taken for the file itself.
+                if root.tab.reader.preview-of != "": Rectangle {
+                    x: sv.x + (sv.width - self.width) / 2;
+                    y: sv.y + 8px;
+                    width: min(preview-note.preferred-width + 24px, sv.width - 24px);
+                    height: 28px;
+                    border-radius: 14px;
+                    background: Theme.toast-bg;
+                    preview-note := Text {
+                        x: 12px;
+                        width: parent.width - 24px;
+                        text: @tr("Preview of {}: a PDF made to read it. Save As keeps it as a PDF.", root.tab.reader.preview-of);
+                        font-size: Theme.fs-caption;
+                        color: Theme.on-toast;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        horizontal-alignment: center;
                     }
                 }
                 // The other document's name, at the other pane's top left.

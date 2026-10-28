@@ -8,6 +8,18 @@ export struct AiMessage {
     text: string,
     error: bool,
     saved: string,
+    // Still being written (streamed).
+    live: bool,
+    // Try again is offered (network, rate limit, provider error, stopped).
+    retry: bool,
+    // The fix is in Preferences ▸ AI.
+    settings: bool,
+    // A podcast script: Save audio… is offered.
+    audio: bool,
+    // Main points that can be highlighted in the document.
+    highlight: bool,
+    // The pages cited ("p. 3", "report.pdf · p. 3"), each a button.
+    cites: [string],
 }
 
 export global AiBridge {
@@ -19,6 +31,8 @@ export global AiBridge {
     // The first time a provider is used: "Only the document's text is sent to …" (OK / Turn off).
     in property <bool> show-notice;
     in property <string> notice;
+    // A provider answers (false: no provider, so the panel says how to set one up).
+    in property <bool> configured: true;
     // Sending is turned off (Preferences ▸ AI, or the note's Turn off).
     in property <bool> off;
     in property <[AiMessage]> messages;
@@ -32,15 +46,22 @@ export global AiBridge {
     in property <[string]> spaces;
     in property <int> space;
     in property <[string]> space-files;
+    in property <string> space-name;
+    // The categories written in the space's PDFs ("All categories" first) and the one shown.
+    in property <[string]> space-labels;
+    in property <int> space-filter;
     // Open or close the panel on a tab.
     callback toggle(int);
     // A request: action ("ask", "summarize", "points", "translate", "podcast", "slides-pptx",
     // "slides-pdf", "classify", "cancel", "clear", "notice-ok", "notice-off", "turn-on", "copy",
-    // "save", "open"), its text (a question, a language, categories, a message's index), the
+    // "save", "open", "retry", "settings", "audio", "highlight", "goto" ("message:cite")), its text (a question, a language, categories, a message's index), the
     // scope (0 whole document, 1 selection, 2 pages) and the pages typed.
     callback act(int, string, string, int, string);
-    // Spaces: "select" (index), "new", "add", "remove" (a file's index), "delete".
+    // Spaces: "select" (index), "new", "add", "remove" (a file's index), "open" (a file's index), "delete",
+    // "filter" (index in space-labels), "export", "import".
     callback space-act(string, int);
+    // Rename the space in use (Acrobat's Rename space).
+    callback space-rename(string);
 
     // Preferences ▸ AI.
     in property <[string]> providers;

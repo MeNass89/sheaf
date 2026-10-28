@@ -157,11 +157,39 @@ pub fn focus(ui: &AppWindow, tab_id: i32) {
     });
     match went {
         Some((j, b)) => {
+            // A second click soon after, at the same point, is a double-click on that tab.
+            crate::reader_ui::handed_over(b);
             ui.set_active_tab(j as i32);
             viewer_ui::request(ui, b);
         }
         None => viewer_ui::request(ui, tab_id),
     }
+}
+
+/// A press in the other pane showing another document: that tab's viewer takes the pane's place, zoom
+/// and size, so the drag that follows is sent to it in the pane's own coordinates; the tab comes
+/// forward when the button is let go ([`focus`]). Handing over at the press hid this screen under the
+/// pointer and the drag was lost (round 30: smoke 206 copied nothing). Returns that tab's id.
+pub fn press_other(tab_id: i32) -> i32 {
+    with(|a| press_other_in(a, tab_id)).unwrap_or(-1)
+}
+
+fn press_other_in(a: &mut App, tab_id: i32) -> Option<i32> {
+    let i = a.tab_index(tab_id)?;
+    let s = a.tabs[i].split.as_ref()?;
+    let b = s.other?;
+    let (viewer, top, left, height) = (s.view.viewer.clone(), s.view.top, s.view.left, s.view.height);
+    let j = a.tab_index(b)?;
+    align(a.tabs[j].viewer.as_deref_mut()?, viewer, top, left, height);
+    Some(b)
+}
+
+/// `vb` laid out as a pane is: its viewer, scrolled `top` and `left`, `height` high.
+fn align(vb: &mut ViewerUi, viewer: sheaf_app::viewer::Viewer, top: f64, left: f64, height: f64) {
+    vb.viewer = viewer;
+    (vb.top, vb.left, vb.height) = (top, left, height);
+    vb.scroll = vb.top;
+    vb.scroll_x = Some(vb.left);
 }
 
 /// A press in the other pane when it shows tab `b`: `b` becomes the tab in view, its own viewer where
@@ -174,11 +202,7 @@ fn hand_over(a: &mut App, tab_id: i32, b: i32) -> Option<usize> {
     let title = a.tabs[i].reader.as_ref().and_then(|r| r.path.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     let s = a.tabs[i].split.take()?;
     let tb = &mut a.tabs[j];
-    let vb = tb.viewer.as_deref_mut()?;
-    vb.viewer = s.view.viewer.clone();
-    (vb.top, vb.left, vb.height) = (s.view.top, s.view.left, s.view.height);
-    vb.scroll = vb.top;
-    vb.scroll_x = Some(vb.left);
+    align(tb.viewer.as_deref_mut()?, s.view.viewer.clone(), s.view.top, s.view.left, s.view.height);
     tb.split = Some(Split { mode: s.mode, half: 1 - s.half, view: mine, other: Some(tab_id), title, sync: s.sync, zoom_seen: None, frac: s.frac, zoom_seq: 0, seq: 1, swap: s.swap + 1 });
     Some(j)
 }
@@ -386,5 +410,28 @@ mod tests {
         a.tabs.remove(0);
         follow(&mut a, 2);
         assert!(a.tabs[0].split.is_none());
+    }
+
+    /// A press in another document's pane lays that tab out as the pane is, before it comes forward:
+    /// the drag is sent in the pane's coordinates and lands where the pointer is (round 30: smoke 206).
+    #[test]
+    fn a_press_in_another_documents_pane_lays_that_tab_out_as_the_pane() {
+        let mut a = App::default();
+        for (id, n) in [(1, 10), (2, 20)] {
+            let mut t = TabState::new(id, sheaf_core::tools::ToolId::Redact);
+            t.viewer = Some(viewer(n));
+            a.tabs.push(t);
+        }
+        let mut view = Box::new(a.tabs[1].viewer.as_ref().unwrap().twin());
+        view.viewer.set_width(300.0);
+        view.viewer.set_zoom(180);
+        view.top = view.viewer.page_rect(7)[1];
+        let pane = (view.viewer.page_rect(7), view.top);
+        a.tabs[0].split = Some(Split { mode: 1, half: 0, view, other: Some(2), title: "b.pdf".into(), sync: false, zoom_seen: None, frac: 0.5, zoom_seq: 0, seq: 1, swap: 0 });
+        assert_eq!(press_other_in(&mut a, 1), Some(2));
+        let vb = a.tabs[1].viewer.as_ref().unwrap();
+        assert_eq!((vb.viewer.page_rect(7), vb.top, vb.viewer.zoom()), (pane.0, pane.1, 180));
+        assert!(a.tabs[0].split.is_some(), "the split stays until the button is let go");
+        assert_eq!(press_other_in(&mut a, 2), None, "no split: nothing");
     }
 }

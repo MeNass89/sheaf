@@ -745,6 +745,13 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
         if !ui.global::<sheaf_app::ActionBridge>().get_busy() { crate::actions_ui::import_path(ui, &path); }
         return;
     }
+    // Acrobat's AI spaces take files dropped on them: with the AI panel open on a space, a PDF
+    // dropped on the document goes into the space.
+    if let Some((id, _)) = active_tool(ui)
+        && crate::ai_ui::drop_space(id).is_some()
+    {
+        return crate::ai_ui::drop_into_space(ui, path);
+    }
     // On a document tab, a PDF dropped opens in its own tab.
     if let Some((id, _)) = active_tool(ui)
         && crate::reader_ui::is_reader(id)
@@ -773,6 +780,11 @@ pub fn drop_hint(ui: &AppWindow, path: &std::path::Path) -> (String, bool) {
     }
     let active = active_tool(ui);
     let pdf = files::kind_of(path) == Kind::Pdf;
+    if let Some((id, _)) = active
+        && let Some(space) = crate::ai_ui::drop_space(id)
+    {
+        return (if pdf { format!("Drop to add to the AI space “{space}”") } else { "Only PDFs go in an AI space".into() }, !pdf);
+    }
     if active.is_some_and(|(id, _)| crate::reader_ui::is_reader(id)) {
         return ((if pdf { "Drop to open in a new tab" } else { "Drop to choose a tool for it" }).into(), false);
     }

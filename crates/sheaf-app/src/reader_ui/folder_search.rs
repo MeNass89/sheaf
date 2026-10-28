@@ -20,6 +20,9 @@ pub(super) struct FolderSearch {
     /// PDFs read, and whether the search stopped at `MAX_RESULTS` before the last one.
     pub(super) files: usize,
     pub(super) stopped: bool,
+    /// PDFs that could not be read, with why (a password, a damaged file), listed as Acrobat lists
+    /// the documents it skipped; they are not counted as searched (Sol, 28/10).
+    pub(super) skipped: Vec<(PathBuf, String)>,
 }
 
 impl FolderSearch {
@@ -28,23 +31,29 @@ impl FolderSearch {
     pub(super) fn status(&self) -> String {
         let pdfs = |n: usize| if n == 1 { "1 PDF".to_string() } else { format!("{n} PDFs") };
         let pages = |n: usize| if n == 1 { "1 page".to_string() } else { format!("{n} pages") };
-        if self.busy {
-            "Searching…".into()
+        let line = if self.busy {
+            return "Searching…".into();
         } else if self.results.is_empty() {
-            format!("Not found in the folder's {}.", pdfs(self.files))
+            format!("Not found in the folder's {} read.", pdfs(self.files))
         } else if self.stopped {
             format!("Stopped at the first {} found, after {} — type more words to narrow it.", pages(self.results.len()), pdfs(self.files))
         } else {
             format!("{} found in {}", pages(self.results.len()), pdfs(self.files))
+        };
+        match self.skipped.len() {
+            0 => line,
+            n => format!("{line}{} {} could not be searched (listed below).", if line.ends_with('.') { "" } else { "." }, pdfs(n)),
         }
     }
 }
 
-/// What one search found: the pages, the PDFs read, and whether it stopped at `MAX_RESULTS`.
+/// What one search found: the pages, the PDFs read, whether it stopped at `MAX_RESULTS`, and the
+/// PDFs it could not read, with why.
 pub(super) struct Found {
     pub(super) results: Vec<(PathBuf, usize, String)>,
     pub(super) files: usize,
     pub(super) stopped: bool,
+    pub(super) skipped: Vec<(PathBuf, String)>,
 }
 
 /// In a folder…: a folder chosen, the search panel's words searched in it off the UI thread.
@@ -69,6 +78,7 @@ pub fn folder_search(ui: &AppWindow, tab_id: i32, query: &str) {
                         f.results = found.results;
                         f.files = found.files;
                         f.stopped = found.stopped;
+                        f.skipped = found.skipped;
                     }
                 });
             });
@@ -95,24 +105,39 @@ pub(super) fn search_folder(folder: &std::path::Path, query: &str, max: usize) -
     // An optional catalog built with `sheaf index … -o .sheaf-index.json` skips repeated
     // PDF parsing. Changed or unindexed files are read normally, never omitted.
     let catalog = sheaf_core::search_index::Catalog::load(&folder.join(".sheaf-index.json")).ok();
-    let mut out = Vec::new();
-    let total = files.len();
-    for (read, f) in files.into_iter().enumerate() {
+    let mut found = Found { results: Vec::new(), files: 0, stopped: false, skipped: Vec::new() };
+    for f in files {
         let cached = catalog.as_ref().and_then(|c| c.texts(&f));
         let pages = match cached {
             Some(pages) => pages.to_vec(),
-            None => match sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&f), &[]) { Ok(pages) => pages, Err(_) => continue },
+            None => match sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&f), &[]) {
+                Ok(pages) => pages,
+                Err(e) => {
+                    found.skipped.push((f, skip_reason(&e)));
+                    continue;
+                }
+            },
         };
+        found.files += 1;
         for (page, text) in pages.iter().enumerate() {
             for snippet in page_matches(text, query) {
-                if out.len() >= max {
-                    return Found { results: out, files: read + 1, stopped: true };
+                if found.results.len() >= max {
+                    found.stopped = true;
+                    return found;
                 }
-                out.push((f.clone(), page, snippet));
+                found.results.push((f.clone(), page, snippet));
             }
         }
     }
-    Found { results: out, files: total, stopped: false }
+    found
+}
+
+/// Why a PDF was not searched, in the words of Acrobat's list of skipped documents.
+fn skip_reason(e: &sheaf_core::OpdfError) -> String {
+    match e {
+        sheaf_core::OpdfError::PasswordRequired(_) | sheaf_core::OpdfError::WrongPassword(_) => "Protected by a password".into(),
+        _ => "Damaged or not a PDF: it could not be read".into(),
+    }
 }
 
 /// A word as compared: lower case, its common English endings taken off ("forms", "formed",
@@ -208,12 +233,13 @@ pub fn folder_search_for_test(folder: &std::path::Path, query: &str) -> Vec<(Pat
     search_folder(folder, query, MAX_RESULTS).results
 }
 
-/// The search with its own limit, and the status line it ends on.
+/// The search with its own limit, the status line it ends on, and the PDFs skipped (name, why).
 #[cfg(test)]
-pub fn folder_search_status_for_test(folder: &std::path::Path, query: &str, max: usize) -> (usize, String) {
+pub fn folder_search_status_for_test(folder: &std::path::Path, query: &str, max: usize) -> (usize, String, Vec<(String, String)>) {
     let found = search_folder(folder, query, max);
-    let f = FolderSearch { folder: String::new(), query: query.into(), busy: false, results: found.results, files: found.files, stopped: found.stopped };
-    (f.results.len(), f.status())
+    let skipped = found.skipped.iter().map(|(p, why)| (file_name(p), why.clone())).collect();
+    let f = FolderSearch { folder: String::new(), query: query.into(), busy: false, results: found.results, files: found.files, stopped: found.stopped, skipped: found.skipped };
+    (f.results.len(), f.status(), skipped)
 }
 
 #[cfg(test)]

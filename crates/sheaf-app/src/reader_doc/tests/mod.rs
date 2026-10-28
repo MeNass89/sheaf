@@ -951,9 +951,26 @@ fn a_folders_search_reads_every_pdf_and_says_when_it_stops() {
     let found = crate::reader_ui::folder_search_for_test(dir.path(), "page 2");
     assert_eq!(found.len(), 1, "the 601st PDF is read: {found:?}");
     assert!(found[0].0.ends_with("z-last.pdf"));
-    let (n, status) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page 2", 2000);
-    assert_eq!((n, status.as_str()), (1, "1 page found in 601 PDFs"));
-    let (n, status) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page", 1);
+    // The 600 damaged files are not counted as searched: they are listed, each with why (Sol, 28/10).
+    let (n, status, skipped) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page 2", 2000);
+    assert_eq!((n, status.as_str()), (1, "1 page found in 1 PDF. 600 PDFs could not be searched (listed below)."));
+    assert_eq!(skipped.len(), 600);
+    assert_eq!(skipped[0], ("a000.pdf".to_string(), "Damaged or not a PDF: it could not be read".to_string()));
+    let (n, status, _) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page", 1);
     assert_eq!(n, 1);
-    assert!(status.starts_with("Stopped at the first 1 page found, after 601 PDFs"), "{status}");
+    assert!(status.starts_with("Stopped at the first 1 page found, after 1 PDF"), "{status}");
+}
+
+/// A PDF locked by a password is listed as not searched, with that reason, and not counted (Sol,
+/// 28/10: protected files were skipped without a word and counted as searched).
+#[test]
+fn a_folders_search_lists_a_protected_pdf_as_not_searched() {
+    let dir = tempfile::tempdir().unwrap();
+    let one = fixture(dir.path(), 2);
+    let locked = dir.path().join("locked.pdf");
+    sheaf_core::security::protect(&sheaf_core::pages::Input::new(&one), "pw", None, &locked).unwrap();
+    let (n, status, skipped) = crate::reader_ui::folder_search_status_for_test(dir.path(), "page 2", 2000);
+    assert_eq!(n, 1, "{status}");
+    assert_eq!(skipped, vec![("locked.pdf".to_string(), "Protected by a password".to_string())]);
+    assert!(status.starts_with("1 page found in 1 PDF. 1 PDF could not be searched"), "{status}");
 }

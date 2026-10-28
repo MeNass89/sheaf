@@ -7,6 +7,9 @@
 pub mod deck;
 pub mod spaces;
 pub mod tasks;
+pub mod audio;
+pub mod labels;
+pub mod unicode_pdf;
 
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -265,6 +268,75 @@ pub fn request(cfg: &Config, messages: &[Message]) -> Result<Request, AiError> {
     Ok(Request { url, headers, body })
 }
 
+/// [`request`] asking the provider to stream its answer (server-sent events; Ollama: JSON lines).
+pub fn stream_request(cfg: &Config, messages: &[Message]) -> Result<Request, AiError> {
+    let mut r = request(cfg, messages)?;
+    match cfg.provider {
+        Provider::Gemini => r.url = r.url.replace(":generateContent", ":streamGenerateContent?alt=sse"),
+        _ => r.body["stream"] = Value::Bool(true),
+    }
+    Ok(r)
+}
+
+/// The text one streamed line adds ("" none), or the provider's error inside the stream.
+pub fn stream_delta(provider: Provider, line: &str) -> Result<String, AiError> {
+    let line = line.trim();
+    let data = if provider == Provider::Ollama { line } else { line.strip_prefix("data:").map(str::trim).unwrap_or("") };
+    if data.is_empty() || data == "[DONE]" {
+        return Ok(String::new());
+    }
+    let Ok(v) = serde_json::from_str::<Value>(data) else { return Ok(String::new()) };
+    if v["type"] == "error" || (v.get("error").is_some() && !v["error"].is_null()) {
+        let m = v["error"]["message"].as_str().or_else(|| v["error"].as_str()).unwrap_or("error in the answer");
+        return Err(AiError::Provider(provider.name(), 200, m.to_string()));
+    }
+    Ok(match provider {
+        Provider::Anthropic => if v["type"] == "content_block_delta" { v["delta"]["text"].as_str().unwrap_or("").to_string() } else { String::new() },
+        Provider::Gemini => v["candidates"][0]["content"]["parts"].as_array().map(|p| p.iter().filter_map(|x| x["text"].as_str()).collect::<String>()).unwrap_or_default(),
+        Provider::Ollama => v["message"]["content"].as_str().unwrap_or("").to_string(),
+        _ => v["choices"][0]["delta"]["content"].as_str().unwrap_or("").to_string(),
+    })
+}
+
+/// [`chat`] with the answer handed to `delta` piece by piece as the provider writes it (Acrobat's
+/// and PDF Expert's answers appear as they come). `delta` returning `false` stops reading
+/// ([`AiError::Cancelled`]). A server that ignores streaming and answers whole is read whole.
+pub fn chat_stream(cfg: &Config, messages: &[Message], delta: &mut dyn FnMut(&str) -> bool) -> Result<String, AiError> {
+    use std::io::BufRead;
+    let req = stream_request(cfg, messages)?;
+    let name = cfg.provider.name();
+    let mut r = agent(Duration::from_secs(300)).post(&req.url);
+    for (k, v) in &req.headers {
+        r = r.header(k, v);
+    }
+    let mut resp = r.send(req.body.to_string().as_bytes()).map_err(|e| network(name, e))?;
+    let status = resp.status().as_u16();
+    let retry = resp.headers().get("retry-after").and_then(|v| v.to_str().ok()).map(str::to_string);
+    let kind = resp.headers().get("content-type").and_then(|v| v.to_str().ok()).unwrap_or("").to_ascii_lowercase();
+    let streamed = kind.contains("event-stream") || kind.contains("ndjson") || (cfg.provider == Provider::Ollama && kind.is_empty());
+    if !(200..300).contains(&status) || !streamed {
+        let body = resp.body_mut().read_to_string().map_err(|e| network(name, e))?;
+        let text = parse(cfg.provider, status, retry.as_deref(), &body)?;
+        if !delta(&text) {
+            return Err(AiError::Cancelled);
+        }
+        return Ok(text);
+    }
+    let reader = std::io::BufReader::new(resp.body_mut().as_reader());
+    let mut all = String::new();
+    for line in reader.lines() {
+        let line = line.map_err(|e| AiError::Network(name, e.to_string()))?;
+        let d = stream_delta(cfg.provider, &line)?;
+        if !d.is_empty() {
+            all.push_str(&d);
+            if !delta(&d) {
+                return Err(AiError::Cancelled);
+            }
+        }
+    }
+    Ok(all)
+}
+
 /// The answer's text from the provider's reply (`status`, `retry_after` header, body).
 pub fn parse(provider: Provider, status: u16, retry_after: Option<&str>, body: &str) -> Result<String, AiError> {
     let name = provider.name();
@@ -381,15 +453,18 @@ pub fn config_from(provider: Option<&str>, model: Option<&str>, base_url: Option
     Ok(cfg)
 }
 
-/// An answer or a translation saved at `out`: a PDF when it ends in `.pdf` (Helvetica, so
-/// Western languages; others are refused with a word to save as .txt), plain UTF-8 text otherwise.
+/// An answer or a translation saved at `out`: a PDF when it ends in `.pdf` (Helvetica for Western
+/// languages; any other script set in a bundled or system font that draws it, see
+/// [`unicode_pdf`]), plain UTF-8 text otherwise.
 /// Never overwrites (the path written is returned).
 pub fn write_text(title: &str, text: &str, out: &std::path::Path) -> crate::Result<std::path::PathBuf> {
     if out.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
-        let bytes = crate::pdfcraft::engine::Session::new()
-            .create_from_text(title, text)
-            .map_err(|e| crate::OpdfError::Unsupported(format!("{e}. Save it as a .txt file instead, which keeps every language")))?;
-        return crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?));
+        let bytes = if pdfcraft_fonts::first_undrawable(text.replace(['\n', '\r', '\u{c}'], "").as_str()).is_none() {
+            crate::pdfcraft::engine::Session::new().create_from_text(title, text).map_err(|e| crate::OpdfError::Engine(e.to_string()))?.to_vec()
+        } else {
+            unicode_pdf::text_pdf(title, text)?
+        };
+        return crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?));
     }
     crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, text)?))
 }

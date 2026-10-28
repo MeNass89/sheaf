@@ -103,10 +103,14 @@ REAL0=$(real_profile)
 
 # Toolbar controls reached by position (1280×800 window), kept here: update them when the toolbar
 # changes (a capture of the toolbar shows where they went).
-ZOOM_X=716; ZOOM_MENU_X=745; WRENCH_X=1222
+# Moved left when the AI button joined the toolbar (28/10): the zoom figure at 705, its arrow at 736.
+ZOOM_X=705; ZOOM_MENU_X=736; WRENCH_X=1222
 
 # The next file dialog's answer (debug builds read it instead of showing the dialog); empty: none.
 answer() { printf '%s' "$1" > "$OUT/dialog-answer"; }
+# Images into JPG to PDF by its Open file (Tools ▸ JPG to PDF ▸ Open file, the dialog answered with them): images
+# opened from outside go to the reader (C-reader-064). Cards at 101/237/373…, 130.
+jpg_to_pdf() { answer "$(printf "$PWD/%s|" "$@" | sed 's/|$//')"; launch; click 50 21 1; click 67 113 1.5; click 271 517 2; click 494 405 1.5; answer ""; }
 
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.
@@ -114,6 +118,10 @@ launch() {
     # profile (it did until 21/10: smoke runs wrote into ~/.local/share/Sheaf).
     # Its own temp folder too: the app is killed, so its temp copies are not removed on exit.
     local p="$PWD/$OUT/profile"; mkdir -p "$p/tmp"
+    # No app left over on this display: a step that launched twice left one running, the next launch handed
+    # its file to it (the window registry) and every later step drove the wrong window (28/10).
+    for q in $(pgrep -x sheaf-app-under); do tr '\0' '\n' < /proc/$q/environ 2>/dev/null | grep -qx "DISPLAY=:$D" && kill "$q" 2>/dev/null; done
+    rm -rf "$p/data/Sheaf/windows"
     TMPDIR="$p/tmp" XDG_CONFIG_HOME="$p/config" XDG_DATA_HOME="$p/data" XDG_CACHE_HOME="$p/cache" SHEAF_READER_DEBUG=1 SHEAF_TEST_DIALOG="$PWD/$OUT/dialog-answer" SHEAF_TEST_MAIL="$PWD/$OUT/mail-sent" SHEAF_TEST_SCREENSHOT="$PWD/$OUT/stamp.png" SHEAF_TEST_SCAN="$PWD/$OUT/stamp.png" SHEAF_TEST_NOTIFY="$PWD/$OUT/notified" SHEAF_TEST_SPEECH="$PWD/$OUT/spoken" SHEAF_TEST_DEFAULT="$PWD/$OUT/made-default" "$APP" "$@" >>"$OUT/app.log" 2>&1 &
     APP_PID=$!
     for _ in $(seq 1 40); do W=$(xdotool search --name '^Sheaf$' 2>/dev/null | tail -1); [ -n "$W" ] && break; sleep 0.25; done

@@ -25,6 +25,7 @@ zip.workspace = true
 chacha20poly1305.workspace = true
 getrandom.workspace = true
 image.workspace = true
+moxcms.workspace = true
 pdfium-render.workspace = true
 tempfile.workspace = true
 lopdf.workspace = true
@@ -36,3 +37,9 @@ arboard = { version = "3.6", default-features = false, features = ["image-data"]
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSURL"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder"] }
+
+# A pinch sent to the reader's gesture handler in a test (tests/pinch.rs, C-reader-010): Xvfb has no
+# gesture events. The same versions Slint already pulls in.
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
+i-slint-core = "=1.18.1"

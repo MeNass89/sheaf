@@ -18,6 +18,8 @@ skrifa = "0.44"
 # Raw CMYK from JPEGs (image always applies Adobe's inversion); the version image uses.
 zune-jpeg = "0.5"
 zune-core = "0.5"
+# Pure-Rust ICC display transforms; already present through image.
+moxcms = "0.8.1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "tiff", "bmp", "gif"] }
 thiserror = "2"
 tempfile = "3"
@@ -67,7 +69,6 @@ lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd
 # Generated Slint code is isolated from the PDF/application graph to fit worker memory caps.
 [profile.dev.package.sheaf-ui]
 debug = false
-opt-level = 1
 
 [profile.release]
 lto = "thin"

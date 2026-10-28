@@ -637,7 +637,7 @@ export component FolderSearchSheet inherits Rectangle {
                 wrap: word-wrap;
             }
             ScrollView {
-                min-height: min(root.tab.reader.folder-results.length * 40px, 420px);
+                min-height: min((root.tab.reader.folder-results.length + root.tab.reader.folder-skipped.length) * 40px + (root.tab.reader.folder-skipped.length > 0 ? 28px : 0px), 420px);
                 VerticalLayout {
                     for h[k] in root.tab.reader.folder-results: Rectangle {
                         height: 40px;
@@ -654,6 +654,24 @@ export component FolderSearchSheet inherits Rectangle {
                             mouse-cursor: pointer;
                             clicked => { ReaderBridge.folder-result(root.id, k); root.focus-pages(); }
                         }
+                    }
+                    // The PDFs not searched, each with why (Acrobat lists the documents it skipped).
+                    if root.tab.reader.folder-skipped.length > 0: Text {
+                        height: 28px;
+                        vertical-alignment: bottom;
+                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                        text: "Not searched";
+                        font-size: Theme.fs-caption;
+                        font-weight: Theme.weight-demibold;
+                        color: Theme.text-muted;
+                    }
+                    for h in root.tab.reader.folder-skipped: VerticalLayout {
+                        height: 40px;
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        alignment: center;
+                        Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: h.file; font-size: Theme.fs-label; color: Theme.text; overflow: elide; }
+                        Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: h.line; font-size: Theme.fs-caption; color: Theme.text-muted; overflow: elide; }
                     }
                 }
             }

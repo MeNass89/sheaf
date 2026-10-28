@@ -172,3 +172,5 @@ Tesseract explicitly, with the same option in the OCR panel and CLI `--local-eng
 `crates/sheaf-ui` compiles the canonical Slint files in `sheaf-app/ui` and exports the generated
 bindings. `sheaf-app` re-exports them, preserving callers. Isolating generated code keeps the PDF
 engine and application modules out of the same rustc invocation; existing app tests still run.
+
+`sheaf-app/src/display_color.rs` caches pure-Rust sRGB-to-monitor ICC transforms. Preferences stores the selected monitor path; reader page and thumbnail workers apply its transform after page tinting, and both split panes invalidate their render caches when it changes.
