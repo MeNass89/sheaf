@@ -176,7 +176,7 @@ pub fn podcast_wav(script: &str, synth: &dyn Synth, voices: &[Option<String>; 2]
         }
         if !data.is_empty() {
             // Silence: 0.4 s at the format's byte rate (bytes 8..12 of fmt), block-aligned.
-            let f = fmt.as_ref().map(Vec::as_slice).unwrap_or_default();
+            let f = fmt.as_deref().unwrap_or_default();
             let rate = f.get(8..12).map_or(44_100, |b| u32::from_le_bytes([b[0], b[1], b[2], b[3]])) as usize;
             let align = f.get(12..14).map_or(2, |b| u16::from_le_bytes([b[0], b[1]]) as usize).max(1);
             data.extend(std::iter::repeat_n(0u8, rate * 2 / 5 / align * align));
