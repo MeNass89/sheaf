@@ -1707,12 +1707,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -1792,6 +1792,17 @@
      "overall": 8
     },
     "proof": "Sol b28a-round23 26/10: Les polices incorporées Type0 ou à encodage personnalisé sont encore remplacées lors du changement de taille : third_party/pdfcraft-annot/src/lib.rs:1368."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -3059,12 +3070,12 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -3144,6 +3155,17 @@
      "overall": 8
     },
     "proof": "Sol b28a-round23 26/10: Recolorer une boîte utilisant une police Type0 ou à encodage personnalisé remplace encore sa police : third_party/pdfcraft-annot/src/lib.rs:1370."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -4804,14 +4826,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -4823,6 +4845,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -4863,14 +4896,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -4882,6 +4915,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -4928,14 +4972,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -4947,6 +4991,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -4987,14 +5042,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5006,6 +5061,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -5038,14 +5104,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5057,6 +5123,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -5152,14 +5229,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light; CLI covers scripting",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -5171,6 +5248,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -6461,14 +6549,14 @@
    84
   ],
   "grade": {
-   "function": 5,
-   "aesthetics": 6,
-   "performance": 7,
-   "overall": 5
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "URL input",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6480,6 +6568,17 @@
      "overall": 5
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [84]"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -6597,14 +6696,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6649,6 +6748,17 @@
      "overall": 8
     },
     "proof": "Sol b30a-round25 27/10: Les images Markdown `![logo](image.png)` deviennent des liens précédés de « ! » ; aucune image n’est rendue : crates/sheaf-core/src/textdocs.rs:71."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -6965,14 +7075,14 @@
    99
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "table detection",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7028,6 +7138,17 @@
      "overall": 8
     },
     "proof": "Sol b30a-round25 27/10: Un tableau textuel de deux lignes reste rejeté dès qu’une cellule commence par une minuscule, même parfaitement aligné et largement espacé : crates/sheaf-core/src/excel.rs:208."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -7097,14 +7218,14 @@
    99
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "layout fidelity",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7160,6 +7281,17 @@
      "overall": 8
     },
     "proof": "Sol b30a-round25 27/10: Le plancher de réduction conserve des débordements : 100 lignes à 5 pt dans 500 pt produisent encore 560 pt de tableau : third_party/pdfcraft-export/src/pptx.rs:71."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -7884,14 +8016,14 @@
    103
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "PDF/A-1b, accessible levels",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -7925,6 +8057,17 @@
      "overall": 8
     },
     "proof": "Sol b26-built 26/10: Seuls PDF/A-2b et 3b sont disponibles ; les niveaux 1b et a/u du concurrent restent absents ; crates/sheaf-core/src/pdfa.rs:10."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -7962,10 +8105,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 5,
+   "aesthetics": 8,
+   "performance": 8,
+   "overall": 5
   },
   "status": "open",
   "feature": null,
@@ -7981,6 +8124,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 5,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 5
+    },
+    "proof": "Sol rev35B 27/10: Export PDF/X présent, mais aucune conversion PDF/E ; seuls X1a/X3/X4 sont implémentés : crates/sheaf-core/src/press.rs:12 ; absence confirmée dans l’interface : crates/sheaf-app/ui/screens/reader-production.slint:101."
    }
   ]
  },
@@ -8016,12 +8170,12 @@
    86
   ],
   "grade": {
-   "function": 6,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
   "next": "—",
   "history": [
@@ -8068,6 +8222,17 @@
      "overall": 6
     },
     "proof": "Sol b13b-round6 25/10: l’indication locale est ajoutée, mais aucun choix local/serveur n’existe ; le correctif maintient explicitement un fonctionnement exclusivement local (crates/sheaf-app/ui/screens/options.slint:974)."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -8557,14 +8722,14 @@
    106
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "font family, bold/italic, alignment, non-Latin text",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8620,6 +8785,17 @@
      "overall": 8
     },
     "proof": "Sol b28a-round23 26/10: Trois familles seulement ; soulignement et puces restent sans effet sur les paragraphes existants sélectionnés : crates/sheaf-app/src/reader_ui/tools.rs:143."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -9058,14 +9234,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -9088,6 +9264,17 @@
      "overall": 8
     },
     "proof": "Sol b28b-round23 26/10: Aucun changement d’ordre de superposition des objets ; seules l’alignement et la distribution sont proposés : crates/sheaf-app/ui/screens/reader-form.slint:295."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -9140,14 +9327,14 @@
    112
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "copy/paste and Delete key",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -9236,6 +9423,17 @@
      "overall": 8
     },
     "proof": "Sol rev32 27/10: Un mot rouge ou de taille différente, dans la même police que le reste du paragraphe, perd encore sa couleur ou sa taille au collage ; PDF Expert conserve la mise en forme. La détection des runs ne compare que police, gras et italique ; le test ajouté ne fait varier que la police : third_party/pdfcraft-engine/src/copy_image.rs:200 ; third_party/pdfcraft-engine/src/copy_image.rs:167 ; crates/sheaf-core/tests/engine_patches.rs:1090."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -9430,14 +9628,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -9449,6 +9647,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -10823,14 +11032,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -10897,6 +11106,17 @@
      "overall": 8
     },
     "proof": "Sol rev32 27/10: Invert laisse encore les images à palette /Indexed inchangées, y compris un scan noir et blanc à palette, alors que Stirling inverse tous les pixels de la page rendue ; le nouveau test CCITT ne couvre pas cette voie, ignorée avant même adjust_image : crates/sheaf-core/src/adjust.rs:128 ; crates/sheaf-core/src/grayscale.rs:203 ; crates/sheaf-core/tests/adjust.rs:74."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -11667,13 +11887,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -11696,6 +11916,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus reader: local library verified (smoke 252)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -12549,14 +12780,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "default-app registration (Linux .desktop done; macOS pending a Mac)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12601,6 +12832,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus reader: macOS Finder Quick Actions installed (quick_actions test); not seen on a Mac"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -13683,14 +13925,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -13735,6 +13977,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus sign: QR barcode field following the form (a_barcode_field_draws_the_forms_data_as_a_qr_code_and_follows_every_change, smoke 322); QR only"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -14719,14 +14972,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -14760,6 +15013,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: L’audit et les polices sont traités, mais l’aplatissement des transparences et la linéarisation restent absents : crates/sheaf-app/ui/screens/options.slint:594."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -14900,6 +15164,17 @@
      "overall": 8
     },
     "proof": "Sol b26-built 26/10: Le blocage documenté à 15,5 s/page contre 11,75 demeure sans correction : la reconnaissance utilise toujours rten ; third_party/pdfcraft-ocr/src/latin.rs:70, dev/features/F-006-ocr.md:74."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev35B 27/10: Sans packs Tesseract installés, le parcours normal conserve le moteur RTEN dont le dernier temps mesuré était 15,5 s/page contre 11,75 ; la fermeture de cet écart reste non démontrée, le benchmark correspondant étant ignoré : crates/sheaf-core/src/ocr.rs:172, third_party/pdfcraft-ocr/src/latin.rs:97, crates/sheaf-core/tests/ocr.rs:263, dev/par2-notes-optimize.md:24."
    }
   ]
  },
@@ -14945,14 +15220,14 @@
    71
   ],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "more languages than English",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -14986,6 +15261,17 @@
      "overall": 7
     },
     "proof": "Sol b26-built 26/10: Les langues OCR restent limitées au latin, sans chinois, japonais ni coréen ; third_party/pdfcraft-ocr/src/lib.rs:35."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -15329,10 +15615,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 8,
+   "performance": 8,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -15348,6 +15634,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Sol rev35B 27/10: Préflight et plaques CMJN/tons directs présents, mais l’aperçu ne montre qu’un masque isolé : impossible de combiner ou masquer plusieurs encres pour examiner leur rendu ensemble comme dans Output Preview ; crates/sheaf-app/ui/screens/reader-ink-preview.slint:74, crates/sheaf-app/ui/screens/reader-ink-preview.slint:81 ; test limité aux plaques isolées : crates/sheaf-core/src/separations.rs:73."
    }
   ]
  },
@@ -15392,14 +15689,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -15444,6 +15741,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: Les JPEG CMYK avec /Decode [1 0 1 0 1 0 1 0] restent en couleur ; le nouveau test omet ce cas : crates/sheaf-core/src/compress.rs:379."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -15483,10 +15791,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 7,
+   "aesthetics": 8,
+   "performance": 8,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -15502,6 +15810,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Sol rev35B 27/10: Hairlines, marques, boîtes et véritable aperçu PDF 1.3 présents, mais aucun réglage ni calcul de trapping ; l’interface annonce explicitement son absence : crates/sheaf-app/ui/screens/reader-production.slint:83 ; aperçu testé dans crates/sheaf-core/src/flattener_preview.rs:33."
    }
   ]
  },
@@ -15534,14 +15853,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -15553,6 +15872,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -16073,12 +16403,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -16112,6 +16442,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: Tous les scans sont rasterisés et conservés en RAM avant l’OCR, accumulant plusieurs Go sur les gros dossiers : crates/sheaf-core/src/enhance.rs:87."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -17992,13 +18333,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -18021,6 +18362,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus reader: portfolio bundles originals (smoke 253)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -19074,14 +19426,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after print",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19115,6 +19467,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: Le mode « 16 par feuille » affiche une seule page dans l’aperçu, alors que l’impression en place seize : crates/sheaf-app/src/print.rs:141."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -19175,14 +19538,14 @@
    210
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "OS share (macOS only)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19205,6 +19568,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: Le smoke 110 contourne le presse-papiers par une écriture de fichier ; il ne prouve pas le partage annoncé : crates/sheaf-app/src/run.rs:625."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10)"
    }
   ]
  },
@@ -19797,14 +20171,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19827,6 +20201,17 @@
      "overall": 6
     },
     "proof": "Sol b30b-round25 27/10: L’aide se limite aux raccourcis du lecteur ; aucun parcours de découverte ni guide d’utilisation n’est proposé : crates/sheaf-app/ui/main.slint:400."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -19863,14 +20248,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -19893,6 +20278,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ui: Help ▸ Report an Issue (a_report_needs_a_message_and_at_most_five_readable_files, smoke 304)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -20015,14 +20411,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20034,6 +20430,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -20081,6 +20488,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 0,
+     "aesthetics": 0,
+     "performance": 0,
+     "overall": 0
+    },
+    "proof": "Sol rev35A 27/10: Aucun gestionnaire, inventaire ou chargeur de plugins dans le code actuel ; crates/sheaf-app/ui/main.slint:380, crates/sheaf-app/src/lib.rs:5 ; absence également déclarée dans dev/par2-notes-ui.md:88 ; aucun test de gestion des plugins trouvé."
    }
   ]
  },
@@ -20130,9 +20548,9 @@
    250
   ],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 7,
-   "performance": 9,
+   "performance": 8,
    "overall": 7
   },
   "status": "open",
@@ -20160,6 +20578,17 @@
      "overall": 7
     },
     "proof": "Sol b26-built 26/10: Seuls CLI/MCP sont exposés, sans actions Shortcuts/AppleScript ; aucune commande ne permet d’ajouter un signet ; crates/sheaf-cli/src/args.rs:25, crates/sheaf-cli/src/mcp.rs:4."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 7,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Sol rev35A 27/10: Les signets sont maintenant automatisables, mais seules les commandes CLI/MCP sont exposées : aucune action Shortcuts ni interface AppleScript ; crates/sheaf-cli/src/actions.rs:1, crates/sheaf-cli/src/args.rs:719 ; test actions_are_listed_and_search_finds_the_pages couvre uniquement la CLI ; limite confirmée dans dev/features/F-015-parallel-batches.md:399."
    }
   ]
  },
@@ -20849,10 +21278,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -20868,6 +21297,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev35A 27/10: Le choix Français laisse des messages courants en anglais : notification de prévisualisation et libellés de résultats de recherche sans traduction ; crates/sheaf-app/src/main.rs:74, crates/sheaf-app/src/flow.rs:33, crates/sheaf-app/src/reader_ui/model.rs:335 ; seuls anglais et français sont proposés (crates/sheaf-app/src/i18n.rs:16)."
    }
   ]
  },
@@ -21189,14 +21629,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "with reader",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21219,6 +21659,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: Les boîtes et la numérotation sont réglables, mais la grille de transparence demandée reste absente : crates/sheaf-app/ui/screens/preferences.slint:243."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -21699,14 +22150,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21729,6 +22180,17 @@
      "overall": 7
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ui: open at login + quit warning (login_items_open_sheaf_from_the_systems_own_place, smoke 303); update check/proxy are network (excluded)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -21766,14 +22228,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21785,6 +22247,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -21822,13 +22295,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21862,6 +22335,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ui: smoke 302, enhanced_security_asks_for_untrusted_documents_and_trusted_locations_skip_it"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -22124,14 +22608,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "scroll-direction option in the view menu",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -22143,6 +22627,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -28092,10 +28587,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -28111,6 +28606,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev35A 27/10: La grammaire reste une liste de règles simples : aucun contrôle des accords, des temps ou de l’ordre des mots, lacune visible dans un texte courant ; crates/sheaf-core/src/spell.rs:377 ; test the_light_grammar_pass limité aux règles présentes."
    }
   ]
  },
@@ -28419,13 +28925,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "out of PDF scope; light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -28459,6 +28965,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus reader: text/JSON/pictures previewed in the reader (text_json_and_pictures_become_a_pdf_to_browse, smoke 310); no preview banner"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10)"
    }
   ]
  },
@@ -29060,7 +29577,7 @@
   "grade": {
    "function": 8,
    "aesthetics": 8,
-   "performance": 9,
+   "performance": 8,
    "overall": 8
   },
   "status": "open",
@@ -29088,6 +29605,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus sign: Encrypt with certificates in the app, per-recipient permissions, opens with the digital ID (smoke 320); RSA only"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev35C 27/10: the previously noted RSA-only limit remains: an EC recipient certificate is rejected, so a recipient using an ECC digital ID cannot be included, unlike Acrobat; crates/sheaf-core/src/certificate_security.rs:86, crates/sheaf-app/src/reader_ui/certificate.rs:55; [Adobe certificate-security algorithms](https://www.adobe.com/devnet-docs/acrobatetk/tools/QuickKeys/Acrobat_DocumentSecurityAlgoAll.pdf)."
    }
   ]
  },
@@ -29121,13 +29649,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -29150,6 +29678,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus sign: certificate security policies (a_certificate_policy_round_trips_and_applies_with_each_recipients_permissions)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
@@ -31375,10 +31914,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 8,
    "aesthetics": 8,
-   "performance": 9,
-   "overall": 7
+   "performance": 8,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -31416,6 +31955,17 @@
      "overall": 7
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus sign: Create a digital ID (smoke 321); no smart cards"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev35C 27/10: self-signed ID creation now exists, but the explicitly named smart-card/token gap remains: the manager imports only .p12/.pfx and the signing path reads and unlocks a PKCS#12 file, with no hardware-ID selection; crates/sheaf-app/src/home.rs:505, crates/sheaf-app/src/home.rs:534, crates/sheaf-core/src/sign.rs:348."
    }
   ]
  },
@@ -31641,14 +32191,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine signatures panel",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -31704,6 +32254,17 @@
      "overall": 8
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus sign: in-signature revocation data checked offline (revocation_evidence_inside_a_signature_is_checked_offline); chain intermediates not checked"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
    }
   ]
  },
