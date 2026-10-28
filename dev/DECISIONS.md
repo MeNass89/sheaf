@@ -632,3 +632,8 @@ generates, 24.5 MB of Rust in round 22, 23.8 MB before) peaked past the build's 
 build's own cgroup still has no swap (build-safe.sh), only idle processes may be swapped out. **Alternatives.**
 More code units or no overflow checks for sheaf-app (tried: no lower peak); cutting features. **Would change
 it.** The UI's generated code split across crates, or a larger VM.
+
+## 2026-10-28 · macOS notarisation out of scope for now
+
+**Decision (Nassim, 28/10).** Notarisation of the macOS build waits; C-platform-012 is not held open for it.
+The macOS app stays signed ad hoc (Gatekeeper asks once). **Would change it.** A public macOS release.

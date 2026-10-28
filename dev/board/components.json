@@ -8105,14 +8105,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -8146,6 +8146,17 @@
      "overall": 7
     },
     "proof": "Sol rev36a 28/10: PDF/E export now exists, but its PDF/A-2b conversion removes 3D annotations from engineering documents despite promising to keep them; crates/sheaf-core/src/pdfe.rs:29, third_party/pdfcraft-preflight/src/lib.rs:157, third_party/pdfcraft-preflight/src/lib.rs:648; the PDF/E test covers pictures only (crates/sheaf-core/tests/pdfa.rs:249)."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 35, 2472a17) and Sol AGREE 9 (rev37a, 28/10)"
    }
   ]
  },
@@ -15835,14 +15846,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -15865,6 +15876,17 @@
      "overall": 7
     },
     "proof": "Sol rev35B 27/10: Hairlines, marques, boîtes et véritable aperçu PDF 1.3 présents, mais aucun réglage ni calcul de trapping ; l’interface annonce explicitement son absence : crates/sheaf-app/ui/screens/reader-production.slint:83 ; aperçu testé dans crates/sheaf-core/src/flattener_preview.rs:33."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 35, 2472a17) and Sol AGREE 9 (rev37a, 28/10)"
    }
   ]
  },
@@ -20971,7 +20993,7 @@
   },
   "status": "open",
   "feature": null,
-  "next": "macOS notarisation (needs Nassim's Apple account)",
+  "next": "notarisation out of scope (DECISIONS 28/10); regrade the native builds without it",
   "history": [
    {
     "date": "2026-10-20",

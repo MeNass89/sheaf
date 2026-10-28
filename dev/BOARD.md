@@ -1,13 +1,13 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 309 · closed 309, open 22
+331 components · at parity (≥9): 311 · closed 311, open 20
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
-| 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | macOS notarisation (needs Nassim's Apple account) |
+| 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | notarisation out of scope (DECISIONS 28/10); regrade the native builds without it |
 | 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
 | 3 | C-reader-010 | strong | Gesture zoom and pan | pdfexpert | 8 · 9 · 9 → **8** | pinch zoom and drag-pan (hand tool / space-drag) |
 | 4 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
@@ -22,13 +22,11 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 13 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
 | 14 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
 | 15 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
-| 16 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 7 · 8 · 8 → **7** | light |
-| 17 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 18 | C-optimize-014 | light | Prepare for print production | acrobat | 7 · 8 · 8 → **7** | light |
-| 19 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
-| 20 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
-| 21 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
-| 22 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
+| 16 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 17 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
+| 18 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
+| 19 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
+| 20 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -37,11 +35,11 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | annotate | 38 | 8.8 | 37 |
 | batch | 9 | 9.0 | 9 |
 | compare | 7 | 9.0 | 7 |
-| convert | 20 | 8.8 | 18 |
+| convert | 20 | 8.9 | 19 |
 | edit | 29 | 9.0 | 29 |
 | files | 19 | 8.4 | 17 |
 | forms | 17 | 8.5 | 16 |
-| optimize | 15 | 8.8 | 13 |
+| optimize | 15 | 8.9 | 14 |
 | organize | 27 | 8.9 | 26 |
 | output | 15 | 9.0 | 15 |
 | platform | 14 | 6.9 | 9 |
@@ -127,6 +125,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-convert-016 | Export to PostScript or ebook | 9 | Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28a-round23, 26/10) |
 | C-convert-017 | Set export options | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
 | C-convert-018 | Convert PDF to PDF/A | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
+| C-convert-019 | Save as PDF/X or PDF/E | 9 | Joint 9: Opus (round 35, 2472a17) and Sol AGREE 9 (rev37a, 28/10) |
 | C-convert-020 | Choose online or offline conversion | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
 | C-edit-001 | Enter edit mode | 9 | reviewer 24/10 on d613100: edit group = Edit text, Add image, Link, Redact…, Sign (PDF Expert's strip); fresh captures; fits 1280 px |
 | C-edit-002 | Edit existing text in place | 9 | 85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013 |
@@ -202,6 +201,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-optimize-011 | Repair a damaged PDF | 9 | Joint 9: Opus (round 11, 8d1346d) and Sol AGREE 9 (re-review b15c-round11, 25/10) |
 | C-optimize-012 | Run preflight and output preview | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-optimize-013 | Convert colours or grayscale | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
+| C-optimize-014 | Prepare for print production | 9 | Joint 9: Opus (round 35, 2472a17) and Sol AGREE 9 (rev37a, 28/10) |
 | C-optimize-015 | Create a full-text index | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
 | C-organize-001 | Open page organizer grid | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29a-round24, 27/10) |
 | C-organize-002 | Reorder pages by dragging thumbnails | 9 | Drag thumbnails (multi-select) with a drop line, a page-count badge, auto-scroll at the strip's edges; one undo step; gui-smoke reorders and checks the saved order. Joint 9/10: interim reviewer agreed in round 3 (screenshots 02b, 02e, 03b) |
