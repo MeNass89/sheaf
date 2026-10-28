@@ -7,6 +7,7 @@ import { PanelButton } from "../widgets/panel-button.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { AiBridge } from "../ai.slint";
+import { Chip as ToggleChip } from "redact-panel.slint";
 
 // A suggestion (PDF Expert's prompt chips): a rounded pill that sends its request.
 component Chip inherits Rectangle {
@@ -115,13 +116,19 @@ export component AiPanel inherits Rectangle {
         if AiBridge.space > 0: VerticalLayout {
             spacing: 4px;
             vertical-stretch: 0;
-            // Stirling's classes, kept in the PDFs: the space shown by one category.
-            if AiBridge.space-labels.length > 1: SortCombo {
-                width: 220px;
-                options: AiBridge.space-labels;
-                current-index: AiBridge.space-filter;
-                chevron: @image-url("../icons/chevron-down.svg");
-                selected(i) => { AiBridge.space-act("filter", i); }
+            // Stirling's classes, kept in the PDFs, as chips with their number of files: All, then
+            // each category; a click (or Space on a chip Tab reached) shows that category only, a
+            // second click all of them again. They wrap when there are many.
+            if AiBridge.space-labels.length > 0: FlexboxLayout {
+                flex-wrap: FlexboxLayoutWrap.wrap;
+                spacing: 6px;
+                ToggleChip { text: @tr("All"); count: "" + AiBridge.space-counts[0]; selected: AiBridge.space-filter == 0; clicked => { AiBridge.space-act("filter", 0); } }
+                for c[i] in AiBridge.space-labels: ToggleChip {
+                    text: c;
+                    count: "" + AiBridge.space-counts[i + 1];
+                    selected: AiBridge.space-filter == i + 1;
+                    clicked => { AiBridge.space-act("filter", AiBridge.space-filter == i + 1 ? 0 : i + 1); }
+                }
             }
             if AiBridge.space-files.length == 0: Text { text: @tr("This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
             for f[k] in AiBridge.space-files: HorizontalLayout {
@@ -237,6 +244,22 @@ export component AiPanel inherits Rectangle {
                             if m.saved != "": PanelButton { text: @tr("Open"); clicked => { AiBridge.act(root.id, "open", "" + k, 0, ""); } }
                             if m.highlight: PanelButton { text: @tr("Highlight in PDF"); enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "highlight", "" + k, 0, ""); } }
                             if m.audio: PanelButton { text: @tr("Save audio…"); enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "audio", "" + k, 0, ""); } }
+                        }
+                        // The podcast's options: the voice of each host, the computer's best two of
+                        // the script's language unless chosen here.
+                        if m.audio && !m.live && AiBridge.voices.length > 0: VerticalLayout {
+                            spacing: 6px;
+                            for h[j] in [@tr("First host"), @tr("Second host")]: HorizontalLayout {
+                                spacing: 6px;
+                                Text { text: h; width: 86px; font-size: Theme.fs-caption; color: Theme.text-secondary; vertical-alignment: center; }
+                                SortCombo {
+                                    horizontal-stretch: 1;
+                                    options: AiBridge.voices;
+                                    current-index: j == 0 ? AiBridge.voice-a : AiBridge.voice-b;
+                                    chevron: @image-url("../icons/chevron-down.svg");
+                                    selected(i) => { AiBridge.act(root.id, "voice", "" + i, j, ""); }
+                                }
+                            }
                         }
                     }
                 }

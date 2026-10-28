@@ -994,6 +994,9 @@ sleep 1.5; T4B=$(ai_text)
 L1=$(pdfinfo -custom "$OUT/ai.pdf" 2>/dev/null | awk -F': *' '/^Category/ { print $2 }'); L2=$(pdfinfo -custom "$OUT/ai-two.pdf" 2>/dev/null | awk -F': *' '/^Category/ { print $2 }')
 check "a space holds two PDFs and Classify sorts them, the class kept in each PDF (new $NS, add $A1, classify $C1; requests $N2 → $(ai_requests); space: $SP; $(echo "$T4" | grep -o 'Animals: [a-z.,-]*' | head -1); labels '$L1' '$L2'; list: $(echo "$T4B" | grep -o 'ai.pdf . Animals' | head -1))" \
     "[ \"$SP\" = 'Space 2' ] && [ \$(( \$(ai_requests) - $N2 )) = 2 ] && echo \"$T4\" | grep -q 'Animals: ai' && [ \"$L1\" = Animals ] && [ \"$L2\" = Animals ] && echo \"$T4B\" | grep -q 'pdf . Animals'"
+# Stirling's category filter: chips with their number of files above the list ("All 2", "Animals 2").
+CH=$(echo "$T4B" | grep -oE '(All|Animals) ?2' | tr '\n' ' ')
+check "the space's categories are chips with their counts (chips: ${CH:-none})" "echo \"$CH\" | grep -q All && echo \"$CH\" | grep -q Animals"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
 # 300. Right to left on Home's Tools page and the reader's print sheet (C-platform-004, iLovePDF's right-to-left
 # interface): the Tools page's title row reads from the right (the search field left of Custom tools), and the print sheet's

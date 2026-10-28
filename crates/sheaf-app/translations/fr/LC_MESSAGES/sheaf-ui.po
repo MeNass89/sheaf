@@ -6983,3 +6983,11 @@ msgstr "Réglages…"
 #: ui/main.slint
 msgid "Minimize"
 msgstr "Réduire"
+
+#: ui/screens/ai-panel.slint
+msgid "First host"
+msgstr "Premier animateur"
+
+#: ui/screens/ai-panel.slint
+msgid "Second host"
+msgstr "Second animateur"

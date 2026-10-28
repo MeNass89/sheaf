@@ -13,22 +13,48 @@ component SectionLabel inherits Text {
     color: Theme.text;
 }
 
-// A pattern chip: toggled on and off.
+// A pattern chip: toggled on and off, by a click or, once Tab reaches it, Space or Return.
+// `count`, when set, follows the text in a muted figure (Stirling's category chips, "Invoices 4").
 export component Chip inherits Rectangle {
     in property <string> text;
+    in property <string> count;
     in property <bool> selected;
     callback clicked();
     height: 28px;
-    width: label.preferred-width + 20px;
+    width: row.preferred-width + 20px;
     border-radius: 14px;
-    border-width: root.selected ? 0 : 1px;
-    border-color: t.has-hover ? Theme.text-secondary : Theme.option-border;
+    border-width: focus.has-focus ? 2px : root.selected ? 0 : 1px;
+    border-color: focus.has-focus ? Theme.accent : t.has-hover ? Theme.text-secondary : Theme.option-border;
     background: root.selected ? Theme.option-selected-bg : Theme.panel-bg;
-    label := Text {
-        text: root.text;
-        font-size: Theme.fs-label;
-        font-weight: root.selected ? Theme.weight-demibold : 400;
-        color: root.selected ? Theme.accent : Theme.text;
+    accessible-role: button;
+    accessible-label: root.count == "" ? root.text : root.text + " " + root.count;
+    accessible-checkable: true;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+    row := HorizontalLayout {
+        alignment: center;
+        spacing: 6px;
+        label := Text {
+            text: root.text;
+            font-size: Theme.fs-label;
+            font-weight: root.selected ? Theme.weight-demibold : 400;
+            color: root.selected ? Theme.accent : Theme.text;
+            vertical-alignment: center;
+        }
+        if root.count != "": Text {
+            text: root.count;
+            font-size: Theme.fs-caption;
+            font-weight: Theme.weight-demibold;
+            color: root.selected ? Theme.accent : Theme.text-muted;
+            vertical-alignment: center;
+        }
+    }
+    // Focus comes by Tab only: a click leaves it where it was (in a field being typed in).
+    focus := FocusScope {
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return { root.clicked(); return accept; }
+            reject
+        }
     }
     t := TouchArea {
         mouse-cursor: pointer;
