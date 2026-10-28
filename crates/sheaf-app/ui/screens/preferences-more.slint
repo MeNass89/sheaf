@@ -99,13 +99,13 @@ export component PrintDefaultsSection inherits Card {
             clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, i, SettingsBridge.print-layout); }
         }
     }
-    Caption { text: "Quality"; }
+    Caption { text: @tr("Quality"); }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        for label[i] in ["Printer's own", "Draft", "Normal", "High"]: Segment {
+        for label[i] in [@tr("Printer's own"), @tr("Draft"), @tr("Normal"), @tr("High")]: Segment {
             width: i == 0 ? 130px : 90px;
             text: label;
             selected: SettingsBridge.print-quality == i;

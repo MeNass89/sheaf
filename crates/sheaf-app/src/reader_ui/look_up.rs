@@ -28,7 +28,7 @@ pub fn look_up(ui: &AppWindow, words: slint::SharedString) {
             }
         }
         crate::run::open_detached(dictionary_target(&one_line, false));
-        crate::flow::toast(ui, "Looked up in Wiktionary, in your browser");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Looked up in Wiktionary, in your browser"));
     }
     #[cfg(target_os = "macos")]
     let _ = ui;

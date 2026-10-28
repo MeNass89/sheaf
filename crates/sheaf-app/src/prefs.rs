@@ -123,6 +123,8 @@ pub struct Prefs {
     pub no_gpu: bool,
     /// Acrobat's display colour management: an RGB monitor ICC, or the renderer's sRGB.
     pub display_profile: Option<PathBuf>,
+    /// Acrobat's Use display profile: the system's profile for the display, read at each start.
+    pub display_system: bool,
     /// The art (green), trim (blue) and bleed (red) boxes drawn on the pages (Acrobat's Show art,
     /// trim & bleed boxes).
     pub show_boxes: bool,

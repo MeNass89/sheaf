@@ -60,7 +60,7 @@ pub fn quit_warning() -> bool {
 pub fn open_web_link(ui: &AppWindow, doc: &std::path::Path, url: &str) {
     match home::prefs().settings.trust.web_link(doc, url) {
         Verdict::Allow => crate::run::open_detached(url),
-        Verdict::Block => crate::flow::toast(ui, "Blocked by Preferences ▸ Security: the link was not opened"),
+        Verdict::Block => crate::flow::toast(ui, &sheaf_app::i18n::tr("Blocked by Preferences ▸ Security: the link was not opened")),
         Verdict::Ask => {
             let g = ui.global::<SettingsBridge>();
             g.set_ask_site(sheaf_app::settings::site(url).unwrap_or_default().into());
@@ -80,7 +80,7 @@ pub fn ask_other_app(ui: &AppWindow, doc: &std::path::Path, file: &std::path::Pa
             false
         }
         Verdict::Block => {
-            crate::flow::toast(ui, "Preferences ▸ Security keeps files that are not PDFs from opening in other apps");
+            crate::flow::toast(ui, &sheaf_app::i18n::tr("Preferences ▸ Security keeps files that are not PDFs from opening in other apps"));
             false
         }
     }
@@ -124,8 +124,8 @@ pub fn install(ui: &AppWindow) {
         let Some(ui) = w.upgrade() else { return };
         let k = usize::try_from(k).unwrap_or(usize::MAX);
         match what {
-            0 => crate::dialog::pick_folder(&ui, crate::dialog::new(&ui).set_title("A trusted folder"), |ui, p| update(ui, |s| s.trust.add_location(p))),
-            1 => crate::dialog::pick_file(&ui, crate::dialog::new(&ui).set_title("A trusted file").add_filter("PDF", &["pdf"]), |ui, p| update(ui, |s| s.trust.add_location(p))),
+            0 => crate::dialog::pick_folder(&ui, crate::dialog::new(&ui).set_title(sheaf_app::i18n::tr("A trusted folder")), |ui, p| update(ui, |s| s.trust.add_location(p))),
+            1 => crate::dialog::pick_file(&ui, crate::dialog::new(&ui).set_title(sheaf_app::i18n::tr("A trusted file")).add_filter("PDF", &["pdf"]), |ui, p| update(ui, |s| s.trust.add_location(p))),
             2 => update(&ui, |s| {
                 if k < s.trust.locations.len() {
                     s.trust.locations.remove(k);
@@ -170,6 +170,12 @@ pub fn install(ui: &AppWindow) {
                 update(&ui, |s| s.open_at_login = on);
             }
             Err(e) => g.set_login_error(format!("The login item could not be changed: {e}").into()),
+        }
+    });
+    let w = ui.as_weak();
+    g.on_use_system_display(move || {
+        if let Some(ui) = w.upgrade() {
+            crate::home::use_system_display(&ui);
         }
     });
     let w = ui.as_weak();

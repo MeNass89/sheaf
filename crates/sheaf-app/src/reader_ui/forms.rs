@@ -97,7 +97,7 @@ pub fn form_op(ui: &AppWindow, tab_id: i32, op: i32) {
         let d = crate::dialog::new(ui).add_filter("Form data", &["xfdf", "fdf", "xml", "csv", "txt"]);
         return crate::dialog::pick_file(ui, d, move |ui, path| {
             let Ok(bytes) = std::fs::read(&path) else {
-                return crate::flow::toast(ui, "That file could not be read");
+                return crate::flow::toast(ui, &sheaf_app::i18n::tr("That file could not be read"));
             };
             apply_structure(ui, tab_id, Edit::ImportData { name: file_name(&path), bytes: Arc::new(bytes) });
         });

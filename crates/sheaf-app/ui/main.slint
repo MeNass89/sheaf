@@ -24,6 +24,7 @@ import { AiBridge, AiMessage } from "ai.slint";
 import { SettingsBridge } from "settings.slint";
 import { LinkWarningDialog } from "screens/preferences-more.slint";
 import { FeedbackBridge, ReportIssueDialog } from "screens/feedback.slint";
+import { PluginBridge, PluginRow, PluginWarningDialog } from "screens/preferences-plugins.slint";
 
 export { PrintPreviewBridge, InkPlate }
 
@@ -32,6 +33,7 @@ export { PortfolioBridge, PortfolioRow, JavaScriptBridge, DocumentScriptRow, Lib
 export { PlatformBridge, SpellIssue, ShortcutRow, Launcher, DictionaryRow }
 export { AiBridge, AiMessage }
 export { SettingsBridge, FeedbackBridge }
+export { PluginBridge, PluginRow }
 
 export enum Page { recents, tools, history, preferences, actions, library }
 
@@ -677,6 +679,8 @@ export component AppWindow inherits Window {
     // A document's web link under Preferences ▸ Security, and Help ▸ Report an Issue.
     if SettingsBridge.ask-url != "": LinkWarningDialog {}
     if FeedbackBridge.open: ReportIssueDialog {}
+    // The warning before a plugin runs for the first time.
+    if PluginBridge.ask-name != "": PluginWarningDialog {}
     if root.confirm-visible: ConfirmCloseDialog {
         cancel-job => { root.confirm-cancel-job(); }
         keep => { root.confirm-keep(); }

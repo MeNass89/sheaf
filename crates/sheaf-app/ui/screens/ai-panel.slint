@@ -84,9 +84,9 @@ export component AiPanel inherits Rectangle {
             setup := VerticalLayout {
                 padding: 10px;
                 spacing: 8px;
-                Text { text: "No AI provider yet"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                Text { text: "Add an API key (OpenAI, Claude, Gemini, Mistral, xAI) or start Ollama or a llama.cpp server on this computer."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
-                HorizontalLayout { alignment: start; PanelButton { text: "Set up AI…"; primary: true; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } } }
+                Text { text: @tr("No AI provider yet"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                Text { text: @tr("Add an API key (OpenAI, Claude, Gemini, Mistral, xAI) or start Ollama or a llama.cpp server on this computer."); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                HorizontalLayout { alignment: start; PanelButton { text: @tr("Set up AI…"); primary: true; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } } }
             }
         }
         if AiBridge.off: Rectangle {
@@ -123,7 +123,7 @@ export component AiPanel inherits Rectangle {
                 chevron: @image-url("../icons/chevron-down.svg");
                 selected(i) => { AiBridge.space-act("filter", i); }
             }
-            if AiBridge.space-files.length == 0: Text { text: "This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+            if AiBridge.space-files.length == 0: Text { text: @tr("This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
             for f[k] in AiBridge.space-files: HorizontalLayout {
                 spacing: 6px;
                 Text { text: f; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; TouchArea { mouse-cursor: pointer; clicked => { AiBridge.space-act("open", k); } } }
@@ -138,17 +138,17 @@ export component AiPanel inherits Rectangle {
                     init => { self.focus-input(); }
                     accepted => { AiBridge.space-rename(self.text); root.renaming = false; }
                 }
-                PanelButton { width: 64px; text: "Done"; clicked => { AiBridge.space-rename(name-field.text); root.renaming = false; } }
+                PanelButton { width: 64px; text: @tr("Done"); clicked => { AiBridge.space-rename(name-field.text); root.renaming = false; } }
             }
             HorizontalLayout {
                 spacing: 6px;
                 alignment: start;
                 PanelButton { text: @tr("Add PDFs…"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("add", 0); } }
-                PanelButton { text: "Rename"; enabled: !AiBridge.busy; clicked => { root.renaming = true; } }
+                PanelButton { text: @tr("Rename"); enabled: !AiBridge.busy; clicked => { root.renaming = true; } }
                 PanelButton { text: @tr("Delete space"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("delete", 0); } }
             }
             HorizontalLayout { alignment: start; PanelButton { text: @tr("Export space…"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("export", 0); } } }
-            Text { text: "Drop PDFs on the document to add them to this space."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+            Text { text: @tr("Drop PDFs on the document to add them to this space."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
         }
         // The tools (scope, suggestions, translate, classify) fold away once the conversation starts,
         // leaving it the room (PDF Expert shows its prompt chips before the first question).
@@ -220,8 +220,8 @@ export component AiPanel inherits Rectangle {
                         if m.retry || m.settings: HorizontalLayout {
                             spacing: 6px;
                             alignment: start;
-                            if m.retry: PanelButton { text: "Try again"; enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "retry", "" + k, 0, ""); } }
-                            if m.settings: PanelButton { text: "Open AI settings…"; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } }
+                            if m.retry: PanelButton { text: @tr("Try again"); enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "retry", "" + k, 0, ""); } }
+                            if m.settings: PanelButton { text: @tr("Open AI settings…"); clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } }
                         }
                         // Acrobat's citations: each page cited opens there.
                         if m.cites.length > 0 && !m.live: FlexboxLayout {
@@ -236,7 +236,7 @@ export component AiPanel inherits Rectangle {
                             PanelButton { text: @tr("Save…"); clicked => { AiBridge.act(root.id, "save", "" + k, 0, ""); } }
                             if m.saved != "": PanelButton { text: @tr("Open"); clicked => { AiBridge.act(root.id, "open", "" + k, 0, ""); } }
                             if m.highlight: PanelButton { text: @tr("Highlight in PDF"); enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "highlight", "" + k, 0, ""); } }
-                            if m.audio: PanelButton { text: "Save audio…"; enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "audio", "" + k, 0, ""); } }
+                            if m.audio: PanelButton { text: @tr("Save audio…"); enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "audio", "" + k, 0, ""); } }
                         }
                     }
                 }

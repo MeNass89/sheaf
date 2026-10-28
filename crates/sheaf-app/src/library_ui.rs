@@ -131,7 +131,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if what == "export-marked" {
         let ids = CATALOG.with(|c| c.borrow().marked.iter().cloned().collect::<Vec<_>>());
         if ids.is_empty() { return; }
-        let d = crate::dialog::new(ui).set_title("Export selected library files");
+        let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Export selected library files"));
         crate::dialog::pick_folder(ui, d, move |ui, out| {
             ui.global::<LibraryBridge>().set_busy(true);
             let weak = ui.as_weak();
@@ -156,7 +156,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     }
     if what == "refresh" { return refresh(ui, selected(ui).as_ref().map(|e| e.id.as_str())); }
     if what == "add" {
-        let d = crate::dialog::new(ui).set_title("Add private copies to Library");
+        let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Add private copies to Library"));
         return crate::dialog::pick_files(ui, d, |ui, files| {
             ui.global::<LibraryBridge>().set_busy(true);
             status(ui, "Adding files…");
@@ -205,7 +205,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             });
         }
         "update" => {
-            let d = crate::dialog::new(ui).set_title("Choose the new file version");
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose the new file version"));
             crate::dialog::pick_file(ui, d, move |ui, path| {
                 match library().update(&entry.id, &path) { Ok(()) => { refresh(ui, Some(&entry.id)); status(ui, "New version kept"); }, Err(e) => status(ui, e.to_string()) }
             });

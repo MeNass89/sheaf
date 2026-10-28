@@ -71,7 +71,7 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
     if update(id, |r, _| r.catalog_panel.as_ref().is_none_or(|p| p.busy)).unwrap_or(true) { return; }
     match action {
         1 => {
-            let d = crate::dialog::new(ui).set_title("Add PDFs to the catalog").add_filter("PDF", &["pdf"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Add PDFs to the catalog")).add_filter("PDF", &["pdf"]);
             crate::dialog::pick_files(ui, d, move |_, paths| {
                 update(id, |r, _| {
                     if let Some(panel) = r.catalog_panel.as_mut().filter(|p| !p.busy) {
@@ -98,7 +98,7 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
             Err(error) => crate::flow::toast(ui, error),
         },
         8 => {
-            let d = crate::dialog::new(ui).set_title("Add a folder of PDFs (including subfolders)");
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Add a folder of PDFs (including subfolders)"));
             crate::dialog::pick_folder(ui, d, move |_, folder| {
                 update(id, |r, _| {
                     if let Some(panel) = r.catalog_panel.as_mut().filter(|p| !p.busy) {
@@ -130,16 +130,16 @@ pub fn catalog_action(ui: &AppWindow, id: i32, action: i32, index: i32, query: &
 
 fn build(ui: &AppWindow, id: i32) {
     let Some(files) = update(id, |r, _| r.catalog_panel.as_ref().map(|p| p.files.clone())).flatten() else { return };
-    if files.is_empty() { return crate::flow::toast(ui, "Add at least one PDF first"); }
+    if files.is_empty() { return crate::flow::toast(ui, &sheaf_app::i18n::tr("Add at least one PDF first")); }
     let previous = update(id, |r, _| r.catalog_panel.as_ref().and_then(|p| p.catalog.clone().or_else(|| p.previous.clone()))).flatten();
-    let d = crate::dialog::new(ui).set_title("Build search catalog").set_file_name(".sheaf-index.json").add_filter("Sheaf search catalog", &["json"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Build search catalog")).set_file_name(".sheaf-index.json").add_filter("Sheaf search catalog", &["json"]);
     crate::dialog::save_file(ui, d, move |ui, out| {
         let Some(cancel) = start(id, "Building the catalog…") else { return };
         let weak = ui.as_weak();
         std::thread::spawn(move || {
             let inputs: Vec<_> = files.iter().map(Input::new).collect();
             let mut progress = |at: usize, total: usize| {
-                let progress = format!("Indexing PDF {at} of {total}…");
+                let progress = sheaf_app::i18n::trf("Indexing PDF {} of {}…", &[&at, &total]);
                 let flag = cancel.clone();
                 let _ = weak.upgrade_in_event_loop(move |_| {
                     update(id, |r, _| {
@@ -164,9 +164,9 @@ fn build(ui: &AppWindow, id: i32) {
                         Ok((catalog, saved)) => {
                             p.files = catalog.sources().into_iter().map(|(path, _)| path).collect();
                             p.catalog = Some(Arc::new(catalog));
-                            p.status = format!("Saved {} · {} PDFs", saved.display(), p.files.len());
+                            p.status = sheaf_app::i18n::trf("Saved {} · {} PDFs", &[&saved.display(), &p.files.len()]);
                         }
-                        Err(error) => p.status = format!("Catalog not built: {error}"),
+                        Err(error) => p.status = sheaf_app::i18n::trf("Catalog not built: {}", &[&error]),
                     }
                 });
             });
@@ -175,7 +175,7 @@ fn build(ui: &AppWindow, id: i32) {
 }
 
 fn load(ui: &AppWindow, id: i32) {
-    let d = crate::dialog::new(ui).set_title("Open search catalog").add_filter("Sheaf search catalog", &["json"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Open search catalog")).add_filter("Sheaf search catalog", &["json"]);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let Some(cancel) = start(id, "Opening the catalog…") else { return };
         let weak = ui.as_weak();
@@ -190,9 +190,9 @@ fn load(ui: &AppWindow, id: i32) {
                             p.previous = None;
                             p.files = catalog.sources().into_iter().map(|(path, _)| path).collect();
                             p.catalog = Some(Arc::new(catalog));
-                            p.status = format!("Opened {} · {} PDFs", path.display(), p.files.len());
+                            p.status = sheaf_app::i18n::trf("Opened {} · {} PDFs", &[&path.display(), &p.files.len()]);
                         }
-                        Err(error) => p.status = format!("Cannot open catalog: {error}"),
+                        Err(error) => p.status = sheaf_app::i18n::trf("Cannot open catalog: {}", &[&error]),
                     }
                 });
             });
@@ -209,9 +209,9 @@ fn search_options(flags: i32) -> Result<SearchOptions, &'static str> {
 }
 
 fn search(ui: &AppWindow, id: i32, query: &str, options: SearchOptions) {
-    if query.is_empty() { return crate::flow::toast(ui, "Type the words to find first"); }
+    if query.is_empty() { return crate::flow::toast(ui, &sheaf_app::i18n::tr("Type the words to find first")); }
     let Some(catalog) = update(id, |r, _| r.catalog_panel.as_ref()?.catalog.clone()).flatten() else {
-        return crate::flow::toast(ui, "Build or open a catalog first");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Build or open a catalog first"));
     };
     let Some(cancel) = start(id, "Searching the catalog…") else { return };
     let query = query.to_owned();
@@ -224,13 +224,13 @@ fn search(ui: &AppWindow, id: i32, query: &str, options: SearchOptions) {
                 p.busy = false;
                 match result {
                     Ok(mut hits) => {
-                        p.status = if hits.len() > 500 { format!("{} pages found · first 500 shown", hits.len()) } else { format!("{} pages found", hits.len()) };
+                        p.status = if hits.len() > 500 { sheaf_app::i18n::trf("{} pages found · first 500 shown", &[&hits.len()]) } else { sheaf_app::i18n::trf("{} pages found", &[&hits.len()]) };
                         let stale = catalog.stale_sources().len();
-                        if stale > 0 { p.status.push_str(&format!(" · {stale} changed/missing PDFs excluded; update the catalog")); }
+                        if stale > 0 { p.status.push_str(&sheaf_app::i18n::trf(" · {} changed/missing PDFs excluded; update the catalog", &[&stale])); }
                         hits.truncate(500);
                         p.results = hits;
                     }
-                    Err(error) => p.status = format!("Search unavailable: {error}. Rebuild if a source changed or moved."),
+                    Err(error) => p.status = sheaf_app::i18n::trf("Search unavailable: {}. Rebuild if a source changed or moved.", &[&error]),
                 }
             });
         });

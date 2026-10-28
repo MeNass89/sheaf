@@ -30,7 +30,7 @@ pub fn read_aloud(ui: &AppWindow, tab_id: i32, what: i32) {
     }
     if stop() {
         PAUSED.store(false, Ordering::SeqCst);
-        return crate::flow::toast(ui, "Reading stopped");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Reading stopped"));
     }
     let Some((bytes, password, from, count, selection)) = update(tab_id, |r, v| {
         let sel = r.sel.as_ref().and_then(|(p, range)| r.texts.get(p).map(|t| reader::selected_text(t, range.clone()))).unwrap_or_default();
@@ -42,17 +42,17 @@ pub fn read_aloud(ui: &AppWindow, tab_id: i32, what: i32) {
     let voice = crate::home::prefs().reading_voice;
     if what == 3 {
         if selection.trim().is_empty() {
-            return crate::flow::toast(ui, "Select some text to read first");
+            return crate::flow::toast(ui, &sheaf_app::i18n::tr("Select some text to read first"));
         }
         let go = Arc::new(AtomicBool::new(true));
         if let Some(child) = crate::run::speak(&selection, speed, voice.as_deref()) {
             *SPEAKING.lock().unwrap_or_else(|e| e.into_inner()) = Some((child, go));
         }
-        return crate::flow::toast(ui, "Reading the selection");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Reading the selection"));
     }
     let count = if what == 2 { from + 1 } else { count };
     let go = Arc::new(AtomicBool::new(true));
-    crate::flow::toast(ui, &if what == 2 { format!("Reading page {}", from + 1) } else { format!("Reading from page {}: More ▸ Read aloud again stops", from + 1) });
+    crate::flow::toast(ui, &if what == 2 { sheaf_app::i18n::trf("Reading page {}", &[&(from + 1)]) } else { sheaf_app::i18n::trf("Reading from page {}: More ▸ Read aloud again stops", &[&(from + 1)]) });
     std::thread::spawn(move || {
         let config = render::RenderConfig { password: password.as_deref().map(Arc::from), ..Default::default() };
         let mut pages = render::PageRenderer::new(bytes, config);
@@ -93,14 +93,14 @@ pub fn read_aloud(ui: &AppWindow, tab_id: i32, what: i32) {
 /// be paused from outside, it is stopped).
 fn pause(ui: &AppWindow) {
     let slot = SPEAKING.lock().unwrap_or_else(|e| e.into_inner());
-    let Some((child, _)) = slot.as_ref() else { return crate::flow::toast(ui, "Nothing is being read") };
+    let Some((child, _)) = slot.as_ref() else { return crate::flow::toast(ui, &sheaf_app::i18n::tr("Nothing is being read")) };
     let paused = !PAUSED.load(Ordering::SeqCst);
     #[cfg(unix)]
     {
         let sig = if paused { "-STOP" } else { "-CONT" };
         let _ = std::process::Command::new("kill").args([sig, &child.id().to_string()]).status();
         PAUSED.store(paused, Ordering::SeqCst);
-        crate::flow::toast(ui, if paused { "Reading paused: Pause reading again resumes" } else { "Reading resumed" });
+        crate::flow::toast(ui, &if paused { sheaf_app::i18n::tr("Reading paused: Pause reading again resumes") } else { sheaf_app::i18n::tr("Reading resumed") });
     }
     // Windows: the voice follows its control file, and keeps its place.
     #[cfg(not(unix))]
@@ -108,7 +108,7 @@ fn pause(ui: &AppWindow) {
         let _ = child;
         let _ = std::fs::write(crate::run::speech_control(), if paused { "pause" } else { "resume" });
         PAUSED.store(paused, Ordering::SeqCst);
-        crate::flow::toast(ui, if paused { "Reading paused: Pause reading again resumes" } else { "Reading resumed" });
+        crate::flow::toast(ui, &if paused { sheaf_app::i18n::tr("Reading paused: Pause reading again resumes") } else { sheaf_app::i18n::tr("Reading resumed") });
     }
 }
 
@@ -133,11 +133,11 @@ pub fn voice_pick(ui: &AppWindow, tab_id: i32, k: i32) {
     })
     .flatten();
     crate::home::set_reading_voice(name.clone());
-    crate::flow::toast(ui, &format!("Voice: {}", name.as_deref().unwrap_or("the system's")));
+    crate::flow::toast(ui, &sheaf_app::i18n::trf("Voice: {}", &[&name.as_deref().unwrap_or("the system's")]));
 }
 
 /// More ▸ Reading speed: the next of normal, slow, fast, said and kept.
 pub fn reading_speed(ui: &AppWindow) {
     let s = crate::home::cycle_reading_speed();
-    crate::flow::toast(ui, &format!("Reading speed: {}", ["normal", "slow", "fast"][s.min(2) as usize]));
+    crate::flow::toast(ui, &sheaf_app::i18n::trf("Reading speed: {}", &[&(["normal", "slow", "fast"][s.min(2) as usize])]));
 }

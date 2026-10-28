@@ -16,7 +16,7 @@ pub fn install(ui: &AppWindow) {
             Some((r.snap.bytes.clone(), r.snap.password.clone(), v.current()))
         }).flatten();
         let Some((bytes, password, page)) = snapshot else {
-            crate::flow::toast(&ui, "Wait for the document's edits to finish before previewing ink plates");
+            crate::flow::toast(&ui, &sheaf_app::i18n::tr("Wait for the document's edits to finish before previewing ink plates"));
             return;
         };
         let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;

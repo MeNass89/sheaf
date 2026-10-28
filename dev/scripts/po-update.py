@@ -39,7 +39,7 @@ for f in sorted(glob.glob(crate + '/ui/**/*.slint', recursive=True)):
         add(m, os.path.relpath(f, crate))
 for f in sorted(glob.glob(crate + '/src/**/*.rs', recursive=True)):
     if f.endswith('i18n.rs'): continue
-    for m in msgs(open(f).read().replace('i18n::tr("', '@tr("')):
+    for m in msgs(open(f).read().replace('i18n::tr("', '@tr("').replace('i18n::trf("', '@tr("')):
         add(m, os.path.relpath(f, crate))
 core = open(crate + '/../sheaf-core/src/tools.rs').read()
 i = core.index('pub fn label')

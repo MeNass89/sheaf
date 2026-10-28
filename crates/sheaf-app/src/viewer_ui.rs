@@ -979,7 +979,7 @@ pub fn search(ui: &AppWindow, tab_id: i32, text: &str, patterns: &str) {
             })
             .flatten();
             if let Some(e) = err {
-                crate::flow::toast(&ui, &format!("Search failed: {e}"));
+                crate::flow::toast(&ui, &sheaf_app::i18n::trf("Search failed: {}", &[&e]));
             }
         });
     });
@@ -1013,7 +1013,7 @@ pub fn mark_page(ui: &AppWindow, tab_id: i32, range: &str) {
     } else {
         match sheaf_core::ranges::parse_ranges(range, count as u32) {
             Ok(rs) => rs.into_iter().flatten().map(|p| p as usize - 1).collect(),
-            Err(e) => return crate::flow::toast(ui, &format!("Pages: {e}")),
+            Err(e) => return crate::flow::toast(ui, &sheaf_app::i18n::trf("Pages: {}", &[&e])),
         }
     };
     let weak = ui.as_weak();

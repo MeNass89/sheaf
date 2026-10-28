@@ -733,6 +733,18 @@ msgid "Turn off AI"
 msgstr "Désactiver l’IA"
 
 #: ui/screens/ai-panel.slint
+msgid "No AI provider yet"
+msgstr "Aucun fournisseur d’IA pour l’instant"
+
+#: ui/screens/ai-panel.slint
+msgid "Add an API key (OpenAI, Claude, Gemini, Mistral, xAI) or start Ollama or a llama.cpp server on this computer."
+msgstr "Ajoutez une clé d’API (OpenAI, Claude, Gemini, Mistral, xAI) ou lancez Ollama ou un serveur llama.cpp sur cet ordinateur."
+
+#: ui/screens/ai-panel.slint
+msgid "Set up AI…"
+msgstr "Configurer l’IA…"
+
+#: ui/screens/ai-panel.slint
 msgid "Sending text to AI is off. Nothing leaves this computer."
 msgstr "L’envoi de texte à l’IA est désactivé. Rien ne quitte cet ordinateur."
 
@@ -744,13 +756,25 @@ msgstr "Activer"
 msgid "New space"
 msgstr "Nouvel espace"
 
-#: ui/screens/ai-panel.slint ui/screens/catalog.slint ui/screens/certificate-encrypt.slint ui/screens/feedback.slint ui/screens/options.slint ui/screens/portfolio.slint ui/screens/preferences-more.slint ui/screens/preferences.slint ui/screens/reader-sheets.slint
+#: ui/screens/ai-panel.slint
+msgid "This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."
+msgstr "Cet espace est vide : Ajouter des PDF… y place des fichiers. Les questions et les résumés lisent chaque fichier."
+
+#: ui/screens/ai-panel.slint ui/screens/catalog.slint ui/screens/certificate-encrypt.slint ui/screens/feedback.slint ui/screens/options.slint ui/screens/portfolio.slint ui/screens/preferences-more.slint ui/screens/preferences-plugins.slint ui/screens/preferences.slint ui/screens/reader-sheets.slint
 msgid "Remove"
 msgstr "Retirer"
+
+#: ui/screens/ai-panel.slint ui/screens/reader-form.slint ui/screens/reader.slint ui/screens/spelling-dialog.slint
+msgid "Done"
+msgstr "Terminé"
 
 #: ui/screens/ai-panel.slint ui/screens/catalog.slint
 msgid "Add PDFs…"
 msgstr "Ajouter des PDF…"
+
+#: src/reader_ui/saving.rs ui/screens/ai-panel.slint ui/screens/reader-panel.slint
+msgid "Rename"
+msgstr "Renommer"
 
 #: ui/screens/ai-panel.slint
 msgid "Delete space"
@@ -759,6 +783,10 @@ msgstr "Supprimer l’espace"
 #: ui/screens/ai-panel.slint
 msgid "Export space…"
 msgstr "Exporter l’espace…"
+
+#: ui/screens/ai-panel.slint
+msgid "Drop PDFs on the document to add them to this space."
+msgstr "Déposez des PDF sur le document pour les ajouter à cet espace."
 
 #: ui/screens/ai-panel.slint
 msgid "Import space…"
@@ -833,12 +861,24 @@ msgid "AI"
 msgstr "IA"
 
 #: ui/screens/ai-panel.slint
+msgid "Try again"
+msgstr "Réessayer"
+
+#: ui/screens/ai-panel.slint
+msgid "Open AI settings…"
+msgstr "Ouvrir les réglages de l’IA…"
+
+#: ui/screens/ai-panel.slint
 msgid "Save…"
 msgstr "Enregistrer…"
 
 #: ui/screens/ai-panel.slint
 msgid "Highlight in PDF"
 msgstr "Surligner dans le PDF"
+
+#: ui/screens/ai-panel.slint
+msgid "Save audio…"
+msgstr "Enregistrer l’audio…"
 
 #: ui/screens/ai-panel.slint
 msgid "Ask about the space's PDFs"
@@ -1093,8 +1133,28 @@ msgid "Save changes to “{}”?"
 msgstr "Enregistrer les modifications de « {} » ?"
 
 #: ui/screens/dialogs.slint
+msgid "1 mark is not applied: Redact applies it."
+msgstr "1 marque n’est pas appliquée : Caviarder l’applique."
+
+#: ui/screens/dialogs.slint
+msgid "{} marks are not applied: Redact applies them."
+msgstr "{} marques ne sont pas appliquées : Caviarder les applique."
+
+#: ui/screens/dialogs.slint
+msgid "Your annotations will be lost if you don’t save them."
+msgstr "Vos annotations seront perdues si vous ne les enregistrez pas."
+
+#: ui/screens/dialogs.slint
 msgid "Don’t Save"
 msgstr "Ne pas enregistrer"
+
+#: ui/screens/edit-panel.slint
+msgid "Click on a page to add a text box, then type your text below. Click a box to select it, drag it to move it."
+msgstr "Cliquez sur une page pour ajouter une zone de texte, puis saisissez votre texte ci-dessous. Cliquez sur une zone pour la sélectionner, faites-la glisser pour la déplacer."
+
+#: ui/screens/edit-panel.slint
+msgid "Choose an image, then click on a page to place it. Click an image to select it, drag it to move it."
+msgstr "Choisissez une image, puis cliquez sur une page pour la placer. Cliquez sur une image pour la sélectionner, faites-la glisser pour la déplacer."
 
 #: ui/screens/edit-panel.slint ui/screens/reader.slint
 msgid "Add text"
@@ -1163,6 +1223,18 @@ msgstr "Retirer le texte"
 #: ui/screens/edit-panel.slint
 msgid "Remove image"
 msgstr "Retirer l’image"
+
+#: ui/screens/edit-panel.slint
+msgid "Nothing added yet."
+msgstr "Rien n’a encore été ajouté."
+
+#: ui/screens/edit-panel.slint
+msgid "1 item added"
+msgstr "1 élément ajouté"
+
+#: ui/screens/edit-panel.slint
+msgid "{} items added"
+msgstr "{} éléments ajoutés"
 
 #: ui/screens/edit-panel.slint
 msgid "Text and images become part of the page: every PDF reader shows them."
@@ -1648,7 +1720,7 @@ msgstr "Les pages vierges (détectées pour vous)"
 msgid "Strict"
 msgstr "Strict"
 
-#: ui/screens/options.slint
+#: ui/screens/options.slint ui/screens/preferences-more.slint
 msgid "Normal"
 msgstr "Normal"
 
@@ -2377,6 +2449,14 @@ msgid "Reads the text of scanned pages"
 msgstr "Lit le texte des pages numérisées"
 
 #: ui/screens/options.slint
+msgid "Converts scanned PDFs with non-selectable text to editable {} files."
+msgstr "Convertit les PDF numérisés dont le texte n’est pas sélectionnable en fichiers {} modifiables."
+
+#: ui/screens/options.slint
+msgid "Converts PDFs with selectable text to editable {} files."
+msgstr "Convertit les PDF dont le texte est sélectionnable en fichiers {} modifiables."
+
+#: ui/screens/options.slint
 msgid "This PDF looks scanned: its text can't be selected. Choose OCR to get editable text."
 msgstr "Ce PDF semble numérisé : son texte ne peut pas être sélectionné. Choisissez OCR pour obtenir du texte modifiable."
 
@@ -2395,6 +2475,10 @@ msgstr "Texte continu"
 #: ui/screens/options.slint
 msgid "Page layout"
 msgstr "Mise en page"
+
+#: ui/screens/options.slint
+msgid "Each page looks as it does in the PDF, its text in boxes you can edit."
+msgstr "Chaque page garde l’aspect du PDF, son texte dans des zones modifiables."
 
 #: ui/screens/options.slint
 msgid "One sheet"
@@ -2435,6 +2519,30 @@ msgstr "XML"
 #: ui/screens/options.slint
 msgid "Ebook"
 msgstr "Livre numérique"
+
+#: ui/screens/options.slint
+msgid "One .html file that opens in any browser, its pictures inside it."
+msgstr "Un seul fichier .html, lisible dans tout navigateur, images incluses."
+
+#: ui/screens/options.slint
+msgid "A .md file: headings, paragraphs and tables in Markdown. Pictures are left out."
+msgstr "Un fichier .md : titres, paragraphes et tableaux en Markdown. Les images sont omises."
+
+#: ui/screens/options.slint
+msgid "An .rtf file that word processors open, with its sizes, bold, italic and colours."
+msgstr "Un fichier .rtf lisible par les traitements de texte, avec tailles, gras, italique et couleurs."
+
+#: ui/screens/options.slint
+msgid "A .txt file: the text in reading order, a paragraph per line, table cells split by tabs."
+msgstr "Un fichier .txt : le texte dans l’ordre de lecture, un paragraphe par ligne, les cellules de tableau séparées par des tabulations."
+
+#: ui/screens/options.slint
+msgid "An .xml file: each page's headings, paragraphs, tables and pictures, in reading order."
+msgstr "Un fichier .xml : titres, paragraphes, tableaux et images de chaque page, dans l’ordre de lecture."
+
+#: ui/screens/options.slint
+msgid "An .epub ebook that reflows on any reader's screen: a chapter per page, its pictures and tables."
+msgstr "Un livre numérique .epub qui s’adapte à l’écran de toute liseuse : un chapitre par page, avec ses images et ses tableaux."
 
 #: ui/screens/options.slint
 msgid "Layout is approximate: text, paragraphs, tables and images are recovered; exact formatting may differ."
@@ -2813,6 +2921,22 @@ msgid "Auto"
 msgstr "Auto"
 
 #: ui/screens/preferences-more.slint
+msgid "Quality"
+msgstr "Qualité"
+
+#: ui/screens/preferences-more.slint
+msgid "Printer's own"
+msgstr "Celle de l’imprimante"
+
+#: ui/screens/preferences-more.slint
+msgid "Draft"
+msgstr "Brouillon"
+
+#: ui/screens/preferences-more.slint
+msgid "High"
+msgstr "Haute"
+
+#: ui/screens/preferences-more.slint
 msgid "Security"
 msgstr "Sécurité"
 
@@ -2820,11 +2944,11 @@ msgstr "Sécurité"
 msgid "Enhanced security"
 msgstr "Sécurité renforcée"
 
-#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+#: ui/screens/preferences-more.slint ui/screens/preferences-plugins.slint ui/screens/reader-sheets.slint
 msgid "On"
 msgstr "Activée"
 
-#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+#: ui/screens/preferences-more.slint ui/screens/preferences-plugins.slint ui/screens/reader-sheets.slint
 msgid "Off"
 msgstr "Désactivée"
 
@@ -3056,6 +3180,62 @@ msgstr "De droite à gauche"
 msgid "Language"
 msgstr "Langue"
 
+#: src/main.rs ui/screens/preferences-plugins.slint
+msgid "Plugins"
+msgstr "Plug-ins"
+
+#: ui/screens/preferences-plugins.slint
+msgid "A plugin adds tools to the Tools page and to actions. Each runs as a separate program on a copy of the PDF; Sheaf asks before a plugin runs for the first time."
+msgstr "Un plug-in ajoute des outils à la page Outils et aux actions. Chacun s’exécute comme un programme distinct sur une copie du PDF ; Sheaf demande avant la première exécution d’un plug-in."
+
+#: ui/screens/preferences-plugins.slint
+msgid "No plugin installed."
+msgstr "Aucun plug-in installé."
+
+#: ui/screens/preferences-plugins.slint
+msgid "Tools: {}"
+msgstr "Outils : {}"
+
+#: ui/screens/preferences-plugins.slint
+msgid " · not run yet"
+msgstr " · jamais exécuté"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Click again to remove"
+msgstr "Cliquez à nouveau pour retirer"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Add a plugin…"
+msgstr "Ajouter un plug-in…"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Open the plugins folder"
+msgstr "Ouvrir le dossier des plug-ins"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Run the plugin “{}”?"
+msgstr "Exécuter le plug-in « {} » ?"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Its author is not named."
+msgstr "Son auteur n’est pas indiqué."
+
+#: ui/screens/preferences-plugins.slint
+msgid "By {}."
+msgstr "Par {}."
+
+#: ui/screens/preferences-plugins.slint
+msgid "It runs this program on a copy of your PDF, with your account's rights: it can read and change your files. Allow it only if you trust where the plugin comes from."
+msgstr "Il exécute ce programme sur une copie de votre PDF, avec les droits de votre compte : il peut lire et modifier vos fichiers. Autorisez-le seulement si vous faites confiance à sa provenance."
+
+#: ui/screens/preferences-plugins.slint
+msgid "Don’t run"
+msgstr "Ne pas exécuter"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Allow and run"
+msgstr "Autoriser et exécuter"
+
 #: ui/screens/preferences.slint
 msgid "Appearance"
 msgstr "Apparence"
@@ -3107,6 +3287,22 @@ msgstr "Numéros de page imprimés (iv)"
 #: ui/screens/preferences.slint
 msgid "Show transparency grid"
 msgstr "Afficher la grille de transparence"
+
+#: ui/screens/preferences.slint
+msgid "Display colour profile"
+msgstr "Profil colorimétrique de l’écran"
+
+#: ui/screens/preferences.slint
+msgid "Choose monitor ICC…"
+msgstr "Choisir l’ICC du moniteur…"
+
+#: ui/screens/preferences.slint
+msgid "Use sRGB"
+msgstr "Utiliser sRGB"
+
+#: ui/screens/preferences.slint
+msgid "Use the system's profile"
+msgstr "Profil du système"
 
 #: ui/screens/preferences.slint
 msgid "Use the graphics card"
@@ -3423,10 +3619,6 @@ msgstr "Créer"
 #: ui/screens/reader-form.slint
 msgid "On every page"
 msgstr "Sur chaque page"
-
-#: ui/screens/reader-form.slint ui/screens/reader.slint ui/screens/spelling-dialog.slint
-msgid "Done"
-msgstr "Terminé"
 
 #: ui/screens/reader-form.slint
 msgid "{} fields selected"
@@ -3765,10 +3957,6 @@ msgid "+ Bookmark"
 msgstr "+ Signet"
 
 #: ui/screens/reader-panel.slint
-msgid "Rename"
-msgstr "Renommer"
-
-#: ui/screens/reader-panel.slint
 msgid "Delete bookmark"
 msgstr "Supprimer le signet"
 
@@ -3848,7 +4036,7 @@ msgstr "Accepté"
 msgid "Rejected"
 msgstr "Refusé"
 
-#: ui/screens/reader-panel.slint
+#: src/run.rs ui/screens/reader-panel.slint
 msgid "Cancelled"
 msgstr "Annulé"
 
@@ -3920,7 +4108,7 @@ msgstr "Transitions…"
 msgid "1 page"
 msgstr "1 page"
 
-#: ui/screens/reader-panel.slint
+#: src/reader_ui/folder_search.rs ui/screens/reader-panel.slint
 msgid "{} pages"
 msgstr "{} pages"
 
@@ -4152,7 +4340,7 @@ msgstr "Lancer le contrôle"
 msgid "Results keep the thresholds checked"
 msgstr "Les résultats conservent les seuils vérifiés"
 
-#: ui/screens/reader-prepress.slint ui/widgets/file-card.slint
+#: src/reader_ui/model.rs ui/screens/reader-prepress.slint ui/widgets/file-card.slint
 msgid "Page {}"
 msgstr "Page {}"
 
@@ -4535,6 +4723,10 @@ msgstr "Revenir à la version enregistrée"
 #: ui/screens/reader-sheets.slint
 msgid "Unsaved changes are lost"
 msgstr "Les modifications non enregistrées seront perdues"
+
+#: ui/screens/reader-sheets.slint
+msgid "Not searched"
+msgstr "Non recherché"
 
 #: ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
 msgid "Accessibility check"
@@ -5051,6 +5243,10 @@ msgstr "Sa longueur réelle — par exemple 4,5 m"
 #: ui/screens/reader.slint
 msgid "Remove link"
 msgstr "Supprimer le lien"
+
+#: ui/screens/reader.slint
+msgid "Preview of {}: a PDF made to read it. Save As keeps it as a PDF."
+msgstr "Aperçu de {} : un PDF fait pour le lire. Enregistrer sous le garde en PDF."
 
 #: ui/screens/reader.slint
 msgid "✓ Sync scroll and zoom"
@@ -5580,6 +5776,898 @@ msgstr "Afficher le mot de passe"
 msgid "Soon"
 msgstr "Bientôt"
 
+#: src/actions_ui.rs
+msgid "Save action results from open PDFs"
+msgstr "Enregistrer les résultats de l’action sur les PDF ouverts"
+
+#: src/actions_ui.rs
+msgid "Choose the input PDF folder"
+msgstr "Choisir le dossier des PDF d’entrée"
+
+#: src/actions_ui.rs
+msgid "Choose the output folder"
+msgstr "Choisir le dossier de sortie"
+
+#: src/actions_ui.rs
+msgid "Choose the folder to watch"
+msgstr "Choisir le dossier à surveiller"
+
+#: src/actions_ui.rs
+msgid "Choose a separate output folder"
+msgstr "Choisir un dossier de sortie distinct"
+
+#: src/ai_ui.rs
+msgid "PDFs to classify"
+msgstr "PDF à classer"
+
+#: src/ai_ui.rs
+msgid "Save the slides"
+msgstr "Enregistrer les diapositives"
+
+#: src/ai_ui.rs
+msgid "{} is not in this space"
+msgstr "{} ne fait pas partie de cet espace"
+
+#: src/ai_ui.rs
+msgid "Save the podcast audio"
+msgstr "Enregistrer l’audio du podcast"
+
+#: src/ai_ui.rs
+msgid "Copied"
+msgstr "Copié"
+
+#: src/ai_ui.rs
+msgid "The clipboard is not available"
+msgstr "Le presse-papiers n’est pas disponible"
+
+#: src/ai_ui.rs
+msgid "Save the answer"
+msgstr "Enregistrer la réponse"
+
+#: src/ai_ui.rs
+msgid "Saved {}"
+msgstr "{} enregistré"
+
+#: src/ai_ui.rs
+msgid "Only PDFs go in an AI space"
+msgstr "Un espace IA n’accepte que des PDF"
+
+#: src/ai_ui.rs
+msgid "Added to the space “{}”"
+msgstr "Ajouté à l’espace « {} »"
+
+#: src/ai_ui.rs
+msgid "Spaces not saved: {}"
+msgstr "Espaces non enregistrés : {}"
+
+#: src/ai_ui.rs
+msgid "Export the space"
+msgstr "Exporter l’espace"
+
+#: src/ai_ui.rs
+msgid "Exported {}: keep it with the PDFs, paths are relative to it"
+msgstr "{} exporté : gardez-le avec les PDF, les chemins sont relatifs à ce fichier"
+
+#: src/ai_ui.rs
+msgid "The space could not be exported: {}"
+msgstr "Impossible d’exporter l’espace : {}"
+
+#: src/ai_ui.rs
+msgid "Import a space"
+msgstr "Importer un espace"
+
+#: src/ai_ui.rs
+msgid "Not found next to the space file: {}"
+msgstr "Introuvable à côté du fichier de l’espace : {}"
+
+#: src/ai_ui.rs
+msgid "Add PDFs to the space"
+msgstr "Ajouter des PDF à l’espace"
+
+#: src/dest.rs
+msgid "Choose a folder for the files"
+msgstr "Choisir un dossier pour les fichiers"
+
+#: src/edit_ui.rs src/reader_ui/pointer.rs
+msgid "Choose an image"
+msgstr "Choisir une image"
+
+#: src/feedback_ui.rs
+msgid "Files to attach"
+msgstr "Fichiers à joindre"
+
+#: src/feedback_ui.rs
+msgid "Save the report"
+msgstr "Enregistrer le rapport"
+
+#: src/feedback_ui.rs
+msgid "Report saved"
+msgstr "Rapport enregistré"
+
+#: src/feedback_ui.rs src/reader_ui/properties.rs
+msgid "Report copied"
+msgstr "Rapport copié"
+
+#: src/feedback_ui.rs src/reader_ui/properties.rs
+msgid "The clipboard could not be reached"
+msgstr "Impossible d’accéder au presse-papiers"
+
+#: src/feedback_ui.rs
+msgid "Attach your files on the issue page"
+msgstr "Joignez vos fichiers sur la page du ticket"
+
+#: src/flow.rs
+msgid "{} has unsaved changes: its saved version was added"
+msgstr "{} contient des modifications non enregistrées : sa version enregistrée a été ajoutée"
+
+#: src/flow.rs
+msgid "{} documents have unsaved changes: their saved versions were added"
+msgstr "{} documents contiennent des modifications non enregistrées : leurs versions enregistrées ont été ajoutées"
+
+#: src/flow.rs
+msgid "The pages are merged as arranged in Pages; moving a file here merges the files whole"
+msgstr "Les pages sont fusionnées dans l’ordre défini dans Pages ; déplacer un fichier ici fusionne les fichiers entiers"
+
+#: src/flow.rs
+msgid "The library working copy was kept: {}"
+msgstr "La copie de travail de la bibliothèque a été conservée : {}"
+
+#: src/flow.rs
+msgid "{} tab{} with a running task stayed open"
+msgstr "Restés ouverts car une tâche y est en cours : {} onglet{}"
+
+#: src/flow.rs
+msgid "Choose a tool for {}"
+msgstr "Choisissez un outil pour {}"
+
+#: src/home.rs
+msgid "The system's display profile"
+msgstr "Le profil d’affichage du système"
+
+#: src/home.rs
+msgid "sRGB (the system sets no display profile)"
+msgstr "sRGB (le système ne définit aucun profil d’affichage)"
+
+#: src/home.rs
+msgid "Always save to"
+msgstr "Toujours enregistrer dans"
+
+#: src/home.rs
+msgid "The two passwords differ"
+msgstr "Les deux mots de passe sont différents"
+
+#: src/home.rs
+msgid "Type the name the digital ID is issued to"
+msgstr "Saisissez le nom du titulaire de l’identifiant numérique"
+
+#: src/home.rs
+msgid "Save the new digital ID"
+msgstr "Enregistrer le nouvel identifiant numérique"
+
+#: src/home.rs
+msgid "Creating the digital ID…"
+msgstr "Création de l’identifiant numérique…"
+
+#: src/home.rs
+msgid "Digital ID created: {} (certificate to share: {})"
+msgstr "Identifiant numérique créé : {} (certificat à partager : {})"
+
+#: src/home.rs
+msgid "Digital ID not created: {}"
+msgstr "Identifiant numérique non créé : {}"
+
+#: src/home.rs
+msgid "A digital ID"
+msgstr "Un identifiant numérique"
+
+#: src/home.rs
+msgid "A certificate to trust"
+msgstr "Un certificat à approuver"
+
+#: src/home.rs
+msgid "Takes effect when Sheaf starts again"
+msgstr "Prend effet au prochain démarrage de Sheaf"
+
+#: src/home.rs
+msgid "Choose RGB monitor ICC profile"
+msgstr "Choisir le profil ICC RVB du moniteur"
+
+#: src/home.rs
+msgid "No display profile from the system ({}): pages stay in sRGB"
+msgstr "Aucun profil d’affichage du système ({}) : les pages restent en sRGB"
+
+#: src/home.rs
+msgid "The guide could not be opened ({})"
+msgstr "Impossible d’ouvrir le guide ({})"
+
+#: src/home.rs
+msgid "Could not remove the recent file. Please try again."
+msgstr "Impossible de retirer le fichier récent. Veuillez réessayer."
+
+#: src/home.rs
+msgid "Could not clear recent files. Please try again."
+msgstr "Impossible d’effacer les fichiers récents. Veuillez réessayer."
+
+#: src/home.rs
+msgid "These files are no longer where they were."
+msgstr "Ces fichiers ne sont plus à leur emplacement d’origine."
+
+#: src/library_ui.rs
+msgid "Export selected library files"
+msgstr "Exporter les fichiers sélectionnés de la bibliothèque"
+
+#: src/library_ui.rs
+msgid "Add private copies to Library"
+msgstr "Ajouter des copies privées à la bibliothèque"
+
+#: src/library_ui.rs
+msgid "Choose the new file version"
+msgstr "Choisir la nouvelle version du fichier"
+
+#: src/main.rs
+msgid "Preview of {}: Save As keeps it as a PDF"
+msgstr "Aperçu de {} : Enregistrer sous le conserve en PDF"
+
+#: src/main.rs
+msgid "Can't preview {}: {}"
+msgstr "Aperçu de {} impossible : {}"
+
+#: src/main.rs src/reader_ui/pages.rs
+msgid "The clipboard holds no PDF, picture or text"
+msgstr "Le presse-papiers ne contient ni PDF, ni image, ni texte"
+
+#: src/main.rs
+msgid "No screenshot was taken"
+msgstr "Aucune capture d’écran n’a été prise"
+
+#: src/main.rs src/reader_ui/pages.rs
+msgid "Scanning…"
+msgstr "Numérisation…"
+
+#: src/main.rs
+msgid "Choose the watermark image"
+msgstr "Choisir l’image du filigrane"
+
+#: src/main.rs
+msgid "Choose your certificate"
+msgstr "Choisir votre certificat"
+
+#: src/main.rs
+msgid "Not found: {}"
+msgstr "Introuvable : {}"
+
+#: src/plugins_ui.rs
+msgid "{} · by {}"
+msgstr "{} · par {}"
+
+#: src/plugins_ui.rs
+msgid "{}: {}"
+msgstr "{} : {}"
+
+#: src/plugins_ui.rs
+msgid "Plugin ▸ {} ▸ {}"
+msgstr "Plug-in ▸ {} ▸ {}"
+
+#: src/plugins_ui.rs
+msgid " (in {})"
+msgstr " (dans {})"
+
+#: src/plugins_ui.rs
+msgid "That plugin is missing or turned off (Preferences ▸ Plugins)"
+msgstr "Ce plug-in est absent ou désactivé (Préférences ▸ Plug-ins)"
+
+#: src/plugins_ui.rs
+msgid "PDFs for {}"
+msgstr "PDF pour {}"
+
+#: src/plugins_ui.rs
+msgid "{} is running…"
+msgstr "{} en cours…"
+
+#: src/plugins_ui.rs
+msgid "{}: {} written"
+msgstr "{} : {} écrit(s)"
+
+#: src/plugins_ui.rs
+msgid "{} removed"
+msgstr "{} retiré"
+
+#: src/plugins_ui.rs
+msgid "A plugin folder (holding plugin.json)"
+msgstr "Un dossier de plug-in (contenant plugin.json)"
+
+#: src/plugins_ui.rs
+msgid "{} {} added"
+msgstr "{} {} ajouté"
+
+#: src/portfolio_ui.rs
+msgid "Add original files to the portfolio"
+msgstr "Ajouter des fichiers originaux au portfolio"
+
+#: src/reader_ui/accessibility.rs src/reader_ui/prepress.rs src/reader_ui/properties.rs
+msgid "Report saved as {}"
+msgstr "Rapport enregistré sous {}"
+
+#: src/reader_ui/accessibility.rs src/reader_ui/prepress.rs src/reader_ui/properties.rs
+msgid "The report was not saved: {}"
+msgstr "Le rapport n’a pas été enregistré : {}"
+
+#: src/reader_ui/ai_doc.rs
+msgid "This document has no page {}"
+msgstr "Ce document n’a pas de page {}"
+
+#: src/reader_ui/catalog.rs
+msgid "Add PDFs to the catalog"
+msgstr "Ajouter des PDF au catalogue"
+
+#: src/reader_ui/catalog.rs
+msgid "Add a folder of PDFs (including subfolders)"
+msgstr "Ajouter un dossier de PDF (sous-dossiers compris)"
+
+#: src/reader_ui/catalog.rs
+msgid "Add at least one PDF first"
+msgstr "Ajoutez d’abord au moins un PDF"
+
+#: src/reader_ui/catalog.rs
+msgid "Build search catalog"
+msgstr "Créer le catalogue de recherche"
+
+#: src/reader_ui/catalog.rs
+msgid "Indexing PDF {} of {}…"
+msgstr "Indexation du PDF {} sur {}…"
+
+#: src/reader_ui/catalog.rs
+msgid "Saved {} · {} PDFs"
+msgstr "{} enregistré · {} PDF"
+
+#: src/reader_ui/catalog.rs
+msgid "Catalog not built: {}"
+msgstr "Catalogue non créé : {}"
+
+#: src/reader_ui/catalog.rs
+msgid "Open search catalog"
+msgstr "Ouvrir un catalogue de recherche"
+
+#: src/reader_ui/catalog.rs
+msgid "Opened {} · {} PDFs"
+msgstr "{} ouvert · {} PDF"
+
+#: src/reader_ui/catalog.rs
+msgid "Cannot open catalog: {}"
+msgstr "Impossible d’ouvrir le catalogue : {}"
+
+#: src/reader_ui/catalog.rs src/reader_ui/folder_search.rs src/reader_ui/search.rs
+msgid "Type the words to find first"
+msgstr "Saisissez d’abord les mots à rechercher"
+
+#: src/reader_ui/catalog.rs
+msgid "Build or open a catalog first"
+msgstr "Créez ou ouvrez d’abord un catalogue"
+
+#: src/reader_ui/catalog.rs
+msgid "{} pages found · first 500 shown"
+msgstr "{} pages trouvées · 500 premières affichées"
+
+#: src/reader_ui/catalog.rs
+msgid "{} pages found"
+msgstr "{} pages trouvées"
+
+#: src/reader_ui/catalog.rs
+msgid " · {} changed/missing PDFs excluded; update the catalog"
+msgstr " · {} PDF modifiés ou manquants exclus ; mettez le catalogue à jour"
+
+#: src/reader_ui/catalog.rs
+msgid "Search unavailable: {}. Rebuild if a source changed or moved."
+msgstr "Recherche indisponible : {}. Recréez le catalogue si une source a changé ou a été déplacée."
+
+#: src/reader_ui/certificate.rs
+msgid "Recipient certificate"
+msgstr "Certificat du destinataire"
+
+#: src/reader_ui/certificate.rs
+msgid "Your digital ID"
+msgstr "Votre identifiant numérique"
+
+#: src/reader_ui/certificate.rs
+msgid "Export certificate policy"
+msgstr "Exporter la stratégie par certificat"
+
+#: src/reader_ui/certificate.rs
+msgid "Import certificate policy"
+msgstr "Importer une stratégie par certificat"
+
+#: src/reader_ui/certificate.rs
+msgid "Save encrypted copy"
+msgstr "Enregistrer une copie chiffrée"
+
+#: src/reader_ui/certificate.rs
+msgid "Encrypted copy saved as {}"
+msgstr "Copie chiffrée enregistrée sous {}"
+
+#: src/reader_ui/certificate.rs
+msgid "Opened with your digital ID. Not allowed: {}"
+msgstr "Ouvert avec votre identifiant numérique. Non autorisé : {}"
+
+#: src/reader_ui/edits.rs
+msgid "Choose a picture for the stamp"
+msgstr "Choisir une image pour le tampon"
+
+#: src/reader_ui/edits.rs
+msgid "That picture could not be read (PNG or JPEG)"
+msgstr "Impossible de lire cette image (PNG ou JPEG)"
+
+#: src/reader_ui/edits.rs src/reader_ui/forms.rs src/reader_ui/saving.rs
+msgid "That file could not be read"
+msgstr "Impossible de lire ce fichier"
+
+#: src/reader_ui/edits.rs
+msgid "Deleted from the {} pages it was placed on (⌘Z brings them back)"
+msgstr "Supprimé des {} pages où il figurait (⌘Z le rétablit)"
+
+#: src/reader_ui/edits.rs
+msgid "Replace the image"
+msgstr "Remplacer l’image"
+
+#: src/reader_ui/folder_search.rs
+msgid "{} PDFs"
+msgstr "{} PDF"
+
+#: src/reader_ui/folder_search.rs
+msgid "Not found in the folder's {} read."
+msgstr "Introuvable dans le dossier ({} lus)."
+
+#: src/reader_ui/folder_search.rs
+msgid "Stopped at the first {} found, after {} — type more words to narrow it."
+msgstr "Recherche arrêtée à {}, après {} — saisissez plus de mots pour l’affiner."
+
+#: src/reader_ui/folder_search.rs
+msgid "{} found in {}"
+msgstr "Résultats : {} dans {}"
+
+#: src/reader_ui/folder_search.rs
+msgid "{}{} {} could not be searched (listed below)."
+msgstr "{}{} Recherche impossible dans {} (liste ci-dessous)."
+
+#: src/reader_ui/folder_search.rs
+msgid "Search the PDFs of a folder"
+msgstr "Rechercher dans les PDF d’un dossier"
+
+#: src/reader_ui/javascript.rs
+msgid "JavaScript: beep"
+msgstr "JavaScript : bip"
+
+#: src/reader_ui/layers.rs
+msgid "The layers could not be hidden: they are shown as the file sets them"
+msgstr "Impossible de masquer les calques : ils s’affichent comme le fichier le prévoit"
+
+#: src/reader_ui/look_up.rs
+msgid "Looked up in Wiktionary, in your browser"
+msgstr "Recherché dans le Wiktionnaire, dans votre navigateur"
+
+#: src/reader_ui/loupe.rs
+msgid "Loupe: point at the page to magnify it"
+msgstr "Loupe : pointez sur la page pour l’agrandir"
+
+#: src/reader_ui/mod.rs
+msgid "{} Repair PDF can try to rebuild it."
+msgstr "{} Réparer un PDF peut tenter de le reconstruire."
+
+#: src/reader_ui/mod.rs
+msgid "Saved {}{}"
+msgstr "{} enregistré{}"
+
+#: src/reader_ui/mod.rs
+msgid "Not saved: {}"
+msgstr "Non enregistré : {}"
+
+#: src/reader_ui/mod.rs
+msgid "The flattened copy was not made: {}"
+msgstr "La copie aplatie n’a pas été créée : {}"
+
+#: src/reader_ui/mod.rs src/reader_ui/saving.rs
+msgid "{} attached to a new mail"
+msgstr "{} joint à un nouveau message"
+
+#: src/reader_ui/mod.rs src/reader_ui/saving.rs
+msgid "No mail app to send it with: attach the file from your mail"
+msgstr "Aucune app de messagerie pour l’envoyer : joignez le fichier depuis votre messagerie"
+
+#: src/reader_ui/mod.rs
+msgid "Flattened copy saved as {}"
+msgstr "Copie aplatie enregistrée sous {}"
+
+#: src/reader_ui/mod.rs
+msgid "Picture copied: ⌘V pastes it on a page, or in another app"
+msgstr "Image copiée : ⌘V la colle sur une page ou dans une autre app"
+
+#: src/reader_ui/mod.rs
+msgid "The picture was not copied: {}"
+msgstr "L’image n’a pas été copiée : {}"
+
+#: src/reader_ui/mod.rs
+msgid "Objects copied: ⌘V pastes them on a page, or as a picture in another app"
+msgstr "Objets copiés : ⌘V les colle sur une page, ou en tant qu’image dans une autre app"
+
+#: src/reader_ui/mod.rs
+msgid "The objects were not copied: {}"
+msgstr "Les objets n’ont pas été copiés : {}"
+
+#: src/reader_ui/mod.rs
+msgid "Pages not copied: {}"
+msgstr "Pages non copiées : {}"
+
+#: src/reader_ui/mod.rs
+msgid "This comment could not be copied"
+msgstr "Impossible de copier ce commentaire"
+
+#: src/reader_ui/mod.rs
+msgid "{}: ⌘V pastes on the page shown"
+msgstr "{} : ⌘V colle sur la page affichée"
+
+#: src/reader_ui/mod.rs
+msgid "Exported to {}"
+msgstr "Exporté vers {}"
+
+#: src/reader_ui/mod.rs
+msgid "Not exported: {}"
+msgstr "Non exporté : {}"
+
+#: src/reader_ui/mod.rs
+msgid "{} opened: the file as it was saved then"
+msgstr "{} ouvert : le fichier tel qu’il était enregistré à ce moment"
+
+#: src/reader_ui/mod.rs src/reader_ui/saving.rs
+msgid "Version not opened: {}"
+msgstr "Version non ouverte : {}"
+
+#: src/reader_ui/mod.rs
+msgid "Extracted one file per page to {}"
+msgstr "Un fichier par page extrait dans {}"
+
+#: src/reader_ui/mod.rs
+msgid "Extracted to {}"
+msgstr "Extrait dans {}"
+
+#: src/reader_ui/mod.rs
+msgid "Not extracted: {}"
+msgstr "Non extrait : {}"
+
+#: src/reader_ui/model.rs
+msgid "Page {} · {} results"
+msgstr "Page {} · {} résultats"
+
+#: src/reader_ui/model.rs
+msgid "Calibrated · {}"
+msgstr "Étalonné · {}"
+
+#: src/reader_ui/model.rs
+msgid "True size · {}"
+msgstr "Taille réelle · {}"
+
+#: src/reader_ui/model.rs
+msgid "Replace the {} page{} with pages of {} ({}) from page"
+msgstr "Remplacer {} page{} par des pages de {} ({}) à partir de la page"
+
+#: src/reader_ui/model.rs
+msgid "{} · DATED"
+msgstr "{} · DATÉ"
+
+#: src/reader_ui/model.rs
+msgid "Picture · {}"
+msgstr "Image · {}"
+
+#: src/reader_ui/model.rs
+msgid "{} failed · {} to check by hand · {} passed"
+msgstr "{} en échec · {} à vérifier manuellement · {} réussis"
+
+#: src/reader_ui/model.rs
+msgid "Open the version signed by {}"
+msgstr "Ouvrir la version signée par {}"
+
+#: src/reader_ui/model.rs
+msgid "Trust {}'s certificate"
+msgstr "Approuver le certificat de {}"
+
+#: src/reader_ui/nav.rs
+msgid "Drag over the part of the page to zoom to"
+msgstr "Faites glisser sur la partie de la page à agrandir"
+
+#: src/reader_ui/nav.rs
+msgid "Drag over the part of the page to copy as a picture"
+msgstr "Faites glisser sur la partie de la page à copier en image"
+
+#: src/reader_ui/output_preview.rs
+msgid "Wait for the document's edits to finish before previewing ink plates"
+msgstr "Attendez la fin des modifications du document avant d’afficher l’aperçu des plaques d’encre"
+
+#: src/reader_ui/pages.rs
+msgid "Those pages could not be made"
+msgstr "Impossible de créer ces pages"
+
+#: src/reader_ui/pages.rs
+msgid "Every page reads upright"
+msgstr "Toutes les pages sont à l’endroit"
+
+#: src/reader_ui/pages.rs
+msgid "{} page{} turned upright"
+msgstr "Redressement effectué : {} page{}"
+
+#: src/reader_ui/pages.rs src/reader_ui/saving.rs
+msgid "{} could not be read: {}"
+msgstr "Impossible de lire {} : {}"
+
+#: src/reader_ui/pages.rs
+msgid "A PDF needs at least one page: extract without deleting them"
+msgstr "Un PDF doit contenir au moins une page : extrayez sans les supprimer"
+
+#: src/reader_ui/pages.rs
+msgid "Next page after: \"{}\" is not a number of seconds"
+msgstr "Page suivante après : « {} » n’est pas un nombre de secondes"
+
+#: src/reader_ui/pages.rs
+msgid "Start: \"{}\" is not a page number (1 or more)"
+msgstr "Début : « {} » n’est pas un numéro de page (1 ou plus)"
+
+#: src/reader_ui/pages.rs
+msgid "Through: \"{}\" is not a page number (1 or more)"
+msgstr "Jusqu’à : « {} » n’est pas un numéro de page (1 ou plus)"
+
+#: src/reader_ui/pages.rs
+msgid "{} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page"
+msgstr "{} page{} dans le presse-papiers : ⌘V dans le panneau Pages d’un document {} place après sa page sélectionnée"
+
+#: src/reader_ui/pages.rs
+msgid "it"
+msgstr "la"
+
+#: src/reader_ui/pages.rs
+msgid "them"
+msgstr "les"
+
+#: src/reader_ui/pointer.rs
+msgid "The clipboard holds no image to paste"
+msgstr "Le presse-papiers ne contient aucune image à coller"
+
+#: src/reader_ui/pointer.rs
+msgid "The image on the clipboard could not be read"
+msgstr "Impossible de lire l’image du presse-papiers"
+
+#: src/reader_ui/pointer.rs
+msgid "The linked file was not found"
+msgstr "Le fichier lié est introuvable"
+
+#: src/reader_ui/prepare.rs
+msgid "Tab order set for every page"
+msgstr "Ordre de tabulation défini pour toutes les pages"
+
+#: src/reader_ui/prepare.rs
+msgid "Ask for two copies or more"
+msgstr "Demandez au moins deux exemplaires"
+
+#: src/reader_ui/prepare.rs
+msgid "The copies would run off the page: fewer, or start higher up"
+msgstr "Les exemplaires dépasseraient de la page : réduisez leur nombre ou commencez plus haut"
+
+#: src/reader_ui/prepress.rs
+msgid "Use image thresholds from 1 to 9600 ppi (fail ≤ target), and bleed from 0 to 50 mm"
+msgstr "Utilisez des seuils d’image de 1 à 9600 ppp (échec ≤ cible) et un fond perdu de 0 à 50 mm"
+
+#: src/reader_ui/prepress.rs
+msgid "Preflight could not finish: {}"
+msgstr "Le contrôle en amont n’a pas pu aboutir : {}"
+
+#: src/reader_ui/prepress.rs
+msgid "Save print preflight report"
+msgstr "Enregistrer le rapport de contrôle en amont d’impression"
+
+#: src/reader_ui/prepress.rs
+msgid "Use a minimum stroke from 0.01 to 10 points"
+msgstr "Utilisez un trait minimal de 0,01 à 10 points"
+
+#: src/reader_ui/prepress.rs
+msgid "Use a mark width from 0.1 to 2 points"
+msgstr "Utilisez une épaisseur de repère de 0,1 à 2 points"
+
+#: src/reader_ui/prepress.rs
+msgid "Choose press ICC profile"
+msgstr "Choisir le profil ICC de la presse"
+
+#: src/reader_ui/prepress.rs
+msgid "{} is not installed. Install its ICC locally, or choose the press's ICC file"
+msgstr "{} n’est pas installé. Installez son ICC localement ou choisissez le fichier ICC de la presse"
+
+#: src/reader_ui/prepress.rs
+msgid "Choose the press's CMYK or Gray ICC profile first"
+msgstr "Choisissez d’abord le profil ICC CMJN ou Niveaux de gris de la presse"
+
+#: src/reader_ui/prepress.rs
+msgid "Name the press output condition"
+msgstr "Nommez la condition de sortie de la presse"
+
+#: src/reader_ui/prepress.rs
+msgid "Exporting a PDF/X snapshot in the background; you can keep editing"
+msgstr "Exportation d’un instantané PDF/X en arrière-plan ; vous pouvez continuer à modifier"
+
+#: src/reader_ui/prepress.rs
+msgid "PDF/X copy saved as {}; full ISO validation was not performed"
+msgstr "Copie PDF/X enregistrée sous {} ; la validation ISO complète n’a pas été effectuée"
+
+#: src/reader_ui/prepress.rs
+msgid "PDF/X copy was not saved: {}"
+msgstr "La copie PDF/X n’a pas été enregistrée : {}"
+
+#: src/reader_ui/properties.rs
+msgid "The signed version could not be opened: {}"
+msgstr "Impossible d’ouvrir la version signée : {}"
+
+#: src/reader_ui/saving.rs
+msgid "That file is open in another tab: close it first"
+msgstr "Ce fichier est ouvert dans un autre onglet : fermez-le d’abord"
+
+#: src/reader_ui/saving.rs
+msgid "It could not be renamed: {}"
+msgstr "Impossible de le renommer : {}"
+
+#: src/reader_ui/saving.rs
+msgid "Renamed {}"
+msgstr "{} renommé"
+
+#: src/reader_ui/saving.rs
+msgid "Save {} first: a new window opens the file as saved"
+msgstr "Enregistrez d’abord {} : une nouvelle fenêtre ouvre le fichier tel qu’il est enregistré"
+
+#: src/reader_ui/saving.rs
+msgid "A new window could not be opened"
+msgstr "Impossible d’ouvrir une nouvelle fenêtre"
+
+#: src/reader_ui/saving.rs
+msgid "{} has unsaved edits: save them or close it first"
+msgstr "{} contient des modifications non enregistrées : enregistrez-les ou fermez-le d’abord"
+
+#: src/reader_ui/saving.rs
+msgid "{} moved to the Trash"
+msgstr "{} placé dans la corbeille"
+
+#: src/reader_ui/saving.rs
+msgid "It could not be moved to the Trash: {}"
+msgstr "Impossible de le placer dans la corbeille : {}"
+
+#: src/reader_ui/saving.rs
+msgid "Choose a tool for your file"
+msgstr "Choisissez un outil pour votre fichier"
+
+#: src/reader_ui/saving.rs
+msgid "Not opened: {}"
+msgstr "Non ouvert : {}"
+
+#: src/reader_ui/saving.rs
+msgid "A picture behind the pages"
+msgstr "Une image derrière les pages"
+
+#: src/reader_ui/saving.rs
+msgid "Not attached: {}"
+msgstr "Non joint : {}"
+
+#: src/reader_ui/saving.rs
+msgid "A file attached to a page keeps its name"
+msgstr "Un fichier joint à une page garde son nom"
+
+#: src/reader_ui/security_policy.rs
+msgid "Import security policy"
+msgstr "Importer une stratégie de sécurité"
+
+#: src/reader_ui/security_policy.rs
+msgid "Export security policy"
+msgstr "Exporter la stratégie de sécurité"
+
+#: src/reader_ui/security_policy.rs
+msgid "Save protected copy"
+msgstr "Enregistrer une copie protégée"
+
+#: src/reader_ui/security_policy.rs
+msgid "Protected copy saved as {}"
+msgstr "Copie protégée enregistrée sous {}"
+
+#: src/reader_ui/speech.rs
+msgid "Reading stopped"
+msgstr "Lecture arrêtée"
+
+#: src/reader_ui/speech.rs
+msgid "Select some text to read first"
+msgstr "Sélectionnez d’abord le texte à lire"
+
+#: src/reader_ui/speech.rs
+msgid "Reading the selection"
+msgstr "Lecture de la sélection"
+
+#: src/reader_ui/speech.rs
+msgid "Reading page {}"
+msgstr "Lecture de la page {}"
+
+#: src/reader_ui/speech.rs
+msgid "Reading from page {}: More ▸ Read aloud again stops"
+msgstr "Lecture à partir de la page {} : Plus ▸ Lecture à voix haute à nouveau l’arrête"
+
+#: src/reader_ui/speech.rs
+msgid "Nothing is being read"
+msgstr "Aucune lecture en cours"
+
+#: src/reader_ui/speech.rs
+msgid "Reading paused: Pause reading again resumes"
+msgstr "Lecture suspendue : Suspendre ou reprendre la lecture la relance"
+
+#: src/reader_ui/speech.rs
+msgid "Reading resumed"
+msgstr "Lecture reprise"
+
+#: src/reader_ui/speech.rs
+msgid "Voice: {}"
+msgstr "Voix : {}"
+
+#: src/reader_ui/speech.rs
+msgid "Reading speed: {}"
+msgstr "Vitesse de lecture : {}"
+
+#: src/reader_ui/tools.rs
+msgid "No {} face of {} is installed on this computer"
+msgstr "Aucun style {} de {} n’est installé sur cet ordinateur"
+
+#: src/reader_ui/tools.rs
+msgid "{} can't be read: {}"
+msgstr "Impossible de lire {} : {}"
+
+#: src/reader_ui/tools.rs
+msgid "{} has no {} face installed on this computer"
+msgstr "{} n’a pas de style {} installé sur cet ordinateur"
+
+#: src/reader_ui/tools.rs
+msgid "{} can't be used: {}"
+msgstr "Impossible d’utiliser {} : {}"
+
+#: src/reader_ui/tools.rs
+msgid "A bookmark cannot go inside its own children"
+msgstr "Un signet ne peut pas être placé dans ses propres enfants"
+
+#: src/run.rs
+msgid "Output folder not found"
+msgstr "Dossier de sortie introuvable"
+
+#: src/run.rs
+msgid "{} failed: {}"
+msgstr "Échec de {} : {}"
+
+#: src/run.rs
+msgid "{} finished: {}"
+msgstr "{} terminé : {}"
+
+#: src/settings_ui.rs
+msgid "Blocked by Preferences ▸ Security: the link was not opened"
+msgstr "Bloqué par Préférences ▸ Sécurité : le lien n’a pas été ouvert"
+
+#: src/settings_ui.rs
+msgid "Preferences ▸ Security keeps files that are not PDFs from opening in other apps"
+msgstr "Préférences ▸ Sécurité empêche les fichiers autres que PDF de s’ouvrir dans d’autres apps"
+
+#: src/settings_ui.rs
+msgid "A trusted folder"
+msgstr "Un dossier approuvé"
+
+#: src/settings_ui.rs
+msgid "A trusted file"
+msgstr "Un fichier approuvé"
+
+#: src/sign_ui.rs
+msgid "Choose your signature image"
+msgstr "Choisir l’image de votre signature"
+
+#: src/viewer_ui.rs
+msgid "Search failed: {}"
+msgstr "Échec de la recherche : {}"
+
+#: src/viewer_ui.rs
+msgid "Pages: {}"
+msgstr "Pages : {}"
+
 #: ../sheaf-core/src/tools.rs
 msgid "Organize PDF"
 msgstr "Organiser un PDF"
@@ -5711,7 +6799,3 @@ msgstr "Caviarder un PDF"
 #: ../sheaf-core/src/tools.rs
 msgid "Compare PDF"
 msgstr "Comparer des PDF"
-
-#: ui/screens/reader.slint
-msgid "Preview of {}: a PDF made to read it. Save As keeps it as a PDF."
-msgstr "Aperçu de {} : un PDF fait pour le lire. Enregistrer sous le garde en PDF."

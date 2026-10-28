@@ -13,7 +13,13 @@ const FR_PO: &str = include_str!("../translations/fr/LC_MESSAGES/sheaf-ui.po");
 /// The languages offered besides the system's: code ("" English, the source) and name.
 pub const LANGUAGES: [(&str, &str); 2] = [("", "English"), ("fr", "Français")];
 
+#[cfg(not(test))]
 static CURRENT: RwLock<&'static str> = RwLock::new("");
+// Each test thread its own language: one test in French leaves the others' English alone.
+#[cfg(test)]
+thread_local! {
+    static CURRENT: RwLock<&'static str> = const { RwLock::new("") };
+}
 
 /// The language a preference means: 0 the system's (French for a French locale, else English),
 /// 1 English, 2 French.
@@ -27,13 +33,19 @@ pub fn language_for(pref: u8, system: Option<&str>) -> &'static str {
 }
 
 pub fn set(lang: &'static str) {
+    #[cfg(not(test))]
     if let Ok(mut c) = CURRENT.write() {
         *c = lang;
     }
+    #[cfg(test)]
+    CURRENT.with(|c| if let Ok(mut c) = c.write() { *c = lang });
 }
 
 pub fn current() -> &'static str {
-    CURRENT.read().map(|c| *c).unwrap_or("")
+    #[cfg(not(test))]
+    return CURRENT.read().map(|c| *c).unwrap_or("");
+    #[cfg(test)]
+    CURRENT.with(|c| c.read().map(|c| *c).unwrap_or(""))
 }
 
 fn french() -> &'static HashMap<String, String> {
@@ -58,6 +70,24 @@ pub fn matching<'a, T>(items: &'a [T], query: &str, name: impl Fn(&T) -> &str) -
         return Vec::new();
     }
     items.iter().filter(|t| { let n = fold(&tr(name(t))); words.iter().all(|w| n.contains(w.as_str())) }).collect()
+}
+
+/// `template` in the interface's language, its `{}` filled in order with `args` (messages built in
+/// Rust: "Preview of {}: Save As keeps it as a PDF" reads "Aperçu de {} : …" in French).
+pub fn trf(template: &str, args: &[&dyn std::fmt::Display]) -> String {
+    let t = tr(template);
+    let mut out = String::with_capacity(t.len() + 16);
+    let mut rest = t.as_str();
+    let mut next = args.iter();
+    while let Some(i) = rest.find("{}") {
+        out.push_str(&rest[..i]);
+        if let Some(a) = next.next() {
+            out.push_str(&a.to_string());
+        }
+        rest = &rest[i + 2..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The msgid → msgstr pairs of a .po text (single forms, no contexts: Sheaf's catalogue has none).
@@ -172,7 +202,7 @@ mod tests {
         rs_files(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut rs);
         for f in rs.iter().filter(|f| !f.ends_with("i18n.rs")) {
             let src = std::fs::read_to_string(f).unwrap();
-            for m in slint_messages(&src.replace("i18n::tr(\"", "@tr(\"")) {
+            for m in slint_messages(&src.replace("i18n::tr(\"", "@tr(\"").replace("i18n::trf(\"", "@tr(\"")) {
                 count += 1;
                 if fr.get(&m).is_none_or(|t| t.is_empty()) {
                     missing.push(format!("{}: {m:?}", f.file_name().unwrap().to_string_lossy()));
@@ -219,7 +249,10 @@ mod tests {
         let found: Vec<&&str> = matching(&items, "FUSION", |s| s);
         assert_eq!(found, [&"Merge PDF"], "searched in French, accents and case folded");
         assert_eq!(matching(&items, "réparer", |s| s).len(), 0);
+        assert_eq!(trf("{} of {}", &[&1, &"two"]), tr("{} of {}").replacen("{}", "1", 1).replacen("{}", "two", 1));
         set("");
+        assert_eq!(trf("Page {} of {}", &[&3, &9]), "Page 3 of 9");
+        assert_eq!(trf("{} and {}", &[&"a"]), "a and ", "a missing argument leaves its place empty");
         assert!(matching(&items, "fusion", |s| s).is_empty(), "English searches the source names only");
         assert_eq!(tr("Tools"), "Tools");
     }

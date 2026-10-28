@@ -341,7 +341,7 @@ pub fn remove(tab_id: i32) {
 }
 
 pub fn pick_image(ui: &sheaf_app::AppWindow, tab_id: i32) {
-    let d = crate::dialog::new(ui).set_title("Choose an image").add_filter("Image", &["png", "jpg", "jpeg"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose an image")).add_filter("Image", &["png", "jpg", "jpeg"]);
     crate::dialog::pick_file(ui, d, move |ui, path| picked_image(ui, tab_id, path));
 }
 

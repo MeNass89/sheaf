@@ -98,7 +98,7 @@ pub(super) fn remake(ui: &AppWindow, tab_id: i32, r: &mut ReaderUi, v: &mut View
                 }
             });
             if ok == Some(false) {
-                crate::flow::toast(&ui, "The layers could not be hidden: they are shown as the file sets them");
+                crate::flow::toast(&ui, &sheaf_app::i18n::tr("The layers could not be hidden: they are shown as the file sets them"));
             }
             crate::viewer_ui::request(&ui, tab_id);
         });

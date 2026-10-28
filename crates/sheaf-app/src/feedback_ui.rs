@@ -38,7 +38,7 @@ pub fn install(ui: &AppWindow) {
     let w = ui.as_weak();
     g.on_add_files(move || {
         let Some(ui) = w.upgrade() else { return };
-        let d = crate::dialog::new(&ui).set_title("Files to attach");
+        let d = crate::dialog::new(&ui).set_title(sheaf_app::i18n::tr("Files to attach"));
         crate::dialog::pick_files(&ui, d, |ui, picked| {
             FILES.with(|f| {
                 let mut f = f.borrow_mut();
@@ -79,24 +79,24 @@ pub fn install(ui: &AppWindow) {
         g.set_error("".into());
         match what {
             0 => {
-                let d = crate::dialog::new(&ui).set_title("Save the report").set_file_name("Sheaf report.zip");
+                let d = crate::dialog::new(&ui).set_title(sheaf_app::i18n::tr("Save the report")).set_file_name("Sheaf report.zip");
                 crate::dialog::save_file(&ui, d, move |ui, to| match report.save_zip(&to) {
                     Ok(()) => {
                         ui.global::<FeedbackBridge>().set_open(false);
-                        crate::flow::toast(ui, "Report saved");
+                        crate::flow::toast(ui, &sheaf_app::i18n::tr("Report saved"));
                     }
                     Err(e) => ui.global::<FeedbackBridge>().set_error(format!("Not saved: {e}").into()),
                 });
             }
             1 => {
                 let copied = arboard::Clipboard::new().and_then(|mut c| c.set_text(report.text())).is_ok();
-                crate::flow::toast(&ui, if copied { "Report copied" } else { "The clipboard could not be reached" });
+                crate::flow::toast(&ui, &if copied { sheaf_app::i18n::tr("Report copied") } else { sheaf_app::i18n::tr("The clipboard could not be reached") });
             }
             _ => {
                 crate::run::open_detached(report.issue_url());
                 g.set_open(false);
                 if !report.files.is_empty() {
-                    crate::flow::toast(&ui, "Attach your files on the issue page");
+                    crate::flow::toast(&ui, &sheaf_app::i18n::tr("Attach your files on the issue page"));
                 }
             }
         }

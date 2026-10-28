@@ -451,7 +451,7 @@ pub fn run_tool(ui: &AppWindow, tab_id: i32, opts: ToolOptions) {
         Some(dest) => start(ui, tab_id, tool, (inputs, specs), order, marks, placed, &opts, dest),
         None => {
             if prefs.output == OutputMode::Fixed {
-                toast(ui, "Output folder not found");
+                toast(ui, &sheaf_app::i18n::tr("Output folder not found"));
             }
             // The dialog answers later, on the UI thread; the tab is checked again then.
             let o = opts.clone();
@@ -538,8 +538,8 @@ pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: 
                 refresh(a, tab_id);
             });
             match e {
-                OpdfError::Cancelled => toast(ui, "Cancelled"),
-                e => toast(ui, &format!("{} failed: {e}", tools::find(tool).name)),
+                OpdfError::Cancelled => toast(ui, &sheaf_app::i18n::tr("Cancelled")),
+                e => toast(ui, &sheaf_app::i18n::trf("{} failed: {}", &[&tools::find(tool).name, &e])),
             }
         }
     }
@@ -739,7 +739,7 @@ fn on_done_closed(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>) {
     let Ok(outcome) = r else { return };
     crate::record_history(tool, &inputs, &outcome.outputs, options.as_ref());
     let first = outcome.outputs.first().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    toast(ui, &format!("{} finished: {first}", tools::find(tool).name));
+    toast(ui, &sheaf_app::i18n::trf("{} finished: {}", &[&tools::find(tool).name, &first]));
 }
 
 /// Cancel button: the overlay shows "Cancelling…" until the job returns.

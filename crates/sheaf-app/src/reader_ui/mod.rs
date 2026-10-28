@@ -827,7 +827,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 // A damaged PDF goes to Repair PDF, ready to rebuild it (Acrobat repairs as it opens;
                 // Sol 25/10: the tab just closed).
                 sheaf_core::OpdfError::Pdfium(_) | sheaf_core::OpdfError::Lopdf(_) | sheaf_core::OpdfError::Engine(_) if sheaf_app::files::looks_like_pdf(&input.path) => {
-                    crate::flow::toast(ui, &format!("{} Repair PDF can try to rebuild it.", sheaf_app::files::open_error(&file_name(&input.path), &e)));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("{} Repair PDF can try to rebuild it.", &[&sheaf_app::files::open_error(&file_name(&input.path), &e)]));
                     crate::flow::open_tool(ui, sheaf_core::tools::ToolId::Repair, vec![input.path]);
                 }
                 e => crate::flow::toast(ui, &sheaf_app::files::open_error(&file_name(&input.path), &e)),
@@ -928,7 +928,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     }
                     // Required fields left empty are said (Acrobat warns before a form goes out).
                     let empty = update(id, |r, _| prepare::required_empty(&r.snap.fields)).unwrap_or_default();
-                    crate::flow::toast(ui, &format!("Saved {n}{}", prepare::empty_note(&empty)));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("Saved {}{}", &[&n, &prepare::empty_note(&empty)]));
                     if update(id, |r, _| std::mem::take(&mut r.tools_after_save)).unwrap_or(false) {
                         hand_to_tools(ui, id);
                     }
@@ -947,16 +947,16 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                         a.quitting = false;
                     });
                     update(id, |r, _| r.tools_after_save = false);
-                    crate::flow::toast(ui, &format!("Not saved: {e}"));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("Not saved: {}", &[&e]));
                 }
                 _ => {}
             }
         }
         Reply::FlatCopied { to, mail, error } => match error {
-            Some(e) => crate::flow::toast(ui, &format!("The flattened copy was not made: {e}")),
-            None if mail && crate::run::mail_attachment(&to, &file_name(&to)) => crate::flow::toast(ui, &format!("{} attached to a new mail", file_name(&to))),
-            None if mail => crate::flow::toast(ui, "No mail app to send it with: attach the file from your mail"),
-            None => crate::flow::toast(ui, &format!("Flattened copy saved as {}", file_name(&to))),
+            Some(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The flattened copy was not made: {}", &[&e])),
+            None if mail && crate::run::mail_attachment(&to, &file_name(&to)) => crate::flow::toast(ui, &sheaf_app::i18n::trf("{} attached to a new mail", &[&file_name(&to)])),
+            None if mail => crate::flow::toast(ui, &sheaf_app::i18n::tr("No mail app to send it with: attach the file from your mail")),
+            None => crate::flow::toast(ui, &sheaf_app::i18n::trf("Flattened copy saved as {}", &[&file_name(&to)])),
         },
         Reply::Loupe(made) => loupe::shown(id, made),
         Reply::Upright(turns) => pages::upright(ui, id, turns),
@@ -973,8 +973,8 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 arboard::Clipboard::new().and_then(|mut c| c.set_image(image)).map_err(|e| e.to_string())
             });
             match copied {
-                Ok(()) => crate::flow::toast(ui, "Picture copied: ⌘V pastes it on a page, or in another app"),
-                Err(e) => crate::flow::toast(ui, &format!("The picture was not copied: {e}")),
+                Ok(()) => crate::flow::toast(ui, &sheaf_app::i18n::tr("Picture copied: ⌘V pastes it on a page, or in another app")),
+                Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The picture was not copied: {}", &[&e])),
             }
         }
         Reply::ObjectsCopied(made) => {
@@ -998,9 +998,9 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                     };
                     let (texts, rest) = crate::state::ObjectsClip::split(texts, rest, &layout);
                     with(|a| a.objects_clip = Some(crate::state::ObjectsClip { pdf, shown, from, page, pixels, texts, fonts, runs, rest }));
-                    crate::flow::toast(ui, "Objects copied: ⌘V pastes them on a page, or as a picture in another app");
+                    crate::flow::toast(ui, &sheaf_app::i18n::tr("Objects copied: ⌘V pastes them on a page, or as a picture in another app"));
                 }
-                (Err(e), _) => crate::flow::toast(ui, &format!("The objects were not copied: {e}")),
+                (Err(e), _) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The objects were not copied: {}", &[&e])),
                 _ => {}
             }
         }
@@ -1009,7 +1009,7 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
                 let Some(name) = update(id, |r, _| r.name.clone()) else { return };
                 pages::pages_copied(ui, (name, bytes, (0..n).collect()));
             }
-            Err(e) => crate::flow::toast(ui, &format!("Pages not copied: {e}")),
+            Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Pages not copied: {}", &[&e])),
         },
         Reply::Copied(element, picture) => {
             // Several comments: kept until the last comes back.
@@ -1025,43 +1025,43 @@ fn on_reply(ui: &AppWindow, id: i32, reply: Reply) {
             });
             let Some((from, page, items)) = done.flatten() else { return };
             match items.len() {
-                0 => crate::flow::toast(ui, "This comment could not be copied"),
+                0 => crate::flow::toast(ui, &sheaf_app::i18n::tr("This comment could not be copied")),
                 n => {
                     with(|a| a.comment_clip = Some(crate::state::CommentClip { items, from, page }));
                     // The system clipboard says a comment is copied: anything copied after it wins.
                     let _ = arboard::Clipboard::new().and_then(|mut c| c.set_text(COMMENT_ON_CLIPBOARD));
                     let what = if n == 1 { "Comment copied".to_string() } else { format!("{n} comments copied") };
-                    crate::flow::toast(ui, &format!("{what}: ⌘V pastes on the page shown"));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("{}: ⌘V pastes on the page shown", &[&what]));
                 }
             }
         }
         Reply::Exported { to, error } => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
             match error {
-                None => crate::flow::toast(ui, &format!("Exported to {}", file_name(&to))),
-                Some(e) => crate::flow::toast(ui, &format!("Not exported: {e}")),
+                None => crate::flow::toast(ui, &sheaf_app::i18n::trf("Exported to {}", &[&file_name(&to)])),
+                Some(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Not exported: {}", &[&e])),
             }
         }
         Reply::VersionSaved(r) => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
             match r {
                 Ok(to) => {
-                    crate::flow::toast(ui, &format!("{} opened: the file as it was saved then", file_name(&to)));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("{} opened: the file as it was saved then", &[&file_name(&to)]));
                     open(ui, to, None);
                 }
-                Err(e) => crate::flow::toast(ui, &format!("Version not opened: {e}")),
+                Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Version not opened: {}", &[&e])),
             }
         }
         Reply::Extracted { to, error } => {
             update(id, |r, _| r.in_flight = r.in_flight.saturating_sub(1));
             let delete = update(id, |r, _| std::mem::take(&mut r.delete_after_extract)).unwrap_or_default();
             match error {
-                None if to.is_dir() => crate::flow::toast(ui, &format!("Extracted one file per page to {}", file_name(&to))),
+                None if to.is_dir() => crate::flow::toast(ui, &sheaf_app::i18n::trf("Extracted one file per page to {}", &[&file_name(&to)])),
                 None => {
-                    crate::flow::toast(ui, &format!("Extracted to {}", file_name(&to)));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("Extracted to {}", &[&file_name(&to)]));
                     open(ui, to, None);
                 }
-                Some(e) => return crate::flow::toast(ui, &format!("Not extracted: {e}")),
+                Some(e) => return crate::flow::toast(ui, &sheaf_app::i18n::trf("Not extracted: {}", &[&e])),
             }
             if !delete.is_empty() {
                 pages::apply_structure(ui, id, Edit::DeletePages { pages: delete });

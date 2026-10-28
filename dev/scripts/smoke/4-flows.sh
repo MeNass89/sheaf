@@ -1577,3 +1577,57 @@ DL=$(ai_chip Delete); sleep 0.8; IM=$(ai_chip Import); sleep 1.2; T7=$(ai_text);
 SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(len(s), s[-1]["files"][-1].endswith("/ai.pdf"))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
 check "a space exported with relative paths is imported back (new $NS, export $EX, delete $DL, import $IM; file lists $REL; spaces $SP; $(echo "$T7" | grep -o 'Space: Space ([0-9] PDF)' | head -1))" "[ \"$REL\" = \"['../ai.pdf']\" ] && [ \"$SP\" = '1 True' ] && echo \"$T7\" | grep -q 'Space: Space (1 PDF)'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
+
+# 307. Plugins (C-platform-006; Acrobat's plug-ins, Stirling's custom scripts): the sample plugin in the plugins
+# folder adds "Mark as reviewed" to the Tools page; its first run asks first ("Run the plugin …?"), Allow and run
+# writes "plug - Mark as reviewed.pdf" titled Reviewed by the plugin's own process; the version is kept as allowed;
+# Preferences ▸ Plugins lists it and Off takes its card away.
+mkdir -p "$OUT/profile/data/Sheaf/plugins"; rm -rf "$OUT/profile/data/Sheaf/plugins/reviewed-stamp"
+cp -r dev/plugins/reviewed-stamp "$OUT/profile/data/Sheaf/plugins/"; cp "$OUT/text.pdf" "$OUT/plug.pdf"; rm -f "$OUT/plug - Mark as reviewed.pdf"
+launch; sleep 0.5
+TL=$(at Tools 250x300+0+40); [ -n "$TL" ] && click $TL 0.8
+# The Plugins section is the page's last: scrolled until its card shows (its name starts left of x 250).
+MK=; for _ in $(seq 1 25); do MK=$(at Mark 1080x710+200+90); [ -n "$MK" ] && break; xdotool mousemove 700 500 click 5 click 5 click 5; sleep 0.3; done
+[ -n "$MK" ] && click $MK 1
+WQ=$(ocr 700x340+290+230); shot 307a-plugin-warning
+answer "$PWD/$OUT/plug.pdf"
+# Allow and run (white on red, not read by OCR) is right of Don’t run, their centres 135 px apart.
+read DX DY <<< "$(at Don 1280x800+0+0)"; AL=; [ -n "$DX" ] && AL="$(( DX + 135 )) $DY" && click $AL 1
+for _ in $(seq 1 40); do [ -s "$OUT/plug - Mark as reviewed.pdf" ] && break; sleep 0.25; done; sleep 0.5; answer ""
+PT=$(pdfinfo "$OUT/plug - Mark as reviewed.pdf" 2>/dev/null | awk '/^Title:/ { print $2 }')
+PA=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["allowed"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
+key ctrl+comma; sleep 0.8
+PR=$(pref_find "Reviewed"); OF=; [ -n "$PR" ] && { read _ RY <<< "$PR"; OF=$(at Off 1020x200+250+$(( RY - 10 ))); }
+[ -n "$OF" ] && click $OF 0.8; shot 307b-plugins-prefs
+PD=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["disabled"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
+TL=$(at Tools 250x300+0+40); [ -n "$TL" ] && click $TL 0.8
+MK2=; for _ in $(seq 1 25); do MK2=$(at Mark 1080x710+200+90); [ -n "$MK2" ] && break; xdotool mousemove 700 500 click 5 click 5 click 5; sleep 0.2; done
+check "a plugin's tool runs as its own process after a warning, and Off removes it (card ${MK:-none}; asked: $(echo "$WQ" | grep -o 'Run the plugin' | head -1); title $PT; allowed $PA; prefs row ${PR:-none}, Off ${OF:-none}: disabled $PD; card after: ${MK2:-gone})" "[ -n \"$MK\" ] && echo \"$WQ\" | grep -q 'Run the plugin' && [ \"$PT\" = Reviewed ] && echo \"$PA\" | grep -q 'reviewed-stamp@1.0' && echo \"$PD\" | grep -q 'reviewed-stamp' && [ -z \"$MK2\" ]"
+quit; rm -rf "$OUT/profile/data/Sheaf/plugins"
+
+# 308. Preferences ▸ Rendering ▸ Use the system's profile (C-preferences-005, Acrobat's Use display profile): with a
+# Display P3 profile set on the display (the root window's _ICC_PROFILE, as colord sets it), the red of image.pdf
+# is drawn converted (less red, some green) while white stays white; sRGB before.
+# The page's reddest pixel and a white one (a 10× smaller copy of the page area), as "x y r g b" lines.
+red_white() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - -scale 102x70! -depth 8 txt:- | python3 -c '
+import re, sys
+px = [tuple(map(int, m.groups())) for m in re.finditer(r"^(\d+),(\d+): \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M)]
+red = max(px, key=lambda p: p[2] - p[4] - p[3] // 2)
+white = next(p for p in px if min(p[2:]) > 250)
+print(*red, *white)'; }
+cp "$OUT/image.pdf" "$OUT/p3.pdf"; launch "$OUT/p3.pdf"; sleep 1; read RX RY R0 G0 B0 WX WY W0 _ <<< "$(red_white)"; quit
+python3 dev/scripts/smoke/set-icc.py dev/scripts/smoke/display-p3.icc
+launch; key ctrl+comma; sleep 0.8
+# Use the system's profile is the third of the row whose first is Choose monitor ICC… (segments 222 px apart).
+read CX CY <<< "$(pref_find Choose)"; US=; [ -n "$CX" ] && US="$(( CX + 444 + 20 )) $CY" && click $US 0.8
+DS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("display_system"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+quit
+launch "$OUT/p3.pdf"; sleep 1.5; shot 308-display-p3
+P=$(import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - -scale 102x70! -depth 8 txt:- | python3 -c '
+import re, sys
+px = {(int(m[1]), int(m[2])): (int(m[3]), int(m[4]), int(m[5])) for m in re.finditer(r"^(\d+),(\d+): \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M)}
+print(*px.get((int(sys.argv[1]), int(sys.argv[2])), (0, 0, 0)), *px.get((int(sys.argv[3]), int(sys.argv[4])), (0, 0, 0)))' "${RX:-0}" "${RY:-0}" "${WX:-0}" "${WY:-0}")
+read R1 G1 B1 W1 _ <<< "$P"
+python3 dev/scripts/smoke/set-icc.py
+check "the system's display profile converts the page's colours (display_system $DS; red at ${RX:-?},${RY:-?}: $R0 $G0 $B0 → $R1 $G1 $B1; white $W0 → $W1)" "[ \"$DS\" = True ] && [ \"${R0:-0}\" -gt 200 ] && [ \$(( ${R0:-0} - ${R1:-0} )) -ge 8 ] && [ \$(( ${G1:-0} - ${G0:-0} )) -ge 8 ] && [ \"${W1:-0}\" -ge 250 ]"
+quit; prefs_set "p.pop('display_system', None)"

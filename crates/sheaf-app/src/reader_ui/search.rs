@@ -216,7 +216,7 @@ pub fn search_clear(tab_id: i32) {
 pub fn replace_all(ui: &AppWindow, tab_id: i32, find: &str, with: &str) {
     let find = find.trim().to_string();
     if find.is_empty() {
-        return crate::flow::toast(ui, "Type the words to find first");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Type the words to find first"));
     }
     let refused = update(tab_id, |r, _| {
         if !r.snap.read_only.is_empty() {

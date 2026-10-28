@@ -33,6 +33,7 @@ impl ActionStep {
     /// Resolving by ID also keeps a draft's tool recognizable while its settings are invalid.
     pub fn display_label(&self) -> &str {
         if !self.label.is_empty() { return &self.label; }
+        if self.tool == PLUGIN { return "Plugin tool"; }
         if self.tool == "open_tool" && let Some(id) = sheaf_core::tools::ToolId::from_str(&self.argument) {
             return sheaf_core::tools::find(id).name;
         }
@@ -42,7 +43,7 @@ impl ActionStep {
     /// Acrobat's custom tools enable native reader commands before knowing the active page
     /// count. Check the real range when applying, rather than testing against a fictitious page.
     pub fn supports_current_document(&self) -> bool {
-        !self.prompt && self.engine().is_ok_and(|step| !matches!(step,
+        self.tool != PLUGIN && !self.prompt && self.engine().is_ok_and(|step| !matches!(step,
             Step::RecognizeText | Step::OpenTool(_) | Step::PrepareAccessibility(_) |
             Step::ReduceFileSize | Step::Protect(_) | Step::Compress(_) | Step::ConvertPdfA(_) |
             Step::DetectFormFields | Step::RunJavaScript(_)))
@@ -181,6 +182,12 @@ impl SavedAction {
         if self.steps.is_empty() || self.steps.len() > 100 { return Err(invalid("An action needs 1–100 steps")); }
         self.output.validate()?;
         for (index, step) in self.steps.iter().enumerate() {
+            // A plugin's tool ("plugin/tool"): run as its own process between the engine's steps.
+            if step.tool == PLUGIN {
+                let ok = step.argument.split_once('/').is_some_and(|(p, t)| !p.is_empty() && !t.is_empty() && !step.prompt && step.argument.len() <= 130);
+                if !ok || self.custom_tool { return Err(invalid("A plugin step names one plugin tool (plugin/tool) and asks nothing")); }
+                continue;
+            }
             step.engine()?;
             if step.tool == "protect" && (!step.argument.is_empty() || !step.prompt || index + 1 != self.steps.len() || self.output.format != "pdf") { return Err(invalid("Protection must be the final step of PDF output and ask for a password at runtime; saved actions cannot contain passwords")); }
             if step.tool == "open_tool" && (!self.custom_tool || sheaf_core::tools::ToolId::from_str(&step.argument).is_none() || step.prompt) { return Err(invalid("Toolbox shortcuts belong in custom tool sets and need an existing tool without an action prompt")); }
@@ -279,6 +286,9 @@ pub fn unused_name(name: &str, all: &[SavedAction]) -> String {
 
 /// Run steps sequentially, pausing before each prompted step. No output is published until
 /// every step succeeds; a failure leaves the input untouched. `before` returns false to cancel.
+/// An action step running a plugin's tool; its argument is "plugin/tool" (crate::plugins).
+pub const PLUGIN: &str = "plugin";
+
 pub fn run_file(action: &SavedAction, input: &Path, out_dir: &Path, before: &mut dyn FnMut(usize, &ActionStep) -> bool) -> Result<PathBuf> {
     run_file_configured(action, input, out_dir, None, &mut |i, step| before(i, step), &mut || true)
 }
@@ -304,20 +314,41 @@ pub fn run_bytes_configured(
 ) -> Result<PathBuf> {
     action.validate()?;
     let name = input.file_name().ok_or_else(|| invalid("The input needs a file name"))?.to_string_lossy().into_owned();
-    let engine = Action { name: action.name.clone(), description: action.description.clone(),
-        steps: action.steps.iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
-    let mut cancelled = false;
-    let mut invalid_step = None;
-    let result = actions::run_guided(&engine, &name, bytes, password, |i, _| {
-        let mut step = action.steps[i].clone();
-        if !before(i, &mut step) { cancelled = true; return None; }
-        // The caller can edit the argument, never replace a tool with an unvalidated command.
-        if step.argument.len() > 1_000_000 { invalid_step = Some(invalid("The prompted step text exceeds 1 MB")); return None; }
-        match step.engine() { Ok(step) => Some(step), Err(e) => { invalid_step = Some(e); None } }
-    });
-    if cancelled { return Err(OpdfError::Cancelled); }
-    if let Some(error) = invalid_step { return Err(error); }
-    let bytes = result.map_err(OpdfError::Engine)?.bytes;
+    // The engine runs the steps between plugin tools; each plugin tool runs as its own process on
+    // what came before (Acrobat's plug-in commands in an action).
+    let mut bytes = bytes;
+    let mut password = password;
+    let mut at = 0;
+    while at < action.steps.len() {
+        if action.steps[at].tool == PLUGIN {
+            let mut step = action.steps[at].clone();
+            if !before(at, &mut step) { return Err(OpdfError::Cancelled); }
+            if password.is_some() { return Err(invalid("Unlock the PDF before a plugin step: plugins get no password")); }
+            let (plugin, tool) = crate::plugins::find(&crate::plugins::folder(), &step.argument)
+                .ok_or_else(|| invalid(format!("The plugin tool {} is missing or turned off (Preferences ▸ Plugins)", step.argument)))?;
+            bytes = Arc::new(crate::plugins::run(&plugin, &tool, &bytes, &|| true).map_err(invalid)?);
+            at += 1;
+            continue;
+        }
+        let end = action.steps[at..].iter().position(|s| s.tool == PLUGIN).map_or(action.steps.len(), |k| at + k);
+        let engine = Action { name: action.name.clone(), description: action.description.clone(),
+            steps: action.steps[at..end].iter().map(ActionStep::engine).collect::<Result<Vec<_>>>()?, builtin: false };
+        let mut cancelled = false;
+        let mut invalid_step = None;
+        let result = actions::run_guided(&engine, &name, bytes, password, |i, _| {
+            let mut step = action.steps[at + i].clone();
+            if !before(at + i, &mut step) { cancelled = true; return None; }
+            // The caller can edit the argument, never replace a tool with an unvalidated command.
+            if step.argument.len() > 1_000_000 { invalid_step = Some(invalid("The prompted step text exceeds 1 MB")); return None; }
+            match step.engine() { Ok(step) => Some(step), Err(e) => { invalid_step = Some(e); None } }
+        });
+        if cancelled { return Err(OpdfError::Cancelled); }
+        if let Some(error) = invalid_step { return Err(error); }
+        bytes = result.map_err(OpdfError::Engine)?.bytes;
+        // Opened once: the engine's output is not encrypted again until the end.
+        if end < action.steps.len() { password = None; }
+        at = end;
+    }
     let bytes = convert_output(bytes, password, &action.output.format, publish)?;
     if !publish() { return Err(OpdfError::Cancelled); }
     let target = action.output.path(input, out_dir)?;
@@ -750,4 +781,40 @@ mod tests {
         assert_eq!(action.steps[0].argument, "4|1|8|Page <<1>>");
     }
 
+
+    #[test]
+    fn a_plugin_step_runs_its_tool_between_the_engines_steps() {
+        if std::process::Command::new("python3").arg("--version").output().is_err() {
+            return;
+        }
+        let dir = tempfile::tempdir().unwrap();
+        let plugins = dir.path().join("plugins");
+        crate::plugins::TEST_FOLDER.with(|f| *f.borrow_mut() = Some(plugins.clone()));
+        let m = crate::plugins::install(&plugins, Path::new(concat!(env!("CARGO_MANIFEST_DIR"), "/../../dev/plugins/reviewed-stamp"))).unwrap();
+        let input = dir.path().join("source.pdf");
+        std::fs::copy(concat!(env!("CARGO_MANIFEST_DIR"), "/../sheaf-core/tests/fixtures/invoice.pdf"), &input).unwrap();
+        let mut action = SavedAction::empty();
+        action.name = "Review".into();
+        action.steps = vec![
+            ActionStep::from_engine(&Step::SetTitle("First".into())),
+            ActionStep { tool: PLUGIN.into(), argument: "reviewed-stamp/mark-reviewed".into(), instruction: String::new(), prompt: false, label: String::new(), separator: false },
+        ];
+        // Not allowed yet: the run stops before the plugin starts.
+        let out = dir.path().join("out");
+        let e = run_file(&action, &input, &out, &mut |_, _| true).unwrap_err();
+        assert!(e.to_string().contains("allowed"), "{e}");
+        crate::plugins::allow(&plugins, &format!("{}@{}", m.id, m.version)).unwrap();
+        let mut seen = Vec::new();
+        let written = run_file(&action, &input, &out, &mut |i, s| { seen.push((i, s.tool.clone())); true }).unwrap();
+        assert_eq!(seen, [(0, "set_title".to_string()), (1, PLUGIN.to_string())], "every step announced in order");
+        let doc = lopdf::Document::load(&written).unwrap();
+        let info = doc.trailer.get(b"Info").and_then(|i| i.as_reference()).and_then(|r| doc.get_dictionary(r)).unwrap();
+        assert_eq!(info.get(b"Title").unwrap().as_str().unwrap(), b"Reviewed", "the plugin ran after the engine's title");
+        // A plugin turned off, or a step in a custom tool set, is refused.
+        crate::plugins::set_enabled(&plugins, "reviewed-stamp", false).unwrap();
+        assert!(run_file(&action, &input, &out, &mut |_, _| true).unwrap_err().to_string().contains("turned off"));
+        action.custom_tool = true;
+        assert!(action.validate().is_err());
+        crate::plugins::TEST_FOLDER.with(|f| *f.borrow_mut() = None);
+    }
 }

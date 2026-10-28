@@ -17,7 +17,7 @@ pub fn toggle_loupe(ui: &AppWindow, tab_id: i32) {
         r.loupe
     });
     if on == Some(true) {
-        crate::flow::toast(ui, "Loupe: point at the page to magnify it");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Loupe: point at the page to magnify it"));
     }
 }
 

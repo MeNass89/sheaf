@@ -387,7 +387,7 @@ pub fn zoom_area(ui: &AppWindow, tab_id: i32) {
         r.zoom_area
     }) == Some(true)
     {
-        crate::flow::toast(ui, "Drag over the part of the page to zoom to");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Drag over the part of the page to zoom to"));
     }
 }
 
@@ -398,7 +398,7 @@ pub fn snap_area(ui: &AppWindow, tab_id: i32) {
         r.snap_area = true;
         r.zoom_area = false;
     });
-    crate::flow::toast(ui, "Drag over the part of the page to copy as a picture");
+    crate::flow::toast(ui, &sheaf_app::i18n::tr("Drag over the part of the page to copy as a picture"));
 }
 
 /// More ▸ One page at a time (Acrobat's Single Page): the page shown fits the view, the wheel

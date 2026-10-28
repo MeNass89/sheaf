@@ -30,7 +30,7 @@ pub fn preflight_check(ui: &AppWindow, tab_id: i32, fail: &str, target: &str, bl
         })
     };
     let Some(profile) = parse().filter(|p| sheaf_core::preflight::validate(*p).is_ok()) else {
-        crate::flow::toast(ui, "Use image thresholds from 1 to 9600 ppi (fail ≤ target), and bleed from 0 to 50 mm");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Use image thresholds from 1 to 9600 ppi (fail ≤ target), and bleed from 0 to 50 mm"));
         return;
     };
     let preset = match preset { 2 => sheaf_core::preflight::Preset::DigitalPress, 3 => sheaf_core::preflight::Preset::PdfX1a, 4 => sheaf_core::preflight::Preset::PdfX4, _ => sheaf_core::preflight::Preset::Custom };
@@ -50,7 +50,7 @@ pub(super) fn checked(ui: &AppWindow, tab_id: i32, report: Result<String, String
         r.prepress.report = report.ok();
         r.prepress.rows = ModelRc::new(VecModel::from(rows(r.prepress.report.as_deref().unwrap_or_default())));
     });
-    if let Some(error) = error { crate::flow::toast(ui, &format!("Preflight could not finish: {error}")); }
+    if let Some(error) = error { crate::flow::toast(ui, &sheaf_app::i18n::trf("Preflight could not finish: {}", &[&error])); }
 }
 
 pub fn preflight_close(tab_id: i32) {
@@ -69,11 +69,11 @@ pub fn preflight_save(ui: &AppWindow, tab_id: i32) {
     let Some((dir, stem, text)) = update(tab_id, |r, _| {
         Some((crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), r.prepress.report.clone()?))
     }).flatten() else { return };
-    let d = crate::dialog::new(ui).set_title("Save print preflight report").set_directory(&dir).set_file_name(format!("{stem} - print preflight.txt")).add_filter("Text report", &["txt"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save print preflight report")).set_directory(&dir).set_file_name(format!("{stem} - print preflight.txt")).add_filter("Text report", &["txt"]);
     crate::dialog::save_file(ui, d, move |ui, to| {
         match sheaf_core::paths::atomic_write(&to, |part| { std::fs::write(part, text.as_bytes())?; Ok(()) }) {
-            Ok(to) => crate::flow::toast(ui, &format!("Report saved as {}", file_name(&to))),
-            Err(e) => crate::flow::toast(ui, &format!("The report was not saved: {e}")),
+            Ok(to) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Report saved as {}", &[&file_name(&to)])),
+            Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The report was not saved: {}", &[&e])),
         }
     });
 }
@@ -128,7 +128,7 @@ fn production_pages(tab_id: i32, all: bool) -> Option<Vec<usize>> {
 pub fn production_hairlines(ui: &AppWindow, tab_id: i32, minimum: &str, all: bool) {
     let minimum = minimum.trim().parse::<f64>().ok().filter(|v| v.is_finite() && (0.01..=10.0).contains(v));
     let Some(minimum) = minimum else {
-        crate::flow::toast(ui, "Use a minimum stroke from 0.01 to 10 points");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Use a minimum stroke from 0.01 to 10 points"));
         return;
     };
     let Some(pages) = production_pages(tab_id, all) else { return };
@@ -138,7 +138,7 @@ pub fn production_hairlines(ui: &AppWindow, tab_id: i32, minimum: &str, all: boo
 
 pub fn production_marks(ui: &AppWindow, tab_id: i32, all: bool, style: i32, width: &str) {
     let width = width.trim().parse::<f64>().ok().filter(|v| v.is_finite() && (0.1..=2.0).contains(v));
-    let Some(width) = width else { crate::flow::toast(ui, "Use a mark width from 0.1 to 2 points"); return };
+    let Some(width) = width else { crate::flow::toast(ui, &sheaf_app::i18n::tr("Use a mark width from 0.1 to 2 points")); return };
     let Some(pages) = production_pages(tab_id, all) else { return };
     production_close(tab_id);
     apply(ui, tab_id, Edit::AddPrinterMarks {
@@ -175,7 +175,7 @@ pub fn production_box(ui: &AppWindow, tab_id: i32, which: i32, margins: [&str; 4
 
 /// Acrobat's Save as PDF/X: the operator supplies the actual press profile and condition.
 pub fn press_profile(ui: &AppWindow, tab_id: i32) {
-    let d = crate::dialog::new(ui).set_title("Choose press ICC profile").add_filter("ICC profile", &["icc", "icm"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose press ICC profile")).add_filter("ICC profile", &["icc", "icm"]);
     crate::dialog::pick_file(ui, d, move |_, path| { update(tab_id, |r, _| { r.prepress.press_profile = Some(path); r.prepress.press_condition.clear(); }); });
 }
 
@@ -183,7 +183,7 @@ pub fn press_preset(ui: &AppWindow, tab_id: i32, preset: i32) {
     use sheaf_core::press::{Preset, installed_profile};
     let preset = match preset { 0 => Preset::Fogra39, 1 => Preset::Gracol, 2 => Preset::Swop, _ => return };
     let Some(path) = installed_profile(preset) else {
-        crate::flow::toast(ui, &format!("{} is not installed. Install its ICC locally, or choose the press's ICC file", preset.label()));
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("{} is not installed. Install its ICC locally, or choose the press's ICC file", &[&preset.label()]));
         return;
     };
     update(tab_id, |r, _| { r.prepress.press_profile = Some(path); r.prepress.press_condition = preset.label().into(); });
@@ -194,11 +194,11 @@ pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str, level: i32) {
         (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), r.prepress.press_profile.clone(), r.prepress.press_condition.clone(), r.prepress.press_busy)
     }) else { return };
     if busy { return; }
-    let Some(profile) = profile else { crate::flow::toast(ui, "Choose the press's CMYK or Gray ICC profile first"); return };
+    let Some(profile) = profile else { crate::flow::toast(ui, &sheaf_app::i18n::tr("Choose the press's CMYK or Gray ICC profile first")); return };
     let level = match level { 0 => sheaf_core::press::Level::X3, 1 => sheaf_core::press::Level::X1a, 2 => sheaf_core::press::Level::X4, _ => return };
     let condition = if condition.trim().is_empty() { preset_condition } else { condition.to_string() };
     let options = sheaf_core::press::Options { level, profile, condition };
-    if options.condition.trim().is_empty() { crate::flow::toast(ui, "Name the press output condition"); return; }
+    if options.condition.trim().is_empty() { crate::flow::toast(ui, &sheaf_app::i18n::tr("Name the press output condition")); return; }
     let d = crate::dialog::new(ui).set_title(format!("Save {} copy", level.label())).set_directory(&dir).set_file_name(format!("{stem} - {}.pdf", level.label().replace('/', "").replace(':', "-"))).add_filter("PDF", &["pdf"]);
     crate::dialog::save_file(ui, d, move |ui, to| {
         update(tab_id, |r, _| {
@@ -207,7 +207,7 @@ pub fn press_export(ui: &AppWindow, tab_id: i32, condition: &str, level: i32) {
             r.prepress.production_open = false;
             r.send(Op::ExportPdfX { to, options });
         });
-        crate::flow::toast(ui, "Exporting a PDF/X snapshot in the background; you can keep editing");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Exporting a PDF/X snapshot in the background; you can keep editing"));
     });
 }
 
@@ -216,8 +216,8 @@ pub(super) fn press_exported(ui: &AppWindow, tab_id: i32, result: Result<PathBuf
         r.prepress.press_busy = false;
     });
     match result {
-        Ok(path) => crate::flow::toast(ui, &format!("PDF/X copy saved as {}; full ISO validation was not performed", file_name(&path))),
-        Err(error) => crate::flow::toast(ui, &format!("PDF/X copy was not saved: {error}")),
+        Ok(path) => crate::flow::toast(ui, &sheaf_app::i18n::trf("PDF/X copy saved as {}; full ISO validation was not performed", &[&file_name(&path)])),
+        Err(error) => crate::flow::toast(ui, &sheaf_app::i18n::trf("PDF/X copy was not saved: {}", &[&error])),
     }
 }
 

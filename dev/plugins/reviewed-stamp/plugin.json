@@ -1,0 +1,15 @@
+{
+  "id": "reviewed-stamp",
+  "name": "Reviewed stamp (sample)",
+  "version": "1.0",
+  "author": "Sheaf contributors",
+  "description": "A sample plugin: sets the document's title to Reviewed. Copy this folder to start your own.",
+  "tools": [
+    {
+      "id": "mark-reviewed",
+      "name": "Mark as reviewed",
+      "description": "Sets the PDF's title to Reviewed, in an incremental update.",
+      "run": ["python3", "mark_reviewed.py", "{input}", "{output}"]
+    }
+  ]
+}

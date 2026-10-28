@@ -440,7 +440,7 @@ pub fn tab_order(ui: &AppWindow, tab_id: i32, order: i32) {
     let pages = update(tab_id, |_, v| (0..v.viewer.page_count()).collect::<Vec<_>>()).unwrap_or_default();
     let order = [TabOrder::Row, TabOrder::Column, TabOrder::Structure][order.clamp(0, 2) as usize];
     apply(ui, tab_id, Edit::SetTabOrder { pages, order }, &[], None);
-    crate::flow::toast(ui, "Tab order set for every page");
+    crate::flow::toast(ui, &sheaf_app::i18n::tr("Tab order set for every page"));
 }
 
 /// The fields selected, now at `rects` (in the order of [`selected_fields`]): one step setting
@@ -545,8 +545,8 @@ pub fn field_copies(ui: &AppWindow, tab_id: i32, rows: i32, cols: i32) {
     })
     .flatten();
     match edit {
-        Some(_) if rows * cols < 2 => crate::flow::toast(ui, "Ask for two copies or more"),
-        Some((_, false, _)) => crate::flow::toast(ui, "The copies would run off the page: fewer, or start higher up"),
+        Some(_) if rows * cols < 2 => crate::flow::toast(ui, &sheaf_app::i18n::tr("Ask for two copies or more")),
+        Some((_, false, _)) => crate::flow::toast(ui, &sheaf_app::i18n::tr("The copies would run off the page: fewer, or start higher up")),
         Some((page, true, e)) => apply(ui, tab_id, e, &[page], None),
         None => {}
     }

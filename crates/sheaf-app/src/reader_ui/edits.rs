@@ -407,10 +407,10 @@ pub(super) fn add_stamp(ui: &AppWindow, tab_id: i32, page: usize, at: (f64, f64)
 /// Stamp ▸ Image…: a PNG or JPEG chosen becomes the stamp, placed at each click until another
 /// stamp is picked (Acrobat's Create Custom Stamp, kept for the session).
 pub fn stamp_image(ui: &AppWindow, tab_id: i32) {
-    let d = crate::dialog::new(ui).set_title("Choose a picture for the stamp").add_filter("Image", &["png", "jpg", "jpeg"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose a picture for the stamp")).add_filter("Image", &["png", "jpg", "jpeg"]);
     crate::dialog::pick_file(ui, d, move |ui, p| {
         let Some(stamp) = picture_stamp(&p) else {
-            return crate::flow::toast(ui, "That picture could not be read (PNG or JPEG)");
+            return crate::flow::toast(ui, &sheaf_app::i18n::tr("That picture could not be read (PNG or JPEG)"));
         };
         // Kept in the library for next time (Sol, 25/10: it lasted as long as its tab), and chosen.
         let kept = crate::home::keep_stamp(&stamp.0, &stamp.1);
@@ -464,7 +464,7 @@ pub fn notes_action(ui: &AppWindow, tab_id: i32, what: i32) {
             let d = crate::dialog::new(ui).add_filter("Comments", &["xfdf", "fdf"]);
             crate::dialog::pick_file(ui, d, move |ui, path| {
                 let Ok(bytes) = std::fs::read(&path) else {
-                    return crate::flow::toast(ui, "That file could not be read");
+                    return crate::flow::toast(ui, &sheaf_app::i18n::tr("That file could not be read"));
                 };
                 // The comments may land on any page: every page renders again once they are in.
                 let all: Vec<usize> = update(tab_id, |_, v| (0..v.viewer.page_count()).collect()).unwrap_or_default();
@@ -968,7 +968,7 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
     if let Some((pages, e, n)) = edit {
         apply(ui, tab_id, e, &pages, None);
         if n > 1 {
-            crate::flow::toast(ui, &format!("Deleted from the {n} pages it was placed on (⌘Z brings them back)"));
+            crate::flow::toast(ui, &sheaf_app::i18n::trf("Deleted from the {} pages it was placed on (⌘Z brings them back)", &[&n]));
         }
     }
 }
@@ -1117,7 +1117,7 @@ pub fn overlay_pdf(ui: &AppWindow, tab_id: i32, behind: bool) {
     let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let Ok(bytes) = std::fs::read(&path) else {
-            return crate::flow::toast(ui, "That file could not be read");
+            return crate::flow::toast(ui, &sheaf_app::i18n::tr("That file could not be read"));
         };
         let Some(pages) = update(tab_id, |_, v| (0..v.viewer.page_count()).collect::<Vec<_>>()) else { return };
         apply(ui, tab_id, Edit::OverlayPdf { name: file_name(&path), bytes: Arc::new(bytes), pages: pages.clone(), behind }, &pages, None);
@@ -1147,7 +1147,7 @@ pub fn image_action(ui: &AppWindow, tab_id: i32, action: i32) {
         1 => ImageEdit::Rotate(1),
         2 => ImageEdit::Flip { horizontal: true },
         3 => {
-            let d = crate::dialog::new(ui).set_title("Replace the image").add_filter("Image", super::pointer::IMAGE_TYPES);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Replace the image")).add_filter("Image", super::pointer::IMAGE_TYPES);
             return crate::dialog::pick_file(ui, d, move |ui, path| {
                 let pic = match sheaf_core::edit::Picture::read(&path) {
                     Ok(p) => p,
