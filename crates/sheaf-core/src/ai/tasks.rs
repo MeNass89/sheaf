@@ -229,7 +229,7 @@ pub fn citations(answer: &str) -> Vec<Cite> {
         }
         // A file named just before: "name.pdf, p. 3".
         let before = answer[..i].trim_end().trim_end_matches(',');
-        let file = before.rsplit(|c: char| c == '(' || c == '[' || c == ';' || c == '\n').next().map(str::trim).filter(|f| f.to_lowercase().ends_with(".pdf")).map(str::to_string);
+        let file = before.rsplit(['(', '[', ';', '\n']).next().map(str::trim).filter(|f| f.to_lowercase().ends_with(".pdf")).map(str::to_string);
         let mut j = i + if pp { 4 } else { 3 };
         // Numbers, ranges and lists: 3 | 3-4 | 3, 5
         loop {

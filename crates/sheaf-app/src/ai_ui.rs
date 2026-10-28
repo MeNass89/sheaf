@@ -227,7 +227,7 @@ fn push(ui: &AppWindow) {
         // Grouped by category (Stirling's), the unlabelled last; the filter keeps one category.
         let mut shown: Vec<usize> = sp.map(|sp| (0..sp.files.len()).filter(|i| s.filter.is_none() || s.labels.get(&sp.files[*i]) == s.filter.as_ref()).collect()).unwrap_or_default();
         if let Some(sp) = sp {
-            shown.sort_by_key(|i| (s.labels.get(&sp.files[*i]).is_none(), s.labels.get(&sp.files[*i]).cloned()));
+            shown.sort_by_key(|i| (!s.labels.contains_key(&sp.files[*i]), s.labels.get(&sp.files[*i]).cloned()));
         }
         let files: Vec<SharedString> = sp
             .map(|sp| {

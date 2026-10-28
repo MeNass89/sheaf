@@ -132,7 +132,7 @@ pub fn pdf(title: &str, slides: &[Slide]) -> Result<Vec<u8>> {
     let fallback = [Slide { title: title.to_string(), points: Vec::new() }];
     let slides = if slides.is_empty() { &fallback[..] } else { slides };
     let western = slides.iter().flat_map(|s| std::iter::once(&s.title).chain(&s.points)).all(|t| pdfcraft_fonts::first_undrawable(t).is_none());
-    let mut ink = if western { Ink::Helvetica } else { Ink::Any(Box::new(super::unicode_pdf::Setter::new())) };
+    let mut ink = if western { Ink::Helvetica } else { Ink::Any(Box::default()) };
     let mut pages = Vec::new();
     for (n, s) in slides.iter().enumerate() {
         let mut c: Vec<u8> = Vec::new();

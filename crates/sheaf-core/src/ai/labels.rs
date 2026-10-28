@@ -21,7 +21,7 @@ pub fn read(path: &Path) -> Option<String> {
     let v = info.get(b"Category").ok()?;
     let bytes = v.as_str().ok()?;
     let text = if bytes.starts_with(&[0xFE, 0xFF]) {
-        String::from_utf16_lossy(&bytes[2..].chunks_exact(2).map(|c| u16::from_be_bytes([c[0], c[1]])).collect::<Vec<_>>())
+        String::from_utf16_lossy(&bytes[2..].as_chunks::<2>().0.iter().map(|c| u16::from_be_bytes(*c)).collect::<Vec<_>>())
     } else {
         String::from_utf8_lossy(bytes).into_owned()
     };
