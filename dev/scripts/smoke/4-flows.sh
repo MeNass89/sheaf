@@ -1030,7 +1030,7 @@ unset SHEAF_TEST_MENU_BAR
 # Locate controls in the actual options scroller, then inspect the produced PDF, not just the UI.
 optimize_option() { local found=; for _ in $(seq 1 16); do found=$(at "$1" 310x640+965+90); [ -n "$found" ] && break; xdotool mousemove 1160 500 click 5 click 5; sleep 0.3; done; echo "$found"; }
 cp "$OUT/text.pdf" "$OUT/web.pdf"; launch "$OUT/web.pdf"; sleep 1
-click $WRENCH_X 61 1; xdotool type --delay 20 "compress"; key Return; sleep 2
+click $WRENCH_X 61 1; click 990 76 0.4; xdotool type --delay 20 "compress"; key Return; sleep 2
 OA=$(optimize_option Advanced); [ -n "$OA" ] && click $OA 0.5
 OF=$(optimize_option Flatten); [ -n "$OF" ] && click $OF 0.5
 OW=$(optimize_option Fast); [ -n "$OW" ] && click $OW 0.5
@@ -1055,31 +1055,39 @@ optimize_print_tool() { click 1108 61 0.8; click 1008 659 0.8; local found=; for
 INK_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
 launch "$OUT/text.pdf"; PP=$(optimize_print_tool preflight)
 PI=$(at Ink); [ -n "$PI" ] && click $PI 1
-for _ in $(seq 1 20); do PC=$(at Cyan 250x650+0+90); [ -n "$PC" ] && break; sleep 0.5; done
-PM=$(at Magenta 250x650+0+90); PY=$(at Yellow 250x650+0+90); PB=$(at Black 250x650+0+90)
+# Read the complete button column below the selected-plate heading, then choose Black.
+# The old x=0..250 crop cut words in half and clicked "Black shows ink" in the help.
+for _ in $(seq 1 20); do PB=$(at Black 180x180+195+175); [ -n "$PB" ] && break; sleep 0.5; done
+PM=$(at Magenta 180x180+195+175); PY=$(at Yellow 180x180+195+175)
 [ -n "$PB" ] && click $PB 0.5
-optimize_ink_dark() { import -window root -crop 500x300+280+260 -depth 8 png:- 2>/dev/null | convert - -threshold 25% -format "%[fx:1-mean]" info:; }
+PC=$(at Cyan 180x180+195+175)
+# Only the page image: exclude the coloured plate buttons and include its top text.
+optimize_ink_dark() { import -window root -crop 500x300+450+180 -depth 8 png:- 2>/dev/null | convert - -threshold 25% -format "%[fx:1-mean]" info:; }
 INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark); key Down; sleep 0.5; INK_RETURN=$(optimize_ink_dark)
 shot 342-ink-plates
 check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
 key Escape; quit
 
 # 343. Acrobat's Flattener Preview: compare the working page and actual PDF 1.3 conversion.
+FLAT_SOURCE=$(sha256sum "$OUT/text.pdf" | cut -d" " -f1)
 launch "$OUT/text.pdf"; PF=$(optimize_print_tool hairlines)
 FP=
 for _ in $(seq 1 14); do FP=$(at Flattener 700x660+0+80); [ -n "$FP" ] && break; xdotool mousemove 400 500 click 5 click 5; sleep 0.3; done
 [ -n "$FP" ] && click $FP 1
-for _ in $(seq 1 20); do FA=$(at Flattened 300x650+0+90); [ -n "$FA" ] && break; sleep 0.5; done
-FO=$(at Original 300x650+0+90); [ -n "$FA" ] && click $FA 0.5
+for _ in $(seq 1 20); do FA=$(at Flattened 180x180+195+175); [ -n "$FA" ] && break; sleep 0.5; done
+F_ORIGINAL=$(ocr 660x500+382+180)
+[ -n "$FA" ] && click $FA 0.5
+F_FLATTENED=$(ocr 660x500+382+180)
+FO=$(at Original 180x180+195+175)
 shot 343-flattener-preview
-check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ]"
+check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ] && echo \"$F_ORIGINAL\" | grep -q 'Page 1' && echo \"$F_FLATTENED\" | grep -q 'Page 1' && [ \"$FLAT_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
 key Escape; quit
 
 # 344. iLovePDF's searchable OCR: automatic backend from the real options panel, with local packs.
 convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
 convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"
 launch "$OUT/fast-ocr-input.pdf"; sleep 1
-click $WRENCH_X 61 1; xdotool type --delay 20 "ocr"; key Return; sleep 2
+click $WRENCH_X 61 1; click 990 76 0.4; xdotool type --delay 20 "ocr"; key Return; sleep 2
 OR=$(optimize_option Require)
 shot 344-ocr-options
 click 1140 755 4
