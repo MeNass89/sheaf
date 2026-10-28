@@ -1216,9 +1216,9 @@ PY354
 cp "$OUT/text.pdf" "$OUT/354-valid.pdf"
 printf 'Not a PDF' > "$OUT/354-broken.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/354-run.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 # Run is at the end of the right editor's scroll area.
 xdotool mousemove 1245 650; for _ in $(seq 1 35); do xdotool click 5; done; sleep 1
 answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.pdf"
@@ -1271,11 +1271,11 @@ PY356
 mkdir -p "$OUT/356-input/nested"
 cp "$OUT/text.pdf" "$OUT/356-input/first.pdf"; cp "$OUT/text.pdf" "$OUT/356-input/nested/second.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/356-folder-action.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
-IN=$(at Include 740x440+500+290); [ -n "$IN" ] && click $IN 0.3
+IN=$(at Include 790x440+460+290); [ -n "$IN" ] && click $IN 0.3
 answer "$PWD/$OUT/356-input"
 RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
