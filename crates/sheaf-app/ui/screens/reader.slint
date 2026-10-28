@@ -1056,14 +1056,15 @@ export component ReaderScreen inherits Rectangle {
                             // the click goes on to it there, at the same point (a link, a comment, a note
                             // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
                             // Its drag goes on there too, a selection or a comment dragged (Sol, 27/10: the press
-                            // was a click at once). The tab's pages took this pane's place and scroll.
+                            // was a click at once). That tab is laid out as this pane at the press; it comes
+                            // forward when the button is let go, so this screen keeps the pointer meanwhile
+                            // (round 30: handed over at the press, the screen hid and the drag was lost).
                             if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" && root.other-press < 0 {
-                                let other = root.tab.split-other;
+                                let other = ReaderBridge.split-press-other(root.id);
                                 root.op-cx0 = self.mouse-x;
                                 root.op-cy0 = self.mouse-y;
                                 root.op-wx0 = self.absolute-position.x + self.mouse-x;
                                 root.op-wy0 = self.absolute-position.y + self.mouse-y;
-                                ReaderBridge.split-focus(root.id);
                                 if other >= 0 {
                                     root.other-press = other;
                                     ReaderBridge.pressed(other, root.op-cx0, root.op-cy0, e.modifiers.shift ? 17 : 1);
@@ -1075,6 +1076,7 @@ export component ReaderScreen inherits Rectangle {
                                     let other = root.other-press;
                                     root.other-press = -1;
                                     ReaderBridge.released(other, root.op-cx0 + (self.absolute-position.x + self.mouse-x - root.op-wx0), root.op-cy0 + (self.absolute-position.y + self.mouse-y - root.op-wy0));
+                                    ReaderBridge.split-focus(root.id);
                                 }
                                 return;
                             }
