@@ -380,9 +380,86 @@ fn vowel_sound(word: &str) -> bool {
 /// (`english`, the dictionary's language): a sentence that starts small after a full stop, question
 /// or exclamation mark ("done. then"; not after "e.g." or "Dr."), "a" / "an" against the next word's
 /// sound ("a apple", "an car"; "an hour", "a unit" are right), a space before ; : ! ? (French puts
-/// one there), the pronoun "i" in small letters, and "could of" for "could have". Not checked:
-/// agreement, tense, word order, style.
+/// one there), the pronoun "i" in small letters, and "could of" for "could have". English also goes
+/// through Harper (an offline grammar checker in Rust): agreement ("she go", "he don't"), word
+/// choice ("their is", "there car"), eggcorns and malapropisms. Not checked: style.
 pub fn grammar(text: &str, english: bool) -> Vec<GrammarIssue> {
+    let mut out = simple_grammar(text, english);
+    if english {
+        for g in harper_issues(text) {
+            // The simple rules' own findings stay theirs (one note per place).
+            if !out.iter().any(|o| o.start < g.start + g.text.len() && g.start < o.start + o.text.len()) {
+                out.push(g);
+            }
+        }
+        out.sort_by_key(|g| g.start);
+    }
+    out
+}
+
+/// Harper's rule set lives on its own thread (it cannot move between threads), built once there: building it
+/// takes a moment (seconds in a debug build) and the check runs while typing (rebuilt on each check, the
+/// window froze, 28/10). Each check is a request to that thread.
+type GrammarRequest = (String, std::sync::mpsc::Sender<Vec<GrammarIssue>>);
+fn harper_thread() -> &'static std::sync::Mutex<std::sync::mpsc::Sender<GrammarRequest>> {
+    static WORKER: std::sync::OnceLock<std::sync::Mutex<std::sync::mpsc::Sender<GrammarRequest>>> = std::sync::OnceLock::new();
+    WORKER.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<GrammarRequest>();
+        std::thread::spawn(move || {
+            let dict = harper_core::spell::FstDictionary::curated();
+            let mut linter = harper_core::linting::LintGroup::new_curated(dict, harper_core::Dialect::American);
+            for (text, reply) in rx {
+                let _ = reply.send(harper_lint(&mut linter, &text));
+            }
+        });
+        std::sync::Mutex::new(tx)
+    })
+}
+
+/// Starts building the grammar rule set in the background, so the first check while typing does not wait.
+pub fn warm_grammar() {
+    let _ = harper_thread();
+}
+
+fn harper_issues(text: &str) -> Vec<GrammarIssue> {
+    let (reply, answer) = std::sync::mpsc::channel();
+    let sent = harper_thread().lock().map(|tx| tx.send((text.to_string(), reply)).is_ok()).unwrap_or(false);
+    if sent { answer.recv().unwrap_or_default() } else { Vec::new() }
+}
+
+/// Harper's findings in English `text` that a grammar pass reports (agreement, word choice, eggcorns,
+/// malapropisms, nonstandard forms); spelling, capitals, repetition and style are left to the other rules.
+fn harper_lint(linter: &mut harper_core::linting::LintGroup, text: &str) -> Vec<GrammarIssue> {
+    use harper_core::linting::{LintKind, Linter, Suggestion};
+    use harper_core::spell::FstDictionary;
+    use harper_core::Document;
+    let dict = FstDictionary::curated();
+    let doc = Document::new_plain_english(text, &dict);
+    // Harper's spans count characters; GrammarIssue counts bytes.
+    let bytes_at: Vec<usize> = text.char_indices().map(|(b, _)| b).chain(std::iter::once(text.len())).collect();
+    let lints = linter.lint(&doc);
+    lints
+        .into_iter()
+        .filter_map(|l| {
+            let note = match l.lint_kind {
+                LintKind::Agreement => "The verb does not agree with its subject",
+                LintKind::Grammar => "Grammar",
+                LintKind::Eggcorn | LintKind::Malapropism | LintKind::WordChoice => "Word choice",
+                LintKind::Nonstandard => "Nonstandard form",
+                _ => return None,
+            };
+            let (start, end) = (*bytes_at.get(l.span.start)?, *bytes_at.get(l.span.end)?);
+            let fix = match l.suggestions.first()? {
+                Suggestion::ReplaceWith(c) => c.iter().collect(),
+                _ => return None,
+            };
+            Some(GrammarIssue { start, text: text[start..end].to_string(), note, fix })
+        })
+        .collect()
+}
+
+/// The rules of [`grammar`] that need no language model.
+fn simple_grammar(text: &str, english: bool) -> Vec<GrammarIssue> {
     let mut out = Vec::new();
     // Two spaces or more between two non-spaces on one line.
     let bytes = text.as_bytes();
@@ -781,6 +858,33 @@ mod tests {
         let mut pass = CheckPass::new(&s, &["ab ab cd"], false);
         pass.pass_word();
         assert_eq!(at(&pass), Some((0, 6, "cd".into())));
+    }
+
+    /// The grammar pass runs while typing: after the first check, a sentence is checked in well under the
+    /// pause between keys (the rule set is built once, not per check).
+    #[test]
+    fn a_grammar_check_after_the_first_is_quick() {
+        grammar("She go to the store.", true);
+        let start = std::time::Instant::now();
+        for _ in 0..10 {
+            grammar("Their is a problem with there car, and he don't know.", true);
+        }
+        assert!(start.elapsed() < std::time::Duration::from_secs(2), "{:?} for ten checks", start.elapsed());
+    }
+
+    /// English agreement and word choice beyond the simple rules (C-reader-060, Sol: no agreement, tense or word
+    /// order was checked): Harper finds "She go" and "Their is", with a fix for each.
+    #[test]
+    fn english_agreement_and_word_choice_are_found_with_their_fixes() {
+        let text = "She go to the store. Their is a problem with there car.";
+        let found = grammar(text, true);
+        let at = |w: &str| found.iter().find(|g| g.text == w);
+        let go = at("go").expect("agreement");
+        assert_eq!(go.note, "The verb does not agree with its subject");
+        assert_eq!(go.fix, "goes");
+        assert!(at("Their").is_some() && at("there").is_some(), "{found:?}");
+        // Not English: only the language-neutral rules run.
+        assert!(grammar(text, false).iter().all(|g| g.text != "go"));
     }
 
     #[test]

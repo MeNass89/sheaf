@@ -24,6 +24,7 @@ mod platform_ui;
 mod ai_ui;
 mod settings_ui;
 mod feedback_ui;
+mod plugins_ui;
 mod windows;
 
 use std::cell::RefCell;
@@ -71,9 +72,9 @@ fn deliver(paths: Vec<PathBuf>) {
         match sheaf_app::file_preview::preview_pdf(&p) {
             Ok(pdf) => {
                 reader_ui::open(&ui, pdf, None);
-                flow::toast(&ui, &format!("Preview of {name}: Save As keeps it as a PDF"));
+                flow::toast(&ui, &sheaf_app::i18n::trf("Preview of {}: Save As keeps it as a PDF", &[&name]));
             }
-            Err(e) => flow::toast(&ui, &format!("Can't preview {name}: {e}")),
+            Err(e) => flow::toast(&ui, &sheaf_app::i18n::trf("Can't preview {}: {}", &[&name, &e])),
         }
     }
     if let Some(msg) = plan.notice {
@@ -120,6 +121,14 @@ pub(crate) fn install_catalogue(ui: &AppWindow) {
         })
         .collect();
     let favourites: Vec<ToolCard> = home::favourites().iter().filter_map(|id| ToolId::from_str(id)).filter_map(|id| catalogue.iter().copied().find(|t| t.id == id)).map(tool_card).collect();
+    // The enabled plugins' tools, in a section of their own (Acrobat lists plug-in tools with the others).
+    let plugin_cards = plugins_ui::cards();
+    let mut all = all;
+    all.extend(plugin_cards.iter().cloned());
+    let mut sections = sections;
+    if !plugin_cards.is_empty() {
+        sections.push(ToolSection { title: sheaf_app::i18n::tr("Plugins").into(), collapsed: false, tools: ModelRc::new(VecModel::from(plugin_cards)) });
+    }
     ui.set_favourite_tools(ModelRc::new(VecModel::from(favourites)));
     ui.set_all_tools(ModelRc::new(VecModel::from(all)));
     ui.set_sections(ModelRc::from(Rc::new(VecModel::from(sections))));
@@ -228,6 +237,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_add_crop_marks, |ui, id| reader_ui::add_crop_marks(&ui, id));
     wire_global!(ui, rb, on_press_profile, |ui, id| reader_ui::press_profile(&ui, id));
     wire_global!(ui, rb, on_press_export, |ui, id, condition, level| reader_ui::press_export(&ui, id, &condition, level));
+    wire_global!(ui, rb, on_pdfe_export, |ui, id| reader_ui::pdfe_export(&ui, id));
     wire_global!(ui, rb, on_press_preset, |ui, id, preset| reader_ui::press_preset(&ui, id, preset));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));
@@ -479,7 +489,7 @@ fn main() -> Result<(), slint::PlatformError> {
     // Home ▸ From clipboard: PDF files copied (in Finder, a file manager), else a picture, else text,
     // become a new PDF, named and placed first.
     wire!(ui, on_new_from_clipboard, |ui| {
-        let Some(clip) = run::clipboard_pages() else { return flow::toast(&ui, "The clipboard holds no PDF, picture or text") };
+        let Some(clip) = run::clipboard_pages() else { return flow::toast(&ui, &sheaf_app::i18n::tr("The clipboard holds no PDF, picture or text")) };
         let d = dialog::new(&ui).set_file_name("Clipboard.pdf").add_filter("PDF", &["pdf"]);
         dialog::save_file(&ui, d, move |ui, path| match run::clipboard_to_pdf(&clip, &path) {
             Ok(p) => deliver(vec![p]),
@@ -496,7 +506,7 @@ fn main() -> Result<(), slint::PlatformError> {
             let taken = run::capture_area(&shot);
             let _ = weak.upgrade_in_event_loop(move |ui| {
                 if !taken {
-                    return flow::toast(&ui, "No screenshot was taken");
+                    return flow::toast(&ui, &sheaf_app::i18n::tr("No screenshot was taken"));
                 }
                 let d = dialog::new(&ui).set_file_name("Screenshot.pdf").add_filter("PDF", &["pdf"]);
                 dialog::save_file(&ui, d, move |ui, path| {
@@ -514,7 +524,7 @@ fn main() -> Result<(), slint::PlatformError> {
     // named and placed first. Scanned off the UI thread.
     wire!(ui, on_new_from_scanner, |ui| {
         let weak = ui.as_weak();
-        flow::toast(&ui, "Scanning…");
+        flow::toast(&ui, &sheaf_app::i18n::tr("Scanning…"));
         std::thread::spawn(move || {
             let scan = std::env::temp_dir().join(format!("sheaf-scan-{}.png", std::process::id()));
             let r = run::scan_page(&scan);
@@ -557,6 +567,9 @@ fn main() -> Result<(), slint::PlatformError> {
         home::refresh(&ui);
     });
     wire!(ui, on_open_tool, |ui, id| {
+        if let Some(plugin_tool) = id.strip_prefix(plugins_ui::CARD) {
+            return plugins_ui::open(&ui, plugin_tool);
+        }
         if let Some(tool) = flow::tool_from_str(&id) {
             let preload = state::with(|a| std::mem::take(&mut a.home_files));
             flow::open_tool(&ui, tool, preload);
@@ -692,6 +705,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ai_ui::install(&ui);
     settings_ui::install(&ui);
     feedback_ui::install(&ui);
+    plugins_ui::install(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();
     ui.window().on_close_requested(move || match weak.upgrade() {
@@ -701,7 +715,7 @@ fn main() -> Result<(), slint::PlatformError> {
     let picked = ui.global::<sheaf_app::Picked>();
     wire_global!(ui, picked, on_preview_watermark, |ui, tab, opts| wm_preview::request(&ui, tab, opts));
     wire_global!(ui, picked, on_pick_watermark, |ui, tab| {
-        let d = dialog::new(&ui).set_title("Choose the watermark image").add_filter("Image", &["png", "jpg", "jpeg"]);
+        let d = dialog::new(&ui).set_title(sheaf_app::i18n::tr("Choose the watermark image")).add_filter("Image", &["png", "jpg", "jpeg"]);
         dialog::pick_file(&ui, d, move |ui, p| {
             let g = ui.global::<sheaf_app::Picked>();
             g.set_tab(tab);
@@ -710,7 +724,7 @@ fn main() -> Result<(), slint::PlatformError> {
         });
     });
     wire_global!(ui, picked, on_pick_p12, |ui, tab| {
-        let d = dialog::new(&ui).set_title("Choose your certificate").add_filter("Digital ID", &["p12", "pfx"]);
+        let d = dialog::new(&ui).set_title(sheaf_app::i18n::tr("Choose your certificate")).add_filter("Digital ID", &["p12", "pfx"]);
         dialog::pick_file(&ui, d, move |ui, p| {
             let g = ui.global::<sheaf_app::Picked>();
             g.set_tab(tab);
@@ -795,7 +809,7 @@ fn main() -> Result<(), slint::PlatformError> {
             && !missing.is_empty()
         {
             // Timed from before the window's first frame: longer than a toast's 3 s, so it is read.
-            flow::toast_for(&ui, &format!("Not found: {}", missing.join(", ")), 8);
+            flow::toast_for(&ui, &sheaf_app::i18n::trf("Not found: {}", &[&missing.join(", ")]), 8);
         }
     });
 

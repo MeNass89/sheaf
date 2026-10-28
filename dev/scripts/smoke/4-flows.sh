@@ -517,12 +517,15 @@ pref_find() { local f="" g; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90
 # wheel's scroll eases out after the word shows: measured again once still.
 shortcut_search() { local t f; read _ t <<< "$(pref_find shortcuts)"; sleep 1; read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}
     SR=0; [ -n "$t" ] && click 500 $(( t + 40 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8
-    # The first click on a keys box scrolls the page (69 px) as it starts recording: done once and cancelled
-    # (Escape), so the rows are measured where they stay.
-    [ -n "$t" ] && { click 1157 $(( t + 85 )) 0.5; key Escape; sleep 0.8; }
+    # The list found is below the field: the page scrolled on a little (where it can) so its rows show.
+    xdotool mousemove 760 500 click 5 click 5; sleep 0.8
     read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}; [ -n "$t" ] && SR=$(( t + 133 )); }
 # A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
-keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; echo "${y:-no $1 row}"; }
+# Starting to record can scroll the page (near its end): when "Press the keys…" does not show, the row is found
+# again and clicked once more.
+keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5
+    if [ -n "$y" ] && [ -z "$(at Press 1020x700+250+90)" ]; then read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; fi
+    echo "${y:-no $1 row}"; }
 # The preferences file, written even when no earlier step made it.
 prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
 # The steps below change the platform preferences: put back as they were.
@@ -563,7 +566,8 @@ quit; platform_reset
 # the note (saved). Needs a Hunspell English dictionary (hunspell-en-us) or /usr/share/dict/words.
 cp "$OUT/text.pdf" "$OUT/spelling.pdf"; launch "$OUT/spelling.pdf"; sleep 1
 key n; click 640 400 0.8; xdotool type --delay 15 "A mispelt sentnce here "; sleep 1.5
-SP=$(ocr 1280x710+0+90)
+# The card comes once the check has run (the first check also loads the grammar rules): waited for.
+for _ in $(seq 1 12); do SP=$(ocr 1280x710+0+90); echo "$SP" | grep -q 'Learn' && break; sleep 0.5; done
 SC=$(at sentence 1280x710+0+90); [ -n "$SC" ] && click $SC 0.8
 key ctrl+Return; sleep 0.6; key ctrl+s; sleep 1.5
 SN=$(qpdf --qdf --object-streams=disable "$OUT/spelling.pdf" - 2>/dev/null | grep -ao '/Contents ([^)]*)' | tail -1)
@@ -600,7 +604,7 @@ at_word() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | conver
 # As in 221: the box's click can land before the list settles under load, so the letter is given again
 # until the preferences hold it.
 tk() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
-for _ in 1 2 3; do KH=$(keybox Highlight); key q; sleep 1.2; tk | grep -q "'highlight'" && break; key Escape; sleep 0.5; done
+for _ in 1 2 3; do KH=$(keybox Highlight); sleep 0.8; key q; sleep 1.5; tk | grep -q "'highlight'" && break; key Escape; sleep 0.5; done
 TK=$(tk)
 quit
 cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
@@ -842,8 +846,11 @@ answer ""; quit
 # ID added with its password (full rights) and a colleague's certificate (read only by default), saved as an
 # encrypted copy (Adobe.PubSec, one envelope per permission set). Opened again, the copy asks for the digital ID it
 # was sent to: a wrong password is refused, the right one opens it in place (its tab named after it, its words shown).
+# My ID is an ECC one (P-256, key agreement: Acrobat accepts them), the colleague's RSA: the copy holds both kinds of
+# CMS recipient, and opening it in place goes through EC key agreement.
 CD="$PWD/$OUT/certs"; mkdir -p "$CD"
-for n in me colleague; do openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/$n.key" -out "$CD/$n.pem" -days 2 -subj "/CN=Smoke $n" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1; done
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -keyout "$CD/me.key" -out "$CD/me.pem" -days 2 -subj "/CN=Smoke me" -addext keyUsage=digitalSignature,keyAgreement >/dev/null 2>&1
+openssl req -x509 -newkey rsa:2048 -nodes -keyout "$CD/colleague.key" -out "$CD/colleague.pem" -days 2 -subj "/CN=Smoke colleague" -addext keyUsage=digitalSignature,keyEncipherment >/dev/null 2>&1
 openssl pkcs12 -export -passout pass:smokepw -inkey "$CD/me.key" -in "$CD/me.pem" -out "$CD/me.p12" >/dev/null 2>&1
 cp "$OUT/text.pdf" "$OUT/certsrc.pdf"; rm -f "$OUT/certenc.pdf"; launch "$OUT/certsrc.pdf"; sleep 1
 click 1108 61 0.8; click 1008 659 0.8
@@ -1122,6 +1129,18 @@ optimize_ink_dark() { import -window root -crop 500x300+450+180 -depth 8 png:- 2
 INK_DARK=$(optimize_ink_dark); key Up; sleep 0.5; INK_YELLOW=$(optimize_ink_dark); key Down; sleep 0.5; INK_RETURN=$(optimize_ink_dark)
 shot 342-ink-plates
 check "342 output preview lists real CMYK plates ($PP; $PI; $PC; $PM; $PY; $PB)" "[ -n \"$PC\" ] && [ -n \"$PM\" ] && [ -n \"$PY\" ] && [ -n \"$PB\" ] && python3 -c \"assert float('$INK_DARK') > float('$INK_YELLOW') + 0.0003 and float('$INK_RETURN') > float('$INK_YELLOW') + 0.0003\" && [ \"$INK_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
+# 342b. Several inks together (C-optimize-012, Sol: only one isolated plate could be shown): "All ticked inks"
+# shows the page in its inks; Black's box cleared, the black text is gone; ticked again, it is back.
+read AX AY <<< "$(at All 220x260+190+170)"; [ -n "$AY" ] && click $AX $AY 0.8
+ALL_ON=$(optimize_ink_dark)
+# Each tick redraws the composite (a 1200 px page, slower in a debug build): its effect is waited for.
+read _ BY <<< "$PB"
+xdotool mousemove 600 600; sleep 0.3; click 207 ${BY:-0} 0.5
+for _ in $(seq 1 12); do ALL_NO_BLACK=$(optimize_ink_dark); python3 -c "import sys; sys.exit(0 if float('$ALL_NO_BLACK') < float('$ALL_ON') / 4 else 1)" && break; sleep 0.5; done
+xdotool mousemove 600 600; sleep 0.3; click 207 ${BY:-0} 0.5
+for _ in $(seq 1 12); do ALL_BACK=$(optimize_ink_dark); python3 -c "import sys; sys.exit(0 if abs(float('$ALL_BACK') - float('$ALL_ON')) < 0.002 else 1)" && break; sleep 0.5; done
+shot 342b-inks-together
+check "342b the ticked inks show together, Black cleared takes the black text away ($AY; $ALL_ON → $ALL_NO_BLACK → $ALL_BACK)" "python3 -c \"assert float('$ALL_ON') > 0.002 and float('$ALL_NO_BLACK') < float('$ALL_ON') / 4 and abs(float('$ALL_BACK') - float('$ALL_ON')) < 0.002\""
 key Escape; quit
 
 # 343. Acrobat's Flattener Preview: compare the working page and actual PDF 1.3 conversion.
@@ -1137,6 +1156,20 @@ F_FLATTENED=$(ocr 660x500+382+180)
 FO=$(at Original 180x180+195+175)
 shot 343-flattener-preview
 check "343 flattener preview compares original and converted page ($PF; $FP; $FO; $FA)" "[ -n \"$FO\" ] && [ -n \"$FA\" ] && echo \"$F_ORIGINAL\" | grep -q 'Page 1' && echo \"$F_FLATTENED\" | grep -q 'Page 1' && [ \"$FLAT_SOURCE\" = \"\$(sha256sum \"$OUT/text.pdf\" | cut -d' ' -f1)\" ]"
+key Escape; quit
+
+# 345. Acrobat's Save as Other ▸ PDF/E (C-convert-019): the Production sheet's Save PDF/E copy… writes the picture
+# document as PDF/E-1 (PDF 1.6, identified in its metadata) beside it; the working document is unchanged.
+images_pdf_e="$OUT/pdfe-src.pdf"; convert -size 300x200 xc:'#2a9c4b' "$images_pdf_e" 2>/dev/null
+rm -f "$OUT/pdfe-out.pdf"; launch "$images_pdf_e"; PF=$(optimize_print_tool hairlines)
+PE=
+for _ in $(seq 1 16); do PE=$(at "PDF/E" 700x660+0+80); [ -n "$PE" ] && break; xdotool mousemove 400 500 click 5 click 5; sleep 0.3; done
+read SX SY <<< "$(for _ in 1; do import -window root -crop 700x660+0+80 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="copy…" || $12=="copy..." {print int(($7+$9/2)/2), int(80+($8+$10/2)/2)}' | tail -1; done)"
+answer "$PWD/$OUT/pdfe-out.pdf"; [ -n "$SY" ] && click $(( SX - 60 )) $SY 1
+for _ in $(seq 1 30); do [ -s "$OUT/pdfe-out.pdf" ] && break; sleep 0.5; done; answer ""
+shot 345-pdfe
+PV=$(python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); print(d[:8].decode("latin1"), b"<pdfe:ISO_PDFEVersion>PDF/E-1" in d)' "$OUT/pdfe-out.pdf" 2>/dev/null)
+check "345 Save PDF/E copy writes PDF/E-1 beside the document ($PF; ${PE:-no PDF/E}; button ${SY:-none}; $PV)" "echo \"$PV\" | grep -q '%PDF-1.6 True'"
 key Escape; quit
 
 # 344. iLovePDF's searchable OCR: automatic backend from the real options panel, with local packs.
@@ -1577,3 +1610,103 @@ DL=$(ai_chip Delete); sleep 0.8; IM=$(ai_chip Import); sleep 1.2; T7=$(ai_text);
 SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(len(s), s[-1]["files"][-1].endswith("/ai.pdf"))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
 check "a space exported with relative paths is imported back (new $NS, export $EX, delete $DL, import $IM; file lists $REL; spaces $SP; $(echo "$T7" | grep -o 'Space: Space ([0-9] PDF)' | head -1))" "[ \"$REL\" = \"['../ai.pdf']\" ] && [ \"$SP\" = '1 True' ] && echo \"$T7\" | grep -q 'Space: Space (1 PDF)'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
+
+# 371. Preferences ▸ Signatures ▸ Add a smart card or token… (C-sign-013, Acrobat's PKCS#11 Modules and Tokens ▸
+# Attach Module): a SoftHSM token holding a P-256 key and its certificate, as a smart card does; its module chosen,
+# the card's ID joins the list without the PIN being asked, named after its holder and token, and is kept as a
+# pkcs11: reference (it signs with the PIN in 372).
+SH=$(for m in /usr/lib/softhsm/libsofthsm2.so /usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so /opt/homebrew/lib/softhsm/libsofthsm2.so; do [ -f "$m" ] && echo "$m" && break; done)
+TK="$PWD/$OUT/token"; rm -rf "$TK"; mkdir -p "$TK/tokens"
+printf 'directories.tokendir = %s\nobjectstore.backend = file\nlog.level = ERROR\n' "$TK/tokens" > "$TK/softhsm2.conf"
+# The app inherits it from launch: SoftHSM reads its tokens there, never the user's.
+export SOFTHSM2_CONF="$TK/softhsm2.conf"
+if [ -n "$SH" ] && command -v pkcs11-tool >/dev/null; then
+    softhsm2-util --init-token --free --label "Smoke card" --so-pin 123456 --pin 4321 >/dev/null 2>&1
+    openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out "$TK/card.key" 2>/dev/null
+    openssl req -new -x509 -key "$TK/card.key" -days 2 -subj "/CN=Smoke Card Holder" -addext keyUsage=critical,digitalSignature,nonRepudiation -outform DER -out "$TK/card.der" 2>/dev/null
+    softhsm2-util --import "$TK/card.key" --token "Smoke card" --label holder --id 01 --pin 4321 >/dev/null 2>&1
+    pkcs11-tool --module "$SH" --token-label "Smoke card" --login --pin 4321 --write-object "$TK/card.der" --type cert --id 01 --label holder >/dev/null 2>&1
+fi
+launch; key ctrl+comma; sleep 0.8
+answer "$SH"; read SX SY <<< "$(pref_find smart)"; [ -n "$SY" ] && click $SX $SY 1
+for _ in $(seq 1 20); do grep -q pkcs11: "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null && break; sleep 0.5; done; answer ""; sleep 0.8
+shot 371-token
+# The list starts at x 234, left of pref_find's crop.
+LIST=$(ocr 1040x710+226+90)
+REF=$(python3 -c 'import json, sys; print(next((d for d in json.load(open(sys.argv[1])).get("digital_ids", []) if d.startswith("pkcs11:")), ""))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+check "Add a smart card or token lists the card's digital ID without its PIN (module ${SH:-none}; button ${SY:-not found}; listed: $(echo "$LIST" | grep -o 'Smoke Card Holder ([^)]*)' | head -1); kept: $(echo "$REF" | cut -c1-60))" "echo \"$LIST\" | grep -q 'Smoke Card Holder (Smoke card)' && echo \"$REF\" | grep -q '^pkcs11:token=Smoke%20card;.*module-path='"
+quit
+
+# 372. Sign with the smart card (C-sign-013): Tools ▸ Sign, a typed name, Use a digital ID; the card's ID chosen from
+# the IDs Preferences keeps (it has no file), its PIN typed in a field that asks for a PIN: the signed copy carries
+# a digital signature by Smoke Card Holder, made on the token.
+cp "$OUT/text.pdf" "$OUT/cardsign.pdf"; rm -f "$OUT"/cardsign-*.pdf
+launch "$OUT/cardsign.pdf"; sleep 1
+click $WRENCH_X 61 1.5; xdotool type --delay 20 "sign"; key Return; sleep 2
+# The panel (x 1004–1252): a typed name, placed with a click on the page, then the digital ID below.
+click 1127 281 0.4; xdotool type --delay 20 "Ada"; sleep 0.5; click 500 400 1
+UD=$(at Use 280x700+1000+90); [ -n "$UD" ] && click $UD 0.8
+CH=$(at Smoke 280x700+1000+90); [ -n "$CH" ] && click $CH 0.6
+# The PIN field is below the panel's fold.
+xdotool mousemove 1130 500 click 5 click 5 click 5 click 5; sleep 0.6
+PN=$(at PIN 280x700+1000+90); [ -n "$PN" ] && { click $(echo $PN | awk '{ print $1 + 40, $2 + 30 }') 0.4; xdotool type --delay 20 4321; }
+shot 372-panel; PT=$(ocr 280x700+1000+90)
+click 1133 755 6; shot 372-signed
+SG=$(ls "$OUT"/cardsign-*.pdf 2>/dev/null | head -1); SIG=$( [ -n "$SG" ] && pdfsig -nocert "$SG" 2>&1 | tr '\n' ' ')
+check "the card's ID signs with its PIN (use ${UD:-?}, card ${CH:-?}, PIN field ${PN:-?}: $(echo "$PT" | grep -o 'PIN of the smart card' | head -1); ${SG:-no file}: $(echo "$SIG" | grep -o 'Common Name: [A-Za-z ]*Holder\|Signature is [A-Za-z]*' | tr '\n' ' '))" "echo \"$PT\" | grep -q 'PIN of the smart card' && echo \"$SIG\" | grep -q 'Common Name: Smoke Card Holder' && echo \"$SIG\" | grep -q 'Signature is Valid'"
+quit
+# 307. Plugins (C-platform-006; Acrobat's plug-ins, Stirling's custom scripts): the sample plugin in the plugins
+# folder adds "Mark as reviewed" to the Tools page; its first run asks first ("Run the plugin …?"), Allow and run
+# writes "plug - Mark as reviewed.pdf" titled Reviewed by the plugin's own process; the version is kept as allowed;
+# Preferences ▸ Plugins lists it and Off takes its card away.
+mkdir -p "$OUT/profile/data/Sheaf/plugins"; rm -rf "$OUT/profile/data/Sheaf/plugins/reviewed-stamp"
+cp -r dev/plugins/reviewed-stamp "$OUT/profile/data/Sheaf/plugins/"; cp "$OUT/text.pdf" "$OUT/plug.pdf"; rm -f "$OUT/plug - Mark as reviewed.pdf"
+launch; sleep 0.5
+TL=$(at Tools 250x300+0+40); [ -n "$TL" ] && click $TL 0.8
+# The Plugins section is the page's last: scrolled until its card shows (its name starts left of x 250).
+MK=; for _ in $(seq 1 25); do MK=$(at Mark 1080x710+200+90); [ -n "$MK" ] && break; xdotool mousemove 700 500 click 5 click 5 click 5; sleep 0.3; done
+[ -n "$MK" ] && click $MK 1
+WQ=$(ocr 700x340+290+230); shot 307a-plugin-warning
+answer "$PWD/$OUT/plug.pdf"
+# Allow and run (white on red, not read by OCR) is right of Don’t run, their centres 135 px apart.
+read DX DY <<< "$(at Don 1280x800+0+0)"; AL=; [ -n "$DX" ] && AL="$(( DX + 135 )) $DY" && click $AL 1
+for _ in $(seq 1 40); do [ -s "$OUT/plug - Mark as reviewed.pdf" ] && break; sleep 0.25; done; sleep 0.5; answer ""
+PT=$(pdfinfo "$OUT/plug - Mark as reviewed.pdf" 2>/dev/null | awk '/^Title:/ { print $2 }')
+PA=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["allowed"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
+key ctrl+comma; sleep 0.8
+# The plugin's row is the page's last: once found, the page goes on to its end so its buttons show too.
+PR=$(pref_find "Reviewed"); xdotool mousemove 700 500 click 5 click 5 click 5 click 5 click 5; sleep 0.8
+PR=$(pref_find "Reviewed"); OF=; [ -n "$PR" ] && { read _ RY <<< "$PR"; OF=$(at Off 1020x200+250+$(( RY - 10 ))); }
+[ -n "$OF" ] && click $OF 0.8; shot 307b-plugins-prefs
+PD=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["disabled"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
+TL=$(at Tools 250x300+0+40); [ -n "$TL" ] && click $TL 0.8
+MK2=; for _ in $(seq 1 25); do MK2=$(at Mark 1080x710+200+90); [ -n "$MK2" ] && break; xdotool mousemove 700 500 click 5 click 5 click 5; sleep 0.2; done
+check "a plugin's tool runs as its own process after a warning, and Off removes it (card ${MK:-none}; asked: $(echo "$WQ" | grep -o 'Run the plugin' | head -1); title $PT; allowed $PA; prefs row ${PR:-none}, Off ${OF:-none}: disabled $PD; card after: ${MK2:-gone})" "[ -n \"$MK\" ] && echo \"$WQ\" | grep -q 'Run the plugin' && [ \"$PT\" = Reviewed ] && echo \"$PA\" | grep -q 'reviewed-stamp@1.0' && echo \"$PD\" | grep -q 'reviewed-stamp' && [ -z \"$MK2\" ]"
+quit; rm -rf "$OUT/profile/data/Sheaf/plugins"
+
+# 308. Preferences ▸ Rendering ▸ Use the system's profile (C-preferences-005, Acrobat's Use display profile): with a
+# Display P3 profile set on the display (the root window's _ICC_PROFILE, as colord sets it), the red of image.pdf
+# is drawn converted (less red, some green) while white stays white; sRGB before.
+# The page's reddest pixel and a white one (a 10× smaller copy of the page area), as "x y r g b" lines.
+red_white() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - -scale 102x70! -depth 8 txt:- | python3 -c '
+import re, sys
+px = [tuple(map(int, m.groups())) for m in re.finditer(r"^(\d+),(\d+): \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M)]
+red = max(px, key=lambda p: p[2] - p[4] - p[3] // 2)
+white = next(p for p in px if min(p[2:]) > 250)
+print(*red, *white)'; }
+cp "$OUT/image.pdf" "$OUT/p3.pdf"; launch "$OUT/p3.pdf"; sleep 1; read RX RY R0 G0 B0 WX WY W0 _ <<< "$(red_white)"; quit
+python3 dev/scripts/smoke/set-icc.py dev/scripts/smoke/display-p3.icc
+launch; key ctrl+comma; sleep 0.8
+# Use the system's profile is the third of the row whose first is Choose monitor ICC… (segments 222 px apart).
+read CX CY <<< "$(pref_find Choose)"; US=; [ -n "$CX" ] && US="$(( CX + 444 + 20 )) $CY" && click $US 0.8
+DS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("display_system"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+quit
+launch "$OUT/p3.pdf"; sleep 1.5; shot 308-display-p3
+P=$(import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - -scale 102x70! -depth 8 txt:- | python3 -c '
+import re, sys
+px = {(int(m[1]), int(m[2])): (int(m[3]), int(m[4]), int(m[5])) for m in re.finditer(r"^(\d+),(\d+): \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M)}
+print(*px.get((int(sys.argv[1]), int(sys.argv[2])), (0, 0, 0)), *px.get((int(sys.argv[3]), int(sys.argv[4])), (0, 0, 0)))' "${RX:-0}" "${RY:-0}" "${WX:-0}" "${WY:-0}")
+read R1 G1 B1 W1 _ <<< "$P"
+python3 dev/scripts/smoke/set-icc.py
+check "the system's display profile converts the page's colours (display_system $DS; red at ${RX:-?},${RY:-?}: $R0 $G0 $B0 → $R1 $G1 $B1; white $W0 → $W1)" "[ \"$DS\" = True ] && [ \"${R0:-0}\" -gt 200 ] && [ \$(( ${R0:-0} - ${R1:-0} )) -ge 8 ] && [ \$(( ${G1:-0} - ${G0:-0} )) -ge 8 ] && [ \"${W1:-0}\" -ge 250 ]"
+quit; prefs_set "p.pop('display_system', None)"

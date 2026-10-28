@@ -48,7 +48,7 @@ pub fn ai_goto(ui: &AppWindow, tab_id: i32, page: usize) {
     if shown == Some(true) {
         crate::viewer_ui::request(ui, tab_id);
     } else {
-        crate::flow::toast(ui, &format!("This document has no page {}", page + 1));
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("This document has no page {}", &[&(page + 1)]));
     }
 }
 

@@ -393,7 +393,7 @@ fn act(ui: &AppWindow, tab: i32, req: Request) {
         return push(ui);
     }
     if req.action == "classify" && with(|s| s.space) == 0 {
-        let d = crate::dialog::new(ui).set_title("PDFs to classify").add_filter("PDF", &["pdf"]);
+        let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("PDFs to classify")).add_filter("PDF", &["pdf"]);
         let req2 = req.clone();
         crate::dialog::pick_files(ui, d, move |ui, files| start(ui, tab, req2, Some(files)));
         return;
@@ -599,7 +599,7 @@ fn save_deck(ui: &AppWindow, tab: i32, title: &str, outline: &str, pptx: bool) {
         return say(ui, tab, false, "The answer has no slides in it (no \"# Title\" lines). Ask again, or try another model.".into(), true);
     }
     let ext = if pptx { "pptx" } else { "pdf" };
-    let d = crate::dialog::new(ui).set_title("Save the slides").set_file_name(format!("{title} slides.{ext}")).add_filter(if pptx { "PowerPoint" } else { "PDF" }, &[ext]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save the slides")).set_file_name(format!("{title} slides.{ext}")).add_filter(if pptx { "PowerPoint" } else { "PDF" }, &[ext]);
     let title = format!("{title} slides");
     crate::dialog::save_file(ui, d, move |ui, out| {
         panel(tab, |p| {
@@ -647,7 +647,7 @@ fn goto(ui: &AppWindow, tab: i32, arg: &str) {
                     crate::home::remember_page(&path, page);
                     crate::deliver(vec![path]);
                 }
-                None => crate::flow::toast(ui, &format!("{name} is not in this space")),
+                None => crate::flow::toast(ui, &sheaf_app::i18n::trf("{} is not in this space", &[&name])),
             }
         }
     }
@@ -662,7 +662,7 @@ fn save_audio(ui: &AppWindow, tab: i32, k: &str) {
         return;
     }
     let title = reader_ui::ai_doc(tab).map(|d| d.path.file_stem().unwrap_or_default().to_string_lossy().to_string()).unwrap_or_else(|| "Podcast".into());
-    let d = crate::dialog::new(ui).set_title("Save the podcast audio").set_file_name(format!("{title} podcast.wav")).add_filter("WAV audio", &["wav"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save the podcast audio")).set_file_name(format!("{title} podcast.wav")).add_filter("WAV audio", &["wav"]);
     crate::dialog::save_file(ui, d, move |ui, out| {
         let cancel = Arc::new(AtomicBool::new(false));
         panel(tab, |p| {
@@ -704,7 +704,7 @@ fn message_act(ui: &AppWindow, tab: i32, req: &Request) {
     match req.action.as_str() {
         "copy" => {
             let ok = arboard::Clipboard::new().and_then(|mut c| c.set_text(text)).is_ok();
-            crate::flow::toast(ui, if ok { "Copied" } else { "The clipboard is not available" });
+            crate::flow::toast(ui, &if ok { sheaf_app::i18n::tr("Copied") } else { sheaf_app::i18n::tr("The clipboard is not available") });
         }
         "open" => {
             if let Some(path) = saved {
@@ -717,11 +717,11 @@ fn message_act(ui: &AppWindow, tab: i32, req: &Request) {
         }
         _ => {
             let title = reader_ui::ai_doc(tab).map(|d| d.path.file_stem().unwrap_or_default().to_string_lossy().to_string()).unwrap_or_else(|| "Answer".into());
-            let d = crate::dialog::new(ui).set_title("Save the answer").set_file_name(format!("{title} AI.txt")).add_filter("Text", &["txt", "md"]).add_filter("PDF", &["pdf"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save the answer")).set_file_name(format!("{title} AI.txt")).add_filter("Text", &["txt", "md"]).add_filter("PDF", &["pdf"]);
             crate::dialog::save_file(ui, d, move |ui, out| match ai::write_text(&format!("{title} AI"), &text, &out) {
                 Ok(p) => {
                     panel(tab, |pa| if let Some(m) = pa.messages.get_mut(k) { m.saved = Some(p.clone()) });
-                    crate::flow::toast(ui, &format!("Saved {}", p.file_name().unwrap_or_default().to_string_lossy()));
+                    crate::flow::toast(ui, &sheaf_app::i18n::trf("Saved {}", &[&p.file_name().unwrap_or_default().to_string_lossy()]));
                     push(ui);
                 }
                 Err(e) => say(ui, tab, false, e.to_string(), true),
@@ -744,7 +744,7 @@ pub fn drop_space(tab: i32) -> Option<String> {
 /// A file dropped while [`drop_space`]: a PDF joins the space, anything else is refused.
 pub fn drop_into_space(ui: &AppWindow, path: PathBuf) {
     if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
-        return crate::flow::toast(ui, "Only PDFs go in an AI space");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Only PDFs go in an AI space"));
     }
     let name = with(|s| {
         let i = s.space.checked_sub(1)?;
@@ -754,14 +754,14 @@ pub fn drop_into_space(ui: &AppWindow, path: PathBuf) {
     });
     if let Some(name) = name {
         save_spaces(ui);
-        crate::flow::toast(ui, &format!("Added to the space “{name}”"));
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("Added to the space “{}”", &[&name]));
     }
     push(ui);
 }
 
 fn save_spaces(ui: &AppWindow) {
     if let Err(e) = with(|s| spaces::save(&dir(), &s.spaces)) {
-        crate::flow::toast(ui, &format!("Spaces not saved: {e}"));
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("Spaces not saved: {}", &[&e]));
     }
 }
 
@@ -809,15 +809,15 @@ fn space_act(ui: &AppWindow, action: &str, k: i32) {
         }),
         "export" => {
             let Some(space) = with(|s| s.space.checked_sub(1).and_then(|i| s.spaces.get(i).cloned())) else { return };
-            let d = crate::dialog::new(ui).set_title("Export the space").set_file_name(format!("{}.{}", space.name, spaces::EXTENSION)).add_filter("Sheaf space", &[spaces::EXTENSION]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Export the space")).set_file_name(format!("{}.{}", space.name, spaces::EXTENSION)).add_filter("Sheaf space", &[spaces::EXTENSION]);
             crate::dialog::save_file(ui, d, move |ui, out| match spaces::export(&space, &out) {
-                Ok(p) => crate::flow::toast(ui, &format!("Exported {}: keep it with the PDFs, paths are relative to it", p.file_name().unwrap_or_default().to_string_lossy())),
-                Err(e) => crate::flow::toast(ui, &format!("The space could not be exported: {e}")),
+                Ok(p) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Exported {}: keep it with the PDFs, paths are relative to it", &[&p.file_name().unwrap_or_default().to_string_lossy()])),
+                Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The space could not be exported: {}", &[&e])),
             });
             return;
         }
         "import" => {
-            let d = crate::dialog::new(ui).set_title("Import a space").add_filter("Sheaf space", &[spaces::EXTENSION]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Import a space")).add_filter("Sheaf space", &[spaces::EXTENSION]);
             crate::dialog::pick_file(ui, d, move |ui, path| match spaces::import(&path) {
                 Ok((mut space, missing)) => {
                     with(|s| {
@@ -829,7 +829,7 @@ fn space_act(ui: &AppWindow, action: &str, k: i32) {
                     save_spaces(ui);
                     refresh_labels(ui);
                     if !missing.is_empty() {
-                        crate::flow::toast(ui, &format!("Not found next to the space file: {}", missing.join(", ")));
+                        crate::flow::toast(ui, &sheaf_app::i18n::trf("Not found next to the space file: {}", &[&missing.join(", ")]));
                     }
                     push(ui);
                 }
@@ -848,7 +848,7 @@ fn space_act(ui: &AppWindow, action: &str, k: i32) {
             save_spaces(ui);
         }
         "add" => {
-            let d = crate::dialog::new(ui).set_title("Add PDFs to the space").add_filter("PDF", &["pdf"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Add PDFs to the space")).add_filter("PDF", &["pdf"]);
             crate::dialog::pick_files(ui, d, move |ui, files| {
                 with(|s| {
                     if let Some(sp) = s.space.checked_sub(1).and_then(|i| s.spaces.get_mut(i)) {

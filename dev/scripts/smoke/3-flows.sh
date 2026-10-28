@@ -457,7 +457,8 @@ quit
 cp "$OUT/plain.pdf" "$OUT/prep.pdf"; launch "$OUT/prep.pdf"; key ctrl+9; sleep 1; key Home; sleep 0.5; key f; sleep 0.6
 xdotool mousemove 500 360 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 40 )) $(( 360 + i * 6 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
 # The card under the field (its rows grew with Format and Copies): the name is the field above "Tooltip".
-NM=$(at Tooltip 640x420+400+380); [ -n "$NM" ] && { set -- $NM; click $1 $(( $2 - 34 )) 0.4; }; xdotool key ctrl+a; xdotool type --delay 20 "Full name"
+# A moment for the name field to take the keyboard: the first letter typed at once was lost ("ull name", 28/10).
+NM=$(at Tooltip 640x420+400+380); [ -n "$NM" ] && { set -- $NM; click $1 $(( $2 - 34 )) 0.8; }; xdotool key ctrl+a; sleep 0.3; xdotool type --delay 30 "Full name"
 RQ=$(at Required 640x420+400+380); [ -n "$RQ" ] && click $RQ 0.3   # the whole check, its label included, toggles
 DN=$(at Done 640x420+400+380); [ -n "$DN" ] && click $DN 1.2
 click 372 109 0.5; click 500 600 1.2; key Delete; sleep 1; click 500 650 1.2; key ctrl+s; sleep 1.5; shot 53-prepare

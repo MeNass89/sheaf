@@ -231,9 +231,9 @@ export component UnsavedDialog inherits Modal {
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: root.redact-marks == 1 ? "1 mark is not applied: Redact applies it."
-            : root.redact-marks > 1 ? root.redact-marks + " marks are not applied: Redact applies them."
-            : "Your annotations will be lost if you don’t save them.";
+        text: root.redact-marks == 1 ? @tr("1 mark is not applied: Redact applies it.")
+            : root.redact-marks > 1 ? @tr("{} marks are not applied: Redact applies them.", root.redact-marks)
+            : @tr("Your annotations will be lost if you don’t save them.");
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;

@@ -40,5 +40,8 @@ export global SettingsBridge {
     in property <string> login-error;
     callback set-open-at-login(bool);
     in property <bool> quit-warning: true;
+    // Acrobat's Use display profile: pages converted to the system's profile for the display.
+    in property <bool> display-system;
+    callback use-system-display();
     callback set-quit-warning(bool);
 }

@@ -51,7 +51,7 @@ export component SpellingSection inherits Card {
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: @tr("Grammar, every language: a word written twice, two spaces, a space before a comma or full stop, none after a comma. English only: a capital after a full stop, “a” or “an”, a space before ; : ! ?, “i” for “I”, “could of”. Not checked: agreement, tense, word order.");
+        text: @tr("Grammar, every language: a word written twice, two spaces, a space before a comma or full stop, none after a comma. English also: agreement (“she go”), word choice (“their is”), a capital after a full stop, “a” or “an”, a space before ; : ! ?, “i” for “I”, “could of”. Not checked: style.");
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
         wrap: word-wrap;
@@ -119,11 +119,12 @@ export component KeyboardSection inherits Card {
         root.recording = i;
         // The menu bar lets the keys through while they are recorded.
         PlatformBridge.recording(true);
-        recorder.focus();
+        PlatformBridge.recording-keys = true;
     }
     function stop() {
         root.recording = -1;
         PlatformBridge.recording(false);
+        PlatformBridge.recording-keys = false;
     }
     TextField {
         placeholder: @tr("Search commands or keys");
@@ -183,7 +184,25 @@ export component KeyboardSection inherits Card {
                 }
                 keys-touch := TouchArea {
                     mouse-cursor: pointer;
-                    clicked => { root.start(row.index); }
+                    clicked => { root.start(row.index); row-keys.focus(); }
+                }
+                // Takes the keys pressed while this row records, and keeps the keyboard after (other keys
+                // go on to the window's). It lives in the box clicked, so taking the keyboard never
+                // scrolls the page (one at the section's end scrolled it under the pointer, and the
+                // next click missed).
+                row-keys := FocusScope {
+                    width: 0;
+                    height: 0;
+                    key-pressed(e) => {
+                        if root.recording != row.index { return reject; }
+                        if PlatformBridge.record-shortcut(root.recording, e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta) {
+                            root.stop();
+                        }
+                        accept
+                    }
+                    changed has-focus => {
+                        if !self.has-focus && root.recording == row.index { root.stop(); }
+                    }
                 }
             }
             if row.custom: SecondaryButton { text: @tr("Reset"); clicked => { root.stop(); PlatformBridge.reset-shortcut(row.index); } }
@@ -201,21 +220,6 @@ export component KeyboardSection inherits Card {
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
             vertical-alignment: center;
-        }
-    }
-    // Takes the keys pressed while one is recorded.
-    recorder := FocusScope {
-        width: 0;
-        height: 0;
-        key-pressed(e) => {
-            if root.recording < 0 { return reject; }
-            if PlatformBridge.record-shortcut(root.recording, e.text, e.modifiers.control, e.modifiers.alt, e.modifiers.shift, e.modifiers.meta) {
-                root.stop();
-            }
-            accept
-        }
-        changed has-focus => {
-            if !self.has-focus && root.recording >= 0 { root.stop(); }
         }
     }
 }

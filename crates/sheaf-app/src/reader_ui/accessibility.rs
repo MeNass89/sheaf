@@ -100,8 +100,8 @@ pub fn accessibility_report(ui: &AppWindow, tab_id: i32) {
         let date = chrono::Local::now().format("%Y-%m-%d %H:%M").to_string();
         let Some(html) = update(tab_id, |r, _| r.a11y.as_ref().map(|rep| a11y::report_html(rep, &r.name, &date, "en", &a11y::in_english))).flatten() else { return };
         match std::fs::write(&to, html) {
-            Ok(()) => crate::flow::toast(ui, &format!("Report saved as {}", file_name(&to))),
-            Err(e) => crate::flow::toast(ui, &format!("The report was not saved: {e}")),
+            Ok(()) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Report saved as {}", &[&file_name(&to)])),
+            Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The report was not saved: {}", &[&e])),
         }
     });
 }

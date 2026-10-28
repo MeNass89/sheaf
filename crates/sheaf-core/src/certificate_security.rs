@@ -1,5 +1,6 @@
 //! Offline certificate encryption (Acrobat's Encrypt with Certificate).
-//! Adobe.PubSec S5, CMS RSA key transport and AES-256; no outside program or network.
+//! Adobe.PubSec S5, CMS RSA key transport or P-256/P-384 key agreement, and AES-256; no outside
+//! program or network.
 //! The initial CLI workflow writes ordinary objects and unlocks an authorized copy. External
 //! object streams and explicit stream crypt filters are refused rather than losing content.
 mod envelope;
@@ -21,6 +22,17 @@ fn file_key(seed: &[u8; 20], envelopes: &[Vec<u8>], scope: Scope) -> Vec<u8> {
     parts.extend(envelopes.iter().map(Vec::as_slice));
     if scope == Scope::ExceptMetadata { parts.push(&[0xff; 4]); }
     DigestAlg::Sha256.digest(&parts)
+}
+
+/// Why `cert` can't receive an envelope, if it can't: RSA keys transport the envelope key
+/// (key usage keyEncipherment), P-256 and P-384 keys agree on one (keyAgreement).
+pub fn recipient_problem(cert: &Certificate) -> Option<&'static str> {
+    let (bit, refused) = match cert.public_key {
+        PublicKey::Rsa { .. } => (2, "The recipient certificate does not allow key encipherment"),
+        PublicKey::P256(_) | PublicKey::P384(_) => (4, "The recipient certificate does not allow key agreement"),
+        _ => return Some("Choose a recipient certificate with an RSA, P-256 or P-384 key"),
+    };
+    cert.key_usage.is_some_and(|bits| bits & (1 << bit) == 0).then_some(refused)
 }
 
 /// What one recipient may do, stored in their own CMS envelope (Acrobat's Encrypt with
@@ -83,8 +95,7 @@ pub fn encrypt_for(input: &Input, recipients: &[Recipient], scope: Scope, out: &
     for Recipient { certificate: cert, permissions } in recipients {
         if !seen.insert(cert.raw.clone()) { continue; }
         if Certificate::parse(&cert.raw).map_err(crypto)? != *cert { return Err(unsupported("Recipient certificate fields do not match its encoded X.509 data")); }
-        if !matches!(cert.public_key, PublicKey::Rsa { .. }) { return Err(unsupported("Choose an RSA recipient certificate; EC key agreement is not supported yet")); }
-        if cert.key_usage.is_some_and(|bits| bits & (1 << 2) == 0) { return Err(unsupported("The recipient certificate does not allow key encipherment")); }
+        if let Some(problem) = recipient_problem(cert) { return Err(unsupported(problem)); }
         if now < cert.not_before.unix() || now > cert.not_after.unix() { return Err(unsupported("A recipient certificate is expired or not yet valid")); }
         if !cert.unknown_critical.is_empty() { return Err(unsupported("A recipient certificate has unsupported critical extensions")); }
         match groups.iter_mut().find(|(bits, _)| *bits == permissions.0) {

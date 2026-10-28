@@ -302,7 +302,7 @@ pub(super) const IMAGE_TYPES: &[&str] = &["png", "jpg", "jpeg", "webp", "tif", "
 
 /// Add image: the file is chosen, then placed 200 pt wide (less on a small page) at the click.
 pub(super) fn pick_image(ui: &AppWindow, tab_id: i32) {
-    let d = crate::dialog::new(ui).set_title("Choose an image").add_filter("Image", IMAGE_TYPES);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose an image")).add_filter("Image", IMAGE_TYPES);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let pic = match sheaf_core::edit::Picture::read(&path) {
             Ok(p) => p,
@@ -321,12 +321,12 @@ pub fn paste_image(ui: &AppWindow, tab_id: i32) {
         return;
     }
     let Some(img) = arboard::Clipboard::new().ok().and_then(|mut c| c.get_image().ok()) else {
-        return crate::flow::toast(ui, "The clipboard holds no image to paste");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("The clipboard holds no image to paste"));
     };
     let Some(rgba) = image::RgbaImage::from_raw(img.width as u32, img.height as u32, img.bytes.into_owned()) else { return };
     let mut png = Vec::new();
     if rgba.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).is_err() || rgba.width() == 0 {
-        return crate::flow::toast(ui, "The image on the clipboard could not be read");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("The image on the clipboard could not be read"));
     }
     let aspect = rgba.height() as f64 / rgba.width() as f64;
     let Some((page, at, w)) = update(tab_id, |r, v| {
@@ -753,7 +753,7 @@ fn released_one(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
                         with(|a| a.pending_launch = Some(p));
                     }
                 }
-                _ => crate::flow::toast(ui, "The linked file was not found"),
+                _ => crate::flow::toast(ui, &sheaf_app::i18n::tr("The linked file was not found")),
             }
         }
         Some(Pending::Link(_)) | None => {}

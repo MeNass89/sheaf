@@ -5,8 +5,21 @@ use std::path::{Path, PathBuf};
 // A real, signed RSA encryption certificate, generated in Rust without an outside program.
 fn identity(name: &str, serial: u8) -> DigitalId { identity_with_usage(name, serial, 0x20) }
 
-fn identity_with_usage(name: &str, serial: u8, usage: u8) -> DigitalId {
-    let key = PrivateKey::generate_rsa(2048).unwrap();
+fn identity_with_usage(name: &str, serial: u8, usage: u8) -> DigitalId { identity_with_key(PrivateKey::generate_rsa(2048).unwrap(), name, serial, usage) }
+
+/// A P-384 key as PKCS #8 (PdfCraft only generates P-256 itself).
+fn p384_key() -> PrivateKey {
+    loop {
+        let mut d = [0u8; 48];
+        getrandom::fill(&mut d).unwrap();
+        if d[0] == 0 || d[0] == 0xff { continue; }
+        let ec = der::seq(&[&der::int(1), &der::octets(&d)]);
+        let info = der::seq(&[&der::int(0), &der::seq(&[&der::oid("1.2.840.10045.2.1"), &der::oid("1.3.132.0.34")]), &der::octets(&ec)]);
+        if let Ok(key) = PrivateKey::from_pkcs8(&info) { return key; }
+    }
+}
+
+fn identity_with_key(key: PrivateKey, name: &str, serial: u8, usage: u8) -> DigitalId {
     let name = Name::build(name, "", "Sheaf test", "", "");
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
     let from = Time::from_unix(now - 60);
@@ -176,4 +189,35 @@ fn a_certificate_policy_round_trips_and_applies_with_each_recipients_permissions
     std::fs::write(dir.path().join("bad.json"), text.replacen("\"certificate\": \"30", "\"certificate\": \"31", 1)).unwrap();
     assert!(CertificatePolicy::load(&dir.path().join("bad.json")).is_err());
     assert!(CertificatePolicy { recipients: vec![], ..loaded.clone() }.save(&dir.path().join("empty.json")).is_err());
+}
+
+/// EC recipients (Acrobat accepts ECC digital IDs): P-256 and P-384 certificates get a CMS
+/// key-agreement envelope next to an RSA one, each reopens the copy with its own key, a stranger
+/// on the same curve can't, and an EC certificate without keyAgreement is refused.
+#[test]
+fn ec_recipients_reopen_their_copy_through_key_agreement() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = source(dir.path());
+    let original_text = lopdf::Document::load(&source).unwrap().extract_text(&[1]).unwrap();
+    // keyAgreement is key usage bit 4 (0x08); keyEncipherment bit 2 (0x20).
+    let p256 = identity_with_key(PrivateKey::generate_p256().unwrap(), "Ec256", 11, 0x88);
+    let p384 = identity_with_key(p384_key(), "Ec384", 12, 0x08);
+    let rsa = identity("Rsa", 13);
+    let stranger = identity_with_key(PrivateKey::generate_p256().unwrap(), "Ec stranger", 14, 0x08);
+    for scope in [Scope::All, Scope::Attachments] {
+        let encrypted = certificate_security::encrypt(&Input::new(&source), &[p256.certificate.clone(), p384.certificate.clone(), rsa.certificate.clone()], scope, &dir.path().join("ec.pdf")).unwrap();
+        let bytes = std::fs::read(&encrypted).unwrap();
+        assert!(!bytes.windows(b"private attachment sentinel".len()).any(|s| s == b"private attachment sentinel"));
+        assert!(certificate_security::unlock(&encrypted, &stranger, &dir.path().join("denied.pdf")).unwrap_err().to_string().contains("not an authorized recipient"));
+        for recipient in [&p256, &p384, &rsa] {
+            let output = certificate_security::unlock(&encrypted, recipient, &dir.path().join("unlocked.pdf")).unwrap();
+            let reopened = lopdf::Document::load(&output).unwrap();
+            assert!(!reopened.is_encrypted());
+            assert_eq!(reopened.extract_text(&[1]).unwrap(), original_text);
+            assert!(reopened.objects.values().any(|o| o.as_stream().is_ok_and(|s| s.content == b"private attachment sentinel")));
+        }
+    }
+    let encipher_only = identity_with_key(PrivateKey::generate_p256().unwrap(), "Ec encipher", 15, 0x20);
+    let refused = certificate_security::encrypt(&Input::new(&source), std::slice::from_ref(&encipher_only.certificate), Scope::All, &dir.path().join("refused.pdf")).unwrap_err();
+    assert!(refused.to_string().contains("does not allow key agreement"), "{refused}");
 }

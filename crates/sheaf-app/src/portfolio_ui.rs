@@ -48,7 +48,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     }
     match what {
         "add" => {
-            let d = crate::dialog::new(ui).set_title("Add original files to the portfolio");
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Add original files to the portfolio"));
             crate::dialog::pick_files(ui, d, |ui, files| {
                 FILES.with(|s| s.borrow_mut().extend(files)); rows(ui);
             });

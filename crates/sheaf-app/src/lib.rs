@@ -20,6 +20,7 @@ pub mod platform;
 pub mod settings;
 pub mod i18n;
 pub mod feedback;
+pub mod plugins;
 pub mod pool;
 pub mod quick_actions;
 pub mod prefs;

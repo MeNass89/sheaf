@@ -151,11 +151,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
                 (false, true) => "italic",
                 (false, false) => "regular",
             };
-            return crate::flow::toast(ui, &format!("No {style} face of {family} is installed on this computer"));
+            return crate::flow::toast(ui, &sheaf_app::i18n::trf("No {} face of {} is installed on this computer", &[&style, &family]));
         };
         match std::fs::read(&face.path) {
             Ok(bytes) => apply(ui, tab_id, Edit::SetTextBoxFontProgram { page, index, font: std::sync::Arc::new(bytes) }, &[page], None),
-            Err(e) => crate::flow::toast(ui, &format!("{} can't be read: {e}", face.name)),
+            Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("{} can't be read: {}", &[&face.name, &e])),
         }
         return;
     }
@@ -171,11 +171,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
         let (bold, italic) = if what == 2 { (!now.bold, now.italic) } else { (now.bold, !now.italic) };
         let Some(next) = face(fonts, &now.family, bold, italic) else {
             let style = if what == 2 { "bold" } else { "italic" };
-            return crate::flow::toast(ui, &format!("{} has no {style} face installed on this computer", now.family));
+            return crate::flow::toast(ui, &sheaf_app::i18n::trf("{} has no {} face installed on this computer", &[&now.family, &style]));
         };
         let bytes = match std::fs::read(&next.path) {
             Ok(b) => std::sync::Arc::new(b),
-            Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", next.name)),
+            Err(e) => return crate::flow::toast(ui, &sheaf_app::i18n::trf("{} can't be read: {}", &[&next.name, &e])),
         };
         update(tab_id, |r, _| {
             r.text_font = Some((next.name.clone(), bytes));
@@ -193,11 +193,11 @@ pub fn text_format(ui: &AppWindow, tab_id: i32, what: i32, v: i32) {
         // One PdfCraft may not embed: said why, nothing changes (Sol, 27/10: such fonts were left
         // out of the list without a word).
         if let Some(why) = &f.why_not {
-            return crate::flow::toast(ui, &format!("{} can't be used: {why}", f.name));
+            return crate::flow::toast(ui, &sheaf_app::i18n::trf("{} can't be used: {}", &[&f.name, &why]));
         }
         match std::fs::read(&f.path) {
             Ok(bytes) => Some((f.name.clone(), std::sync::Arc::new(bytes))),
-            Err(e) => return crate::flow::toast(ui, &format!("{} can't be read: {e}", f.name)),
+            Err(e) => return crate::flow::toast(ui, &sheaf_app::i18n::trf("{} can't be read: {}", &[&f.name, &e])),
         }
     } else {
         None
@@ -764,7 +764,7 @@ pub fn outline_drop(ui: &AppWindow, tab_id: i32, from: i32, to: i32, inside: boo
     .flatten();
     match edit {
         Some(e) => apply(ui, tab_id, e, &[], None),
-        None => crate::flow::toast(ui, "A bookmark cannot go inside its own children"),
+        None => crate::flow::toast(ui, &sheaf_app::i18n::tr("A bookmark cannot go inside its own children")),
     }
 }
 

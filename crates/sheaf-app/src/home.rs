@@ -55,9 +55,13 @@ pub fn install(ui: &AppWindow, forced_theme: Option<ThemePref>) {
     // The certificates trusted for signing live with the rest of Sheaf's data.
     sheaf_core::pdfcraft::set_trust_dir(dir.join("trusted"));
     let prefs = Prefs::load(&dir);
-    let display_transform = prefs.display_profile.as_deref().and_then(|path| {
-        sheaf_app::display_color::DisplayTransform::load(path).map_err(|e| eprintln!("sheaf: {e}; using sRGB")).ok().map(std::sync::Arc::new)
-    });
+    let display_transform = if prefs.display_system {
+        system_display().map_err(|e| eprintln!("sheaf: {e}; using sRGB")).ok().map(std::sync::Arc::new)
+    } else {
+        prefs.display_profile.as_deref().and_then(|path| {
+            sheaf_app::display_color::DisplayTransform::load(path).map_err(|e| eprintln!("sheaf: {e}; using sRGB")).ok().map(std::sync::Arc::new)
+        })
+    };
     let h = Home {
         store: Store::open(&dir),
         prefs,
@@ -403,13 +407,21 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_guide_colour(i32::from(p.guide_colour));
     ui.set_gpu(!p.no_gpu);
     let display_name = with(|h| match (&p.display_profile, &h.display_transform) {
+        _ if p.display_system && h.display_transform.is_some() => sheaf_app::i18n::tr("The system's display profile"),
+        _ if p.display_system => sheaf_app::i18n::tr("sRGB (the system sets no display profile)"),
         (Some(path), Some(_)) => path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
         (Some(_), None) => "sRGB (saved ICC unavailable)".into(),
         _ => "sRGB".into(),
     });
     ui.set_display_profile(display_name.into());
+    ui.global::<sheaf_app::SettingsBridge>().set_display_system(p.display_system);
     ui.set_show_boxes(p.show_boxes);
-    ui.set_digital_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())).collect::<Vec<_>>())));
+    let labels: Vec<slint::SharedString> = p.digital_ids.iter().map(|d| sheaf_core::digital_id::label(d).into()).collect();
+    ui.set_digital_ids(ModelRc::new(VecModel::from(labels.clone())));
+    // The sign panel offers the same IDs, a smart card's among them (it has no file to choose).
+    let picked = ui.global::<sheaf_app::Picked>();
+    picked.set_id_labels(ModelRc::new(VecModel::from(labels)));
+    picked.set_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.to_string_lossy().as_ref())).collect::<Vec<_>>())));
     ui.set_trusted_certs(ModelRc::new(VecModel::from(
         sheaf_core::pdfcraft::trusted_certificates().iter().map(|c| slint::SharedString::from(format!("{} (until {}-{:02})", c.display_name(), c.not_after.year, c.not_after.month))).collect::<Vec<_>>(),
     )));
@@ -475,7 +487,7 @@ pub fn set_output(ui: &AppWindow, m: i32) {
 }
 
 pub fn choose_folder(ui: &AppWindow) {
-    let d = crate::dialog::new(ui).set_title("Always save to");
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Always save to"));
     crate::dialog::pick_folder(ui, d, |ui, dir| {
         update_prefs(ui, |p| {
             p.fixed_folder = Some(dir);
@@ -503,11 +515,11 @@ pub fn remember_digital_id(ui: &AppWindow, p: &std::path::Path) {
 /// ID ▸ New PKCS#12 file): saved where the user chooses, with its certificate (.cer) beside it
 /// to send to people who encrypt for them, and kept in the list of IDs.
 pub fn create_digital_id(ui: &AppWindow, spec: sheaf_core::digital_id::NewId, password: String, confirm: &str) {
-    if password != confirm { return crate::flow::toast(ui, "The two passwords differ"); }
-    if spec.name.trim().is_empty() { return crate::flow::toast(ui, "Type the name the digital ID is issued to"); }
-    let d = crate::dialog::new(ui).set_title("Save the new digital ID").set_file_name(format!("{}.p12", spec.name.trim())).add_filter("Digital ID", &["p12", "pfx"]);
+    if password != confirm { return crate::flow::toast(ui, &sheaf_app::i18n::tr("The two passwords differ")); }
+    if spec.name.trim().is_empty() { return crate::flow::toast(ui, &sheaf_app::i18n::tr("Type the name the digital ID is issued to")); }
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save the new digital ID")).set_file_name(format!("{}.p12", spec.name.trim())).add_filter("Digital ID", &["p12", "pfx"]);
     crate::dialog::save_file(ui, d, move |ui, out| {
-        crate::flow::toast(ui, "Creating the digital ID…");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Creating the digital ID…"));
         let weak = ui.as_weak();
         std::thread::spawn(move || {
             let made = sheaf_core::digital_id::create_file(&spec, &password, &out).and_then(|p12| {
@@ -518,20 +530,21 @@ pub fn create_digital_id(ui: &AppWindow, spec: sheaf_core::digital_id::NewId, pa
             let _ = weak.upgrade_in_event_loop(move |ui| match made {
                 Ok((p12, cer)) => {
                     remember_digital_id(&ui, &p12);
-                    crate::flow::toast(&ui, &format!("Digital ID created: {} (certificate to share: {})", p12.display(), cer.file_name().unwrap_or_default().to_string_lossy()));
+                    crate::flow::toast(&ui, &sheaf_app::i18n::trf("Digital ID created: {} (certificate to share: {})", &[&p12.display(), &cer.file_name().unwrap_or_default().to_string_lossy()]));
                 }
-                Err(e) => crate::flow::toast(&ui, &format!("Digital ID not created: {e}")),
+                Err(e) => crate::flow::toast(&ui, &sheaf_app::i18n::trf("Digital ID not created: {}", &[&e])),
             });
         });
     });
 }
 
 /// Preferences ▸ Signatures: `what` 0 a digital ID added from a file, 1 digital ID `k` taken off
-/// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed.
+/// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed, 4 the
+/// digital IDs on a smart card or token added from its PKCS #11 module.
 pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
     match what {
         0 => {
-            let d = crate::dialog::new(ui).set_title("A digital ID").add_filter("Digital ID", &["p12", "pfx"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("A digital ID")).add_filter("Digital ID", &["p12", "pfx"]);
             crate::dialog::pick_file(ui, d, |ui, p| remember_digital_id(ui, &p));
         }
         1 => update_prefs(ui, |pr| {
@@ -540,7 +553,7 @@ pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
             }
         }),
         2 => {
-            let d = crate::dialog::new(ui).set_title("A certificate to trust").add_filter("Certificate", &["cer", "crt", "der", "pem"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("A certificate to trust")).add_filter("Certificate", &["cer", "crt", "der", "pem"]);
             crate::dialog::pick_file(ui, d, |ui, p| {
                 let msg = match std::fs::read(&p).ok().and_then(|b| sheaf_core::pdfcraft::certificate_der(&b)) {
                     Some(der) => match sheaf_core::pdfcraft::trust_certificate(&der) {
@@ -560,8 +573,36 @@ pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
             }
             push_prefs(ui);
         }
+        4 => add_token_ids(ui),
         _ => {}
     }
+}
+
+/// Preferences ▸ Signatures ▸ Add a smart card or token… (Acrobat's PKCS#11 Modules and Tokens
+/// ▸ Attach Module): the card maker's module chosen, every digital ID on its tokens joins the list.
+/// The PIN is asked only when signing.
+fn add_token_ids(ui: &AppWindow) {
+    // Where systems keep their modules (p11-kit's folder, OpenSC's on macOS).
+    let folder = ["/usr/lib/x86_64-linux-gnu/pkcs11", "/usr/lib/aarch64-linux-gnu/pkcs11", "/usr/lib/pkcs11", "/Library/OpenSC/lib", "/usr/local/lib"]
+        .into_iter().map(std::path::Path::new).find(|p| p.is_dir());
+    let mut d = crate::dialog::new(ui).set_title("The PKCS #11 module of your smart card or token").add_filter("PKCS #11 module", &["so", "dylib", "dll"]);
+    if let Some(f) = folder { d = d.set_directory(f); }
+    crate::dialog::pick_file(ui, d, |ui, module| {
+        crate::flow::toast(ui, "Reading the smart card or token…");
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let found = sheaf_core::pkcs11::identities(&module);
+            let _ = weak.upgrade_in_event_loop(move |ui| match found {
+                Ok(ids) if ids.is_empty() => crate::flow::toast(&ui, "No digital ID on the tokens this module reads: insert the card, then add it again"),
+                Ok(ids) => {
+                    for id in ids.iter().rev() { remember_digital_id(&ui, std::path::Path::new(&id.reference)); }
+                    let names: Vec<_> = ids.iter().map(|i| i.name.as_str()).collect();
+                    crate::flow::toast(&ui, &format!("Added from {}: {}", ids[0].token, names.join(", ")));
+                }
+                Err(e) => crate::flow::toast(&ui, &format!("No smart card or token read: {e}")),
+            });
+        });
+    });
 }
 
 /// Preferences ▸ Page display, read on every refresh: boxes shown, pages by their place.
@@ -591,7 +632,7 @@ pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
 /// Preferences ▸ Rendering ▸ Use the graphics card: kept for the next start, said.
 pub fn set_gpu(ui: &AppWindow, on: bool) {
     update_prefs(ui, |p| p.no_gpu = !on);
-    crate::flow::toast(ui, "Takes effect when Sheaf starts again");
+    crate::flow::toast(ui, &sheaf_app::i18n::tr("Takes effect when Sheaf starts again"));
 }
 
 /// Acrobat's display profile changes all open pages without changing PDF bytes.
@@ -600,12 +641,12 @@ pub fn display_transform() -> Option<std::sync::Arc<sheaf_app::display_color::Di
 }
 
 pub fn choose_display_profile(ui: &AppWindow) {
-    let d = crate::dialog::new(ui).set_title("Choose RGB monitor ICC profile").add_filter("ICC profile", &["icc", "icm"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose RGB monitor ICC profile")).add_filter("ICC profile", &["icc", "icm"]);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         match sheaf_app::display_color::DisplayTransform::load(&path) {
             Ok(transform) => {
                 with(|h| h.display_transform = Some(std::sync::Arc::new(transform)));
-                update_prefs(ui, |p| p.display_profile = Some(path));
+                update_prefs(ui, |p| { p.display_profile = Some(path); p.display_system = false; });
                 crate::viewer_ui::redraw_all(ui);
             }
             Err(error) => crate::flow::toast(ui, &error),
@@ -613,9 +654,26 @@ pub fn choose_display_profile(ui: &AppWindow) {
     });
 }
 
+/// The system's display profile as a transform from sRGB.
+fn system_display() -> Result<sheaf_app::display_color::DisplayTransform, String> {
+    let icc = sheaf_app::display_color::system_profile().ok_or_else(|| "the system sets no display profile".to_string())?;
+    sheaf_app::display_color::DisplayTransform::from_bytes(&icc)
+}
+
+/// Acrobat's Use display profile: the system's profile, read now and at each start.
+pub fn use_system_display(ui: &AppWindow) {
+    let t = system_display();
+    if let Err(e) = &t {
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("No display profile from the system ({}): pages stay in sRGB", &[e]));
+    }
+    with(|h| h.display_transform = t.ok().map(std::sync::Arc::new));
+    update_prefs(ui, |p| { p.display_system = true; p.display_profile = None; });
+    crate::viewer_ui::redraw_all(ui);
+}
+
 pub fn reset_display_profile(ui: &AppWindow) {
     with(|h| h.display_transform = None);
-    update_prefs(ui, |p| p.display_profile = None);
+    update_prefs(ui, |p| { p.display_profile = None; p.display_system = false; });
     crate::viewer_ui::redraw_all(ui);
 }
 
@@ -889,7 +947,7 @@ pub fn open_guide(ui: &AppWindow) {
     if std::fs::read(&p).ok().as_deref() != Some(GUIDE)
         && let Err(e) = store_file::replace(&p, GUIDE)
     {
-        crate::flow::toast(ui, &format!("The guide could not be opened ({e})"));
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("The guide could not be opened ({})", &[&e]));
         return;
     }
     crate::reader_ui::open(ui, p, None);
@@ -900,7 +958,7 @@ pub fn remove_recent(ui: &AppWindow, i: i32) {
         let result = with(|h| h.store.remove_recent(&p));
         if let Err(e) = result {
             eprintln!("sheaf: cannot remove recent file: {e}");
-            crate::flow::toast(ui, "Could not remove the recent file. Please try again.");
+            crate::flow::toast(ui, &sheaf_app::i18n::tr("Could not remove the recent file. Please try again."));
         }
         refresh(ui);
     }
@@ -910,7 +968,7 @@ pub fn clear_recents(ui: &AppWindow) {
     let result = with(|h| h.store.clear_recents());
     if let Err(e) = result {
         eprintln!("sheaf: cannot clear recents: {e}");
-        crate::flow::toast(ui, "Could not clear recent files. Please try again.");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Could not clear recent files. Please try again."));
     }
     refresh(ui);
 }
@@ -951,7 +1009,7 @@ pub fn rerun_history(ui: &AppWindow, i: i32) {
     match entry {
         Some((tool, inputs, options)) => crate::flow::open_tool_with(ui, tool, inputs, options),
         None => {
-            crate::flow::toast(ui, "These files are no longer where they were.");
+            crate::flow::toast(ui, &sheaf_app::i18n::tr("These files are no longer where they were."));
             refresh(ui);
         }
     }

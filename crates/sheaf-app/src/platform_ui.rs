@@ -688,6 +688,8 @@ fn check_start(ui: &AppWindow, tab: i32) {
 
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
+    // The grammar rules load while the window opens, not on the first word typed.
+    sheaf_core::spell::warm_grammar();
     let _ = LEARNED.set(home::prefs().platform.learned_words);
     if let Ok(mut c) = CHOSEN.lock() {
         *c = home::prefs().platform.dictionaries;

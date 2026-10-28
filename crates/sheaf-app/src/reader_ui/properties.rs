@@ -57,7 +57,7 @@ pub(super) fn about_rows(about: &[(String, String)], facts: Option<&sheaf_core::
 pub fn props_copy(ui: &AppWindow, tab_id: i32) {
     let Some(text) = update(tab_id, |r, _| report(&r.name, &r.snap.props, r.facts.as_ref())) else { return };
     let copied = arboard::Clipboard::new().and_then(|mut c| c.set_text(text)).is_ok();
-    crate::flow::toast(ui, if copied { "Report copied" } else { "The clipboard could not be reached" });
+    crate::flow::toast(ui, &if copied { sheaf_app::i18n::tr("Report copied") } else { sheaf_app::i18n::tr("The clipboard could not be reached") });
 }
 
 /// Document properties ▸ Save report… (Acrobat's PDF info report, saved): the same report as a
@@ -69,8 +69,8 @@ pub fn props_report(ui: &AppWindow, tab_id: i32) {
         let text = to.extension().is_some_and(|e| e.eq_ignore_ascii_case("txt"));
         let Some(body) = update(tab_id, |r, _| if text { report(&r.name, &r.snap.props, r.facts.as_ref()) } else { report_json(&r.name, &r.snap.props, r.facts.as_ref()) }) else { return };
         match std::fs::write(&to, body) {
-            Ok(()) => crate::flow::toast(ui, &format!("Report saved as {}", file_name(&to))),
-            Err(e) => crate::flow::toast(ui, &format!("The report was not saved: {e}")),
+            Ok(()) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Report saved as {}", &[&file_name(&to)])),
+            Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The report was not saved: {}", &[&e])),
         }
     });
 }
@@ -165,7 +165,7 @@ pub fn open_signed(ui: &AppWindow, tab_id: i32, k: i32) {
     });
     match made {
         Ok(to) => super::open(ui, to, None),
-        Err(e) => crate::flow::toast(ui, &format!("The signed version could not be opened: {e}")),
+        Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("The signed version could not be opened: {}", &[&e])),
     }
 }
 

@@ -30,7 +30,9 @@ pub fn toast(ui: &AppWindow, text: &str) {
 
 /// A toast shown `secs` seconds, for a notice that must outlast a slow first draw.
 pub fn toast_for(ui: &AppWindow, text: &str, secs: u64) {
-    ui.set_toast_text(text.into());
+    // Messages made elsewhere as plain English (an error text kept in a variable) are translated when they
+    // are known; the rest arrive translated (`i18n::tr`, `i18n::trf`).
+    ui.set_toast_text(sheaf_app::i18n::tr(text).into());
     ui.set_toast_visible(true);
     let weak = ui.as_weak();
     let timer = slint::Timer::default();
@@ -114,7 +116,7 @@ pub fn add_open_doc_to_slot(ui: &AppWindow, tab_id: i32, slot: i32, i: i32) {
     let unsaved = with(|a| a.tabs.iter().filter_map(|t| t.reader.as_ref()).find(|r| r.dirty() && r.path == p).map(|r| r.name.clone()));
     add_paths_to(ui, tab_id, vec![p], Some(slot.clamp(0, 1) as usize));
     if let Some(name) = unsaved {
-        toast(ui, &format!("{name} has unsaved changes: its saved version was added"));
+        toast(ui, &sheaf_app::i18n::trf("{} has unsaved changes: its saved version was added", &[&name]));
     }
 }
 
@@ -125,8 +127,8 @@ pub fn add_open_documents(ui: &AppWindow, tab_id: i32) {
     add_paths(ui, tab_id, docs);
     match unsaved.as_slice() {
         [] => {}
-        [one] => toast(ui, &format!("{one} has unsaved changes: its saved version was added")),
-        more => toast(ui, &format!("{} documents have unsaved changes: their saved versions were added", more.len())),
+        [one] => toast(ui, &sheaf_app::i18n::trf("{} has unsaved changes: its saved version was added", &[&one])),
+        more => toast(ui, &sheaf_app::i18n::trf("{} documents have unsaved changes: their saved versions were added", &[&more.len()])),
     }
 }
 
@@ -498,7 +500,7 @@ pub fn show_merge_pages(ui: &AppWindow, tab_id: i32, on: bool) {
         Some(pdfs)
     });
     if !on && with(|a| a.tab(tab_id).is_some_and(|t| t.merge_kept.is_some())) {
-        toast(ui, "The pages are merged as arranged in Pages; moving a file here merges the files whole");
+        toast(ui, &sheaf_app::i18n::tr("The pages are merged as arranged in Pages; moving a file here merges the files whole"));
     }
     for (input, uid) in render.unwrap_or_default() {
         page_thumbs(ui, tab_id, input, Some(uid));
@@ -557,7 +559,7 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     if let Some(w) = working { crate::reader_doc::certificate::forget(&w); }
     if let Some(path) = checkout
         && let Err(e) = sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).release_checkout(&path) {
-        toast(ui, &format!("The library working copy was kept: {e}"));
+        toast(ui, &sheaf_app::i18n::trf("The library working copy was kept: {}", &[&e]));
     }
     // The tab before it in the bar takes over (Home after the first).
     let before = state::tab_order().iter().take_while(|r| *r != i as i32).last();
@@ -655,7 +657,7 @@ pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
         }
     }
     if kept > 0 {
-        toast(ui, &format!("{kept} tab{} with a running task stayed open", if kept == 1 { "" } else { "s" }));
+        toast(ui, &sheaf_app::i18n::trf("{} tab{} with a running task stayed open", &[&kept, &if kept == 1 { "" } else { "s" }]));
     }
     // Documents with unsaved edits are asked about one by one (Save / Don't Save / Cancel), as
     // closing each would; so are Redact tabs with marks not applied.
@@ -816,7 +818,7 @@ pub fn home_files(ui: &AppWindow, paths: Vec<PathBuf>) {
     ui.set_active_tab(-1);
     ui.set_page(Page::Tools);
     let what = if n == 1 { "your file".to_string() } else { format!("your {n} files") };
-    toast(ui, &format!("Choose a tool for {what}"));
+    toast(ui, &sheaf_app::i18n::trf("Choose a tool for {}", &[&what]));
 }
 
 #[cfg(test)]

@@ -43,7 +43,7 @@ pub fn policy_action(ui: &AppWindow, id: i32, action: i32, index: i32) {
     match action {
         1 => { update(id, |r, _| { if let Some(p) = r.policy_panel.as_mut() { p.draft = blank(); p.remembered = false; p.seq = p.seq.wrapping_add(1); p.status = "New policy. Choose settings, then Save policy.".into(); } }); }
         2 => {
-            let d = crate::dialog::new(ui).set_title("Import security policy").add_filter("Sheaf security policy", &["json"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Import security policy")).add_filter("Sheaf security policy", &["json"]);
             crate::dialog::pick_file(ui, d, move |_, path| {
                 match SecurityPolicy::load(&path) {
                     Ok(policy) => { update(id, |r, _| { if let Some(p) = r.policy_panel.as_mut() { p.draft = policy; p.remembered = false; p.seq = p.seq.wrapping_add(1); p.status = "Imported for review. Save policy to keep it in your library.".into(); } }); }
@@ -53,7 +53,7 @@ pub fn policy_action(ui: &AppWindow, id: i32, action: i32, index: i32) {
         }
         3 => {
             let Some(policy) = update(id, |r, _| r.policy_panel.as_ref().map(|p| p.draft.clone())).flatten() else { return };
-            let d = crate::dialog::new(ui).set_title("Export security policy").set_file_name("security-policy.json").add_filter("Sheaf security policy", &["json"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Export security policy")).set_file_name("security-policy.json").add_filter("Sheaf security policy", &["json"]);
             crate::dialog::save_file(ui, d, move |_, out| {
                 status(id, match policy.save(&out) { Ok(path) => format!("Exported {}", path.display()), Err(e) => format!("Policy not exported: {e}") });
             });
@@ -132,7 +132,7 @@ pub fn policy_apply(ui: &AppWindow, id: i32, user: &str, confirmation: &str, own
         return status(id, "Open this PDF with permission to change its security first.".into());
     };
 
-    let d = crate::dialog::new(ui).set_title("Save protected copy").set_directory(crate::dest::parent_dir(&input.path)).set_file_name(format!("{} - protected.pdf", input.stem())).add_filter("PDF", &["pdf"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save protected copy")).set_directory(crate::dest::parent_dir(&input.path)).set_file_name(format!("{} - protected.pdf", input.stem())).add_filter("PDF", &["pdf"]);
     crate::dialog::save_file(ui, d, move |ui, out| {
         if unsaved_name(id).is_some() { return status(id, "The PDF changed. Save it, then apply the policy again.".into()); }
         let Some(()) = update(id, |r, _| { let p = r.policy_panel.as_mut()?; if p.busy { return None; } p.busy = true; p.status = "Saving a protected copy…".into(); Some(()) }).flatten() else { return };
@@ -154,7 +154,7 @@ pub fn policy_apply(ui: &AppWindow, id: i32, user: &str, confirmation: &str, own
             }
             let _ = weak.upgrade_in_event_loop(move |ui| {
                 update(id, |r, _| { if let Some(p) = r.policy_panel.as_mut() { p.busy = false; if result.is_ok() { p.seq = p.seq.wrapping_add(1); p.remembered = remembered; } p.status = match &result { Ok(path) => format!("Protected copy saved: {}{password_notice}", path.display()), Err(error) => format!("Protected copy not saved: {error}") }; } });
-                if let Ok(path) = result { crate::flow::toast(&ui, &format!("Protected copy saved as {}", file_name(&path))); }
+                if let Ok(path) = result { crate::flow::toast(&ui, &sheaf_app::i18n::trf("Protected copy saved as {}", &[&file_name(&path)])); }
             });
         });
     });

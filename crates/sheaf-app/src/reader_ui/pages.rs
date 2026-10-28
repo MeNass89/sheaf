@@ -87,7 +87,7 @@ fn from_clipboard_or_scanner(ui: &AppWindow, tab_id: i32, scanner: bool) {
     let insert = move |ui: &AppWindow, name: &str, made: &std::path::Path| {
         let bytes = std::fs::read(made);
         let _ = std::fs::remove_file(made);
-        let Ok(bytes) = bytes else { return crate::flow::toast(ui, "Those pages could not be made") };
+        let Ok(bytes) = bytes else { return crate::flow::toast(ui, &sheaf_app::i18n::tr("Those pages could not be made")) };
         let Some(at) = update(tab_id, |r, v| {
             let at = op_pages(r, v).last().map_or(0, |p| p + 1);
             r.page_sel.clear();
@@ -98,13 +98,13 @@ fn from_clipboard_or_scanner(ui: &AppWindow, tab_id: i32, scanner: bool) {
         apply_structure(ui, tab_id, Edit::InsertPagesFrom { name: name.into(), bytes: Arc::new(bytes), pages: None, at, field_conflicts: Default::default() });
     };
     if !scanner {
-        let Some(clip) = crate::run::clipboard_pages() else { return crate::flow::toast(ui, "The clipboard holds no PDF, picture or text") };
+        let Some(clip) = crate::run::clipboard_pages() else { return crate::flow::toast(ui, &sheaf_app::i18n::tr("The clipboard holds no PDF, picture or text")) };
         return match crate::run::clipboard_to_pdf(&clip, &made) {
             Ok(p) => insert(ui, "Clipboard", &p),
             Err(e) => crate::flow::toast(ui, &e.to_string()),
         };
     }
-    crate::flow::toast(ui, "Scanning…");
+    crate::flow::toast(ui, &sheaf_app::i18n::tr("Scanning…"));
     let weak = ui.as_weak();
     std::thread::spawn(move || {
         let png = made.with_extension("png");
@@ -136,7 +136,7 @@ pub fn turn_upright(tab_id: i32) {
 /// Those pages turned, one undo step; or said that every page reads upright.
 pub(super) fn upright(ui: &AppWindow, tab_id: i32, turns: Vec<(usize, i64)>) {
     if turns.is_empty() {
-        return crate::flow::toast(ui, "Every page reads upright");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Every page reads upright"));
     }
     let n = turns.len();
     let edits: Vec<Edit> = [90, 180, 270]
@@ -147,7 +147,7 @@ pub(super) fn upright(ui: &AppWindow, tab_id: i32, turns: Vec<(usize, i64)>) {
         })
         .collect();
     apply_structure(ui, tab_id, Edit::Batch { label: "Turn pages upright".into(), edits });
-    crate::flow::toast(ui, &format!("{n} page{} turned upright", if n == 1 { "" } else { "s" }));
+    crate::flow::toast(ui, &sheaf_app::i18n::trf("{} page{} turned upright", &[&n, &if n == 1 { "" } else { "s" }]));
 }
 
 /// Insert pages from file (Acrobat's): a PDF picked goes after the selected page (or the one
@@ -160,7 +160,7 @@ fn from_file(ui: &AppWindow, tab_id: i32, op: i32) {
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let bytes = match std::fs::read(&path) {
             Ok(b) => Arc::new(b),
-            Err(e) => return crate::flow::toast(ui, &format!("{} could not be read: {e}", file_name(&path))),
+            Err(e) => return crate::flow::toast(ui, &sheaf_app::i18n::trf("{} could not be read: {}", &[&file_name(&path), &e])),
         };
         let name = file_name(&path);
         let Some(edit) = update(tab_id, |r, v| {
@@ -248,7 +248,7 @@ pub fn extract(ui: &AppWindow, tab_id: i32, each: bool, delete: bool) {
         return;
     };
     if delete && pages.len() >= n {
-        return crate::flow::toast(ui, "A PDF needs at least one page: extract without deleting them");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("A PDF needs at least one page: extract without deleting them"));
     }
     let to_delete = if delete { pages.clone() } else { Vec::new() };
     let start = move |parts: Vec<(Vec<usize>, PathBuf)>| {
@@ -285,7 +285,7 @@ pub fn page_transition(ui: &AppWindow, tab_id: i32, style: i32, advance: &str) {
         "" => None,
         t => match t.replace(',', ".").parse::<f64>() {
             Ok(s) if (0.0..=3600.0).contains(&s) => Some(s),
-            _ => return crate::flow::toast(ui, &format!("Next page after: \"{t}\" is not a number of seconds")),
+            _ => return crate::flow::toast(ui, &sheaf_app::i18n::trf("Next page after: \"{}\" is not a number of seconds", &[&t])),
         },
     };
     let style = usize::try_from(style).ok().and_then(|i| STYLES.get(i)).map(|s| (*s).to_string());
@@ -299,7 +299,7 @@ pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start
         "" => 1,
         t => match t.parse::<u32>() {
             Ok(n) if n >= 1 => n,
-            _ => return crate::flow::toast(ui, &format!("Start: \"{t}\" is not a page number (1 or more)")),
+            _ => return crate::flow::toast(ui, &sheaf_app::i18n::trf("Start: \"{}\" is not a page number (1 or more)", &[&t])),
         },
     };
     let style = [S::Decimal, S::LowerRoman, S::UpperRoman, S::LowerAlpha, S::UpperAlpha, S::None][style.clamp(0, 5) as usize];
@@ -308,7 +308,7 @@ pub fn number_pages(ui: &AppWindow, tab_id: i32, style: i32, prefix: &str, start
         "" => None,
         t => match t.parse::<usize>() {
             Ok(n) if n >= 1 => Some(n - 1),
-            _ => return crate::flow::toast(ui, &format!("Through: \"{t}\" is not a page number (1 or more)")),
+            _ => return crate::flow::toast(ui, &sheaf_app::i18n::trf("Through: \"{}\" is not a page number (1 or more)", &[&t])),
         },
     };
     let Some((from, to)) = update(tab_id, |r, v| {
@@ -345,7 +345,7 @@ pub fn copy_pages(ui: &AppWindow, tab_id: i32) {
 pub(super) fn pages_copied(ui: &AppWindow, clip: (String, Arc<Vec<u8>>, Vec<usize>)) {
     let n = clip.2.len();
     with(|a| a.page_clip = Some(clip));
-    crate::flow::toast(ui, &format!("{n} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page", if n == 1 { "" } else { "s" }, if n == 1 { "it" } else { "them" }));
+    crate::flow::toast(ui, &sheaf_app::i18n::trf("{} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page", &[&n, &if n == 1 { "" } else { "s" }, &if n == 1 { sheaf_app::i18n::tr("it") } else { sheaf_app::i18n::tr("them") }]));
 }
 
 /// ⌘V with the Pages panel shown and pages copied: they go after the selected page (or the one

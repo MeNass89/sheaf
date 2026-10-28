@@ -489,10 +489,11 @@ pub(crate) enum Cmd {
         /// A drawn signature: JSON strokes [[[x, y], …], …], y up, where the pad is 1 wide
         #[arg(long)]
         strokes: Option<PathBuf>,
-        /// Also sign digitally with this certificate (a .p12 or .pfx digital ID)
+        /// Also sign digitally with this certificate (a .p12 or .pfx digital ID, or a smart card's
+        /// pkcs11: reference as the app's preferences keep it)
         #[arg(long)]
         p12: Option<PathBuf>,
-        /// Password of the certificate
+        /// Password of the certificate (the smart card's PIN)
         #[arg(long, requires = "p12")]
         p12_password: Option<String>,
         /// Reason for signing, shown in the certificate signature
@@ -646,7 +647,7 @@ pub(crate) enum Cmd {
         #[arg(short, long)]
         out: PathBuf,
     },
-    /// Encrypt a PDF for local recipients using RSA certificates and AES-256
+    /// Encrypt a PDF for local recipients using RSA or P-256/P-384 certificates and AES-256
     EncryptCertificates {
         /// The unsigned PDF to encrypt
         input: PathBuf,

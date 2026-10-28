@@ -38,7 +38,7 @@ pub fn save_as(ui: &AppWindow, tab_id: i32) {
     crate::dialog::save_file(ui, d, move |ui, target| {
         let canon = std::fs::canonicalize(&target).unwrap_or_else(|_| target.clone());
         if with(|a| a.tabs.iter().any(|t| t.id != tab_id && t.reader_file.as_ref() == Some(&canon))) {
-            return crate::flow::toast(ui, "That file is open in another tab: close it first");
+            return crate::flow::toast(ui, &sheaf_app::i18n::tr("That file is open in another tab: close it first"));
         }
         // The tab becomes the new file once it is written (Sol, 26/10: before, a failed Save As left
         // the tab named after a file it did not show).
@@ -51,13 +51,13 @@ pub fn save_as(ui: &AppWindow, tab_id: i32) {
 /// follow it.
 pub fn rename_file(ui: &AppWindow, tab_id: i32) {
     let Some((from, name)) = update(tab_id, |r, _| (r.path.clone(), r.name.clone())) else { return };
-    let d = crate::dialog::new(ui).set_title("Rename").set_directory(crate::dest::parent_dir(&from)).set_file_name(name).add_filter("PDF", &["pdf"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Rename")).set_directory(crate::dest::parent_dir(&from)).set_file_name(name).add_filter("PDF", &["pdf"]);
     crate::dialog::save_file(ui, d, move |ui, to| {
         if to == from {
             return;
         }
         if let Err(e) = std::fs::rename(&from, &to) {
-            return crate::flow::toast(ui, &format!("It could not be renamed: {e}"));
+            return crate::flow::toast(ui, &sheaf_app::i18n::trf("It could not be renamed: {}", &[&e]));
         }
         update(tab_id, |r, v| {
             r.path = to.clone();
@@ -72,7 +72,7 @@ pub fn rename_file(ui: &AppWindow, tab_id: i32) {
             }
         });
         crate::home::record_open(&to);
-        crate::flow::toast(ui, &format!("Renamed {}", file_name(&to)));
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("Renamed {}", &[&file_name(&to)]));
     });
 }
 
@@ -80,13 +80,13 @@ pub fn rename_file(ui: &AppWindow, tab_id: i32) {
 /// its own and its tab here closes. Unsaved edits are saved first, or the move is refused.
 pub fn move_to_window(ui: &AppWindow, tab_id: i32) {
     if let Some(name) = unsaved_name(tab_id) {
-        return crate::flow::toast(ui, &format!("Save {name} first: a new window opens the file as saved"));
+        return crate::flow::toast(ui, &sheaf_app::i18n::trf("Save {} first: a new window opens the file as saved", &[&name]));
     }
     let Some(path) = update(tab_id, |r, _| r.path.clone()) else { return };
     if crate::run::open_in_new_window(&path) {
         crate::flow::remove_tab(ui, tab_id);
     } else {
-        crate::flow::toast(ui, "A new window could not be opened");
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("A new window could not be opened"));
     }
 }
 
@@ -102,15 +102,15 @@ pub fn reveal_file(tab_id: i32) {
 /// first.
 pub fn trash_file(ui: &AppWindow, tab_id: i32) {
     if let Some(name) = unsaved_name(tab_id) {
-        return crate::flow::toast(ui, &format!("{name} has unsaved edits: save them or close it first"));
+        return crate::flow::toast(ui, &sheaf_app::i18n::trf("{} has unsaved edits: save them or close it first", &[&name]));
     }
     let Some(path) = update(tab_id, |r, _| r.path.clone()) else { return };
     match crate::run::trash(&path) {
         Ok(()) => {
             crate::flow::remove_tab(ui, tab_id);
-            crate::flow::toast(ui, &format!("{} moved to the Trash", file_name(&path)));
+            crate::flow::toast(ui, &sheaf_app::i18n::trf("{} moved to the Trash", &[&file_name(&path)]));
         }
-        Err(e) => crate::flow::toast(ui, &format!("It could not be moved to the Trash: {e}")),
+        Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("It could not be moved to the Trash: {}", &[&e])),
     }
 }
 
@@ -154,7 +154,7 @@ pub(super) fn hand_to_tools(ui: &AppWindow, tab_id: i32) {
     });
     ui.set_active_tab(-1);
     ui.set_page(sheaf_app::Page::Tools);
-    crate::flow::toast(ui, "Choose a tool for your file");
+    crate::flow::toast(ui, &sheaf_app::i18n::tr("Choose a tool for your file"));
 }
 
 /// Files panel: save attachment `i` where the user says (its own name proposed).
@@ -197,7 +197,7 @@ pub fn attachment_open(ui: &AppWindow, tab_id: i32, i: i32) {
         reader_doc::save_attachment(&bytes, password.as_deref(), &att, &to)
     });
     match written {
-        Err(e) => crate::flow::toast(ui, &format!("Not opened: {e}")),
+        Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Not opened: {}", &[&e])),
         Ok(()) if to.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) => crate::flow::home_files(ui, vec![to]),
         Ok(()) => {
             let doc = update(tab_id, |r, _| r.path.clone()).unwrap_or_default();
@@ -215,7 +215,7 @@ pub fn attachment_add(ui: &AppWindow, tab_id: i32) {
     let d = crate::dialog::new(ui);
     crate::dialog::pick_file(ui, d, move |ui, path| {
         let Ok(data) = std::fs::read(&path) else {
-            return crate::flow::toast(ui, "That file could not be read");
+            return crate::flow::toast(ui, &sheaf_app::i18n::tr("That file could not be read"));
         };
         let key = file_name(&path);
         let action = sheaf_core::pdfcraft::engine::doc_attachments::DocAttachment::Add { bytes: std::sync::Arc::new(data) };
@@ -250,13 +250,13 @@ pub fn background_apply(ui: &AppWindow, tab_id: i32, colour: i32, opacity: i32, 
     match action {
         0 => super::apply(ui, tab_id, Edit::AddBackground { pages, settings, replace: true, file: None }, &[], None),
         1 => {
-            let d = crate::dialog::new(ui).set_title("A picture behind the pages").add_filter("Image or PDF", &["png", "jpg", "jpeg", "pdf"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("A picture behind the pages")).add_filter("Image or PDF", &["png", "jpg", "jpeg", "pdf"]);
             crate::dialog::pick_file(ui, d, move |ui, path| match std::fs::read(&path) {
                 Ok(bytes) => {
                     let file = MarkFile { name: file_name(&path), bytes: Arc::new(bytes), page: 0 };
                     super::apply(ui, tab_id, Edit::AddBackground { pages, settings, replace: true, file: Some(file) }, &[], None);
                 }
-                Err(e) => crate::flow::toast(ui, &format!("{} could not be read: {e}", file_name(&path))),
+                Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("{} could not be read: {}", &[&file_name(&path), &e])),
             });
         }
         2 => super::apply(ui, tab_id, Edit::RemoveMarks { kind: MarkKind::Background }, &[], None),
@@ -297,7 +297,7 @@ pub fn version_action(ui: &AppWindow, tab_id: i32, n: i32) {
                 format!("{:016x}", h.finish())
             });
             if let Err(e) = std::fs::create_dir_all(&dir) {
-                return crate::flow::toast(ui, &format!("Version not opened: {e}"));
+                return crate::flow::toast(ui, &sheaf_app::i18n::trf("Version not opened: {}", &[&e]));
             }
             let stem = name.trim_end_matches(".pdf").trim_end_matches(".PDF");
             let to = dir.join(format!("{stem} (version {n}).pdf"));
@@ -318,9 +318,9 @@ pub fn email(ui: &AppWindow, tab_id: i32) {
         std::fs::write(&to, bytes.as_slice()).map(|()| to)
     });
     match copy {
-        Ok(to) if crate::run::mail_attachment(&to, &name) => crate::flow::toast(ui, &format!("{name} attached to a new mail")),
-        Ok(_) => crate::flow::toast(ui, "No mail app to send it with: attach the file from your mail"),
-        Err(e) => crate::flow::toast(ui, &format!("Not attached: {e}")),
+        Ok(to) if crate::run::mail_attachment(&to, &name) => crate::flow::toast(ui, &sheaf_app::i18n::trf("{} attached to a new mail", &[&name])),
+        Ok(_) => crate::flow::toast(ui, &sheaf_app::i18n::tr("No mail app to send it with: attach the file from your mail")),
+        Err(e) => crate::flow::toast(ui, &sheaf_app::i18n::trf("Not attached: {}", &[&e])),
     }
 }
 
@@ -354,7 +354,7 @@ pub fn flat_copy(ui: &AppWindow, tab_id: i32, mail: bool) {
     if mail {
         let dir = std::env::temp_dir().join("sheaf-mail");
         if let Err(e) = std::fs::create_dir_all(&dir) {
-            return crate::flow::toast(ui, &format!("Not attached: {e}"));
+            return crate::flow::toast(ui, &sheaf_app::i18n::trf("Not attached: {}", &[&e]));
         }
         update(tab_id, |r, _| r.send(Op::FlatCopy { to: dir.join(&name), mail: true }));
         return;
@@ -383,7 +383,7 @@ pub fn attachment_change(ui: &AppWindow, tab_id: i32, i: i32, to: &str) {
         (AttachmentSource::Document { key }, false) => Edit::DocAttachment { key: key.clone(), action: DocAttachment::Remove },
         (AttachmentSource::Document { key }, true) => Edit::DocAttachment { key: key.clone(), action: DocAttachment::Rename { to: to.trim().into() } },
         (AttachmentSource::Annotation { page, index }, false) => Edit::DeleteAnnotation { page: *page, index: *index },
-        (AttachmentSource::Annotation { .. }, true) => return crate::flow::toast(ui, "A file attached to a page keeps its name"),
+        (AttachmentSource::Annotation { .. }, true) => return crate::flow::toast(ui, &sheaf_app::i18n::tr("A file attached to a page keeps its name")),
     };
     let pages = match &a.source {
         AttachmentSource::Annotation { page, .. } => vec![*page],

@@ -52,8 +52,7 @@ pub(super) fn detail(c: &Certificate) -> String {
 /// rights so you can reopen and change the copy.
 fn add(recipients: &mut Vec<Recipient>, certificate: Certificate, permissions: Permissions) -> Result<String, String> {
     if recipients.iter().any(|r| r.certificate.raw == certificate.raw) { return Err(format!("{} is already a recipient", name(&certificate))); }
-    if !matches!(certificate.public_key, sheaf_core::pdfcraft::engine::sign::PublicKey::Rsa { .. }) { return Err(format!("{} has no RSA key: certificate encryption needs one", name(&certificate))); }
-    if certificate.key_usage.is_some_and(|bits| bits & (1 << 2) == 0) { return Err(format!("{}'s certificate does not allow encryption", name(&certificate))); }
+    if let Some(problem) = sheaf_core::certificate_security::recipient_problem(&certificate) { return Err(format!("{}: {problem}", name(&certificate))); }
     let added = format!("Added {}", name(&certificate));
     recipients.push(Recipient { certificate, permissions });
     Ok(added)
@@ -93,7 +92,7 @@ pub fn cert_action(ui: &AppWindow, id: i32, action: i32, index: i32, password: &
     if update(id, |r, _| r.cert_panel.as_ref().is_none_or(|p| p.busy)).unwrap_or(true) { return; }
     match action {
         1 => {
-            let d = crate::dialog::new(ui).set_title("Recipient certificate").add_filter("Certificate", &["cer", "crt", "pem", "der"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Recipient certificate")).add_filter("Certificate", &["cer", "crt", "pem", "der"]);
             crate::dialog::pick_file(ui, d, move |_, path| {
                 let parsed = std::fs::read(&path).ok().and_then(|b| sheaf_core::pdfcraft::certificate_der(&b)).ok_or_else(|| format!("{} is not an X.509 certificate", file_name(&path)))
                     .and_then(|der| Certificate::parse(&der).map_err(|e| e.to_string()));
@@ -106,7 +105,7 @@ pub fn cert_action(ui: &AppWindow, id: i32, action: i32, index: i32, password: &
         }
         2 => {
             let password = password.to_string();
-            let d = crate::dialog::new(ui).set_title("Your digital ID").add_filter("Digital ID", &["p12", "pfx"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Your digital ID")).add_filter("Digital ID", &["p12", "pfx"]);
             crate::dialog::pick_file(ui, d, move |ui, path| {
                 let opened = std::fs::read(&path).map_err(|e| e.to_string()).and_then(|b| pkcs12::open(&b, &password).map_err(|e| match e {
                     SignError::WrongPassword => "Wrong password for this digital ID".to_string(),
@@ -126,7 +125,7 @@ pub fn cert_action(ui: &AppWindow, id: i32, action: i32, index: i32, password: &
             let Some(policy) = update(id, |r, _| r.cert_panel.as_ref().map(|p| CertificatePolicy { name: password.trim().to_string(), scope: scope_of(index), recipients: p.recipients.clone() })).flatten() else { return };
             if let Err(e) = policy.validate() { return status(id, e.to_string()); }
             if action == 9 {
-                let d = crate::dialog::new(ui).set_title("Export certificate policy").set_file_name(format!("{}.json", policy.name)).add_filter("Sheaf certificate policy", &["json"]);
+                let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Export certificate policy")).set_file_name(format!("{}.json", policy.name)).add_filter("Sheaf certificate policy", &["json"]);
                 return crate::dialog::save_file(ui, d, move |_, out| status(id, match policy.save(&out) { Ok(p) => format!("Exported {}", p.display()), Err(e) => format!("Policy not exported: {e}") }));
             }
             let saved = std::fs::create_dir_all(policy_dir()).map_err(sheaf_core::OpdfError::from).and_then(|()| {
@@ -147,7 +146,7 @@ pub fn cert_action(ui: &AppWindow, id: i32, action: i32, index: i32, password: &
             update(id, |r, _| { if let Some(p) = r.cert_panel.as_mut() { p.policies = certificate_policy::list(&policy_dir()); p.status = text; } });
         }
         8 => {
-            let d = crate::dialog::new(ui).set_title("Import certificate policy").add_filter("Sheaf certificate policy", &["json"]);
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Import certificate policy")).add_filter("Sheaf certificate policy", &["json"]);
             crate::dialog::pick_file(ui, d, move |_, path| match CertificatePolicy::load(&path) {
                 Ok(policy) => use_policy(id, policy, "Imported (Save as policy to keep it)"),
                 Err(e) => status(id, format!("Policy not imported: {e}")),
@@ -160,7 +159,7 @@ pub fn cert_action(ui: &AppWindow, id: i32, action: i32, index: i32, password: &
 fn save(ui: &AppWindow, id: i32, scope: Scope) {
     if unsaved_name(id).is_some() { return status(id, "Save the PDF's edits first, then encrypt it.".into()); }
     let Some((input, recipients)) = update(id, |r, _| Some((Input { path: r.path.clone(), password: r.password() }, r.cert_panel.as_ref()?.recipients.clone()))).flatten() else { return };
-    let d = crate::dialog::new(ui).set_title("Save encrypted copy").set_directory(crate::dest::parent_dir(&input.path)).set_file_name(format!("{} - encrypted.pdf", input.stem())).add_filter("PDF", &["pdf"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save encrypted copy")).set_directory(crate::dest::parent_dir(&input.path)).set_file_name(format!("{} - encrypted.pdf", input.stem())).add_filter("PDF", &["pdf"]);
     crate::dialog::save_file(ui, d, move |ui, out| {
         let Some(()) = update(id, |r, _| { let p = r.cert_panel.as_mut()?; if p.busy { return None; } p.busy = true; p.status = "Encrypting…".into(); Some(()) }).flatten() else { return };
         // A certificate-encrypted file is encrypted from its decrypted working copy.
@@ -170,7 +169,7 @@ fn save(ui: &AppWindow, id: i32, scope: Scope) {
             let result = certificate_security::encrypt_for(&source, &recipients, scope, &out);
             let _ = weak.upgrade_in_event_loop(move |ui| {
                 update(id, |r, _| { if let Some(p) = r.cert_panel.as_mut() { p.busy = false; p.status = match &result { Ok(path) => format!("Encrypted copy saved: {}", path.display()), Err(e) => format!("Encrypted copy not saved: {e}") }; } });
-                if let Ok(path) = result { crate::flow::toast(&ui, &format!("Encrypted copy saved as {}", file_name(&path))); }
+                if let Ok(path) = result { crate::flow::toast(&ui, &sheaf_app::i18n::trf("Encrypted copy saved as {}", &[&file_name(&path)])); }
             });
         });
     });
@@ -184,7 +183,8 @@ thread_local! {
 /// Ask for the digital ID that opens `path` (`error`: why the last try failed).
 pub fn ask(ui: &AppWindow, path: PathBuf, error: &str) {
     let id = ASK.with(|a| a.borrow().as_ref().filter(|(p, _)| *p == path).and_then(|(_, id)| id.clone()))
-        .or_else(|| crate::home::prefs().digital_ids.first().cloned());
+        // A smart card's ID signs; opening with it is not done yet, so the first file is offered.
+        .or_else(|| crate::home::prefs().digital_ids.into_iter().find(|p| !sheaf_core::pkcs11::is_reference(p)));
     ui.set_pw_id(id.as_deref().map(file_name).unwrap_or_default().into());
     ui.set_pw_file(file_name(&path).into());
     ASK.with(|a| *a.borrow_mut() = Some((path, id)));
@@ -197,7 +197,7 @@ pub fn ask(ui: &AppWindow, path: PathBuf, error: &str) {
 
 /// The prompt's Choose…: another digital ID file, kept in Preferences ▸ Signatures.
 pub fn choose_id(ui: &AppWindow) {
-    let d = crate::dialog::new(ui).set_title("Your digital ID").add_filter("Digital ID", &["p12", "pfx"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Your digital ID")).add_filter("Digital ID", &["p12", "pfx"]);
     crate::dialog::pick_file(ui, d, |ui, p| {
         crate::home::remember_digital_id(ui, &p);
         ui.set_pw_id(file_name(&p).into());
@@ -229,7 +229,7 @@ pub fn entered(ui: &AppWindow, password: &str) -> bool {
                 done(&ui);
                 super::open_as(&ui, copy, None, &path);
                 let denied = permissions.denied();
-                if !denied.is_empty() { crate::flow::toast(&ui, &format!("Opened with your digital ID. Not allowed: {}", denied.join(", ").to_lowercase())); }
+                if !denied.is_empty() { crate::flow::toast(&ui, &sheaf_app::i18n::trf("Opened with your digital ID. Not allowed: {}", &[&denied.join(", ").to_lowercase()])); }
             }
             Err(e) => ask(&ui, path, &e),
         });

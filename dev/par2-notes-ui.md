@@ -70,6 +70,42 @@
   field from the section's title and cancels a first recording click that scrolls the page; 301
   finds A4 from Letter (A4 alone does not OCR).
 
+## Round 34 (base 50a04a8)
+
+- C-preferences-003: messages built in Rust are French too: every toast literal and `format!` toast,
+  file dialog titles, the search results' headings, folder search and catalog status lines go
+  through `i18n::tr` / `i18n::trf` (a `{}` template filled in order); toasts also translate a known
+  English message held in a variable. New texts of later screens wrapped in `@tr`. 1,698 messages,
+  all with French (`i18n::tests::every_interface_text_has_its_french` now reads `i18n::trf("…")` too;
+  the language is per thread in tests so a French test leaves the others English). Left: error texts
+  from sheaf-core (the `{}` of "Can't preview {}: {}") stay English.
+- C-platform-006: plugins (Acrobat's plug-ins, Stirling's custom scripts). A plugin is a folder with
+  `plugin.json` (id, name, version, author, description, tools: id, name, `run` with `{input}` and
+  `{output}`), in Sheaf's data folder `plugins/`. Preferences ▸ Plugins lists them (version, author,
+  tools, whether run yet), turns them on and off, removes them (second click confirms), adds one from
+  a folder (manifest checked, copied in), opens the folder; broken manifests are listed with why.
+  Their tools join the Tools page (a Plugins section) and the action editor (a plugin step runs
+  between the engine's steps). No plugin code is loaded: each run is a separate process on a copy of
+  the PDF in a private temporary folder, stdin closed, stopped after 5 minutes or on cancel, its last
+  stderr line reported, its output checked to be a readable PDF. Before a plugin version first runs,
+  a warning names it, its author and the exact command (Acrobat's untrusted plug-in warning); adding
+  its tool to an action asks too; an unallowed plugin in an action is refused. Sample:
+  `dev/plugins/reviewed-stamp` (Python, sets the title to Reviewed by incremental update). Tests:
+  `plugins::tests::*` (manifest checks, install/list/off/allow/remove, real process runs, errors,
+  cancel, the sample), `actions::tests::a_plugin_step_runs_its_tool_between_the_engines_steps`,
+  `plugins_ui::tests::outputs_go_beside_their_file_numbered_when_taken`, smoke 307.
+- C-preferences-005: Preferences ▸ Rendering ▸ Use the system's profile (Acrobat's Use display
+  profile): the display's ICC read from the X root window's `_ICC_PROFILE` (colord, GNOME, KDE,
+  xcalib; XWayland included) at each start and when chosen, applied after rendering by the existing
+  display transform; sRGB with a note when the system sets none. macOS (ColorSync) and Windows
+  (`GetICMProfile`) not read yet: a chosen ICC works there. Tests:
+  `display_color::tests::the_systems_display_profile_is_read_from_xprops_answer`, smoke 308 (a Display
+  P3 profile set on the root window turns the page's red 255 0 0 into 234 51 35, white unchanged;
+  helper `dev/scripts/smoke/set-icc.py`, fixture `display-p3.icc` written by moxcms).
+- Keyboard shortcuts (found while calibrating 221/229): the recorder was one FocusScope at the
+  section's end, so taking the keyboard scrolled Preferences 69 px under the pointer and the next
+  click could miss. Each row now records its own keys; once done the window takes the keyboard back.
+
 ## Not automatable
 
 - Quit warning: quitting with a task running shows "A task is still running" and Keep stops the
@@ -85,7 +121,7 @@
   offline.
 - C-preferences-003 (interface language): translating the whole interface (Slint `@tr` and
   bundled catalogues for thousands of strings) does not fit a round; not started.
-- C-platform-005 (JavaScript), C-platform-006 (plugins), C-platform-012 (native builds; macOS
+- C-platform-005 (JavaScript), C-platform-012 (native builds; macOS
   notarisation needs Nassim's Apple account): not reached in the time.
 
 ## Notes for the orchestrator

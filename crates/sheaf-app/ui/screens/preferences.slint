@@ -1,3 +1,4 @@
+import { SettingsBridge } from "../settings.slint";
 import { PlatformBridge } from "../platform.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
@@ -8,6 +9,7 @@ import { Check } from "../widgets/check.slint";
 import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
 import { AiSection } from "preferences-ai.slint";
 import { PrintDefaultsSection, SecuritySection, StartupSection } from "preferences-more.slint";
+import { PluginsSection } from "preferences-plugins.slint";
 
 // White card with a section title.
 // A round colour to pick, ringed when chosen.
@@ -262,14 +264,15 @@ export component PreferencesScreen inherits Rectangle {
                     Segment { width: 214px; text: @tr("Show transparency grid"); selected: root.transparency-grid; clicked => { root.set-page-display(2, !root.transparency-grid); } }
                 }
                 // Acrobat's Colour Management: the monitor ICC, after PDFium's sRGB rendering.
-                Text { text: "Display colour profile"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                Text { text: @tr("Display colour profile"); font-size: Theme.fs-label; color: Theme.text-secondary; }
                 Text { text: root.display-profile; font-size: Theme.fs-caption; color: Theme.text-muted; overflow: elide; }
                 FlexboxLayout {
                     flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     spacing: 8px;
-                    Segment { width: 214px; text: "Choose monitor ICC…"; clicked => { root.choose-display-profile(); } }
-                    Segment { width: 214px; text: "Use sRGB"; selected: root.display-profile == "sRGB"; clicked => { root.reset-display-profile(); } }
+                    Segment { width: 214px; text: @tr("Choose monitor ICC…"); clicked => { root.choose-display-profile(); } }
+                    Segment { width: 214px; text: @tr("Use sRGB"); selected: root.display-profile == "sRGB"; clicked => { root.reset-display-profile(); } }
+                    Segment { width: 214px; text: @tr("Use the system's profile"); selected: SettingsBridge.display-system; clicked => { SettingsBridge.use-system-display(); } }
                 }
                 // Acrobat's Use 2D GPU acceleration.
                 FlexboxLayout {
@@ -466,7 +469,7 @@ export component PreferencesScreen inherits Rectangle {
                     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: d; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
                     SecondaryButton { text: @tr("Remove"); clicked => { root.signature-prefs(1, k); } }
                 }
-                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; spacing: 8px; SecondaryButton { text: @tr("Add a digital ID…"); clicked => { root.signature-prefs(0, 0); } } SecondaryButton { text: @tr("Create a digital ID…"); clicked => { root.creating-id = !root.creating-id; } } }
+                FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; spacing: 8px; SecondaryButton { text: @tr("Add a digital ID…"); clicked => { root.signature-prefs(0, 0); } } SecondaryButton { text: @tr("Add a smart card or token…"); clicked => { root.signature-prefs(4, 0); } } SecondaryButton { text: @tr("Create a digital ID…"); clicked => { root.creating-id = !root.creating-id; } } }
                 if root.creating-id: VerticalLayout {
                     spacing: 6px;
                     Text { text: @tr("A self-signed digital ID saved in a password-protected file (.p12), valid five years. Send its certificate to people who encrypt for you."); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
@@ -510,6 +513,7 @@ export component PreferencesScreen inherits Rectangle {
             PrintDefaultsSection {}
             SecuritySection {}
             StartupSection {}
+            PluginsSection {}
         }
     }
 }

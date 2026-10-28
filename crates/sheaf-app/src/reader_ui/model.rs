@@ -332,8 +332,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         }
         let heading = |page: usize| -> slint::SharedString {
             match counts.get(&page).copied().unwrap_or(0) {
-                1 => format!("Page {}", label(r, page)),
-                n => format!("Page {} · {n} results", label(r, page)),
+                1 => sheaf_app::i18n::trf("Page {}", &[&label(r, page)]),
+                n => sheaf_app::i18n::trf("Page {} · {} results", &[&label(r, page), &n]),
             }
             .into()
         };
@@ -507,10 +507,10 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         callout: r.callout,
         measure_decimals: r.measure_decimals as i32,
         measure_scale: match r.measure_custom {
-            Some((_, unit)) => format!("Calibrated · {unit}"),
+            Some((_, unit)) => sheaf_app::i18n::trf("Calibrated · {}", &[&unit]),
             None => {
                 let (ratio, unit) = reader::MEASURE_SCALES[r.measure_scale.min(reader::MEASURE_SCALES.len() - 1)];
-                if ratio == 1.0 { format!("True size · {unit}") } else { format!("1:{ratio} · {unit}") }
+                if ratio == 1.0 { sheaf_app::i18n::trf("True size · {}", &[&unit]) } else { format!("1:{ratio} · {unit}") }
             }
         }
         .into(),
@@ -524,7 +524,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         loupe_image: r.loupe_image.clone().unwrap_or_default(),
         dashed: r.dashed,
         replace_ask: r.replace_pending.as_ref().map_or_else(Default::default, |(name, _, count, pages)| {
-            format!("Replace the {} page{} with pages of {name} ({count}) from page", pages.len(), if pages.len() == 1 { "" } else { "s" }).into()
+            sheaf_app::i18n::trf("Replace the {} page{} with pages of {} ({}) from page", &[&pages.len(), &if pages.len() == 1 { "" } else { "s" }, &name, &count]).into()
         }),
         page_at_a_time: r.page_at_a_time,
         page_top: v.viewer.page_rect(v.current())[1] as f32,
@@ -545,11 +545,11 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 .iter()
                 .map(|(_, l)| slint::SharedString::from(*l))
                 .chain(StampKind::ALL.iter().map(|k| match k.group() {
-                    sheaf_core::pdfcraft::engine::StampGroup::Dynamic => slint::SharedString::from(format!("{} · DATED", k.label())),
+                    sheaf_core::pdfcraft::engine::StampGroup::Dynamic => slint::SharedString::from(sheaf_app::i18n::trf("{} · DATED", &[&k.label()])),
                     _ => slint::SharedString::from(k.label()),
                 }))
                 // The pictures kept as stamps.
-                .chain(crate::home::stamp_library().iter().map(|p| slint::SharedString::from(format!("Picture · {}", p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()))))
+                .chain(crate::home::stamp_library().iter().map(|p| slint::SharedString::from(sheaf_app::i18n::trf("Picture · {}", &[&p.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()]))))
                 .collect::<Vec<_>>(),
         )),
         stamp: r.stamp as i32,
@@ -600,7 +600,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         a11y_busy: r.a11y_busy,
         a11y_summary: r.a11y.as_ref().map_or_else(String::new, |rep| {
             use sheaf_core::pdfcraft::engine::a11y::Status;
-            format!("{} failed · {} to check by hand · {} passed", rep.count(Status::Failed), rep.count(Status::Manual), rep.count(Status::Passed))
+            sheaf_app::i18n::trf("{} failed · {} to check by hand · {} passed", &[&rep.count(Status::Failed), &rep.count(Status::Manual), &rep.count(Status::Passed)])
         }).into(),
         a11y_rows: ModelRc::new(VecModel::from(r.a11y.as_ref().map_or_else(Vec::new, |rep| {
             use sheaf_core::pdfcraft::engine::a11y::Status;
@@ -689,8 +689,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         props_author: r.snap.props.author.clone().into(),
         props_subject: r.snap.props.subject.clone().into(),
         props_keywords: r.snap.props.keywords.clone().into(),
-        props_signed: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, ..)| slint::SharedString::from(format!("Open the version signed by {who}"))).collect::<Vec<_>>())),
-        props_trust: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, _, _, trusted)| slint::SharedString::from(if *trusted { String::new() } else { format!("Trust {who}'s certificate") })).collect::<Vec<_>>())),
+        props_signed: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, ..)| slint::SharedString::from(sheaf_app::i18n::trf("Open the version signed by {}", &[&who]))).collect::<Vec<_>>())),
+        props_trust: ModelRc::new(VecModel::from(r.snap.props.signed.iter().map(|(who, _, _, trusted)| slint::SharedString::from(if *trusted { String::new() } else { sheaf_app::i18n::trf("Trust {}'s certificate", &[&who]) })).collect::<Vec<_>>())),
         props_opening: {
             let (p, l, z, n, w) = super::properties::opening_controls(&r.snap.opening);
             ModelRc::new(VecModel::from(vec![p, l, z, n, w]))
@@ -849,7 +849,7 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
                 kind: if a.fill_sign { "Signature".into() } else { reader::kind_label(&a.subtype).into() },
                 text: text.chars().take(300).collect::<String>().into(),
                 meta: [a.author.trim(), a.modified.trim()].iter().filter(|s| !s.is_empty()).copied().collect::<Vec<_>>().join(" · ").into(),
-                page_label: format!("Page {}", label(r, a.page)).into(),
+                page_label: sheaf_app::i18n::trf("Page {}", &[&label(r, a.page)]).into(),
                 colour: a.color.map(|c| colour_of([c[0] as f64, c[1] as f64, c[2] as f64])).unwrap_or(Color::from_rgb_u8(255, 214, 10)),
                 selected: r.selected_annot == Some(i),
                 index: i as i32,

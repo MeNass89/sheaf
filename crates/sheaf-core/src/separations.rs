@@ -11,6 +11,54 @@ pub struct Plate {
     pub width: u32,
     pub height: u32,
     pub rgba: Vec<u8>,
+    /// The ink's colour as CMYK 0–1: the process inks their own, a spot ink its alternate (a
+    /// Separation colour space's tint at full strength), for the composite of the inks shown.
+    pub cmyk: [f32; 4],
+}
+
+/// Acrobat's Output Preview with several inks ticked: the page as the `shown` plates print together,
+/// each plate's coverage (black = full ink) laid down in its ink's colour, as RGBA. Plates of another
+/// size are left out.
+pub fn composite(plates: &[Plate], shown: &[bool]) -> Option<(u32, u32, Vec<u8>)> {
+    let first = plates.first()?;
+    let (w, h) = (first.width, first.height);
+    let mut cmyk = vec![[0f32; 4]; (w * h) as usize];
+    for (plate, _) in plates.iter().zip(shown).filter(|(p, s)| **s && p.width == w && p.height == h) {
+        for (px, out) in plate.rgba.as_chunks::<4>().0.iter().zip(cmyk.iter_mut()) {
+            let coverage = 1.0 - f32::from(px[0]) / 255.0;
+            for (o, ink) in out.iter_mut().zip(plate.cmyk) {
+                *o = (*o + coverage * ink).min(1.0);
+            }
+        }
+    }
+    let rgba = cmyk.iter().flat_map(|[c, m, y, k]| {
+        let ch = |v: f32| ((1.0 - v) * (1.0 - k) * 255.0).round() as u8;
+        [ch(*c), ch(*m), ch(*y), 255]
+    }).collect();
+    Some((w, h, rgba))
+}
+
+/// The CMYK of ink `name`: a process ink's own, or the alternate of the Separation (or DeviceN)
+/// colour space of that name in `bytes` when its tint function is exponential; mid grey otherwise.
+fn ink_cmyk(name: &str, bytes: &[u8]) -> [f32; 4] {
+    match name {
+        "Cyan" => return [1.0, 0.0, 0.0, 0.0],
+        "Magenta" => return [0.0, 1.0, 0.0, 0.0],
+        "Yellow" => return [0.0, 0.0, 1.0, 0.0],
+        "Black" => return [0.0, 0.0, 0.0, 1.0],
+        _ => {}
+    }
+    let found = lopdf::Document::load_mem(bytes).ok().and_then(|pdf| {
+        pdf.objects.values().find_map(|o| {
+            let a = o.as_array().ok()?;
+            (a.first()?.as_name().ok()? == b"Separation" && a.get(1)?.as_name().ok()? == name.as_bytes() && a.get(2)?.as_name().ok()? == b"DeviceCMYK").then_some(())?;
+            let f = pdf.dereference(a.get(3)?).ok()?.1.as_dict().ok()?;
+            let c1 = f.get(b"C1").ok()?.as_array().ok()?;
+            let v: Vec<f32> = c1.iter().filter_map(|n| n.as_float().ok()).collect();
+            (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]])
+        })
+    });
+    found.unwrap_or([0.0, 0.0, 0.0, 0.5])
 }
 
 /// Capture bytes on the UI thread only after pending edits have completed, then run off-thread.
@@ -59,7 +107,8 @@ pub fn preview(bytes: &[u8], password: Option<&str>, page: usize, progress: &mut
         let (width, height) = reader.into_dimensions()?;
         if width == 0 || height == 0 || width > 1200 || height > 1200 { return Err(OpdfError::Conversion("The ink plate renderer returned an oversized preview".into())); }
         let pixels = image::open(path)?.to_rgba8();
-        plates.push(Plate { name, width, height, rgba: pixels.into_raw() });
+        let cmyk = ink_cmyk(&name, bytes);
+        plates.push(Plate { name, width, height, rgba: pixels.into_raw(), cmyk });
     }
     Ok(plates)
 }
@@ -68,6 +117,27 @@ pub fn preview(bytes: &[u8], password: Option<&str>, page: usize, progress: &mut
 mod tests {
     use super::*;
     use lopdf::{dictionary, Object, Stream};
+
+    /// Several inks ticked (Acrobat's Output Preview): each plate's coverage in its ink's colour; a spot ink
+    /// takes its Separation alternate. Cyan and Magenta together make blue; Black alone stays grey-black.
+    #[test]
+    fn inks_shown_together_make_their_colours() {
+        let plate = |name: &str, cov: u8, cmyk| Plate { name: name.into(), width: 1, height: 1, rgba: vec![255 - cov, 255 - cov, 255 - cov, 255], cmyk };
+        let plates = [plate("Cyan", 255, [1.0, 0.0, 0.0, 0.0]), plate("Magenta", 255, [0.0, 1.0, 0.0, 0.0]), plate("Black", 128, [0.0, 0.0, 0.0, 1.0])];
+        let (_, _, both) = composite(&plates, &[true, true, false]).unwrap();
+        assert_eq!(&both[..3], &[0, 0, 255], "cyan and magenta: blue");
+        let (_, _, none) = composite(&plates, &[false, false, false]).unwrap();
+        assert_eq!(&none[..3], &[255, 255, 255], "no ink: paper");
+        let (_, _, black) = composite(&plates, &[false, false, true]).unwrap();
+        assert!(black[0] == black[1] && black[1] == black[2] && (120..=135).contains(&black[0]), "{black:?}");
+        // A spot ink's alternate from its Separation space.
+        let mut pdf = lopdf::Document::with_version("1.7");
+        let f = pdf.add_object(dictionary! { "FunctionType" => 2, "Domain" => vec![0.into(), 1.into()], "C0" => vec![0.into(), 0.into(), 0.into(), 0.into()], "C1" => vec![0.into(), 0.5.into(), 1.into(), 0.into()], "N" => 1 });
+        pdf.add_object(Object::Array(vec![Object::Name(b"Separation".to_vec()), Object::Name(b"BrandOrange".to_vec()), Object::Name(b"DeviceCMYK".to_vec()), f.into()]));
+        let mut bytes = Vec::new();
+        pdf.save_to(&mut bytes).unwrap();
+        assert_eq!(ink_cmyk("BrandOrange", &bytes), [0.0, 0.5, 1.0, 0.0]);
+    }
 
     #[test]
     fn output_preview_reads_painted_process_and_spot_plates_without_editing() {

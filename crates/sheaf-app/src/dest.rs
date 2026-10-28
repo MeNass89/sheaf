@@ -124,7 +124,7 @@ pub fn ask_dest(ui: &AppWindow, tool: ToolId, inputs: &[PathBuf], opts: &ToolOpt
     let Some(first) = inputs.first() else { return };
     let dir = parent_dir(first);
     if writes_folder(tool, inputs, opts) {
-        let d = dialog::new(ui).set_title("Choose a folder for the files").set_directory(&dir);
+        let d = dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose a folder for the files")).set_directory(&dir);
         dialog::pick_folder(ui, d, move |ui, p| then(ui, Dest::Folder(p)));
     } else {
         let (name, ext) = save_filter(tool, opts);

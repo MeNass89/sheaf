@@ -118,7 +118,7 @@ fn dispatch(ui: &AppWindow, id: i32, requests: Vec<Request>) -> Vec<String> {
                 ui.global::<JavaScriptBridge>().set_visible(false);
                 if matches!(request, Request::Print) { print_open(id); } else { save_as(ui, id); }
             }
-            Request::Beep => crate::flow::toast(ui, "JavaScript: beep"),
+            Request::Beep => crate::flow::toast(ui, &sheaf_app::i18n::tr("JavaScript: beep")),
             Request::Print | Request::SaveAs => notices.push("A second dialog request was not opened. Run it separately after closing the first dialog.".into()),
             Request::LaunchUrl(_) | Request::Submit(_) | Request::Reset(_) => {},
         }

@@ -21,7 +21,8 @@ component PlateButton inherits Rectangle {
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
-export struct InkPlate { name: string, image: image }
+// `shown`: ticked for the composite of the inks shown together (Acrobat's Output Preview check boxes).
+export struct InkPlate { name: string, image: image, shown: bool }
 export global PrintPreviewBridge {
     in-out property <bool> visible;
     in-out property <bool> busy;
@@ -29,6 +30,11 @@ export global PrintPreviewBridge {
     in-out property <int> page;
     in-out property <int> selected;
     in-out property <[InkPlate]> plates;
+    // The page as the ticked inks print together; shown while `selected` is −1 (the Output preview's
+    // default, as Acrobat opens on all inks).
+    in-out property <image> composite;
+    in-out property <bool> inks;
+    callback toggle(int);
     in-out property <string> error;
     in-out property <string> title;
     in-out property <string> detail;
@@ -44,7 +50,7 @@ export component InkPreviewSheet inherits Rectangle {
         init => { self.focus(); }
         key-pressed(e) => {
             if e.text == Key.Escape { PrintPreviewBridge.close(); root.focus-pages(); return accept; }
-            if e.text == Key.UpArrow { PrintPreviewBridge.selected = max(0, PrintPreviewBridge.selected - 1); return accept; }
+            if e.text == Key.UpArrow { PrintPreviewBridge.selected = max(PrintPreviewBridge.inks ? -1 : 0, PrintPreviewBridge.selected - 1); return accept; }
             if e.text == Key.DownArrow && PrintPreviewBridge.plates.length > 0 { PrintPreviewBridge.selected = min(PrintPreviewBridge.plates.length - 1, PrintPreviewBridge.selected + 1); return accept; }
             reject
         }
@@ -61,7 +67,7 @@ export component InkPreviewSheet inherits Rectangle {
             Text { text: PrintPreviewBridge.detail; font-size: Theme.fs-caption; color: Theme.text-muted; }
             if PrintPreviewBridge.busy: Text { text: @tr("Rendering preview…"); color: Theme.text-secondary; font-size: Theme.fs-body; }
             if PrintPreviewBridge.error != "": Text { text: PrintPreviewBridge.error; wrap: word-wrap; color: Theme.danger; font-size: Theme.fs-body; }
-            if PrintPreviewBridge.plates.length > 0: Text { text: PrintPreviewBridge.plates[PrintPreviewBridge.selected].name; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+            if PrintPreviewBridge.plates.length > 0: Text { text: PrintPreviewBridge.selected < 0 ? @tr("The ticked inks together") : PrintPreviewBridge.plates[PrintPreviewBridge.selected].name; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
             HorizontalLayout {
                 vertical-stretch: 1;
                 spacing: 16px;
@@ -69,16 +75,36 @@ export component InkPreviewSheet inherits Rectangle {
                     width: 180px;
                     VerticalLayout {
                         spacing: 8px;
-                        for plate[i] in PrintPreviewBridge.plates: PlateButton {
-                            text: plate.name;
-                            selected: PrintPreviewBridge.selected == i;
-                            clicked => { PrintPreviewBridge.selected = i; }
+                        if PrintPreviewBridge.inks && PrintPreviewBridge.plates.length > 0: PlateButton {
+                            text: @tr("All ticked inks");
+                            selected: PrintPreviewBridge.selected < 0;
+                            clicked => { PrintPreviewBridge.selected = -1; }
+                        }
+                        for plate[i] in PrintPreviewBridge.plates: HorizontalLayout {
+                            spacing: 6px;
+                            if PrintPreviewBridge.inks: Rectangle {
+                                width: 18px;
+                                height: 18px;
+                                y: 5px;
+                                border-radius: 4px;
+                                border-width: 1px;
+                                border-color: Theme.input-border;
+                                background: plate.shown ? Theme.accent : transparent;
+                                Text { text: plate.shown ? "✓" : ""; color: Theme.on-accent; font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
+                                TouchArea { mouse-cursor: pointer; clicked => { PrintPreviewBridge.toggle(i); } }
+                            }
+                            PlateButton {
+                                width: PrintPreviewBridge.inks ? 146px : 170px;
+                                text: plate.name;
+                                selected: PrintPreviewBridge.selected == i;
+                                clicked => { PrintPreviewBridge.selected = i; }
+                            }
                         }
                         Rectangle { vertical-stretch: 1; }
                     }
                 }
                 Image {
-                    source: PrintPreviewBridge.plates[PrintPreviewBridge.selected].image;
+                    source: PrintPreviewBridge.selected < 0 ? PrintPreviewBridge.composite : PrintPreviewBridge.plates[PrintPreviewBridge.selected].image;
                     image-fit: contain;
                     horizontal-stretch: 1;
                 }

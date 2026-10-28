@@ -54,8 +54,8 @@ export component EditPanel inherits VerticalLayout {
 
     Text {
         text: root.tab.edit-mode == 0
-            ? "Click on a page to add a text box, then type your text below. Click a box to select it, drag it to move it."
-            : "Choose an image, then click on a page to place it. Click an image to select it, drag it to move it.";
+            ? @tr("Click on a page to add a text box, then type your text below. Click a box to select it, drag it to move it.")
+            : @tr("Choose an image, then click on a page to place it. Click an image to select it, drag it to move it.");
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
         wrap: word-wrap;
@@ -159,8 +159,8 @@ export component EditPanel inherits VerticalLayout {
     }
 
     Text {
-        text: root.tab.edit-count == 0 ? "Nothing added yet."
-            : root.tab.edit-count == 1 ? "1 item added" : root.tab.edit-count + " items added";
+        text: root.tab.edit-count == 0 ? @tr("Nothing added yet.")
+            : root.tab.edit-count == 1 ? @tr("1 item added") : @tr("{} items added", root.tab.edit-count);
         font-size: Theme.fs-caption;
         color: root.tab.edit-count == 0 ? Theme.warning : Theme.text-muted;
     }

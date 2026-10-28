@@ -5,6 +5,20 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 static GENERATION: AtomicU64 = AtomicU64::new(0);
 
+thread_local! {
+    /// The ink plates on show, kept to compose the ticked ones again when a box is ticked or cleared.
+    static PLATES: std::cell::RefCell<Vec<sheaf_core::separations::Plate>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The composite of the ticked plates set on the bridge (Acrobat's Output Preview with several inks).
+fn show_composite(bridge: &PrintPreviewBridge) {
+    let shown: Vec<bool> = (0..bridge.get_plates().row_count()).filter_map(|i| bridge.get_plates().row_data(i).map(|p| p.shown)).collect();
+    let image = PLATES.with(|p| sheaf_core::separations::composite(&p.borrow(), &shown));
+    if let Some((w, h, rgba)) = image {
+        bridge.set_composite(slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h)));
+    }
+}
+
 pub fn install(ui: &AppWindow) {
     let weak = ui.as_weak();
     ui.global::<PrintPreviewBridge>().on_open(move |id, mode| {
@@ -16,7 +30,7 @@ pub fn install(ui: &AppWindow) {
             Some((r.snap.bytes.clone(), r.snap.password.clone(), v.current()))
         }).flatten();
         let Some((bytes, password, page)) = snapshot else {
-            crate::flow::toast(&ui, "Wait for the document's edits to finish before previewing ink plates");
+            crate::flow::toast(&ui, &sheaf_app::i18n::tr("Wait for the document's edits to finish before previewing ink plates"));
             return;
         };
         let generation = GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
@@ -24,7 +38,7 @@ pub fn install(ui: &AppWindow) {
         bridge.set_title(if mode == 1 { "Flattener preview" } else { "Output preview" }.into());
         bridge.set_detail(if mode == 1 { "Compare the captured page with PDF 1.3.\nThe working document stays unchanged.\nTransparent artwork may become images." } else { "Black shows ink; white shows no ink.\nProcess and spot plates of the captured page.\nThis is not a calibrated press soft proof." }.into());
         bridge.set_tab(id); bridge.set_page(page as i32 + 1); bridge.set_visible(true); bridge.set_busy(true);
-        bridge.set_error("".into()); bridge.set_plates(ModelRc::default()); bridge.set_selected(0);
+        bridge.set_error("".into()); bridge.set_plates(ModelRc::default()); bridge.set_inks(mode != 1); bridge.set_selected(if mode == 1 { 0 } else { -1 });
         let weak = ui.as_weak();
         sheaf_app::pool::probes().submit(move || {
             let mut active = || GENERATION.load(Ordering::Relaxed) == generation;
@@ -36,13 +50,29 @@ pub fn install(ui: &AppWindow) {
                 bridge.set_busy(false);
                 if !with(|a| a.tab(id).is_some()) { bridge.set_visible(false); bridge.set_plates(ModelRc::default()); return; }
                 match plates {
-                    Ok(plates) => bridge.set_plates(ModelRc::new(VecModel::from(plates.into_iter().map(|p| InkPlate {
-                        name: p.name.into(), image: slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.width, p.height)),
-                    }).collect::<Vec<_>>()))),
+                    Ok(plates) => {
+                        bridge.set_plates(ModelRc::new(VecModel::from(plates.iter().map(|p| InkPlate {
+                            name: p.name.as_str().into(), image: slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(&p.rgba, p.width, p.height)), shown: true,
+                        }).collect::<Vec<_>>())));
+                        PLATES.with(|s| *s.borrow_mut() = plates);
+                        if mode != 1 { show_composite(&bridge); }
+                    }
                     Err(error) => bridge.set_error(error.to_string().into()),
                 }
             });
         });
+    });
+    let weak = ui.as_weak();
+    ui.global::<PrintPreviewBridge>().on_toggle(move |i| {
+        let Some(ui) = weak.upgrade() else { return };
+        let bridge = ui.global::<PrintPreviewBridge>();
+        let plates = bridge.get_plates();
+        if let Some(mut p) = plates.row_data(i as usize) {
+            p.shown = !p.shown;
+            plates.set_row_data(i as usize, p);
+            bridge.set_selected(-1);
+            show_composite(&bridge);
+        }
     });
     let weak = ui.as_weak();
     ui.global::<PrintPreviewBridge>().on_close(move || {
@@ -50,5 +80,6 @@ pub fn install(ui: &AppWindow) {
         let Some(ui) = weak.upgrade() else { return };
         let bridge = ui.global::<PrintPreviewBridge>();
         bridge.set_visible(false); bridge.set_busy(false); bridge.set_plates(ModelRc::default());
+        PLATES.with(|s| s.borrow_mut().clear());
     });
 }

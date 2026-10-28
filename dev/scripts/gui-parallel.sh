@@ -7,8 +7,18 @@
 set -u
 cd "$(dirname "$0")/../.."
 S=dev/scripts/smoke
-shards=("$S/1-reader.sh $S/2-documents-and-tools.sh" "$S/3-flows.sh" "$S/4-flows.sh")
-# Displays 140–142: low numbers belong to others on this machine (the class recorder's Xvfb is :99;
+# More shards on 8 cores or more (4-flows cut between its step families by smoke-split.py,
+# helpers carried along), three below: each shard waits on the screen, not the processor, so more of them
+# finish sooner (28/10: the GUI layer took 23 min in three shards).
+if [ "$(nproc)" -ge 8 ]; then
+    split=dev/.tmp/smoke-split; rm -rf "$split"
+    # 3-flows stays whole: its steps reuse files made many steps earlier (withatt.pdf from 25 in 52).
+    mapfile -t four < <(python3 dev/scripts/smoke-split.py "$S/4-flows.sh" 3 "$split")
+    shards=("$S/1-reader.sh $S/2-documents-and-tools.sh" "$S/3-flows.sh" "${four[@]}")
+else
+    shards=("$S/1-reader.sh $S/2-documents-and-tools.sh" "$S/3-flows.sh" "$S/4-flows.sh")
+fi
+# Displays 140–145: low numbers belong to others on this machine (the class recorder's Xvfb is :99;
 # a shard on it killed a class's recording, 27/10). During a class being recorded, a machine under
 # 8 cores waits; a larger one runs at the lowest priority, leaving the recording its share.
 if pgrep -f '[j]oin_teams\.py' >/dev/null; then
@@ -35,5 +45,5 @@ for i in "${!pids[@]}"; do
     # A shard that stopped early (no ALL PASS nor its count) says so.
     grep -aq 'ALL PASS\|FAILED' "dev/.tmp/gui-shard-$i.log" || { echo "FAIL shard $i stopped early:"; tail -5 "dev/.tmp/gui-shard-$i.log"; fails=$((fails + 1)); }
 done
-if [ "$fails" -eq 0 ]; then echo "ALL PASS"; rm -f dev/.tmp/gui-shard-*.log; else echo "$fails FAILED (screenshots in dev/.tmp/smoke-*)"; fi
+if [ "$fails" -eq 0 ]; then echo "ALL PASS"; rm -rf dev/.tmp/gui-shard-*.log dev/.tmp/smoke-split; else echo "$fails FAILED (screenshots in dev/.tmp/smoke-*)"; fi
 exit "$fails"

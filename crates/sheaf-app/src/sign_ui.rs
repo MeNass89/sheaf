@@ -115,7 +115,7 @@ pub fn size(tab_id: i32, size: i32) {
 }
 
 pub fn pick_image(ui: &AppWindow, tab_id: i32) {
-    let d = crate::dialog::new(ui).set_title("Choose your signature image").add_filter("Image", &["png", "jpg", "jpeg"]);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose your signature image")).add_filter("Image", &["png", "jpg", "jpeg"]);
     crate::dialog::pick_file(ui, d, move |ui, p| {
         // Refused here (format, size), not at signing time.
         if let Err(e) = sign::aspect(&Graphic::Image(p.clone())) {

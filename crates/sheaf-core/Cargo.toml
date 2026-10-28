@@ -16,6 +16,11 @@ serde_json.workspace = true
 tempfile.workspace = true
 getrandom.workspace = true
 rsa.workspace = true
+p256.workspace = true
+p384.workspace = true
+sha2.workspace = true
+aes-kw.workspace = true
+cryptoki.workspace = true
 pdfcraft-cos.workspace = true
 parking_lot.workspace = true
 pdfcraft-engine.workspace = true
@@ -31,6 +36,7 @@ pulldown-cmark.workspace = true
 calamine.workspace = true
 skrifa.workspace = true
 spellbook.workspace = true
+harper-core.workspace = true
 ureq.workspace = true
 
 [dev-dependencies]

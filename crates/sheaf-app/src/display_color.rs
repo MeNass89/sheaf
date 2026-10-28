@@ -48,6 +48,26 @@ impl DisplayTransform {
     }
 }
 
+/// The profile the system gives the display (Acrobat's "Use display profile"): on Linux the X
+/// root window's `_ICC_PROFILE` (set by colord, GNOME, KDE and xcalib, XWayland included), read
+/// with `xprop`. None where none is set; macOS and Windows not read yet (sRGB, or a chosen ICC).
+// sheaf-core/tests/display_color.rs includes this file without calling it.
+#[cfg_attr(test, allow(dead_code))]
+pub fn system_profile() -> Option<Vec<u8>> {
+    if !cfg!(all(unix, not(target_os = "macos"))) {
+        return None;
+    }
+    let out = std::process::Command::new("xprop").args(["-root", "-notype", "_ICC_PROFILE"]).stderr(std::process::Stdio::null()).output().ok()?;
+    out.status.success().then(|| parse_xprop_icc(&String::from_utf8_lossy(&out.stdout))).flatten()
+}
+
+/// The bytes of `xprop -root -notype _ICC_PROFILE`'s answer ("_ICC_PROFILE = 0, 0, 12, 72, …").
+pub fn parse_xprop_icc(text: &str) -> Option<Vec<u8>> {
+    let (_, values) = text.split_once('=')?;
+    let bytes: Option<Vec<u8>> = values.split(',').map(|v| v.trim().parse::<u8>().ok()).collect();
+    bytes.filter(|b| b.len() >= 128)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +98,16 @@ mod tests {
         DisplayTransform::load(&p).unwrap();
         std::fs::write(&p, b"bad").unwrap();
         assert!(DisplayTransform::load(&p).is_err());
+    }
+
+    #[test]
+    fn the_systems_display_profile_is_read_from_xprops_answer() {
+        let icc = ColorProfile::new_display_p3().encode().unwrap();
+        let text = format!("_ICC_PROFILE = {}\n", icc.iter().map(|b| b.to_string()).collect::<Vec<_>>().join(", "));
+        assert_eq!(parse_xprop_icc(&text).unwrap(), icc);
+        DisplayTransform::from_bytes(&parse_xprop_icc(&text).unwrap()).unwrap();
+        assert!(parse_xprop_icc("_ICC_PROFILE:  not found.\n").is_none());
+        assert!(parse_xprop_icc("_ICC_PROFILE = 1, 2, 3").is_none(), "too short for an ICC header");
+        assert!(parse_xprop_icc("_ICC_PROFILE = 1, 300, 3").is_none());
     }
 }

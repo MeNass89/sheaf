@@ -346,10 +346,10 @@ fn padded(r: [f64; 4]) -> [f64; 4] {
 
 /// Reads and unlocks a digital ID.
 fn digital_id(d: &DigitalSpec) -> Result<engine::sign::DigitalId> {
-    let bytes = std::fs::read(&d.p12).map_err(|e| OpdfError::Unsupported(format!("{}: {e}", d.p12.display())))?;
-    engine::sign::pkcs12::open(&bytes, &d.password).map_err(|e| match e {
+    crate::digital_id::open(&d.p12, &d.password).map_err(|e| match e {
+        engine::sign::SignError::WrongPassword if crate::pkcs11::is_reference(&d.p12) => OpdfError::Unsupported(format!("{}: wrong PIN", crate::digital_id::label(&d.p12))),
         engine::sign::SignError::WrongPassword => OpdfError::CertificatePassword(d.p12.clone()),
-        e => OpdfError::Unsupported(format!("{}: not a usable digital ID ({e})", d.p12.display())),
+        e => OpdfError::Unsupported(format!("{}: not a usable digital ID ({e})", crate::digital_id::label(&d.p12))),
     })
 }
 

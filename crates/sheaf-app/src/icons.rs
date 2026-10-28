@@ -42,7 +42,7 @@ pub fn icon_svg(name: &str) -> Option<&'static [u8]> {
         "combine", "scissors", "file-minus", "file-output", "layout-grid", "rotate-cw",
         "minimize-2", "wrench", "scan-text", "image", "file-text", "presentation", "sheet",
         "code", "file-code", "images", "file-type", "archive", "pen-line", "list-ordered", "stamp", "crop",
-        "signature", "lock", "lock-open", "eraser", "git-compare", "sun",
+        "signature", "lock", "lock-open", "eraser", "git-compare", "sun", "puzzle",
     )
 }
 

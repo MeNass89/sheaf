@@ -21,12 +21,12 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
-## Last landing (28/10/2026, round 33)
+## Last landing (28/10/2026, round 34)
 
-Verdict: lint and unit GREEN (bash scripts/test.sh, round 33 at 9074a00, 07:00 UTC), GUI GREEN (scripts/test.sh gui,
-round 33 at 0862ff8, 1409 s; only the smoke script changed between the runs). Open: sheaf-core's `pages` tests
-crashed once in PDFium (SIGSEGV) under a loaded machine and passed 8 runs alone; find its cause. Next: Sol's
-remaining gaps (board history), macOS unit failures on the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci).
+Verdict: ALL GREEN (bash scripts/test.sh, full run, round 34 at 7790870, 1126 s). Open: sheaf-core's `pages`
+tests crashed once in PDFium (SIGSEGV) under a loaded machine and never in 50 idle runs; find its cause. Next: Sol
+reviews round 34's components (convert-019, reader-060, optimize-012, security-007, sign-013, preferences-003/005,
+platform-006); macOS unit failures on the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci).
 
 ## Where things are
 

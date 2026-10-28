@@ -67,3 +67,27 @@
 - `qrcode` 0.14 (MIT/Apache-2.0, pure Rust, default features off: no image) in `third_party/pdfcraft-engine`.
 - `rqrr` 0.11 (MIT/Apache-2.0 and ISC, pure Rust, default features off) as a sheaf-core dev-dependency, to read the
   QR Code back in the test.
+
+# Round 34, batch "sign" (par2/sign, on main 50a04a8)
+
+## Done
+
+- C-security-007: EC recipients. A P-256 or P-384 certificate (key usage keyAgreement) is a recipient like an RSA
+  one: its envelope is a CMS KeyAgreeRecipientInfo (RFC 5753: ephemeral-static ECDH, the X9.63 KDF with SHA-256 or
+  SHA-384, AES-256 key wrap), next to RSA key transport in the same EnvelopedData; an EC digital ID opens the copy.
+  One check (`certificate_security::recipient_problem`) serves the core and the sheet. OpenSSL opens our EC
+  envelopes and we open OpenSSL's (`ec_envelopes_interoperate_with_openssl_both_ways`,
+  `ec_recipients_reopen_their_copy_through_key_agreement`; smoke 320 now encrypts for an ECC digital ID and an RSA
+  certificate, and opens the copy in place with the ECC one). Pure Rust: `p256`/`p384` (ecdh), `aes-kw`.
+- C-sign-013: smart cards and tokens. Preferences ▸ Signatures ▸ Add a smart card or token… loads the card's PKCS #11
+  module (`cryptoki`), lists its tokens' IDs without the PIN and keeps each as an RFC 7512 `pkcs11:` reference in
+  the list of digital IDs ("Holder (token)"). The Sign panel offers the kept IDs, a card's among them; with a card
+  the password field asks for its PIN, and the signature is made on the token (CKM_RSA_PKCS over a DigestInfo, or
+  CKM_ECDSA), the key never leaving it. A wrong PIN says "wrong PIN"; the CLI takes the same reference in --p12.
+  Real token in the tests: SoftHSM, keys generated on it (`a_digital_id_on_a_pkcs11_token_signs_a_pdf_with_its_pin`;
+  smoke 371–372; CI installs softhsm2, and opensc for the steps' pkcs11-tool).
+
+## Gaps
+
+- Opening a certificate-encrypted PDF with a smart card (decrypting on the token) is refused with a clear message;
+  the card signs only.

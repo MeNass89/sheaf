@@ -151,13 +151,20 @@ fn flush(ui: &AppWindow) {
     });
 }
 
+/// The editor's tools: the engine's, then the enabled plugins' (Acrobat's plug-in commands).
+pub fn plugins_changed(ui: &AppWindow) {
+    let mut labels: Vec<slint::SharedString> = Step::all().iter().map(|s| s.label().into()).collect();
+    labels.extend(crate::plugins_ui::action_tools().into_iter().map(|(_, label)| slint::SharedString::from(label)));
+    ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(labels)));
+}
+
 pub fn install(ui: &AppWindow) {
     match actions::load(&store_file::data_dir()) {
         Ok(saved) => STATE.with(|s| s.borrow_mut().saved = saved),
         Err(e) => status(ui, format!("{e}. Your saved file has been left unchanged.")),
     }
     ui.global::<ActionBridge>().set_toolbox(ModelRc::new(VecModel::from(sheaf_core::tools::catalogue().iter().map(|t| slint::SharedString::from(t.id.as_str())).collect::<Vec<_>>())));
-    ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(Step::all().iter().map(|s| s.label().into()).collect::<Vec<slint::SharedString>>())));
+    plugins_changed(ui);
     match actions::load_draft(&store_file::data_dir()) {
         Ok(Some(recovered)) => { STATE.with(|s| { let mut s = s.borrow_mut(); s.draft = recovered; s.baseline = SavedAction::empty(); }); status(ui, "Recovered your action draft. Save it to keep it in your actions."); }
         Ok(None) => {}, Err(e) => status(ui, format!("Draft recovery: {e}")),
@@ -306,14 +313,14 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
             let files = inputs.iter().map(|i| i.path.clone()).collect();
             // Output copies have an explicit destination; never replace an open reader's file.
             let mut action = action; action.output.same_folder = false; action.output.overwrite = false;
-            let d = crate::dialog::new(ui).set_title("Save action results from open PDFs");
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Save action results from open PDFs"));
             crate::dialog::pick_folder(ui, d, move |ui, out| start_with_snapshots(ui, action, files, out, Some(inputs)));
             return;
         }
         "run-folder" => {
             let action = STATE.with(|s| s.borrow().draft.clone());
             if let Err(e) = action.validate() { return status(ui, e.to_string()); }
-            let d = crate::dialog::new(ui).set_title("Choose the input PDF folder");
+            let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose the input PDF folder"));
             crate::dialog::pick_folder(ui, d, move |ui, folder| {
                 let recursive = ui.global::<ActionBridge>().get_recursive();
                 let cancel = Arc::new(AtomicBool::new(false));
@@ -342,6 +349,7 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         _ => {}
     }
+    let mut added_plugin: Option<String> = None;
     let result: sheaf_core::Result<()> = STATE.with(|state| {
         let mut s = state.borrow_mut();
         let builtins = actions::suggested();
@@ -390,6 +398,12 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
                     if s.draft.steps.len() >= 100 { return Err(sheaf_core::OpdfError::Unsupported("An action supports up to 100 steps".into())); }
                     s.draft.steps.push(ActionStep::from_engine(step));
                     s.step = s.draft.steps.len() as i32 - 1;
+                } else if let Some((id, label)) = usize::try_from(index).ok().and_then(|i| i.checked_sub(Step::all().len())).and_then(|i| crate::plugins_ui::action_tools().into_iter().nth(i)) {
+                    // A plugin's tool, run as its own process when the action reaches it.
+                    if s.draft.steps.len() >= 100 { return Err(sheaf_core::OpdfError::Unsupported("An action supports up to 100 steps".into())); }
+                    s.draft.steps.push(ActionStep { tool: actions::PLUGIN.into(), argument: id.clone(), instruction: String::new(), prompt: false, label, separator: false });
+                    s.step = s.draft.steps.len() as i32 - 1;
+                    added_plugin = Some(id);
                 }
             }
             "duplicate" => { let at = usize::try_from(s.step).ok(); if let Some(at) = at { s.draft.duplicate_step(at)?; s.step += 1; } }
@@ -405,6 +419,11 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         Ok(())
     });
     match result { Ok(()) => { rows(ui); draft(ui); if what == "save" { status(ui, "Action saved"); } }, Err(e) => status(ui, e.to_string()) }
+    // The warning before a plugin's first run, asked as its tool joins an action (the action may
+    // run unattended later).
+    if let Some((plugin, tool)) = added_plugin.and_then(|id| sheaf_app::plugins::find(&sheaf_app::plugins::folder(), &id)) {
+        crate::plugins_ui::when_allowed(ui, &plugin, &tool, |_| {});
+    }
 }
 
 fn imported(ui: &AppWindow, action: sheaf_core::Result<SavedAction>) {
@@ -461,7 +480,7 @@ fn pick_run(ui: &AppWindow, action: SavedAction) {
 
 fn pick_output(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>) {
     if action.output.same_folder { return start(ui, action, files, PathBuf::new()); }
-    let d = crate::dialog::new(ui).set_title("Choose the output folder");
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose the output folder"));
     crate::dialog::pick_folder(ui, d, move |ui, out| start(ui, action, files, out));
 }
 
@@ -574,9 +593,9 @@ fn watch(ui: &AppWindow) {
     let recursive = ui.global::<ActionBridge>().get_recursive();
     let pattern = ui.global::<ActionBridge>().get_watch_pattern().to_string();
     let archive_inputs = ui.global::<ActionBridge>().get_archive_inputs();
-    let d = crate::dialog::new(ui).set_title("Choose the folder to watch");
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose the folder to watch"));
     crate::dialog::pick_folder(ui, d, move |ui, input| {
-        let d = crate::dialog::new(ui).set_title("Choose a separate output folder");
+        let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Choose a separate output folder"));
         crate::dialog::pick_folder(ui, d, move |ui, output| {
             let mut watch = match sheaf_app::watch_folder::FolderWatch::new(&input, &output, title_names) {
                 Ok(watch) => watch, Err(e) => return status(ui, e.to_string()),

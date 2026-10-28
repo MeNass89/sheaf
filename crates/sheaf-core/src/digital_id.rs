@@ -20,6 +20,22 @@ pub struct NewId {
 
 fn bad(message: &str) -> OpdfError { OpdfError::Unsupported(message.into()) }
 
+/// The digital ID `path` names, unlocked: a .p12/.pfx file opened with its password, or a
+/// smart card or token ID (a `pkcs11:` reference, see [`crate::pkcs11`]) logged in with its PIN.
+/// A wrong password or PIN is [`sign::SignError::WrongPassword`].
+pub fn open(path: &Path, password: &str) -> std::result::Result<DigitalId, sign::SignError> {
+    if crate::pkcs11::is_reference(path) {
+        return crate::pkcs11::open(&path.to_string_lossy(), password);
+    }
+    let bytes = std::fs::read(path).map_err(|e| sign::SignError::Malformed(format!("{}: {e}", path.display())))?;
+    sign::pkcs12::open(&bytes, password)
+}
+
+/// How Preferences and the sign panel name a digital ID: its file name, or its holder and token.
+pub fn label(path: &Path) -> String {
+    crate::pkcs11::label(path).unwrap_or_else(|| path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())
+}
+
 /// Make the identity. Valid from a minute ago for five years, as Acrobat's.
 pub fn create(spec: &NewId) -> Result<DigitalId> {
     if spec.name.trim().is_empty() { return Err(bad("Type the name the digital ID is issued to")); }

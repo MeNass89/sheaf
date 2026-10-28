@@ -54,8 +54,21 @@ else
     export SHEAF_APP="${CARGO_TARGET_DIR:-target}/debug/sheaf-app"
 fi
 export -f cargo_
-layer lint cargo_ clippy --workspace --all-targets -- -D warnings
-layer unit bash -c 'cargo_ test --workspace --no-fail-fast && cargo_ test -p pdfcraft-edit --lib && cargo_ test -p pdfcraft-export --lib && cargo_ test -p pdfcraft-ocr --lib'
+unit_cmd='cargo_ test --workspace --no-fail-fast && cargo_ test -p pdfcraft-edit --lib && cargo_ test -p pdfcraft-export --lib && cargo_ test -p pdfcraft-ocr --lib'
+# A large machine (16 GB and 8 cores or more, not CI) checks lint in its own target dir while the tests build:
+# the two compilations no longer wait on each other's lock (28/10: about 9 minutes saved). Its result is
+# printed in its place, after the tests.
+if [ -z "${CI:-}" ] && [ "$mem_gb" -ge 16 ] && [ "$(nproc)" -ge 8 ] && [ -n "${CARGO_TARGET_DIR:-}" ] && wanted lint && wanted unit; then
+    ( CARGO_TARGET_DIR="${CARGO_TARGET_DIR}-lint" JOBS=$(( JOBS > 4 ? JOBS / 2 : JOBS )) cargo_ clippy --workspace --all-targets -- -D warnings >"$OUT/lint.log" 2>&1; echo $? >"$OUT/lint.status" ) &
+    lint_pid=$!
+    layer unit bash -c "$unit_cmd"
+    wait "$lint_pid"
+    if [ "$(cat "$OUT/lint.status")" = 0 ]; then echo "PASS lint"; else echo "FAIL lint ($OUT/lint.log):"; tail -n 15 "$OUT/lint.log" | sed 's/^/    /'; failed+=(lint); fi
+    rm -f "$OUT/lint.status"
+else
+    layer lint cargo_ clippy --workspace --all-targets -- -D warnings
+    layer unit bash -c "$unit_cmd"
+fi
 # The reader driven for real (Xvfb + xdotool), checked on the files it writes.
 if command -v Xvfb >/dev/null && command -v xdotool >/dev/null && command -v qpdf >/dev/null; then
     # Four cores or more: three shards at once (gui-parallel.sh), each on its own display.

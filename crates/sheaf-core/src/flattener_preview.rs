@@ -20,8 +20,8 @@ pub fn preview(bytes: &[u8], password: Option<&str>, page: usize, progress: &mut
     std::fs::write(&output, flat)?;
     let doc = Doc::open(&Input::new(output))?;
     let after = doc.render(0, scale)?;
-    Ok(vec![Plate { name: "Original".into(), width: before.width, height: before.height, rgba: before.rgba.to_vec() },
-        Plate { name: "Flattened PDF 1.3".into(), width: after.width, height: after.height, rgba: after.rgba.to_vec() }])
+    Ok(vec![Plate { name: "Original".into(), width: before.width, height: before.height, rgba: before.rgba.to_vec(), cmyk: [0.0; 4] },
+        Plate { name: "Flattened PDF 1.3".into(), width: after.width, height: after.height, rgba: after.rgba.to_vec(), cmyk: [0.0; 4] }])
 }
 
 #[cfg(test)]

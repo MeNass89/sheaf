@@ -29,20 +29,20 @@ impl FolderSearch {
     /// The line under the title: searching, nothing, or how many pages in how many PDFs, and that it
     /// stopped early when it did.
     pub(super) fn status(&self) -> String {
-        let pdfs = |n: usize| if n == 1 { "1 PDF".to_string() } else { format!("{n} PDFs") };
-        let pages = |n: usize| if n == 1 { "1 page".to_string() } else { format!("{n} pages") };
+        let pdfs = |n: usize| if n == 1 { "1 PDF".to_string() } else { sheaf_app::i18n::trf("{} PDFs", &[&n]) };
+        let pages = |n: usize| if n == 1 { "1 page".to_string() } else { sheaf_app::i18n::trf("{} pages", &[&n]) };
         let line = if self.busy {
             return "Searching…".into();
         } else if self.results.is_empty() {
-            format!("Not found in the folder's {} read.", pdfs(self.files))
+            sheaf_app::i18n::trf("Not found in the folder's {} read.", &[&pdfs(self.files)])
         } else if self.stopped {
-            format!("Stopped at the first {} found, after {} — type more words to narrow it.", pages(self.results.len()), pdfs(self.files))
+            sheaf_app::i18n::trf("Stopped at the first {} found, after {} — type more words to narrow it.", &[&pages(self.results.len()), &pdfs(self.files)])
         } else {
-            format!("{} found in {}", pages(self.results.len()), pdfs(self.files))
+            sheaf_app::i18n::trf("{} found in {}", &[&pages(self.results.len()), &pdfs(self.files)])
         };
         match self.skipped.len() {
             0 => line,
-            n => format!("{line}{} {} could not be searched (listed below).", if line.ends_with('.') { "" } else { "." }, pdfs(n)),
+            n => sheaf_app::i18n::trf("{}{} {} could not be searched (listed below).", &[&line, &if line.ends_with('.') { "" } else { "." }, &pdfs(n)]),
         }
     }
 }
@@ -60,10 +60,10 @@ pub(super) struct Found {
 pub fn folder_search(ui: &AppWindow, tab_id: i32, query: &str) {
     let query = query.trim().to_string();
     if query.is_empty() {
-        return crate::flow::toast(ui, "Type the words to find first");
+        return crate::flow::toast(ui, &sheaf_app::i18n::tr("Type the words to find first"));
     }
     let Some(dir) = update(tab_id, |r, _| crate::dest::parent_dir(&r.path)) else { return };
-    let d = crate::dialog::new(ui).set_title("Search the PDFs of a folder").set_directory(&dir);
+    let d = crate::dialog::new(ui).set_title(sheaf_app::i18n::tr("Search the PDFs of a folder")).set_directory(&dir);
     crate::dialog::pick_folder(ui, d, move |ui, folder| {
         update(tab_id, |r, _| {
             r.folder_search = Some(FolderSearch { folder: file_name(&folder), query: query.clone(), busy: true, ..Default::default() });

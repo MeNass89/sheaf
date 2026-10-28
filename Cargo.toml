@@ -11,6 +11,8 @@ license = "GPL-3.0-or-later"
 repository = "https://github.com/MeNass89/sheaf"
 
 [workspace.dependencies]
+# English grammar beyond the simple rules (agreement, word choice), offline: Harper, pure Rust.
+harper-core = { version = "3.0.0", default-features = false }
 pdfium-render = "0.9.4"
 lopdf = "0.45"
 # Glyph outlines of the bundled handwriting fonts (the version PdfCraft uses).
@@ -48,6 +50,14 @@ calamine = { version = "0.31", default-features = false }
 spellbook = "0.4"
 # Existing transitive pure-Rust crypto/parser crates, now used by offline PubSec encryption.
 rsa = { version = "=0.10.0-rc.18", default-features = false, features = ["std", "encoding"] }
+# EC recipients of certificate encryption (CMS key agreement, RFC 5753): ECDH, SHA-2 for the
+# X9.63 KDF, AES key wrap. The curves and SHA-2 are PdfCraft's own; aes-kw sits on its aes.
+p256 = { version = "0.14", default-features = false, features = ["ecdh", "std"] }
+p384 = { version = "0.14", default-features = false, features = ["ecdh", "std"] }
+sha2 = "0.11"
+aes-kw = "0.3"
+# Smart cards and tokens (sheaf-core/src/pkcs11.rs): loads the token's PKCS #11 module at run time.
+cryptoki = "0.12"
 # The AI panel's requests (sheaf-core/src/ai): a small blocking HTTP client, TLS by rustls.
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }

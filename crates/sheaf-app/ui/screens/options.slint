@@ -221,6 +221,8 @@ export component OptionsPanel inherits VerticalLayout {
 
     in-out property <bool> sign-cert;
     in-out property <string> sign-p12;
+    // A smart card or token ID (a pkcs11: reference): signed with its PIN, no file shown.
+    property <bool> sign-token: root.sign-p12.starts-with("pkcs11:");
     in-out property <string> sign-p12-password;
     in-out property <string> sign-reason;
     in-out property <string> sign-location;
@@ -1141,8 +1143,8 @@ export component OptionsPanel inherits VerticalLayout {
         }
         InfoBox {
             text: root.export-ocr
-                ? "Converts scanned PDFs with non-selectable text to editable " + what + " files."
-                : "Converts PDFs with selectable text to editable " + what + " files.";
+                ? @tr("Converts scanned PDFs with non-selectable text to editable {} files.", what)
+                : @tr("Converts PDFs with selectable text to editable {} files.", what);
         }
         // iLovePDF converts a scan's pages as pictures unless OCR is chosen: say so when a file is one.
         if !root.export-ocr && root.any-scanned: InfoBox {
@@ -1168,7 +1170,7 @@ export component OptionsPanel inherits VerticalLayout {
             }
             InfoBox {
                 text: root.export-exact
-                    ? "Each page looks as it does in the PDF, its text in boxes you can edit."
+                    ? @tr("Each page looks as it does in the PDF, its text in boxes you can edit.")
                     : "Paragraphs and tables you can edit and reflow; pictures and watermarks stay where they are.";
             }
         }
@@ -1204,12 +1206,12 @@ export component OptionsPanel inherits VerticalLayout {
             }
             InfoBox {
                 text: [
-                    "One .html file that opens in any browser, its pictures inside it.",
-                    "A .md file: headings, paragraphs and tables in Markdown. Pictures are left out.",
-                    "An .rtf file that word processors open, with its sizes, bold, italic and colours.",
-                    "A .txt file: the text in reading order, a paragraph per line, table cells split by tabs.",
-                    "An .xml file: each page's headings, paragraphs, tables and pictures, in reading order.",
-                    "An .epub ebook that reflows on any reader's screen: a chapter per page, its pictures and tables.",
+                    @tr("One .html file that opens in any browser, its pictures inside it."),
+                    @tr("A .md file: headings, paragraphs and tables in Markdown. Pictures are left out."),
+                    @tr("An .rtf file that word processors open, with its sizes, bold, italic and colours."),
+                    @tr("A .txt file: the text in reading order, a paragraph per line, table cells split by tabs."),
+                    @tr("An .xml file: each page's headings, paragraphs, tables and pictures, in reading order."),
+                    @tr("An .epub ebook that reflows on any reader's screen: a chapter per page, its pictures and tables."),
                 ][root.text-format];
             }
         }
@@ -1329,7 +1331,7 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         Rectangle { height: 1px; background: Theme.separator; }
         Check {
-            text: @tr("Use a certificate (.p12)");
+            text: @tr("Use a digital ID (.p12 or smart card)");
             checked: root.sign-cert;
             toggled => { root.sign-cert = !root.sign-cert; }
         }
@@ -1342,13 +1344,19 @@ export component OptionsPanel inherits VerticalLayout {
                 color: Theme.text-muted;
                 wrap: word-wrap;
             }
+            // The digital IDs Preferences keeps, a smart card's among them.
+            for id[k] in Picked.ids: Segment {
+                text: Picked.id-labels[k];
+                selected: root.sign-p12 == id;
+                clicked => { root.sign-p12 = id; }
+            }
             Segment {
                 text: root.sign-p12 == "" ? @tr("Choose certificate file") : @tr("Change certificate file");
                 clicked => {
                     Picked.pick-p12(root.tab-id);
                 }
             }
-            if root.sign-p12 != "": Text {
+            if root.sign-p12 != "" && !root.sign-token: Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: root.sign-p12;
                 font-size: Theme.fs-caption;
@@ -1356,9 +1364,9 @@ export component OptionsPanel inherits VerticalLayout {
                 overflow: elide;
             }
             TextField {
-                label: @tr("Certificate password");
+                label: root.sign-token ? @tr("PIN of the smart card or token") : @tr("Certificate password");
                 password: true;
-                placeholder: @tr("Password of the .p12 file");
+                placeholder: root.sign-token ? @tr("Its PIN") : @tr("Password of the .p12 file");
                 text <=> root.sign-p12-password;
             }
             TextField {

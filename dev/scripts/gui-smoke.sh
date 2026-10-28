@@ -138,7 +138,9 @@ launch() {
 }
 quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 # A held click (Slint misses instantaneous ones under Xvfb).
-click() { xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
+# The pointer comes from beside the target: Slint takes no press from a pointer that has not moved onto a row
+# rebuilt under it (a second click on the same spot did nothing, 28/10: steps 221, 225, 342b).
+click() { xdotool mousemove $(( $1 + 4 )) $(( $2 + 4 )); sleep 0.05; xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
 # Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
 # The screen centre "x y" of the first word starting with $1 (OCR at 200 %, its box halved; OCR may glue

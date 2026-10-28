@@ -239,3 +239,26 @@ fn unicode_archive_refuses_symbolic_subset_fonts_without_maps_even_when_b_checks
     assert!(report.issues.iter().any(|i| i.clause == "PDF/A Unicode mapping"), "{:?}", report.issues);
     assert_eq!(sheaf_core::pdfcraft::Doc::open(&Input::new(&strict)).unwrap().document().standards().pdfa, Some((2, "U".into())));
 }
+
+/// PDF/E-1 (Acrobat's Save as PDF/E, C-convert-019): written as PDF 1.6 with the PDF/E identification in its
+/// metadata and checked clean; a file whose fonts are not embedded is refused with nothing saved, as PDF/A is.
+#[test]
+fn pdfe_writes_pdf16_identified_as_pdfe1_and_verifies_clean() {
+    use sheaf_core::pdfe::{to_pdfe, verify as verify_e};
+    let t = tempfile::tempdir().unwrap();
+    let source = picture_pdf(t.path());
+    let report = to_pdfe(&Input::new(&source), false, &t.path().join("drawing-e.pdf")).unwrap();
+    assert!(report.issues.is_empty(), "{:?}", report.issues);
+    let pdf = lopdf::Document::load(&report.path).unwrap();
+    assert_eq!(pdf.version, "1.6");
+    let xmp = pdf.get_object(pdf.catalog().unwrap().get(b"Metadata").unwrap().as_reference().unwrap()).unwrap().as_stream().unwrap().get_plain_content().unwrap();
+    assert!(String::from_utf8_lossy(&xmp).contains("<pdfe:ISO_PDFEVersion>PDF/E-1</pdfe:ISO_PDFEVersion>"));
+    assert_eq!(pdf.get_pages().len(), 2);
+    qpdf_clean(&report.path);
+    // The source is not PDF/E: its check names the missing identification.
+    assert!(verify_e(&Input::new(&source)).unwrap().iter().any(|i| i.message.contains("PDF/E-1")));
+    // Helvetica not embedded: refused, nothing written.
+    let text = fixture_pdf(t.path(), "text.pdf", 1);
+    let refused = to_pdfe(&Input::new(&text), false, &t.path().join("text-e.pdf")).unwrap_err();
+    assert!(refused.to_string().contains("Helvetica") && !t.path().join("text-e.pdf").exists(), "{refused}");
+}

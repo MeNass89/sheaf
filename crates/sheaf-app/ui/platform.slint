@@ -75,6 +75,9 @@ export global PlatformBridge {
     // as it takes and loses the keyboard.
     pure callback launcher-for(string, bool, bool, bool, bool) -> string;
     in-out property <bool> typing;
+    // A shortcut is being recorded in Preferences; once it ends the window takes the keyboard back
+    // (the recorded row is drawn anew, its keyboard gone with it).
+    in-out property <bool> recording-keys;
     // By command: given keys of its own by the user (the reader's and Home's other keys for it
     // stop), and its keys as written in the help sheet.
     in property <[bool]> rebound;
