@@ -7,6 +7,8 @@
 pub mod deck;
 pub mod spaces;
 pub mod tasks;
+pub mod audio;
+pub mod unicode_pdf;
 
 use serde_json::{json, Value};
 use std::time::Duration;
@@ -450,15 +452,18 @@ pub fn config_from(provider: Option<&str>, model: Option<&str>, base_url: Option
     Ok(cfg)
 }
 
-/// An answer or a translation saved at `out`: a PDF when it ends in `.pdf` (Helvetica, so
-/// Western languages; others are refused with a word to save as .txt), plain UTF-8 text otherwise.
+/// An answer or a translation saved at `out`: a PDF when it ends in `.pdf` (Helvetica for Western
+/// languages; any other script set in a bundled or system font that draws it, see
+/// [`unicode_pdf`]), plain UTF-8 text otherwise.
 /// Never overwrites (the path written is returned).
 pub fn write_text(title: &str, text: &str, out: &std::path::Path) -> crate::Result<std::path::PathBuf> {
     if out.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) {
-        let bytes = crate::pdfcraft::engine::Session::new()
-            .create_from_text(title, text)
-            .map_err(|e| crate::OpdfError::Unsupported(format!("{e}. Save it as a .txt file instead, which keeps every language")))?;
-        return crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, bytes.as_slice())?));
+        let bytes = if pdfcraft_fonts::first_undrawable(text.replace(['\n', '\r', '\u{c}'], "").as_str()).is_none() {
+            crate::pdfcraft::engine::Session::new().create_from_text(title, text).map_err(|e| crate::OpdfError::Engine(e.to_string()))?.to_vec()
+        } else {
+            unicode_pdf::text_pdf(title, text)?
+        };
+        return crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?));
     }
     crate::paths::atomic_write(out, |part| Ok(std::fs::write(part, text)?))
 }

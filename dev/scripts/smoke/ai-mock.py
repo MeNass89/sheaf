@@ -11,6 +11,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
         q = body["messages"][-1]["content"]
         if "slide deck" in q:
             a = "# Mock deck\n- First point\n# Second slide\n- Alpha\n- Beta"
+        elif "podcast episode" in q:
+            a = "Alex: Welcome to the show about the quick brown fox.\nSam: Thanks Alex, it jumps over the lazy dog."
+        elif "Translate into Japanese" in q:
+            a = "東京の素早い茶色の狐 (p. 1)"
         elif "Translate into" in q:
             a = "Le renard brun rapide (p. 1)"
         elif "main points" in q:

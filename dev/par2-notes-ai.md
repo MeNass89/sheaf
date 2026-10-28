@@ -54,12 +54,27 @@ map-reduce, ask, summarize, translate, podcast, slides, classify; `deck.rs` slid
 - Spaces: a space's file opens in its own tab when clicked; steps 360 and 363 recalibrated (the
   question field and the narrower New space / Add PDFs… buttons).
 
+## Round 32
+
+- C-ai-006: spaces renamed (Rename puts the cursor in the name; unique names kept), and PDFs dropped on
+  the document while the panel shows a space join it (the drop hint says so; other files refused);
+  Acrobat's AI spaces (`drops_go_into_the_space_shown_on_that_tab`, smoke 365). Not automatable: an
+  external file drop — Xvfb has no XDND drag source; the routing is the unit test above.
+- C-ai-005: Save audio… on a podcast script records it with the computer's voices (eSpeak NG's male
+  and female variants of the Read aloud voice on Linux, two installed voices with `say` on macOS and
+  SAPI on Windows), one per host, 0.4 s between turns, into one WAV; Acrobat's Generate podcast
+  (`a_podcast_script_is_spoken_by_two_voices_into_one_wav`, `espeak_speaks_a_podcast_when_installed`,
+  smoke 366). macOS and Windows synthesis is written but untested here (needs those machines).
+- C-ai-004: a translation into any script saved as PDF: each character set in the first face that
+  draws it (bundled craft fonts, then the system's open-licensed fonts), embedded as CID fonts with
+  ToUnicode (searchable, copyable); Arabic and Thai shaped with PdfCraft's shaper, Arabic and Hebrew
+  lines right to left (`a_translation_in_any_script_is_saved_as_a_searchable_pdf`, smoke 367).
+
 ## Left, and why
 
-- Audio for the podcast: Acrobat speaks it; Sheaf writes the script (a text-to-speech voice per host
-  would need a TTS engine or a provider's audio API).
-- PDF output of translations uses Helvetica (Western languages); other scripts are refused with a
-  word to save as .txt, which keeps every language.
+- Right-to-left layout is per line (no full Unicode bidi algorithm for mixed nested runs); Arabic
+  needs the bundled Arabic craft font to be shaped.
+- A character no installed or bundled face draws is still refused, naming it.
 - Default model names (gpt-5-mini, claude-sonnet-4-5, gemini-2.5-flash, mistral-small-latest, grok-4,
   llama3.2) are starting points; any model can be typed in Preferences ▸ AI.
 

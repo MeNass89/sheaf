@@ -874,7 +874,7 @@ check "a barcode field draws the form's data as a QR Code and follows the typing
 quit
 # The AI steps' provider: a mock OpenAI-compatible server (smoke/ai-mock.py) on a free local port, set as
 # Preferences ▸ AI ▸ OpenAI-compatible server; each request it gets is logged in $OUT/ai-requests.jsonl.
-ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl"; touch "$OUT/ai-requests.jsonl"; python3 dev/scripts/smoke/ai-mock.py "$OUT/ai-port" "$OUT/ai-requests.jsonl" >/dev/null 2>&1 & AI_MOCK=$!; for _ in $(seq 1 20); do [ -s "$OUT/ai-port" ] && break; sleep 0.2; done; prefs_set "p['ai'] = {'provider': 'compatible', 'base_urls': {'compatible': 'http://127.0.0.1:$(cat "$OUT/ai-port")/v1'}, 'notice_seen': ['compatible'] if '${1:-}' == 'seen' else []}"; }
+ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl" "$OUT/profile/data/Sheaf/ai-spaces.json"; touch "$OUT/ai-requests.jsonl"; python3 dev/scripts/smoke/ai-mock.py "$OUT/ai-port" "$OUT/ai-requests.jsonl" >/dev/null 2>&1 & AI_MOCK=$!; for _ in $(seq 1 20); do [ -s "$OUT/ai-port" ] && break; sleep 0.2; done; prefs_set "p['ai'] = {'provider': 'compatible', 'base_urls': {'compatible': 'http://127.0.0.1:$(cat "$OUT/ai-port")/v1'}, 'notice_seen': ['compatible'] if '${1:-}' == 'seen' else []}"; }
 ai_stop() { [ -n "${AI_MOCK:-}" ] && kill "$AI_MOCK" 2>/dev/null; AI_MOCK=; prefs_set "p.pop('ai', None)"; }
 # ✦ AI Assistant, left of the wrench in the reader's toolbar.
 # (the pointer then leaves the button, so its tooltip does not cover the panel)
@@ -1373,3 +1373,37 @@ PG=$(ocr 1280x120+0+40); shot ai-364c
 check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Preferences' | head -1); settings: $(echo "$PG" | grep -o Preferences | head -1))" \
     "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Preferences' && echo \"$PG\" | grep -q Preferences"
 quit; ai_stop
+
+# 365. AI spaces renamed (C-ai-006, Acrobat's Rename space): New space, Rename, "Contracts" typed and Enter: the
+# list and ai-spaces.json name it so. (Files dropped on the document while a space is shown join it: not automatable
+# here — Xvfb has no drag source for files from outside; the routing is unit-tested, ai_ui drop_space.)
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; NS=$(ai_chip New); sleep 0.8; RN=$(ai_chip Rename); sleep 0.5
+key ctrl+a; key BackSpace; xdotool type --delay 15 "Contracts"; key Return; sleep 0.8; T5=$(ai_text); shot ai-365
+SN=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))[0]["name"])' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
+check "a space is renamed (new $NS, rename $RN; saved '$SN'; list: $(echo "$T5" | grep -o 'Space: [A-Za-z]*' | head -1))" "[ \"$SN\" = Contracts ] && echo \"$T5\" | grep -q 'Space: Contracts'"
+quit; ai_stop
+
+# 366. The podcast spoken (C-ai-005, Acrobat's Generate podcast): Podcast script, then Save audio… (the dialog answered
+# $OUT/ai-pod.wav) records the two hosts with the computer's voices into one WAV of a few seconds.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; rm -f "$OUT/ai-pod.wav"; echo "$PWD/$OUT/ai-pod.wav" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; PC=$(ai_chip Podcast); ai_wait Welcome
+read AX AY <<< "$(ai_last audio)"; [ -n "$AY" ] && click $AX $AY 0.5
+for _ in $(seq 1 40); do [ -s "$OUT/ai-pod.wav" ] && break; sleep 0.5; done; sleep 0.5; ai_wait 'audio saved'; T6=$(ai_text); shot ai-366
+WV=$(python3 -c 'import sys, wave; w = wave.open(sys.argv[1]); print(w.getnchannels(), w.getframerate(), round(w.getnframes() / w.getframerate(), 1))' "$OUT/ai-pod.wav" 2>/dev/null)
+check "Save audio… speaks the podcast into a WAV (chip $PC, button ${AY:-none}; wav: ${WV:-none}; $(echo "$T6" | grep -o 'audio saved' | head -1))" "[ -n \"$WV\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > 2 else 1)' \$(echo $WV | cut -d' ' -f3) && echo \"$T6\" | grep -q 'audio saved'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop
+
+# 367. A translation into Japanese saved as a PDF (C-ai-004): Translate (Japanese chosen), Save… as $OUT/ai-ja.pdf:
+# the PDF holds the Japanese text, searchable (set in a font that draws it, not refused).
+ai_mock seen; prefs_set "p['ai']['language'] = 'Japanese'"; cp "$OUT/text.pdf" "$OUT/ai.pdf"; rm -f "$OUT/ai-ja.pdf"; echo "$PWD/$OUT/ai-ja.pdf" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+# Translate: the row above the categories field (whose placeholder OCR reads; the language list's chevron and the
+# chips' outlines garble the row itself), right of the language list.
+ai_open; read _ CY <<< "$(at Categories 380x300+900+300)"; [ -n "$CY" ] && click 1076 $(( CY - 44 )) 0.5; TR="${CY:-no Categories}"; sleep 2
+read SX SY <<< "$(ai_last Save)"; [ -n "$SY" ] && click $SX $SY 0.5
+for _ in $(seq 1 20); do [ -s "$OUT/ai-ja.pdf" ] && break; sleep 0.5; done; shot ai-367
+JT=$(pdftotext "$OUT/ai-ja.pdf" - 2>/dev/null | tr -d '\n')
+check "a Japanese translation is saved as a searchable PDF (translate $TR, save ${SY:-none}; text: $JT)" "echo \"$JT\" | grep -q '東京の素早い'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop
