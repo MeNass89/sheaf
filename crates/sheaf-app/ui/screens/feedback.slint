@@ -25,7 +25,8 @@ export global FeedbackBridge {
 }
 
 export component ReportIssueDialog inherits Modal {
-    card-width: 520px;
+    // Wide enough for its four buttons on one row.
+    card-width: 580px;
     init => { FeedbackBridge.opened(); message.focus(); }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;

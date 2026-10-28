@@ -40,6 +40,16 @@
   a new GitHub issue in the browser. Sheaf itself sends nothing. Tests:
   `feedback::tests::a_report_needs_a_message_and_at_most_five_readable_files`, smoke 304.
 
+## Round 31
+
+- C-platform-004 (Sol's r30 gap): tick boxes (widgets/check.slint), radio cards and information
+  boxes (widgets/radio-card.slint) mirror right to left: the box or circle on the label's right.
+  The test now covers both widgets; smoke 305 checks the tick box's side in both directions.
+- Steps 300–304 failed in round 30's suite only because step 311 (In a folder…) never quit its app
+  nor cleared its dialog answer: its window kept the keyboard focus for the next steps (320–363
+  too). 311 now ends with `answer ""; quit`.
+- Report an Issue is 580 px wide so its four buttons fit on one row.
+
 ## Not automatable
 
 - Quit warning: quitting with a task running shows "A task is still running" and Keep stops the
