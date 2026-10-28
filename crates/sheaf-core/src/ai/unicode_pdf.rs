@@ -191,64 +191,194 @@ fn wrap(glyphs: Vec<Glyph>, width: f64) -> Vec<Vec<Glyph>> {
     lines
 }
 
+/// The display order of a right-to-left line's glyphs, given each glyph's direction class: `R`
+/// right to left, `L` left to right (Latin letters, digits), `N` neutral (spaces, punctuation).
+/// Runs of `L` read left to right inside the line, and the neutrals between two `L` (the point
+/// of 12.50, the colon of 10:30, the space of "New York") belong to that run, so a number keeps
+/// its value (Unicode's bidi rules W4-W7 and N1, simplified for a line whose base is RTL).
+pub fn visual_order(classes: &[u8]) -> Vec<usize> {
+    let n = classes.len();
+    let mut cls = classes.to_vec();
+    // Neutrals between two L are L.
+    let mut i = 0;
+    while i < n {
+        if cls[i] == b'N' {
+            let mut j = i;
+            while j < n && cls[j] == b'N' {
+                j += 1;
+            }
+            if i > 0 && j < n && cls[i - 1] == b'L' && cls[j] == b'L' {
+                for c in cls.iter_mut().take(j).skip(i) {
+                    *c = b'L';
+                }
+            }
+            i = j;
+        } else {
+            i += 1;
+        }
+    }
+    // Logical runs, reversed; inside an L run the order is kept.
+    let mut runs: Vec<(usize, usize, bool)> = Vec::new();
+    let mut k = 0;
+    while k < n {
+        let l = cls[k] == b'L';
+        let mut j = k + 1;
+        while j < n && (cls[j] == b'L') == l && l {
+            j += 1;
+        }
+        runs.push((k, j, l));
+        k = j;
+    }
+    runs.iter().rev().flat_map(|&(a, b, _)| a..b).collect()
+}
+
+fn class_of(g: &Glyph) -> u8 {
+    match g.text.chars().next() {
+        Some(c) if rtl_char(c) => b'R',
+        Some(c) if c.is_alphanumeric() => b'L',
+        // Shaped Arabic glyphs after the first of a cluster carry no text: part of the R run.
+        None => b'R',
+        _ => b'N',
+    }
+}
+
+/// A line laid out: its glyphs (logical order) and whether it reads right to left.
+pub struct Line {
+    glyphs: Vec<Glyph>,
+    pub rtl: bool,
+}
+
+impl Line {
+    pub fn width(&self) -> f64 {
+        self.glyphs.iter().map(|g| g.advance).sum()
+    }
+}
+
+/// Sets text in any script on PDF pages: lines laid out with [`Setter::lines`], drawn into a
+/// content stream with [`Setter::draw`], the faces used embedded by [`Setter::fonts`] (as `/F0`,
+/// `/F1`… in a page's font resources).
+pub struct Setter {
+    sh: Shaper,
+    used: BTreeMap<usize, BTreeMap<u16, (f64, String)>>,
+}
+
+impl Default for Setter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl Setter {
+    pub fn new() -> Setter {
+        Setter { sh: Shaper { faces: faces(), shaped: BTreeMap::new() }, used: BTreeMap::new() }
+    }
+
+    /// `text`'s paragraphs at `size`, wrapped to `width`. Err names a character no face draws.
+    pub fn lines(&mut self, text: &str, size: f64, width: f64) -> Result<Vec<Line>> {
+        let mut out = Vec::new();
+        for para in text.replace("\r\n", "\n").split('\n') {
+            let rtl = para.chars().find(|c| c.is_alphabetic()).is_some_and(rtl_char);
+            let glyphs = self.sh.glyphs(para, size).map_err(|c| OpdfError::Unsupported(format!("no font on this computer draws “{c}” (U+{:04X}); save the text as a .txt file instead", c as u32)))?;
+            for l in wrap(glyphs, width) {
+                out.push(Line { glyphs: l, rtl });
+            }
+        }
+        Ok(out)
+    }
+
+    /// Content-stream operators (inside BT … ET) drawing `line` at `size` on baseline `y`, from
+    /// `left` (a right-to-left line ends at `right`).
+    pub fn draw(&mut self, line: &Line, size: f64, left: f64, right: f64, y: f64) -> String {
+        let order: Vec<usize> = if line.rtl { visual_order(&line.glyphs.iter().map(class_of).collect::<Vec<_>>()) } else { (0..line.glyphs.len()).collect() };
+        let mut x = if line.rtl { right - line.width() } else { left };
+        let mut c = String::new();
+        for i in order {
+            let g = &line.glyphs[i];
+            if g.gid != 0 && g.text != " " || g.text.is_empty() {
+                let font = self.sh.faces[g.face].font();
+                let upm = font.as_ref().map_or(1000.0, |f| f.metrics(Size::unscaled(), LocationRef::default()).units_per_em.max(1) as f64);
+                let adv = font.as_ref().and_then(|f| f.glyph_metrics(Size::unscaled(), LocationRef::default()).advance_width(GlyphId::new(g.gid as u32))).unwrap_or(0.0) as f64 / upm * 1000.0;
+                let e = self.used.entry(g.face).or_default().entry(g.gid).or_insert((adv, String::new()));
+                if e.1.is_empty() {
+                    e.1 = g.text.clone();
+                }
+                c.push_str(&format!("/F{} {size} Tf 1 0 0 1 {:.2} {:.2} Tm <{:04X}> Tj\n", g.face, x + g.dx, y + g.dy, g.gid));
+            }
+            x += g.advance;
+        }
+        c
+    }
+
+    /// The faces drawn with, embedded in `doc`: the font resource dictionary.
+    pub fn fonts(&self, doc: &mut Document) -> Result<lopdf::Dictionary> {
+        let mut fonts = lopdf::Dictionary::new();
+        for (fi, glyphs) in &self.used {
+            let f = &self.sh.faces[*fi];
+            let font = f.font().ok_or_else(|| OpdfError::Engine("font unreadable".into()))?;
+            let m = font.metrics(Size::unscaled(), LocationRef::default());
+            let scale = 1000.0 / m.units_per_em.max(1) as f64;
+            let mut file = Stream::new(dictionary! { "Length1" => f.bytes.len() as i64 }, f.bytes.to_vec());
+            if f.cff {
+                file.dict.set("Subtype", "OpenType");
+            }
+            let _ = file.compress();
+            let file = doc.add_object(file);
+            let b = m.bounds.map(|b| [b.x_min, b.y_min, b.x_max, b.y_max]).unwrap_or([0.0, -200.0, 1000.0, 900.0]);
+            let mut desc = dictionary! {
+                "Type" => "FontDescriptor", "FontName" => Object::Name(f.name.clone().into_bytes()), "Flags" => 4,
+                "FontBBox" => b.iter().map(|v| Object::Real(*v * scale as f32)).collect::<Vec<_>>(),
+                "ItalicAngle" => 0, "Ascent" => Object::Real(m.ascent * scale as f32), "Descent" => Object::Real(m.descent * scale as f32),
+                "CapHeight" => Object::Real(m.cap_height.unwrap_or(m.ascent) * scale as f32), "StemV" => 80,
+            };
+            desc.set(if f.cff { "FontFile3" } else { "FontFile2" }, file);
+            let desc = doc.add_object(desc);
+            let widths: Vec<Object> = glyphs.iter().flat_map(|(gid, (adv, _))| [Object::Integer(*gid as i64), Object::Array(vec![Object::Real(*adv as f32)])]).collect();
+            let mut cid = dictionary! {
+                "Type" => "Font", "Subtype" => if f.cff { "CIDFontType0" } else { "CIDFontType2" }, "BaseFont" => Object::Name(f.name.clone().into_bytes()),
+                "CIDSystemInfo" => dictionary! { "Registry" => Object::string_literal("Adobe"), "Ordering" => Object::string_literal("Identity"), "Supplement" => 0 },
+                "FontDescriptor" => desc, "W" => widths, "DW" => 0,
+            };
+            if !f.cff {
+                cid.set("CIDToGIDMap", "Identity");
+            }
+            let cid = doc.add_object(cid);
+            let mut cmap = String::from("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CMapName /Sheaf-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
+            let mapped: Vec<_> = glyphs.iter().filter(|(_, (_, t))| !t.is_empty()).collect();
+            for chunk in mapped.chunks(100) {
+                cmap.push_str(&format!("{} beginbfchar\n", chunk.len()));
+                for (gid, (_, t)) in chunk {
+                    let hex: String = t.encode_utf16().map(|u| format!("{u:04X}")).collect();
+                    cmap.push_str(&format!("<{gid:04X}> <{hex}>\n"));
+                }
+                cmap.push_str("endbfchar\n");
+            }
+            cmap.push_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
+            let to_unicode = doc.add_object(Stream::new(dictionary! {}, cmap.into_bytes()));
+            let type0 = doc.add_object(dictionary! {
+                "Type" => "Font", "Subtype" => "Type0", "BaseFont" => Object::Name(f.name.clone().into_bytes()), "Encoding" => "Identity-H",
+                "DescendantFonts" => vec![cid.into()], "ToUnicode" => to_unicode,
+            });
+            fonts.set(format!("F{fi}"), type0);
+        }
+        Ok(fonts)
+    }
+}
+
 /// `text` as a PDF (US Letter, 11 pt, 1-inch margins, `title` in its info). Err when some
 /// character has no face on this computer, naming it.
 pub fn text_pdf(title: &str, text: &str) -> Result<Vec<u8>> {
     let (w, h, margin, size) = (612.0, 792.0, 72.0, 11.0);
     let line_h = size * 1.45;
-    let mut sh = Shaper { faces: faces(), shaped: BTreeMap::new() };
-    let mut lines: Vec<(Vec<Glyph>, bool)> = Vec::new();
-    for para in text.replace("\r\n", "\n").split('\n') {
-        let rtl = para.chars().find(|c| c.is_alphabetic()).is_some_and(rtl_char);
-        let glyphs = sh.glyphs(para, size).map_err(|c| OpdfError::Unsupported(format!("no font on this computer draws “{c}” (U+{:04X}); save the text as a .txt file instead", c as u32)))?;
-        for l in wrap(glyphs, w - 2.0 * margin) {
-            lines.push((l, rtl));
-        }
-    }
+    let mut set = Setter::new();
+    let lines = set.lines(text, size, w - 2.0 * margin)?;
     let per_page = (((h - 2.0 * margin) / line_h).floor() as usize).max(1);
     let mut doc = Document::with_version("1.7");
     let pages_id = doc.new_object_id();
-    // Glyphs used per face (for widths and ToUnicode).
-    let mut used: BTreeMap<usize, BTreeMap<u16, (f64, String)>> = BTreeMap::new();
     let mut contents = Vec::new();
     for page in lines.chunks(per_page) {
         let mut c = String::from("BT\n");
-        for (k, (line, rtl)) in page.iter().enumerate() {
-            let y = h - margin - size - k as f64 * line_h;
-            // Right to left: the line's glyphs from the right margin leftwards, in reverse order;
-            // runs of left-to-right text (numbers, Latin words) keep their own order.
-            let order: Vec<&Glyph> = if *rtl {
-                let mut v: Vec<&Glyph> = Vec::new();
-                let mut ltr: Vec<&Glyph> = Vec::new();
-                for g in line.iter().rev() {
-                    let strong_ltr = g.text.chars().next().is_some_and(|c| c.is_alphanumeric() && !rtl_char(c));
-                    if strong_ltr {
-                        ltr.push(g);
-                    } else {
-                        v.extend(ltr.drain(..).rev());
-                        v.push(g);
-                    }
-                }
-                v.extend(ltr.drain(..).rev());
-                v
-            } else {
-                line.iter().collect()
-            };
-            let total: f64 = line.iter().map(|g| g.advance).sum();
-            let mut x = if *rtl { w - margin - total } else { margin };
-            for g in order {
-                if g.gid != 0 && g.text != " " || g.text.is_empty() {
-                    let font = sh.faces[g.face].font();
-                    let upm = font.as_ref().map_or(1000.0, |f| f.metrics(Size::unscaled(), LocationRef::default()).units_per_em.max(1) as f64);
-                    let adv = font.as_ref().and_then(|f| f.glyph_metrics(Size::unscaled(), LocationRef::default()).advance_width(GlyphId::new(g.gid as u32))).unwrap_or(0.0) as f64 / upm * 1000.0;
-                    let e = used.entry(g.face).or_default().entry(g.gid).or_insert((adv, String::new()));
-                    if e.1.is_empty() {
-                        e.1 = g.text.clone();
-                    }
-                    c.push_str(&format!("/F{} {size} Tf 1 0 0 1 {:.2} {:.2} Tm <{:04X}> Tj\n", g.face, x + g.dx, y + g.dy, g.gid));
-                }
-                x += g.advance;
-            }
+        for (k, line) in page.iter().enumerate() {
+            c.push_str(&set.draw(line, size, margin, w - margin, h - margin - size - k as f64 * line_h));
         }
         c.push_str("ET\n");
         contents.push(c);
@@ -256,55 +386,7 @@ pub fn text_pdf(title: &str, text: &str) -> Result<Vec<u8>> {
     if contents.is_empty() {
         contents.push(String::from("BT ET\n"));
     }
-    let mut fonts = lopdf::Dictionary::new();
-    for (fi, glyphs) in &used {
-        let f = &sh.faces[*fi];
-        let font = f.font().ok_or_else(|| OpdfError::Engine("font unreadable".into()))?;
-        let m = font.metrics(Size::unscaled(), LocationRef::default());
-        let scale = 1000.0 / m.units_per_em.max(1) as f64;
-        let mut file = Stream::new(dictionary! { "Length1" => f.bytes.len() as i64 }, f.bytes.to_vec());
-        if f.cff {
-            file.dict.set("Subtype", "OpenType");
-        }
-        let _ = file.compress();
-        let file = doc.add_object(file);
-        let b = m.bounds.map(|b| [b.x_min, b.y_min, b.x_max, b.y_max]).unwrap_or([0.0, -200.0, 1000.0, 900.0]);
-        let mut desc = dictionary! {
-            "Type" => "FontDescriptor", "FontName" => Object::Name(f.name.clone().into_bytes()), "Flags" => 4,
-            "FontBBox" => b.iter().map(|v| Object::Real(*v * scale as f32)).collect::<Vec<_>>(),
-            "ItalicAngle" => 0, "Ascent" => Object::Real(m.ascent * scale as f32), "Descent" => Object::Real(m.descent * scale as f32),
-            "CapHeight" => Object::Real(m.cap_height.unwrap_or(m.ascent) * scale as f32), "StemV" => 80,
-        };
-        desc.set(if f.cff { "FontFile3" } else { "FontFile2" }, file);
-        let desc = doc.add_object(desc);
-        let widths: Vec<Object> = glyphs.iter().flat_map(|(gid, (adv, _))| [Object::Integer(*gid as i64), Object::Array(vec![Object::Real(*adv as f32)])]).collect();
-        let mut cid = dictionary! {
-            "Type" => "Font", "Subtype" => if f.cff { "CIDFontType0" } else { "CIDFontType2" }, "BaseFont" => Object::Name(f.name.clone().into_bytes()),
-            "CIDSystemInfo" => dictionary! { "Registry" => Object::string_literal("Adobe"), "Ordering" => Object::string_literal("Identity"), "Supplement" => 0 },
-            "FontDescriptor" => desc, "W" => widths, "DW" => 0,
-        };
-        if !f.cff {
-            cid.set("CIDToGIDMap", "Identity");
-        }
-        let cid = doc.add_object(cid);
-        let mut cmap = String::from("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CMapName /Sheaf-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
-        let mapped: Vec<_> = glyphs.iter().filter(|(_, (_, t))| !t.is_empty()).collect();
-        for chunk in mapped.chunks(100) {
-            cmap.push_str(&format!("{} beginbfchar\n", chunk.len()));
-            for (gid, (_, t)) in chunk {
-                let hex: String = t.encode_utf16().map(|u| format!("{u:04X}")).collect();
-                cmap.push_str(&format!("<{gid:04X}> <{hex}>\n"));
-            }
-            cmap.push_str("endbfchar\n");
-        }
-        cmap.push_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
-        let to_unicode = doc.add_object(Stream::new(dictionary! {}, cmap.into_bytes()));
-        let type0 = doc.add_object(dictionary! {
-            "Type" => "Font", "Subtype" => "Type0", "BaseFont" => Object::Name(f.name.clone().into_bytes()), "Encoding" => "Identity-H",
-            "DescendantFonts" => vec![cid.into()], "ToUnicode" => to_unicode,
-        });
-        fonts.set(format!("F{fi}"), type0);
-    }
+    let fonts = set.fonts(&mut doc)?;
     let fonts = doc.add_object(fonts);
     let mut kids = Vec::new();
     for c in contents {
@@ -328,6 +410,17 @@ pub fn text_pdf(title: &str, text: &str) -> Result<Vec<u8>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// "السعر 12.50 $": the number keeps its digits' order and its point (Sol, round 31: 50.12).
+    #[test]
+    fn numbers_in_a_right_to_left_line_keep_their_order() {
+        // logical: R R _ 1 2 . 5 0 _ R   (a word, a space, 12.50, a space, a word)
+        let classes = b"RRNLLNLLNR";
+        let order = visual_order(classes);
+        assert_eq!(order, vec![9, 8, 3, 4, 5, 6, 7, 2, 1, 0]);
+        // Two numbers apart stay apart and each keeps its order.
+        assert_eq!(visual_order(b"LLNRNLL"), vec![5, 6, 4, 3, 2, 0, 1]);
+    }
 
     #[test]
     fn right_to_left_lines_are_detected_by_their_first_letter() {
