@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<!-- Sheaf's AppleScript dictionary (Info.plist: OSAScriptingDefinition). Cocoa Scripting hands
+     each command to SheafScriptCommand (src/scripting_mac.rs), which runs it with src/scripting.rs;
+     Shortcuts reaches them through Run AppleScript. AppleScript's own `open` (kAEOpenDocuments)
+     is AppKit's and opens the files in the reader (src/open_with.rs). A file is a POSIX file or a POSIX
+     path; pages are written as in the app, such as "1-3,5". -->
+<dictionary title="Sheaf Terminology">
+    <suite name="Sheaf Suite" code="Shef" description="PDF actions, named as Preview's Shortcuts actions. Each changes the file it is given unless saving in says where to write.">
+        <command name="rotate pages" code="ShefRota" description="Turn pages by 90, 180 or 270 degrees.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="by" code="by  " type="integer" optional="yes" description="Degrees: 90, 180, 270 or -90 (90 if omitted)."/>
+            <parameter name="range" code="Pgs " type="text" optional="yes" description="The pages, such as &quot;1-3,5&quot; (all if omitted)."/>
+            <parameter name="saving in" code="Svin" type="file" optional="yes" description="Where to write (the PDF itself if omitted)."/>
+            <result type="file" description="The file written."/>
+        </command>
+        <command name="delete pages" code="ShefDele" description="Remove pages.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="range" code="Pgs " type="text" description="The pages, such as &quot;2,4-6&quot;."/>
+            <parameter name="saving in" code="Svin" type="file" optional="yes" description="Where to write (the PDF itself if omitted)."/>
+            <result type="file" description="The file written."/>
+        </command>
+        <command name="insert pages" code="ShefInsp" description="Put another PDF's pages, or a blank page, after a page.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="from" code="from" type="file" optional="yes" description="The PDF whose pages go in (a blank page if omitted)."/>
+            <parameter name="after page" code="Aftr" type="integer" optional="yes" description="The page they follow (0, the default: before the first)."/>
+            <parameter name="saving in" code="Svin" type="file" optional="yes" description="Where to write (the PDF itself if omitted)."/>
+            <result type="file" description="The file written."/>
+        </command>
+        <command name="get pages" code="ShefGetp" description="Take pages out into a new PDF.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="range" code="Pgs " type="text" description="The pages, such as &quot;1-3&quot;."/>
+            <parameter name="saving in" code="Svin" type="file" description="The new PDF."/>
+            <result type="file" description="The file written."/>
+        </command>
+        <command name="combine" code="ShefComb" description="Several PDFs into one, in order.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDFs."><type type="file" list="yes"/></direct-parameter>
+            <parameter name="saving in" code="Svin" type="file" description="The new PDF."/>
+            <result type="file" description="The file written."/>
+        </command>
+        <command name="add bookmark" code="ShefBkmk" description="A bookmark opening a page, after the last one.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="titled" code="Titl" type="text" description="The bookmark's title."/>
+            <parameter name="at page" code="Page" type="integer" optional="yes" description="The page it opens (1 if omitted)."/>
+            <parameter name="saving in" code="Svin" type="file" optional="yes" description="Where to write (the PDF itself if omitted)."/>
+            <result type="file" description="The file written."/>
+        </command>
+        <command name="search" code="ShefSrch" description="The pages where a word or phrase is, case ignored.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="for" code="for " type="text" description="The word or phrase."/>
+            <result description="The page numbers."><type type="integer" list="yes"/></result>
+        </command>
+        <command name="get text" code="ShefText" description="The text of pages (pages apart by a form feed).">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="range" code="Pgs " type="text" optional="yes" description="The pages (all if omitted)."/>
+            <result type="text" description="The text."/>
+        </command>
+        <command name="page count" code="ShefCnt " description="How many pages a PDF has.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <result type="integer" description="The number of pages."/>
+        </command>
+        <command name="export pages" code="ShefImgs" description="Every page as a JPEG (or PNG) file.">
+            <cocoa class="SheafScriptCommand"/>
+            <direct-parameter description="The PDF."><type type="file"/><type type="text"/></direct-parameter>
+            <parameter name="to folder" code="Fold" type="file" description="The folder for the pictures."/>
+            <parameter name="PNG" code="PNG " type="boolean" optional="yes" description="PNG instead of JPEG (with PNG)."/>
+            <result description="The pictures written."><type type="file" list="yes"/></result>
+        </command>
+    </suite>
+</dictionary>

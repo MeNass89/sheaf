@@ -160,3 +160,27 @@ singular and a plural text each (Seites otherwise). i18n.rs reads every catalogu
 `every_interface_text_has_its_translation_in_every_language` fails on any text missing in any language; search by
 name folds accents of all five (ä ö ü ß ñ ã õ…). Not done: right-to-left languages beyond the existing RTL layout
 switch; plural rules beyond singular/plural.
+## C-platform-007 AppleScript and Shortcuts (28/10, Opus, on the MBP)
+
+- Gap (Sol): only CLI and MCP; no Shortcuts action, no AppleScript interface.
+- Change: a scripting dictionary `crates/sheaf-app/macos/Sheaf.sdef` (bundled by scripts/bundle-macos.sh;
+  Info.plist NSAppleScriptEnabled + OSAScriptingDefinition), Preview's Shortcuts names: rotate pages, delete
+  pages, insert pages (another PDF's or a blank page, after page N), get pages, combine, add bookmark, search,
+  get text, page count, export pages (JPEG or PNG); a file changes in place unless `saving in`. Cocoa Scripting
+  hands each command to `SheafScriptCommand` (NSScriptCommand subclass, src/scripting_mac.rs): parameters read
+  from the Apple Event, the command suspended, `scripting::run` (src/scripting.rs, the sheaf_core functions the
+  CLI calls) on a worker thread, resumed with NSURL/NSNumber/NSString/NSArray or an error (-10000 and the
+  message). `open` is AppKit's (reader). Two unit tests in scripting.rs (insert/delete in place without
+  leftovers, extract/search/text). First try with bare NSAppleEventManager handlers: commands returned nothing
+  once NSAppleScriptEnabled was set (Cocoa Scripting took the events), hence the NSScriptCommand class.
+- Mac evidence (MBP, minimal debug Sheaf.app in /tmp/sheafcap, `osascript`): `sdef` lists 10 commands;
+  page count → 4; rotate pages … by 90 range "1-2" saving in rotated.pdf → rotations [90, 90, 0, 0]; delete pages
+  range "4" → 3 pages; insert pages from one.pdf after page 1, then a blank after page 4 → 5; get pages "2-3" →
+  two.pdf (2); combine {two, one} → 3 pages; add bookmark titled "Chapitre 2" at page 2 → shown in the reader's
+  outline; export pages … with PNG → {two-1.png, two-2.png}; search invoice.pdf for "the" → {1}; get text range "1"
+  → the invoice text; errors: `Sheaf got an error: …/none.pdf: No such file or directory (os error 2) (-10000)`,
+  `invalid page range "40": the document has 5 pages (-10000)`; `open` → combined.pdf in the reader
+  (/tmp/sheafcap/as-snap/opened.png). Script: dev/.tmp/as-test.sh (not tracked).
+- Not checked: a shortcut built in the Shortcuts app (its Run AppleScript sends the same Apple Events; building
+  one needs the GUI). No native App Intents action (needs a Swift extension).
+- Self-grade F 9 · A 8 · P 9 (A: Preview ships Shortcuts actions; here Shortcuts goes through Run AppleScript).

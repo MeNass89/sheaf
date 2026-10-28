@@ -88,6 +88,8 @@ cp "$mac/ocr-models-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-models-NOT
 cp "$mac/ocr-latin-NOTICE.txt" "$app/Contents/Resources/licenses/ocr-latin-NOTICE.txt"
 cp third_party/pdfcraft-ocr/LICENSE-APACHE "$app/Contents/Resources/licenses/ocr-latin-LICENSE-APACHE.txt"
 cp target/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
+# AppleScript's dictionary (Info.plist: OSAScriptingDefinition), handled by src/scripting_mac.rs.
+cp "$mac/Sheaf.sdef" "$app/Contents/Resources/Sheaf.sdef"
 [ -f target/icon-car/Assets.car ] && cp target/icon-car/Assets.car "$app/Contents/Resources/Assets.car"
 sed "s/@VERSION@/$version/g" "$mac/Info.plist" > "$app/Contents/Info.plist"
 plutil -lint "$app/Contents/Info.plist" >/dev/null

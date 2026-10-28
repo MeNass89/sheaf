@@ -740,11 +740,13 @@ export component ReaderPanel inherits Rectangle {
                                 padding: 4px;
                                 // Codes as reader_ui::page_op.
                                 for o in [{ t: @tr("Rotate left"), k: 0 }, { t: @tr("Rotate right"), k: 1 }, { t: @tr("Insert blank page after"), k: 5 }, { t: @tr("Duplicate"), k: 3 },
-                                          { t: @tr("Insert pages from file…"), k: 6 }, { t: @tr("Insert a file's pages before…"), k: 9 }, { t: @tr("Insert from clipboard"), k: 10 }, { t: @tr("Insert from scanner…"), k: 11 },
+                                          { t: @tr("Insert pages from file…"), k: 6 }, { t: @tr("Insert a file's pages before…"), k: 9 }, { t: @tr("Insert from clipboard"), k: 10 }, { t: @tr("Insert from scanner…"), k: 11 }, { t: @tr("Insert from iPhone or iPad…"), k: 12 },
                                           { t: @tr("Replace with a file's pages…"), k: 7 }, { t: @tr("Reverse page order"), k: 8 },
                                           // Acrobat's Page Transitions (in its page thumbnail menu).
                                           { t: @tr("Transitions…"), k: -1 }, { t: @tr("Delete"), k: 2 }]: Rectangle {
-                                    height: 30px;
+                                    // Continuity Camera (12) is a Mac's.
+                                    visible: o.k != 12 || PlatformBridge.mac;
+                                    height: self.visible ? 30px : 0px;
                                     background: pm.has-hover ? Theme.popup-hover : transparent;
                                     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
                                     pm := TouchArea {

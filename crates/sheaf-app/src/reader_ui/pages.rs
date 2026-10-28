@@ -63,7 +63,7 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
                 let edits = (0..b - a).map(|i| Edit::MovePages { pages: vec![b], to: a + i }).collect();
                 Edit::Batch { label: "Reverse pages".into(), edits }
             }
-            6 | 7 | 9 | 10 | 11 => return Ok(None),
+            6 | 7 | 9 | 10 | 11 | 12 => return Ok(None),
             _ => return Err(String::new()),
         };
         // Page numbers shift: the selection follows what is left.
@@ -72,17 +72,19 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
     });
     match made {
         Some(Ok(Some(e))) => apply_structure(ui, tab_id, e),
-        Some(Ok(None)) if op >= 10 => from_clipboard_or_scanner(ui, tab_id, op == 11),
+        Some(Ok(None)) if op >= 10 => from_clipboard_or_device(ui, tab_id, op),
         Some(Ok(None)) => from_file(ui, tab_id, op),
         Some(Err(m)) if !m.is_empty() => crate::flow::toast(ui, &m),
         _ => {}
     }
 }
 
-/// A thumbnail's Insert from clipboard (PDF files copied, a picture, text) or Insert from scanner
-/// (Acrobat's Insert ▸ From Clipboard, From Scanner): the pages made go after the selected page
-/// (or the one shown), one undo step. The scan waits off the UI thread.
-fn from_clipboard_or_scanner(ui: &AppWindow, tab_id: i32, scanner: bool) {
+/// A thumbnail's Insert from clipboard (10: PDF files copied, a picture, text), Insert from scanner
+/// (11) or, on a Mac, Insert from iPhone or iPad (12: Continuity Camera's photo or scanned pages)
+/// (Acrobat's Insert ▸ From Clipboard, From Scanner; Preview's Insert ▸ from iPhone): the pages
+/// made go after the selected page (or the one shown), one undo step. The scan waits off the UI
+/// thread.
+fn from_clipboard_or_device(ui: &AppWindow, tab_id: i32, source: i32) {
     let made = std::env::temp_dir().join(format!("sheaf-insert-{}-{tab_id}.pdf", std::process::id()));
     let insert = move |ui: &AppWindow, name: &str, made: &std::path::Path| {
         let bytes = std::fs::read(made);
@@ -97,24 +99,31 @@ fn from_clipboard_or_scanner(ui: &AppWindow, tab_id: i32, scanner: bool) {
         };
         apply_structure(ui, tab_id, Edit::InsertPagesFrom { name: name.into(), bytes: Arc::new(bytes), pages: None, at, field_conflicts: Default::default() });
     };
-    if !scanner {
+    if source == 10 {
         let Some(clip) = crate::run::clipboard_pages() else { return crate::flow::toast(ui, &sheaf_app::i18n::tr("The clipboard holds no PDF, picture or text")) };
         return match crate::run::clipboard_to_pdf(&clip, &made) {
             Ok(p) => insert(ui, "Clipboard", &p),
             Err(e) => crate::flow::toast(ui, &e.to_string()),
         };
     }
-    crate::flow::toast(ui, &sheaf_app::i18n::tr("Scanning…"));
+    let scanner = source == 11;
+    if scanner {
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Scanning…"));
+    }
     let weak = ui.as_weak();
     std::thread::spawn(move || {
-        let png = made.with_extension("png");
-        let r = crate::run::scan_page(&png).and_then(|()| {
-            let p = sheaf_core::images::images_to_pdf(std::slice::from_ref(&png), sheaf_core::images::PageLayout::FitImage, &made).map_err(|e| e.to_string());
-            let _ = std::fs::remove_file(&png);
-            p
-        });
+        let r = if scanner {
+            let png = made.with_extension("png");
+            crate::run::scan_page(&png).and_then(|()| {
+                let p = sheaf_core::images::images_to_pdf(std::slice::from_ref(&png), sheaf_core::images::PageLayout::FitImage, &made).map_err(|e| e.to_string());
+                let _ = std::fs::remove_file(&png);
+                p
+            })
+        } else {
+            crate::run::from_phone(&made, true).map(|()| made)
+        };
         let _ = weak.upgrade_in_event_loop(move |ui| match r {
-            Ok(p) => insert(&ui, "Scan", &p),
+            Ok(p) => insert(&ui, if scanner { "Scan" } else { "iPhone" }, &p),
             Err(e) => crate::flow::toast(&ui, &e),
         });
     });

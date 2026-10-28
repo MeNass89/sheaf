@@ -406,6 +406,12 @@ fn wire_viewer(ui: &AppWindow) {
             sign_ui::pick_image(&ui, id);
         }
     });
+    let weak = ui.as_weak();
+    sb.on_capture_image(move |id, source| {
+        if let Some(ui) = weak.upgrade() {
+            sign_ui::capture_image(&ui, id, source == 1);
+        }
+    });
 
     let eb = ui.global::<sheaf_app::EditBridge>();
     eb.on_mode(edit_ui::mode);
@@ -429,6 +435,11 @@ fn main() -> Result<(), slint::PlatformError> {
     // `--scan-to`: the macOS scanner panel's helper process (run::scan_page), no window of its own.
     #[cfg(target_os = "macos")]
     if let Some(status) = sheaf_app::scan_mac::helper(std::env::args()) {
+        std::process::exit(status);
+    }
+    // `--iphone-to`, `--camera-to`: Continuity Camera's and the camera panel's helpers (run::from_phone, run::from_camera).
+    #[cfg(target_os = "macos")]
+    if let Some(status) = sheaf_app::capture_mac::helper(std::env::args()) {
         std::process::exit(status);
     }
 
@@ -544,6 +555,30 @@ fn main() -> Result<(), slint::PlatformError> {
                     let made = sheaf_core::images::images_to_pdf(std::slice::from_ref(&scan), sheaf_core::images::PageLayout::FitImage, &path);
                     let _ = std::fs::remove_file(&scan);
                     match made {
+                        Ok(p) => deliver(vec![p]),
+                        Err(e) => flow::toast(ui, &e.to_string()),
+                    }
+                });
+            });
+        });
+    });
+    // Home ▸ From iPhone or iPad, File ▸ Import from iPhone or iPad (Preview's, Continuity Camera):
+    // a photo or a document scanned on the phone becomes a PDF, named and placed first. The helper
+    // is waited for off the UI thread.
+    wire!(ui, on_new_from_iphone, |ui| {
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let made = std::env::temp_dir().join(format!("sheaf-iphone-{}.pdf", std::process::id()));
+            let r = run::from_phone(&made, true);
+            let _ = weak.upgrade_in_event_loop(move |ui| {
+                if let Err(e) = r {
+                    return flow::toast(&ui, &e);
+                }
+                let d = dialog::new(&ui).set_file_name("Scan.pdf").add_filter("PDF", &["pdf"]);
+                dialog::save_file(&ui, d, move |ui, path| {
+                    let moved = std::fs::copy(&made, &path).map(|_| path);
+                    let _ = std::fs::remove_file(&made);
+                    match moved {
                         Ok(p) => deliver(vec![p]),
                         Err(e) => flow::toast(ui, &e.to_string()),
                     }

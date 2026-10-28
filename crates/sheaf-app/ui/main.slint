@@ -193,6 +193,7 @@ export component AppWindow inherits Window {
     callback new-from-clipboard();
     callback new-from-screenshot();
     callback new-from-scanner();
+    callback new-from-iphone();
     callback pin-recent(int);
     callback filter-recents(string, int);
     callback open-tool(string);
@@ -325,6 +326,10 @@ export component AppWindow inherits Window {
                 }
             }
             MenuSeparator {}
+            // Preview's File ▸ Import from iPhone or iPad (Continuity Camera) and Import from Scanner.
+            if PlatformBridge.mac: MenuItem { title: @tr("Import from iPhone or iPad…"); activated => { root.new-from-iphone(); } }
+            if PlatformBridge.mac: MenuItem { title: @tr("Import from Scanner…"); activated => { root.new-from-scanner(); } }
+            if PlatformBridge.mac: MenuSeparator {}
             MenuItem { title: @tr("Save"); shortcut: PlatformBridge.keys[2]; enabled: root.reader-on; activated => { ReaderBridge.save(root.reader-id); } }
             MenuItem { title: @tr("Save As…"); shortcut: PlatformBridge.keys[3]; enabled: root.reader-on; activated => { ReaderBridge.save-as(root.reader-id); } }
             MenuItem { title: @tr("Print…"); shortcut: PlatformBridge.keys[4]; enabled: root.reader-on; activated => { ReaderBridge.print-open(root.reader-id); } }
@@ -506,6 +511,7 @@ export component AppWindow inherits Window {
                             new-from-clipboard => { root.new-from-clipboard(); }
                             new-from-screenshot => { root.new-from-screenshot(); }
                             new-from-scanner => { root.new-from-scanner(); }
+                            new-from-iphone => { root.new-from-iphone(); }
                             open-recent(i) => { root.open-recent(i); }
                             reveal-recent(i) => { root.reveal-recent(i); }
                             remove-recent(i) => { root.remove-recent(i); }

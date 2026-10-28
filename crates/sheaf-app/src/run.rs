@@ -942,6 +942,64 @@ fn scan_natively(to: &std::path::Path) -> std::result::Result<(), String> {
     sheaf_core::scanner::scan_to_png(to).map_err(|e| e.to_string())
 }
 
+/// Preview's File ▸ Import from iPhone or iPad (Continuity Camera): Take Photo, Scan Documents or
+/// Add Sketch on a phone or tablet near the Mac, in Sheaf started again as a helper
+/// (`capture_mac`). With `pdf`, `to` gets a PDF (the scanned pages, or the picture on a page);
+/// else a PNG (a photo or sketch: a signature). Blocks until the helper ends. Err: what to tell
+/// the user (also on Linux and Windows, which have no Continuity Camera).
+pub fn from_phone(to: &std::path::Path, pdf: bool) -> std::result::Result<(), String> {
+    use sheaf_app::i18n::tr;
+    #[cfg(target_os = "macos")]
+    {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let hint = if pdf {
+            tr("Choose your iPhone or iPad, then Take Photo or Scan Documents: the pages come here.")
+        } else {
+            tr("Choose your iPhone or iPad, then Take Photo of your signature on white paper.")
+        };
+        let mut helper = std::process::Command::new(exe);
+        helper.arg("--iphone-to").arg(to).arg(if pdf { "pdf" } else { "photo" }).arg(tr("Import from iPhone or iPad")).arg(hint).arg(tr("Import from iPhone or iPad"));
+        helper_result(&mut helper, to, &tr("Nothing was imported"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (to, pdf);
+        Err(tr("Importing from an iPhone or iPad needs a Mac"))
+    }
+}
+
+/// Preview's Signatures ▸ Camera: the Mac's camera (ImageKit's picture taker, in a helper) to a
+/// PNG at `to`. Blocks until the panel closes.
+pub fn from_camera(to: &std::path::Path) -> std::result::Result<(), String> {
+    use sheaf_app::i18n::tr;
+    #[cfg(target_os = "macos")]
+    {
+        let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+        let mut helper = std::process::Command::new(exe);
+        helper.arg("--camera-to").arg(to).arg(tr("Signature from the camera"));
+        helper_result(&mut helper, to, &tr("No picture was taken"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = to;
+        Err(tr("The camera panel needs a Mac"))
+    }
+}
+
+/// A capture helper run to its end: Ok when it wrote `to`, else its last line on stderr or
+/// `nothing` (closed without a result).
+#[cfg(target_os = "macos")]
+fn helper_result(helper: &mut std::process::Command, to: &std::path::Path, nothing: &str) -> std::result::Result<(), String> {
+    let _ = std::fs::remove_file(to);
+    let out = helper.output().map_err(|e| e.to_string())?;
+    if out.status.success() && to.is_file() {
+        return Ok(());
+    }
+    let _ = std::fs::remove_file(to);
+    let said = String::from_utf8_lossy(&out.stderr);
+    Err(said.lines().rev().map(str::trim).find(|l| !l.is_empty() && !l.starts_with("menu: ")).map_or_else(|| nothing.to_string(), str::to_string))
+}
+
 /// Preferences ▸ Open PDFs with Sheaf by default: Sheaf made the system's PDF handler (macOS's
 /// LaunchServices, xdg-mime) or, on Windows, which asks the user itself, its Default apps page
 /// opened. Debug builds write "default" to the file `SHEAF_TEST_DEFAULT` names instead (gui-smoke).
