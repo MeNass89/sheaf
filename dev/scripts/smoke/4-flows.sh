@@ -517,12 +517,15 @@ pref_find() { local f="" g; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90
 # wheel's scroll eases out after the word shows: measured again once still.
 shortcut_search() { local t f; read _ t <<< "$(pref_find shortcuts)"; sleep 1; read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}
     SR=0; [ -n "$t" ] && click 500 $(( t + 40 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8
-    # The first click on a keys box scrolls the page (69 px) as it starts recording: done once and cancelled
-    # (Escape), so the rows are measured where they stay.
-    [ -n "$t" ] && { click 1157 $(( t + 85 )) 0.5; key Escape; sleep 0.8; }
+    # The list found is below the field: the page scrolled on a little (where it can) so its rows show.
+    xdotool mousemove 760 500 click 5 click 5; sleep 0.8
     read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}; [ -n "$t" ] && SR=$(( t + 133 )); }
 # A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
-keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; echo "${y:-no $1 row}"; }
+# Starting to record can scroll the page (near its end): when "Press the keys…" does not show, the row is found
+# again and clicked once more.
+keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5
+    if [ -n "$y" ] && [ -z "$(at Press 1020x700+250+90)" ]; then read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; fi
+    echo "${y:-no $1 row}"; }
 # The preferences file, written even when no earlier step made it.
 prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
 # The steps below change the platform preferences: put back as they were.

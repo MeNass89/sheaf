@@ -51,6 +51,8 @@ impl DisplayTransform {
 /// The profile the system gives the display (Acrobat's "Use display profile"): on Linux the X
 /// root window's `_ICC_PROFILE` (set by colord, GNOME, KDE and xcalib, XWayland included), read
 /// with `xprop`. None where none is set; macOS and Windows not read yet (sRGB, or a chosen ICC).
+// sheaf-core/tests/display_color.rs includes this file without calling it.
+#[cfg_attr(test, allow(dead_code))]
 pub fn system_profile() -> Option<Vec<u8>> {
     if !cfg!(all(unix, not(target_os = "macos"))) {
         return None;

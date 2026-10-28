@@ -13,6 +13,10 @@ mod action_import;
 #[allow(dead_code)]
 #[path = "../../sheaf-app/src/actions.rs"]
 mod actions;
+// Plugin steps of actions run through the plugins module.
+#[allow(dead_code)]
+#[path = "../../sheaf-app/src/plugins.rs"]
+mod plugins;
 #[allow(dead_code)]
 #[path = "../../sheaf-app/src/action_settings.rs"]
 mod action_settings;
