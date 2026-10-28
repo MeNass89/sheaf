@@ -1320,9 +1320,23 @@ quit; scanner_restore
 
 # 335. iLovePDF's complete PDF/A selector: a Unicode profile produces the selected identifier,
 # not a b-level file with the wrong success label. Pictures contain no unmapped text.
+pdfa_reader_tool() {
+    # Custom tools adds a 32 px button. Find the wrench by its tooltip in either layout;
+    # the old coordinate opened AI Assistant after earlier steps saved a custom toolbox.
+    local x tip
+    for x in 1236 1268; do
+        xdotool mousemove "$x" 61; sleep 0.4
+        tip=$(ocr 500x30+780+80)
+        if echo "$tip" | grep -q 'Use a tool'; then
+            click "$x" 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+            return 0
+        fi
+    done
+    return 1
+}
 convert -size 120x80 xc:'#2a9d4b' "$OUT/unicode-archive.pdf"
 launch "$OUT/unicode-archive.pdf"; sleep 1
-click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+pdfa_reader_tool
 CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
 shot 335-pdfa-levels
 xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Return; sleep 0.8
@@ -1336,16 +1350,27 @@ quit
 
 # 336. An a-level needs tags. With Keep a copy unchecked, an untagged input is refused and no
 # falsely conforming output appears; the source stays readable.
+# Reproduce the full suite's saved custom toolbox, which shifts the wrench past the AI button.
+AF="$OUT/profile/data/Sheaf/actions.json"; [ ! -f "$AF" ] || cp "$AF" "$OUT/pdfa-actions-before.json"
+python3 - "$AF" <<'PY'
+import json, os, sys
+p = sys.argv[1]
+a = json.load(open(p)) if os.path.exists(p) else []
+a.append({"version": 1, "name": "PDF/A toolbar regression", "custom_tool": True,
+          "steps": [{"tool": "open_tool", "argument": "pdf_to_pdfa"}]})
+json.dump(a, open(p, "w"))
+PY
 convert -size 120x80 xc:'#2a9d4b' "$OUT/untagged-archive.pdf"
 launch "$OUT/untagged-archive.pdf"; sleep 1
-click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
+pdfa_reader_tool
 CB=$(at PDF/A- 1000x700+250+90); [ -n "$CB" ] && click $CB 0.5
 xdotool key --clearmodifiers --delay 150 Up Up Up Up Up Up Up Up Down Down Down Down Return; sleep 0.8
 KC=$(at Keep 1000x700+250+90); [ -n "$KC" ] && click $KC 0.6
 STRICT=$(ocr 1000x700+250+90)
 shot 336-pdfa-strict-options
-click 1140 755 3
-AR=$(ocr 1280x800+0+0); shot 336-pdfa-strict-result
+# A refusal returns to the options with a three-second toast: read it before it expires.
+click 1140 755 0.5
+shot 336-pdfa-strict-result; AR=$(ocr 1280x800+0+0)
 check "336 strict PDF/A-2a refuses untagged content without saving a false archive" "[ -n \"$KC\" ] && echo \"\$STRICT\" | grep -qi 'PDF/A-2a' && echo \"\$STRICT\" | grep -qi 'no output' && [ ! -e $OUT/untagged-archive-pdfa.pdf ] && [ \"\$(npages $OUT/untagged-archive.pdf 2>/dev/null)\" = 1 ] && echo \"\$AR\" | grep -qi 'did not pass'"
 quit
 
@@ -1421,3 +1446,4 @@ for _ in $(seq 1 20); do [ -s "$OUT/ai-ja.pdf" ] && break; sleep 0.5; done; shot
 JT=$(pdftotext "$OUT/ai-ja.pdf" - 2>/dev/null | tr -d '\n')
 check "a Japanese translation is saved as a searchable PDF (translate $TR, save ${SY:-none}; text: $JT)" "echo \"$JT\" | grep -q '東京の素早い'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
+if [ -f "$OUT/pdfa-actions-before.json" ]; then mv "$OUT/pdfa-actions-before.json" "$AF"; else rm -f "$AF"; fi
