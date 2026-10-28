@@ -997,9 +997,8 @@ pub fn make_default_pdf_app() -> String {
 }
 
 /// Sheaf's desktop entry, `exec` its program: opens PDFs, its tools as the file manager's actions
-/// (the context menu's Compress with Sheaf…). Linux and other freedesktop systems only (its tests
-/// run everywhere).
-#[cfg(any(test, not(any(target_os = "macos", windows))))]
+/// (the context menu's Compress with Sheaf…). Linux and other freedesktop systems only.
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn desktop_entry(exec: &str) -> String {
     use sheaf_app::open_with::MENU_TOOLS;
     let mut t = format!(
