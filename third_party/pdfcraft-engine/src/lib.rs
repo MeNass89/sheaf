@@ -2411,6 +2411,9 @@ struct EditCtx {
     /// Fields the edit renamed to keep imported names separate (old → new), for the repair
     /// log and the undo label.
     renamed_fields: Vec<(String, String)>,
+    /// Sheaf: the group the comments added now belong to (see `Edit::Batch`), put before
+    /// their `/NM` as `group~id`.
+    group: Option<String>,
     /// Sheaf: the font an edited paragraph drew some characters in, because its own lacks them.
     substituted: Option<String>,
 }
@@ -2438,6 +2441,7 @@ impl EditCtx {
             seed,
             count: 0,
             renamed_fields: Vec::new(),
+            group: None,
             substituted: None,
         }
     }
@@ -2475,8 +2479,17 @@ impl EditCtx {
             0x8000 | (b >> 48) & 0x3fff,
             b & 0xffff_ffff_ffff
         );
+        let id = match &self.group {
+            Some(g) => format!("{g}~{id}"),
+            None => id,
+        };
         pdfcraft_annot::Meta { date: self.date.clone(), id }
     }
+}
+
+/// Sheaf: the group of comments added together that `nm` (a comment's `/NM`) belongs to, if any.
+pub fn comment_group(nm: &str) -> Option<&str> {
+    nm.split_once('~').map(|(g, _)| g).filter(|g| !g.is_empty())
 }
 
 /// Sheaf: an edit that may change a field's value, or which fields there are.
@@ -2983,9 +2996,25 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             doc.remove_encryption();
         }
         Edit::Batch { edits, .. } => {
-            for e in edits {
-                run_edit(doc, e, cx)?;
+            // Sheaf: comments added to several pages in one step (a signature repeated on every
+            // page) share a group in their `/NM`, so the copies stay one group however they are
+            // moved later (iLovePDF's repeated signatures are deleted together).
+            let page_of = |e: &Edit| match e {
+                Edit::AddAnnotation(a) => Some(a.page),
+                Edit::AddCustomStamp { page, .. } => Some(*page),
+                _ => None,
+            };
+            let mut pages = edits.iter().filter_map(page_of);
+            let first = pages.next();
+            let grouped = cx.group.is_none() && edits.iter().all(|e| page_of(e).is_some()) && first.is_some_and(|f| pages.any(|p| p != f));
+            if grouped {
+                cx.group = Some(cx.meta().id);
             }
+            let r = edits.iter().try_for_each(|e| run_edit(doc, e, cx));
+            if grouped {
+                cx.group = None;
+            }
+            r?;
         }
     }
     Ok(())

@@ -1046,3 +1046,37 @@ fn revocation_evidence_inside_a_signature_is_checked_offline() {
     let (crls, ocsps) = revocation_archive::evidence(&[0x30, 0x00]);
     assert!(crls.is_empty() && ocsps.is_empty(), "no archive, no evidence");
 }
+
+/// iLovePDF's repeated signature: the copies placed on several pages in one step carry one group
+/// in their /NM, which a later move does not change; a single comment, or comments added on one
+/// page, have none.
+#[test]
+fn a_repeated_signature_keeps_its_group_wherever_a_copy_is_moved() {
+    use sheaf_core::pdfcraft::engine::comment_group;
+    use sheaf_core::pdfcraft::render::PageInfo;
+    use sheaf_core::{pages::Input, pdfcraft::Doc, sign};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 0 m 10 10 l S"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::DuplicatePages { pages: vec![0] }).unwrap();
+    let n = doc.document().info.pages.len();
+    assert!(n >= 2, "two pages to repeat on");
+    let info: PageInfo = doc.document().info.pages[0].clone();
+    let graphic = sign::Graphic::Typed("Ada".into(), Default::default());
+    let copies = (0..n).map(|p| sign::signature_edit(&info, p, [140.0, 300.0], 100.0, &graphic).unwrap()).collect();
+    doc.apply(Edit::Batch { label: "Signature on several pages".into(), edits: copies }).unwrap();
+    doc.apply(sign::signature_edit(&info, 0, [140.0, 80.0], 100.0, &graphic).unwrap()).unwrap();
+    let names = |doc: &Doc| doc.document().info.annotations.iter().map(|a| (a.page, a.index, a.name.clone().unwrap_or_default())).collect::<Vec<_>>();
+    let all = names(&doc);
+    let groups: Vec<_> = all.iter().map(|(_, _, nm)| comment_group(nm).map(str::to_string)).collect();
+    let group = groups.iter().flatten().next().cloned().unwrap_or_else(|| panic!("the repeated copies have a group: {all:?}"));
+    assert_eq!(groups.iter().filter(|g| g.as_deref() == Some(group.as_str())).count(), n, "{all:?}");
+    assert_eq!(groups.iter().filter(|g| g.is_none()).count(), 1, "the lone signature has none: {all:?}");
+    // One copy moved far away (and saved): still in the group.
+    let (page, index, _) = all.iter().find(|(p, _, nm)| *p == 1 && comment_group(nm).is_some()).cloned().unwrap();
+    doc.apply(Edit::MoveAnnotation { page, index, dx: -60.0, dy: -200.0 }).unwrap();
+    let out = doc.save(&t.path().join("moved.pdf")).unwrap();
+    let doc = Doc::open(&Input::new(&out)).unwrap();
+    let moved = names(&doc).into_iter().find(|(p, i, _)| *p == page && *i == index).unwrap();
+    assert_eq!(comment_group(&moved.2), Some(group.as_str()));
+}
