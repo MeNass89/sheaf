@@ -915,10 +915,10 @@ ai_chip() { local c w; for w in $1; do c=$(at "$w" 380x700+900+100); [ -n "$c" ]
 ai_last() { import -window root -crop 380x700+900+100 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" 'index($12, w) == 1 { p = sprintf("%d %d", 900 + ($7 + $9 / 2) / 2, 100 + ($8 + $10 / 2) / 2) } END { print p }'; }
 ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
 
-actions_reset
 # 360. The AI panel (C-ai-001, C-ai-002; PDF Expert's AI Copilot, Acrobat's AI Assistant): ✦ in the toolbar opens it
 # beside the pages, naming the provider; the first request waits on the note that only the text is sent (OK
 # sends it); a question typed is answered from the pages: the request carries page 1's text and the question.
+actions_reset
 ai_mock
 cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; T1=$(ai_text)
@@ -1344,9 +1344,9 @@ RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
 shot 356-folder-results
 check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
-actions_reset
 # 330. Acrobat's Create PDF from Scanner through the real process adapter: the fake SANE driver
 # returns pixels, not SHEAF_TEST_SCAN's image-copy seam. Also used by the macOS SANE fallback.
+actions_reset
 scanner_driver() {
     SCANNER_APP=$APP; SCANNER_PATH=$PATH
     mkdir -p "$OUT/scanner-bin"
@@ -1460,6 +1460,7 @@ platform_reset
 # 364. The AI panel's error and empty states (C-ai-001, C-ai-002): a provider limiting requests is said plainly with
 # Try again (which asks again); a cloud provider with no key is told where to add it, with Open AI settings…; the
 # panel then still opens and the app answers (no freeze).
+actions_reset
 ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; click 1040 768 0.4; xdotool type --delay 15 "Rate me"; key Return
 ai_wait limiting; E1=$(ai_text); N3=$(ai_requests)
