@@ -291,9 +291,17 @@ fn release_ocr_mici_benchmark_reports_cold_load_and_warm_page_time() {
             else { baseline = Some(words); }
             eprintln!("OCR benchmark: prepacked={packed} run={run} pages={} words={} load_s={load_seconds:.3} page_s={:.3} source={} bytes={}", pages.len(), pages.iter().map(|p| p.words.len()).sum::<usize>(), seconds / pages.len() as f64, source.display(), std::fs::metadata(&source).unwrap().len());
             if run > 0 { times.push(seconds / pages.len() as f64); }
+            // SHEAF_OCR_BENCH_OUT: the searchable PDF, to compare its text with the source's.
+            if let Some(out) = std::env::var_os("SHEAF_OCR_BENCH_OUT").filter(|_| packed && run == 3) {
+                let mut searchable = Doc::open(&Input::new(&source)).unwrap();
+                for p in &pages {
+                    searchable.apply(sheaf_core::pdfcraft::engine::Edit::AddOcrText { page: p.page, words: p.words.clone() }).unwrap();
+                }
+                searchable.save(Path::new(&out)).unwrap();
+            }
         }
         times.sort_by(f64::total_cmp);
-        eprintln!("OCR benchmark: prepacked={packed} warm_median_page_s={:.3}", times[1]);
+        eprintln!("OCR benchmark: prepacked={packed} engine={} warm_median_page_s={:.3}", engine.engine(), times[1]);
         if packed { packed_median = times[1]; }
     }
     let target: f64 = std::env::var("SHEAF_OCR_SECONDS_PER_PAGE").ok().map(|s| s.parse().unwrap()).unwrap_or(11.75);

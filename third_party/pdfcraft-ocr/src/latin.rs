@@ -11,7 +11,7 @@ use rten_tensor::prelude::*;
 use std::path::Path;
 
 /// The model's input height, in pixels.
-const HEIGHT: usize = 48;
+pub(crate) const HEIGHT: usize = 48;
 /// Longest line read at once, in model pixels (a line across a large-format page).
 const MAX_WIDTH: usize = 4_000;
 
@@ -20,9 +20,15 @@ const MAX_WIDTH: usize = 4_000;
 pub(crate) type Read = (String, [f32; 4], f32);
 
 pub(crate) struct Latin {
-    model: rten::Model,
+    model: Engine,
     /// The classes after the blank: the dictionary's characters, then a space.
     chars: Vec<char>,
+}
+
+/// What runs the model: onnxruntime where it is built and loads it, rten otherwise.
+enum Engine {
+    Onnx(crate::onnx::Lines),
+    Rten(rten::Model),
 }
 
 /// Prepared PaddleOCR line pixels in contiguous BGR/CHW order (48 pixels high).
@@ -82,10 +88,36 @@ impl Latin {
         let text = std::fs::read_to_string(dict).map_err(|e| format!("{}: {e}", dict.display()))?;
         let mut chars: Vec<char> = text.lines().filter_map(|l| l.chars().next()).collect();
         chars.push(' ');
-        // The same recognition weights serve every line. Packing them once avoids repeating
-        // the matrix layout conversion in every inference (the big-scan performance gap).
-        let model = rten::ModelOptions::with_all_ops().prepack_weights(prepack).load_file(model).map_err(|e| format!("{}: {e}", model.display()))?;
+        // onnxruntime first; rten when it is not built here, cannot run the model, or
+        // SHEAF_OCR_ENGINE=rten asks for it (to compare the two).
+        let onnx = || -> Option<Engine> {
+            if std::env::var_os("SHEAF_OCR_ENGINE").is_some_and(|v| v == "rten") {
+                return None;
+            }
+            let loaded = std::fs::read(model).map_err(|e| format!("{}: {e}", model.display())).and_then(|bytes| crate::onnx::Lines::load(&bytes));
+            match loaded {
+                Ok(lines) => Some(Engine::Onnx(lines)),
+                Err(e) => {
+                    eprintln!("OCR: onnxruntime unavailable ({e}); lines are read with rten");
+                    None
+                }
+            }
+        };
+        let model = match onnx() {
+            Some(engine) => engine,
+            // The same recognition weights serve every line. Packing them once avoids repeating
+            // the matrix layout conversion in every inference (the big-scan performance gap).
+            None => Engine::Rten(rten::ModelOptions::with_all_ops().prepack_weights(prepack).load_file(model).map_err(|e| format!("{}: {e}", model.display()))?),
+        };
         Ok(Latin { model, chars })
+    }
+
+    /// The engine reading the lines: "onnxruntime" or "rten".
+    pub(crate) fn engine(&self) -> &'static str {
+        match self.model {
+            Engine::Onnx(_) => "onnxruntime",
+            Engine::Rten(_) => "rten",
+        }
     }
 
     /// Reads the line whose box (image pixels, `[left, top, right, bottom]`) is `line` in `rgb`
@@ -93,14 +125,18 @@ impl Latin {
     pub(crate) fn read_line(&self, rgb: &[u8], width: usize, height: usize, line: [f32; 4]) -> Result<Vec<Read>, String> {
         let Some(input) = recognition_input(rgb, width, height, line) else { return Ok(Vec::new()); };
         let (x0, cw, w) = (input.crop_left, input.crop_width, input.width);
-        let input = rten_tensor::NdTensor::from_data([1, 3, HEIGHT, w], input.pixels);
-        let out: rten_tensor::Tensor<f32> = self.model.run_one(input.view().into(), None).map_err(|e| e.to_string())?.try_into().map_err(|e| format!("{e:?}"))?;
-        let shape = out.shape().to_vec();
+        let (shape, probs) = match &self.model {
+            Engine::Onnx(lines) => lines.run(w, &input.pixels)?,
+            Engine::Rten(model) => {
+                let input = rten_tensor::NdTensor::from_data([1, 3, HEIGHT, w], input.pixels);
+                let out: rten_tensor::Tensor<f32> = model.run_one(input.view().into(), None).map_err(|e| e.to_string())?.try_into().map_err(|e| format!("{e:?}"))?;
+                (out.shape().to_vec(), out.to_vec())
+            }
+        };
         let (steps, classes) = match shape.as_slice() {
             [1, t, c] => (*t, *c),
             other => return Err(format!("unexpected output shape {other:?}")),
         };
-        let probs = out.to_vec();
         let chars: Vec<(char, usize, f32)> = ctc(&probs, steps, classes).into_iter().filter_map(|(k, t, p)| self.chars.get(k - 1).map(|c| (*c, t, p))).collect();
         // Each step covers `step` pixels of the line in the image.
         let step = cw as f32 / steps.max(1) as f32;

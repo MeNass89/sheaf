@@ -24,6 +24,7 @@ pub const LATIN_MODEL: &str = "latin-recognition.onnx";
 pub const LATIN_DICT: &str = "latin-dict.txt";
 
 mod latin;
+mod onnx;
 pub use latin::{RecognitionInput, recognition_input};
 
 /// The recognition model's alphabet, as it was trained (ocrs-models' `DEFAULT_ALPHABET`): its
@@ -202,6 +203,11 @@ impl Ocr {
             None => None,
         };
         Ok(Ocr { engine, latin })
+    }
+
+    /// Sheaf: the engine reading the lines ("onnxruntime" or "rten"), or "ocrs" without the Latin model.
+    pub fn engine(&self) -> &'static str {
+        self.latin.as_ref().map_or("ocrs", |l| l.engine())
     }
 
     /// Load the models found by [`Models::find`].
