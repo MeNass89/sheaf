@@ -39,3 +39,15 @@
 ## New dependencies
 
 None.
+
+## C-reader-010 pinch on a real Mac (28/10, Opus, MBP)
+
+Sol rev32 asked for a real macOS trackpad session. Done with real magnify events posted to WindowServer from the
+MBP (pyobjc, CGEvent type 29 = gesture, field 110 = 8 zoom, 113 = scale step, 132 = phase 1/2/4), so they take
+the trackpad's path: NSEvent magnify → winit PinchGesture → Slint ScaleRotateGestureHandler → zoom_at. On page
+80 of 80 (End, then the pointer at 60 % of the window), slow steps (+6 %) then fast ones (+15 %) from 106 % to
+800 %: the page point under the pointer stayed page 80, x 0.5040, y 0.2837–0.2838 at every one of ~25 events
+(log of zoom_around's anchor, SHEAF_VIEWER_DEBUG, instrumented copy on the MBP only). Found: in one gesture,
+fingers past 800 % then closing waited until the scale came back (1738 % asked, nothing shown). Fixed in
+reader.slint (the gesture's start follows it past 10–800 %); test pinching_back_past_the_largest_zoom_shrinks_at_once;
+on the MBP, the first step back now goes 800 → 720 %.

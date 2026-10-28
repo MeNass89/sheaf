@@ -430,6 +430,10 @@ export component ReaderScreen inherits Rectangle {
                             ViewerBridge.zoom-by(root.pinch-other, self.scale / root.pinch-prev, (self.center.x - root.pinch-ox) / 1px, (self.center.y - root.pinch-oy) / 1px, root.pinch-sx0 / 1px);
                             root.pinch-prev = self.scale;
                         } else {
+                            // Past 10–800 %, the gesture's start follows it: pinching back zooms at once,
+                            // as in Preview (it waited until the fingers came back to 800 %).
+                            if root.pinch-zoom0 * self.scale > 800 { root.pinch-zoom0 = 800 / self.scale; }
+                            if root.pinch-zoom0 * self.scale < 10 { root.pinch-zoom0 = 10 / self.scale; }
                             root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy);
                         }
                     }

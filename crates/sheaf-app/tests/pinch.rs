@@ -103,3 +103,21 @@ fn a_pinch_over_another_documents_pane_zooms_that_document() {
     let got = asked.borrow().clone();
     assert!(got.iter().any(|a| matches!(a, Asked::At(3, ..))) && !got.iter().any(|a| matches!(a, Asked::By(..) | Asked::Focus(_))), "{got:?}");
 }
+
+/// Fingers apart past 800 %, then closing in the same gesture: the zoom shrinks at the first step
+/// back, as in Preview, rather than once the fingers come back to where 800 % was.
+#[test]
+fn pinching_back_past_the_largest_zoom_shrinks_at_once() {
+    let (ui, asked) = reader(false);
+    pinch_event(&ui, 0.0, 700.0, 400.0, TouchPhase::Started);
+    for _ in 0..12 {
+        pinch_event(&ui, 0.5, 700.0, 400.0, TouchPhase::Moved);
+    }
+    pinch_event(&ui, -0.1, 700.0, 400.0, TouchPhase::Moved);
+    pinch_event(&ui, 0.0, 700.0, 400.0, TouchPhase::Ended);
+    let got = asked.borrow().clone();
+    let pct: Vec<f32> = got.iter().filter_map(|a| if let Asked::At(_, p, ..) = a { Some(*p) } else { None }).collect();
+    assert!(pct.iter().all(|p| *p <= 800.5), "never past 800 %: {pct:?}");
+    let last = *pct.last().unwrap();
+    assert!((last - 720.0).abs() < 1.0, "one step back is 90 % of 800 %: {pct:?}");
+}
