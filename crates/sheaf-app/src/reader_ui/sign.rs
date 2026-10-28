@@ -227,7 +227,8 @@ mod manager_preview_tests {
         assert!(placed_together(a, letter, [139.0, 680.0, 120.0, 40.0], (200.0, 792.0)));
         // Another signature elsewhere on a page of the same size is not a copy.
         assert!(!placed_together(a, letter, [100.0, 100.0, 150.0, 50.0], letter));
-        // A copy moved by hand on a shorter page is not either (its centre was not pulled to the edge).
+        // Geometry alone cannot tell a copy moved by hand on a shorter page: copies placed now carry
+        // a group (`a_repeated_signature_keeps_its_group_wherever_a_copy_is_moved`, engine_patches).
         assert!(!placed_together(a, letter, [225.0, 300.0, 150.0, 50.0], (612.0, 500.0)));
         assert!(placed_together(a, letter, a, letter));
     }
