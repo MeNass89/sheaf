@@ -107,6 +107,9 @@ ZOOM_X=716; ZOOM_MENU_X=745; WRENCH_X=1222
 
 # The next file dialog's answer (debug builds read it instead of showing the dialog); empty: none.
 answer() { printf '%s' "$1" > "$OUT/dialog-answer"; }
+# Images into JPG to PDF by its Open file (Tools ▸ JPG to PDF ▸ Open file, the dialog answered with them): images
+# opened from outside go to the reader (C-reader-064). Cards at 101/237/373…, 130.
+jpg_to_pdf() { answer "$(printf "$PWD/%s|" "$@" | sed 's/|$//')"; launch; click 50 21 1; click 67 113 1.5; click 271 517 2; click 494 405 1.5; answer ""; }
 
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.

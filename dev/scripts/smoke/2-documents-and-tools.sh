@@ -218,14 +218,18 @@ else
     echo "SKIP 15 (Office to PDF): LibreOffice not installed"
 fi
 
-# 16. Images opened from outside open JPG to PDF. US Letter (1130,260), Landscape (1188,341), "Merge
-# all images" unticked (1012,453): one Letter landscape PDF next to each image (set in step 10).
+# 16. Images opened from outside open in the reader, each in its own tab, as a preview (C-reader-064, Preview's
+# and Stirling's way): a.png and b.png give two reader tabs, each a one-page preview PDF of its picture in Sheaf's
+# temporary folder; nothing is merged or written next to the pictures.
 mkdir -p "$OUT/img"; convert -size 400x300 xc:'#3366cc' "$OUT/img/a.png"; convert -size 300x400 xc:'#cc6633' "$OUT/img/b.png"
-launch "$OUT/img/a.png" "$OUT/img/b.png"; JT=$(ocr 400x30+100+8)
-click 1130 260 0.5; click 1188 341 0.4; click 1012 453 0.4; shot 16-jpg-options; click 1133 755 1
-for _ in $(seq 1 20); do [ -f "$OUT/img/a.pdf" ] && [ -f "$OUT/img/b.pdf" ] && break; sleep 0.5; done
-JA=$(pdfinfo "$OUT/img/a.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts'); JB=$(pdfinfo "$OUT/img/b.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts')
-check "images opened from outside open JPG to PDF ($JT); unmerged, a US Letter landscape PDF each ($JA / $JB)" "echo \"$JT\" | grep -q 'JPG to PDF' && [ \"$JA\" = '792 x 612 pts' ] && [ \"$JB\" = '792 x 612 pts' ]"
+launch "$OUT/img/a.png" "$OUT/img/b.png"; sleep 3; JT=$(ocr 700x30+100+8); shot 16-images-opened
+JA=$(ls "$OUT"/profile/tmp/sheaf-previews/*/a.png.pdf 2>/dev/null | head -1); JB=$(ls "$OUT"/profile/tmp/sheaf-previews/*/b.png.pdf 2>/dev/null | head -1)
+NA=$(qpdf --show-npages "$JA" 2>/dev/null); NB=$(qpdf --show-npages "$JB" 2>/dev/null); NX=$(ls "$OUT/img" | grep -vc '\.png$')
+# The page in view is a.png's blue or b.png's orange: a picture, not an empty tool page (8-bit colour; c8 is
+# defined again in 4-flows.sh, which runs later).
+c8() { import -window root -crop "1x1+$1+420" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | head -1; }
+PV=$(c8 760)
+check "images opened from outside open each in its own reader tab ($JT; previews ${NA:-?} + ${NB:-?} pages; $NX other files; page $PV)" "echo \"$JT\" | grep -q 'a.png' && echo \"$JT\" | grep -q 'b.png' && [ \"$NA\" = 1 ] && [ \"$NB\" = 1 ] && [ \"$NX\" = 0 ] && ! echo \"$JT\" | grep -q 'JPG to PDF' && python3 -c 'import sys; v = sys.argv[1].lstrip(\"#\"); r, g, b = (int(v[k:k + 2], 16) for k in (0, 2, 4)); sys.exit(0 if abs(r - b) > 80 else 1)' '${PV:-#FFFFFF}'"
 quit
 
 # 17. A scanned PDF (a page that is only a picture) taken from the reader to PDF to Word: the options
