@@ -1,0 +1,72 @@
+// The AI side of the window (src/ai_ui.rs): the AI panel on a document (Acrobat's AI Assistant,
+// PDF Expert's AI Copilot) and Preferences ▸ AI.
+
+// A turn of the conversation: the user's request or the assistant's answer (or an error, said
+// plainly). `saved`: a file the answer was written to (a deck, a translation), opened from it.
+export struct AiMessage {
+    mine: bool,
+    text: string,
+    error: bool,
+    saved: string,
+    // Still being written (streamed).
+    live: bool,
+    // Try again is offered (network, rate limit, provider error, stopped).
+    retry: bool,
+    // The fix is in Preferences ▸ AI.
+    settings: bool,
+    // A podcast script: Save audio… is offered.
+    audio: bool,
+}
+
+export global AiBridge {
+    // The panel is open on the reader tab `tab`.
+    in property <bool> open;
+    in property <int> tab: -1;
+    // "Ollama (on this computer) · llama3.2", or what is missing.
+    in property <string> provider;
+    // The first time a provider is used: "Only the document's text is sent to …" (OK / Turn off).
+    in property <bool> show-notice;
+    in property <string> notice;
+    // A provider answers (false: no provider, so the panel says how to set one up).
+    in property <bool> configured: true;
+    // Sending is turned off (Preferences ▸ AI, or the note's Turn off).
+    in property <bool> off;
+    in property <[AiMessage]> messages;
+    in property <bool> busy;
+    in property <string> status;
+    // The text selected on the pages (shortened), for the selection chips and scope.
+    in property <string> selection;
+    in property <[string]> languages;
+    in property <int> language;
+    // AI spaces: their names ("This document" first) and the one in use (0: this document); its files.
+    in property <[string]> spaces;
+    in property <int> space;
+    in property <[string]> space-files;
+    in property <string> space-name;
+    // Open or close the panel on a tab.
+    callback toggle(int);
+    // A request: action ("ask", "summarize", "points", "translate", "podcast", "slides-pptx",
+    // "slides-pdf", "classify", "cancel", "clear", "notice-ok", "notice-off", "turn-on", "copy",
+    // "save", "open", "retry", "settings", "audio"), its text (a question, a language, categories, a message's index), the
+    // scope (0 whole document, 1 selection, 2 pages) and the pages typed.
+    callback act(int, string, string, int, string);
+    // Spaces: "select" (index), "new", "add", "remove" (a file's index), "open" (a file's index), "delete".
+    callback space-act(string, int);
+    // Rename the space in use (Acrobat's Rename space).
+    callback space-rename(string);
+
+    // Preferences ▸ AI.
+    in property <[string]> providers;
+    // 0: automatic (a local server when one answers), then `providers` from 1.
+    in property <int> pref-provider;
+    in property <string> pref-model;
+    in property <string> pref-model-hint;
+    in property <string> pref-base;
+    in property <string> pref-base-hint;
+    in property <bool> pref-needs-key;
+    in property <bool> pref-has-key;
+    in property <bool> pref-auto-open;
+    in property <string> pref-status;
+    // "provider" (index), "model", "base", "key", "forget-key", "off", "auto-open", "test".
+    callback pref(string, string);
+}

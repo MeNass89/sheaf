@@ -80,6 +80,9 @@ pub fn done(ui: &AppWindow, tab_id: i32, uid: i32) {
 }
 
 pub fn entered(ui: &AppWindow, pw: String) {
+    if crate::reader_ui::certificate::entered(ui, &pw) {
+        return;
+    }
     if let Some(path) = with(|a| a.reader_pw.take()) {
         ui.set_pw_visible(false);
         crate::reader_ui::open(ui, path, Some(pw));
@@ -97,6 +100,9 @@ pub fn entered(ui: &AppWindow, pw: String) {
 }
 
 pub fn skipped(ui: &AppWindow) {
+    if crate::reader_ui::certificate::skipped(ui) {
+        return show_head(ui);
+    }
     if with(|a| a.reader_pw.take()).is_some() {
         ui.set_pw_visible(false);
         ui.set_pw_wrong(false);

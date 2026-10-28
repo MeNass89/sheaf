@@ -1,4 +1,5 @@
-//! OCR PDF: PdfCraft's recogniser (ocrs models) adds an invisible, searchable text layer.
+//! OCR PDF: complete installed Tesseract packs are preferred for speed; bundled Latin models
+//! remain the offline fallback. Both paths add an invisible, searchable text layer.
 //!
 //! The models (`text-detection.rten`, `text-recognition.rten`, and PaddleOCR's `latin-recognition.onnx`
 //! with `latin-dict.txt`, which reads accented letters) are looked up in
@@ -19,7 +20,8 @@ mod local;
 pub struct OcrOptions {
     /// Codes from [`languages`], joined with + for mixed pages; extra scripts use local packs.
     pub language: String,
-    /// Use installed Tesseract even for Latin text, without loading the bundled model.
+    /// Require installed Tesseract. By default, complete installed packs are preferred,
+    /// with bundled recognition as the offline Latin fallback (iLovePDF's local OCR path).
     pub use_local_engine: bool,
     /// Also read pages that already contain text (only words not already there are added).
     pub read_text_pages: bool,
@@ -167,8 +169,8 @@ pub fn ocr(input: &Input, opts: &OcrOptions, out: &Path, progress: &mut dyn FnMu
     Ok(report)
 }
 
-fn use_local_engine(opts: &OcrOptions, bundled_models: bool) -> bool {
-    opts.use_local_engine || !bundled_models || opts.language.split('+').any(|selected| !eng::LANGUAGES.iter().any(|(code, _)| *code == selected))
+fn use_local_engine(opts: &OcrOptions, bundled_models: bool, local_selection: bool) -> bool {
+    opts.use_local_engine || local_selection || !bundled_models || opts.language.split('+').any(|selected| !eng::LANGUAGES.iter().any(|(code, _)| *code == selected))
 }
 
 /// What recognition found, before it is written.
@@ -197,7 +199,7 @@ pub(crate) fn recognize(doc: &mut Doc, opts: &OcrOptions, progress: &mut dyn FnM
     if let Some(why) = doc.session().get(doc.id()).and_then(|d| d.read_only_reason.clone()) {
         return Err(OpdfError::Unsupported(why));
     }
-    let external = use_local_engine(opts, models().is_some());
+    let external = use_local_engine(opts, models().is_some(), local::validate_selection(&opts.language).is_ok());
     if external { local::validate_selection(&opts.language).map_err(OpdfError::Unsupported)?; }
     let ocr = if external { None } else { Some(engine()?) };
     let settings = OcrSettings { dpi: opts.dpi, language: opts.language.clone(), skip_text_pages: !opts.read_text_pages };
@@ -275,17 +277,18 @@ mod tests {
     }
 
     #[test]
-    fn local_ocr_is_explicit_for_latin_and_automatic_for_extra_scripts() {
+    fn local_ocr_prefers_installed_language_packs_and_falls_back_to_bundled_latin() {
         let mut opts = OcrOptions::default();
-        assert!(!use_local_engine(&opts, true));
+        assert!(!use_local_engine(&opts, true, false));
+        assert!(use_local_engine(&opts, true, true), "installed packs avoid loading RTEN for Latin pages");
         opts.use_local_engine = true;
-        assert!(use_local_engine(&opts, true));
+        assert!(use_local_engine(&opts, true, false));
         opts.use_local_engine = false;
         opts.language = "en+ja".into();
-        assert!(use_local_engine(&opts, true));
+        assert!(use_local_engine(&opts, true, false));
         opts.language = "fr+en".into();
-        assert!(!use_local_engine(&opts, true));
-        assert!(use_local_engine(&opts, false));
+        assert!(!use_local_engine(&opts, true, false));
+        assert!(use_local_engine(&opts, false, false));
     }
 
 }

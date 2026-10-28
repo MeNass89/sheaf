@@ -15,7 +15,7 @@ export component ProcessingOverlay inherits Rectangle {
         alignment: center;
         spacing: 14px;
         Text {
-            text: root.cancelling ? "Cancelling…" : "Processing…";
+            text: root.cancelling ? @tr("Cancelling…") : @tr("Processing…");
             font-size: Theme.fs-subtitle;
             font-weight: Theme.weight-demibold;
             color: Theme.text;
@@ -54,7 +54,7 @@ export component ProcessingOverlay inherits Rectangle {
                 background: touch.has-hover && !root.cancelling ? Theme.popup-hover : Theme.card;
                 opacity: root.cancelling ? 0.4 : 1;
                 Text {
-                    text: "Cancel";
+                    text: @tr("Cancel");
                     font-size: Theme.fs-button;
                     font-weight: Theme.weight-demibold;
                     color: Theme.text;

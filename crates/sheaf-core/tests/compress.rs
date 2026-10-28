@@ -460,3 +460,23 @@ fn grayscale_makes_drawings_and_pictures_grey_and_keeps_the_text() {
     assert!(before.as_chunks::<4>().0.iter().filter(|p| (p[0] as i32 - p[1] as i32).abs() > 3).count() > 1000, "the original has colour");
     assert!(common::page_texts(&out)[0].contains("Grey words"), "the text is still text");
 }
+
+
+#[test]
+fn advanced_optimizer_keeps_progress_monotonic_and_reports_postprocessing_size() {
+    use sheaf_core::compress::{compress_advanced, Advanced};
+    let t = tempfile::tempdir().unwrap();
+    let source = common::fixture_pdf(t.path(), "web.pdf", 2);
+    let mut progress = Vec::new();
+    let report = compress_advanced(&Input::new(&source), Level::Target(1),
+        &Advanced { flatten_transparency: true, linearize: true, discard_metadata: true, ..Default::default() },
+        &t.path().join("optimized.pdf"), &mut |p| { progress.push(p); true }).unwrap();
+    assert!(progress.windows(2).all(|p| p[0] <= p[1]), "{progress:?}");
+    assert_eq!(progress.last(), Some(&1.0));
+    assert!(report.missed_target);
+    assert_eq!(report.after, std::fs::metadata(&report.path).unwrap().len());
+    assert_eq!(common::page_texts(&report.path), ["Page 1", "Page 2"]);
+    assert!(std::process::Command::new("qpdf").arg("--check-linearization").arg(&report.path).status().unwrap().success());
+    let pdf = lopdf::Document::load(report.path).unwrap();
+    assert!(pdf.trailer.get(b"Info").is_err());
+}

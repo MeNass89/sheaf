@@ -1,5 +1,6 @@
 // Acrobat's Print Production: choose a scope, then an undoable fix or page-box change.
 import { ScrollView } from "std-widgets.slint";
+import { PrintPreviewBridge } from "reader-ink-preview.slint";
 import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SmallButton } from "reader-parts.slint";
@@ -11,6 +12,8 @@ export component ProductionSheet inherits Rectangle {
     callback focus-pages();
     property <bool> all: false;
     property <int> box: 0;
+    property <int> press-level: 0;
+    property <int> mark-style: 0;
     background: #00000044;
     TouchArea { }
     FocusScope {
@@ -30,69 +33,85 @@ export component ProductionSheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 12px;
-            Text { text: "Print production"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Print production"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
             HorizontalLayout {
                 spacing: 8px;
-                SmallButton { text: "Selected / current page"; primary: !root.all; clicked => { root.all = false; } }
-                SmallButton { text: "All pages"; primary: root.all; clicked => { root.all = true; } }
+                SmallButton { text: @tr("Selected / current page"); primary: !root.all; clicked => { root.all = false; } }
+                SmallButton { text: @tr("All pages"); primary: root.all; clicked => { root.all = true; } }
             }
             ScrollView {
                 vertical-stretch: 1;
                 VerticalLayout {
                     spacing: 12px;
-                    Text { text: "Fix page hairlines"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Raises page and grouped Form strokes.\nPatterns, text and comments stay as they are."; font-size: Theme.fs-caption; color: Theme.text-muted; }
-                    minimum := TextField { label: "Minimum stroke (points)"; text: "0.25"; }
+                    Text { text: @tr("Fix page hairlines"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Raises page, Form and pattern strokes.\nType 3 glyph strokes are included.\nOther font outlines and comments stay."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    minimum := TextField { label: @tr("Minimum stroke (points)"); text: "0.25"; }
                     HorizontalLayout {
-                        SmallButton { text: "Fix hairlines"; clicked => { ReaderBridge.production-hairlines(root.id, minimum.text, root.all); root.focus-pages(); } }
+                        SmallButton { text: @tr("Fix hairlines"); clicked => { ReaderBridge.production-hairlines(root.id, minimum.text, root.all); root.focus-pages(); } }
                     }
                     Rectangle { height: 1px; background: Theme.separator; }
-                    Text { text: "Set page boxes"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Margins inward from each media box.\nPDF units, before rotation. Artwork stays put.\nSet boxes before adding crop marks."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: @tr("Set page boxes"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Margins inward from each media box.\nPDF units, before rotation. Artwork stays put.\nSet boxes before adding crop marks."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
                         spacing: 8px;
-                        for name[k] in ["Crop", "Trim", "Bleed", "Art"]: SmallButton { text: name; primary: root.box == k; clicked => { root.box = k; } }
+                        for name[k] in [@tr("Crop"), @tr("Trim"), @tr("Bleed"), @tr("Art")]: SmallButton { text: name; primary: root.box == k; clicked => { root.box = k; } }
                     }
                     HorizontalLayout {
                         spacing: 10px;
-                        left := TextField { label: "Left"; text: "0"; }
-                        bottom := TextField { label: "Bottom"; text: "0"; }
-                        right := TextField { label: "Right"; text: "0"; }
-                        top := TextField { label: "Top"; text: "0"; }
+                        left := TextField { label: @tr("Left"); text: "0"; }
+                        bottom := TextField { label: @tr("Bottom"); text: "0"; }
+                        right := TextField { label: @tr("Right"); text: "0"; }
+                        top := TextField { label: @tr("Top"); text: "0"; }
                     }
                     HorizontalLayout {
                         spacing: 8px;
-                        SmallButton { text: "Set box"; clicked => { ReaderBridge.production-box(root.id, root.box, left.text, bottom.text, right.text, top.text, false, root.all); root.focus-pages(); } }
-                        SmallButton { text: "Reset box"; clicked => { ReaderBridge.production-box(root.id, root.box, "", "", "", "", true, root.all); root.focus-pages(); } }
+                        SmallButton { text: @tr("Set box"); clicked => { ReaderBridge.production-box(root.id, root.box, left.text, bottom.text, right.text, top.text, false, root.all); root.focus-pages(); } }
+                        SmallButton { text: @tr("Reset box"); clicked => { ReaderBridge.production-box(root.id, root.box, "", "", "", "", true, root.all); root.focus-pages(); } }
                     }
                     Rectangle { height: 1px; background: Theme.separator; }
-                    Text { text: "Crop marks"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Black marks outside the existing bleed.\nThe sheet grows; hidden art stays clipped.\nNo bleed artwork is created."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: @tr("Printer marks"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Marks stay outside the existing bleed.\nThe sheet grows; hidden art stays clipped.\nRegistration targets print on every plate."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
-                        SmallButton { text: "Add crop marks"; clicked => { ReaderBridge.production-marks(root.id, root.all); root.focus-pages(); } }
+                        spacing: 8px;
+                        for name[k] in [@tr("Crop"), @tr("All"), @tr("Register"), @tr("Bars"), @tr("Page info")]: SmallButton { text: name; primary: root.mark-style == k; clicked => { root.mark-style = k; } }
                     }
-                    Rectangle { height: 1px; background: Theme.separator; }
-                    Text { text: "Save as PDF/X-3:2002"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    Text { text: "Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    mark-width := TextField { label: @tr("Mark width (points)"); text: "0.25"; }
                     HorizontalLayout {
-                        SmallButton { text: root.tab.reader.press-profile == "" ? "Choose ICC profile…" : "Change ICC profile…"; clicked => { ReaderBridge.press-profile(root.id); } }
+                        SmallButton { text: @tr("Add printer marks"); clicked => { ReaderBridge.production-marks(root.id, root.all, root.mark-style, mark-width.text); root.focus-pages(); } }
+                    }
+                    HorizontalLayout { SmallButton { text: @tr("Flattener preview…"); clicked => { PrintPreviewBridge.open(root.id, 1); } } }
+                    Text { text: @tr("Preview compares the current page with PDF 1.3.\nThe working document stays unchanged.\nTrapping is unavailable."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Rectangle { height: 1px; background: Theme.separator; }
+                    Text { text: @tr("Save as PDF/X"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        for name[k] in [@tr("X-3:2002"), @tr("X-1a:2001"), @tr("X-4")]: SmallButton { text: name; primary: root.press-level == k; clicked => { root.press-level = k; } }
+                    }
+                    Text { text: @tr("Installed press profiles"); font-size: Theme.fs-caption; color: Theme.text-secondary; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        for name[k] in [@tr("FOGRA39"), @tr("GRACoL"), @tr("SWOP")]: SmallButton { text: name; clicked => { ReaderBridge.press-preset(root.id, k); condition.text = ""; } }
+                    }
+                    HorizontalLayout {
+                        SmallButton { text: root.tab.reader.press-profile == "" ? @tr("Choose ICC profile…") : @tr("Change ICC profile…"); clicked => { ReaderBridge.press-profile(root.id); } }
                     }
                     if root.tab.reader.press-profile != "": Text { text: root.tab.reader.press-profile; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
-                    condition := TextField { label: "Output condition"; placeholder: "For example, FOGRA39 coated"; }
-                    Text { text: "Checks ICC bytes, fonts and transparency.\nFull ISO validation is not included.\nNo PDF/E or other PDF/X levels."; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    condition := TextField { label: @tr("Output condition"); placeholder: @tr("Preset condition, or enter the press name"); }
+                    Text { text: @tr("Checks ICC, fonts and level restrictions.\nX-4 needs a recent Ghostscript.\nFull ISO validation is not included.\nPDF/E is not available."); font-size: Theme.fs-caption; color: Theme.text-muted; }
                     HorizontalLayout {
                         SmallButton {
-                            text: root.tab.reader.press-busy ? "Converting…" : "Save PDF/X-3 copy…";
+                            text: root.tab.reader.press-busy ? @tr("Converting…") : @tr("Save PDF/X copy…");
                             opacity: root.tab.reader.press-busy ? 0.5 : 1;
-                            clicked => { if !root.tab.reader.press-busy { ReaderBridge.press-export(root.id, condition.text); } }
+                            clicked => { if !root.tab.reader.press-busy { ReaderBridge.press-export(root.id, condition.text, root.press-level); } }
                         }
                     }
                 }
             }
             HorizontalLayout {
-                Text { text: "Page edits can be undone"; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
+                Text { text: @tr("Page edits can be undone"); font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; }
-                SmallButton { text: "Close"; clicked => { ReaderBridge.production-close(root.id); root.focus-pages(); } }
+                SmallButton { text: @tr("Close"); clicked => { ReaderBridge.production-close(root.id); root.focus-pages(); } }
             }
         }
     }

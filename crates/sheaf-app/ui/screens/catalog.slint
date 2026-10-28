@@ -2,12 +2,15 @@
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { PanelButton } from "../widgets/panel-button.slint";
+import { Check } from "../widgets/check.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { ToolTab, ReaderBridge } from "../flow-types.slint";
 
 export component CatalogSheet inherits Rectangle {
     in property <ToolTab> tab;
     callback focus-pages();
+    property <int> search-flags: mode.current-index + (whole.checked ? 8 : 0) + (match-case.checked && !stems.checked ? 16 : 0) + (stems.checked ? 32 : 0);
     background: #00000044;
     TouchArea { }
     Rectangle {
@@ -18,25 +21,34 @@ export component CatalogSheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 12px;
-            Text { text: "Search catalog"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-            Text { text: "Index saved PDFs once, then search their text. Protected files are excluded."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+            Text { text: @tr("Search catalog"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Index saved PDFs once, then search their text. Protected files are excluded."); font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
             HorizontalLayout {
                 spacing: 8px;
-                PanelButton { text: "Add PDFs…"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 1, 0, ""); } }
-                PanelButton { text: "Open catalog…"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 4, 0, ""); } }
-                PanelButton { text: "Build and save…"; primary: true; enabled: !root.tab.reader.catalog-busy && root.tab.reader.catalog-files.length > 0; clicked => { ReaderBridge.catalog-action(root.tab.id, 3, 0, ""); } }
+                PanelButton { text: @tr("Add PDFs…"); enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 1, 0, ""); } }
+                PanelButton { text: @tr("Add folder…"); enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 8, 0, ""); } }
+                PanelButton { text: @tr("Open catalog…"); enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 4, 0, ""); } }
+                PanelButton { text: @tr("Build and save…"); primary: true; enabled: !root.tab.reader.catalog-busy && root.tab.reader.catalog-files.length > 0; clicked => { ReaderBridge.catalog-action(root.tab.id, 3, 0, ""); } }
             }
             HorizontalLayout {
                 spacing: 8px;
-                query := TextField { placeholder: "Words or phrase"; horizontal-stretch: 1; accepted => { ReaderBridge.catalog-action(root.tab.id, 5, 0, query.text); } }
-                PanelButton { text: "Search"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 5, 0, query.text); } }
+                query := TextField { placeholder: @tr("Words or phrase"); enabled: !root.tab.reader.catalog-busy; horizontal-stretch: 1; accepted => { ReaderBridge.catalog-action(root.tab.id, 5, root.search-flags, query.text); } }
+                PanelButton { text: @tr("Search"); enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 5, root.search-flags, query.text); } }
             }
+            HorizontalLayout {
+                spacing: 12px;
+                mode := SortCombo { width: 220px; options: [@tr("Exact phrase"), @tr("All words"), @tr("Any words"), @tr("Boolean query"), @tr("Within 10 words")]; chevron: @image-url("../icons/chevron-down.svg"); }
+                whole := Check { text: @tr("Whole words"); enabled: !root.tab.reader.catalog-busy && mode.current-index == 0; }
+                match-case := Check { text: @tr("Match case"); enabled: !root.tab.reader.catalog-busy && !stems.checked; }
+            }
+            stems := Check { text: @tr("English word stems (for example, running → run)"); enabled: !root.tab.reader.catalog-busy; }
+            if mode.current-index == 3: Text { text: @tr("Use AND, OR, NOT, parentheses and quoted phrases. AND is evaluated before OR."); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
             HorizontalLayout {
                 spacing: 16px;
                 VerticalLayout {
                     width: 240px;
                     spacing: 8px;
-                    Text { text: "Sources · " + root.tab.reader.catalog-files.length; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Sources · {}", root.tab.reader.catalog-files.length); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
                     ScrollView {
                         VerticalLayout {
                             spacing: 6px;
@@ -49,7 +61,7 @@ export component CatalogSheet inherits Rectangle {
                                     padding: 6px;
                                     spacing: 4px;
                                     Text { text: path; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
-                                    PanelButton { text: "Remove"; enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 2, k, ""); } }
+                                    PanelButton { text: @tr("Remove"); enabled: !root.tab.reader.catalog-busy; clicked => { ReaderBridge.catalog-action(root.tab.id, 2, k, ""); } }
                                 }
                             }
                         }
@@ -58,7 +70,7 @@ export component CatalogSheet inherits Rectangle {
                 VerticalLayout {
                     spacing: 8px;
                     horizontal-stretch: 1;
-                    Text { text: "Results"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Results"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
                     ScrollView {
                         VerticalLayout {
                             spacing: 6px;
@@ -72,7 +84,7 @@ export component CatalogSheet inherits Rectangle {
                                     spacing: 4px;
                                     Text { text: hit.file + " · " + hit.page; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
                                     Text { text: hit.line; font-size: Theme.fs-label; color: Theme.text; overflow: elide; }
-                                    PanelButton { text: "Open page"; clicked => { ReaderBridge.catalog-action(root.tab.id, 6, k, ""); } }
+                                    PanelButton { text: @tr("Open page"); clicked => { ReaderBridge.catalog-action(root.tab.id, 6, k, ""); } }
                                 }
                             }
                         }
@@ -82,9 +94,9 @@ export component CatalogSheet inherits Rectangle {
             Text { text: root.tab.reader.catalog-status; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; max-height: 54px; overflow: elide; }
             HorizontalLayout {
                 spacing: 8px;
-                if root.tab.reader.catalog-busy: PanelButton { text: "Cancel operation"; clicked => { ReaderBridge.catalog-action(root.tab.id, 7, 0, ""); } }
+                if root.tab.reader.catalog-busy: PanelButton { text: @tr("Cancel operation"); clicked => { ReaderBridge.catalog-action(root.tab.id, 7, 0, ""); } }
                 Rectangle { horizontal-stretch: 1; }
-                PanelButton { text: "Close"; clicked => { ReaderBridge.catalog-action(root.tab.id, 0, 0, ""); root.focus-pages(); } }
+                PanelButton { text: @tr("Close"); clicked => { ReaderBridge.catalog-action(root.tab.id, 0, 0, ""); root.focus-pages(); } }
             }
         }
     }

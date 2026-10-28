@@ -28,6 +28,8 @@ pub struct Job {
     pub booklet: bool,
     /// In shades of grey (Acrobat's Print in grayscale, iLovePDF's Grayscale).
     pub gray: bool,
+    /// 0 the printer's own quality, 1 draft, 2 normal, 3 high (Preferences ▸ Printing).
+    pub quality: u8,
 }
 
 /// The paper sizes the print sheet offers after the printer's own (index 1, 2, 3).
@@ -88,6 +90,10 @@ pub fn lp_args(job: &Job, file: &Path) -> Vec<String> {
     if job.gray {
         a.extend(["-o".into(), "print-color-mode=monochrome".into()]);
     }
+    // IPP print-quality: 3 draft, 4 normal, 5 high.
+    if (1..=3).contains(&job.quality) {
+        a.extend(["-o".into(), format!("print-quality={}", job.quality + 2)]);
+    }
     if let Some(m) = &job.media {
         a.extend(["-o".into(), format!("media={m}")]);
     }
@@ -138,7 +144,7 @@ pub fn preview(bytes: &[u8], layout: i32, gray: bool, comments: bool) -> Result<
     let per = [1u8, 2, 4, 6, 9, 16][layout.clamp(0, 5) as usize];
     let b = if layout == 6 {
         booklet(&b)?
-    } else if per > 1 && per != 16 {
+    } else if per > 1 {
         let dir = tempfile::tempdir().map_err(|e| e.to_string())?;
         let (from, to) = (dir.path().join("in.pdf"), dir.path().join("up.pdf"));
         std::fs::write(&from, &b).map_err(|e| e.to_string())?;
@@ -196,7 +202,7 @@ mod tests {
 
     #[test]
     fn lp_gets_every_option() {
-        let job = Job { printer: "PDF".into(), copies: 2, pages: Some("1-2".into()), fit: true, two_sided: true, media: None, orientation: 0, per_sheet: 1, booklet: false, gray: false };
+        let job = Job { printer: "PDF".into(), copies: 2, pages: Some("1-2".into()), fit: true, two_sided: true, media: None, orientation: 0, per_sheet: 1, booklet: false, gray: false, quality: 0 };
         let a = lp_args(&job, Path::new("/tmp/x/Book.pdf"));
         assert_eq!(a, ["-d", "PDF", "-n", "2", "-P", "1-2", "-o", "fit-to-page", "-o", "sides=two-sided-long-edge", "-t", "Book", "--", "/tmp/x/Book.pdf"]);
         let job = Job { copies: 0, pages: None, fit: false, two_sided: false, ..job };
@@ -210,8 +216,14 @@ mod tests {
         // pages imposed already.
         let a = lp_args(&Job { per_sheet: 4, gray: true, ..job.clone() }, Path::new("/tmp/x/Book.pdf"));
         assert!(a.windows(2).any(|w| w == ["-o", "number-up=4"]) && a.windows(2).any(|w| w == ["-o", "print-color-mode=monochrome"]), "{a:?}");
-        let a = lp_args(&Job { per_sheet: 4, booklet: true, ..job }, Path::new("/tmp/x/Book.pdf"));
+        let a = lp_args(&Job { per_sheet: 4, booklet: true, ..job.clone() }, Path::new("/tmp/x/Book.pdf"));
         assert!(a.windows(2).any(|w| w == ["-o", "sides=two-sided-short-edge"]) && !a.iter().any(|s| s.starts_with("number-up")), "{a:?}");
+        // Preferences ▸ Printing ▸ Quality: draft, normal and high as IPP numbers; the printer's own adds nothing.
+        for (q, ipp) in [(1, "3"), (2, "4"), (3, "5")] {
+            let a = lp_args(&Job { quality: q, ..job.clone() }, Path::new("/tmp/x/Book.pdf"));
+            assert!(a.windows(2).any(|w| w == ["-o".to_string(), format!("print-quality={ipp}")]), "{a:?}");
+        }
+        assert!(!lp_args(&job, Path::new("/tmp/x/Book.pdf")).iter().any(|s| s.starts_with("print-quality")));
     }
 
     /// The preview of two pages a sheet is wider than tall (the pages side by side), in grey all its
@@ -228,6 +240,13 @@ mod tests {
         let (w, h, px) = preview(&bytes, 1, true, true).unwrap();
         assert!(w > h, "two a sheet: wide ({w} × {h})");
         assert!(px.as_chunks::<4>().0.iter().all(|p| p[0] == p[1] && p[1] == p[2]), "grey");
+        // Sixteen a sheet (Sol, 27/10: the preview showed one page where sixteen print): the two
+        // red pages fill two cells of sixteen, not the sheet.
+        let red = |px: &[u8]| px.as_chunks::<4>().0.iter().filter(|p| p[0] > 150 && p[1] < 90).count() as f32 / (px.len() / 4) as f32;
+        let (_, _, one) = preview(&bytes, 0, false, true).unwrap();
+        let (w, h, px) = preview(&bytes, 5, false, true).unwrap();
+        assert!(h > w, "four by four: tall ({w} × {h})");
+        assert!(red(&one) > 0.8 && red(&px) > 0.04 && red(&px) < 0.2, "red: one {} sixteen {}", red(&one), red(&px));
     }
 
     /// Comments off: a highlight and a note go, a form field and a link stay.

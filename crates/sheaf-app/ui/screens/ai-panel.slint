@@ -1,0 +1,230 @@
+// The AI panel beside a document (PDF Expert's AI Copilot panel, Acrobat's AI Assistant): suggestion
+// chips, ask about the document or the selection, summarize, main points, translate, a podcast
+// script, slides, AI spaces of several PDFs and classifying them. Behaviour: src/ai_ui.rs.
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { PanelButton } from "../widgets/panel-button.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { AiBridge } from "../ai.slint";
+
+// A suggestion (PDF Expert's prompt chips): a rounded pill that sends its request.
+component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 28px;
+    width: label.preferred-width + 20px;
+    border-radius: 14px;
+    border-width: 1px;
+    border-color: touch.has-hover && root.enabled ? Theme.accent : Theme.input-border;
+    background: touch.has-hover && root.enabled ? Theme.popup-hover : Theme.card;
+    opacity: root.enabled ? 1 : 0.5;
+    label := Text { text: root.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; horizontal-alignment: center; }
+    touch := TouchArea { enabled: root.enabled; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component AiPanel inherits Rectangle {
+    in property <int> id;
+    callback focus-pages();
+    property <bool> ready: !AiBridge.busy && !AiBridge.off;
+    // The scope chosen (0 whole document, 1 selection, 2 pages) and the pages typed; a space
+    // is always read whole.
+    property <int> scope-index;
+    property <string> pages-typed;
+    property <int> scope: AiBridge.space > 0 ? 0 : root.scope-index;
+    // A space made or deleted from Rust moves the list's choice too.
+    property <int> space-now: AiBridge.space;
+    changed space-now => { space-box.current-index = AiBridge.space; root.renaming = false; }
+    // Rename shows the space's name in a field.
+    property <bool> renaming;
+    background: Theme.card;
+    border-width: 1px;
+    border-color: Theme.input-border;
+    TouchArea { }
+    VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: @tr("AI Assistant"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; }
+            if AiBridge.messages.length > 0: PanelButton { text: @tr("Clear"); enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "clear", "", 0, ""); } }
+            PanelButton { text: @tr("Close"); clicked => { AiBridge.toggle(root.id); root.focus-pages(); } }
+        }
+        Text { text: AiBridge.provider; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+        // The first time with a provider: what is sent, and where (Acrobat's and PDF Expert's
+        // privacy notes), with a way to turn it off.
+        if AiBridge.show-notice && !AiBridge.off: Rectangle {
+            border-radius: Theme.radius-small;
+            background: Theme.info-bg;
+            height: note.preferred-height;
+            note := VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+                Text { text: AiBridge.notice; font-size: Theme.fs-label; color: Theme.text; wrap: word-wrap; }
+                HorizontalLayout {
+                    spacing: 8px;
+                    alignment: start;
+                    PanelButton { text: @tr("OK"); primary: true; clicked => { AiBridge.act(root.id, "notice-ok", "", 0, ""); } }
+                    PanelButton { text: @tr("Turn off AI"); clicked => { AiBridge.act(root.id, "notice-off", "", 0, ""); } }
+                }
+            }
+        }
+        // No provider answers yet: say what to do, with the way there (the panel stays usable once set).
+        if !AiBridge.configured && !AiBridge.off: Rectangle {
+            border-radius: Theme.radius-small;
+            background: Theme.popup-hover;
+            height: setup.preferred-height;
+            setup := VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+                Text { text: "No AI provider yet"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                Text { text: "Add an API key (OpenAI, Claude, Gemini, Mistral, xAI) or start Ollama or a llama.cpp server on this computer."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                HorizontalLayout { alignment: start; PanelButton { text: "Set up AI…"; primary: true; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } } }
+            }
+        }
+        if AiBridge.off: Rectangle {
+            border-radius: Theme.radius-small;
+            background: Theme.popup-hover;
+            height: offl.preferred-height;
+            offl := VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+                Text { text: @tr("Sending text to AI is off. Nothing leaves this computer."); font-size: Theme.fs-label; color: Theme.text; wrap: word-wrap; }
+                HorizontalLayout { alignment: start; PanelButton { text: @tr("Turn on"); clicked => { AiBridge.act(root.id, "turn-on", "", 0, ""); } } }
+            }
+        }
+        // Acrobat's AI spaces: this document, or a group of PDFs asked together.
+        HorizontalLayout {
+            spacing: 6px;
+            space-box := SortCombo {
+                width: 220px;
+                options: AiBridge.spaces;
+                current-index: AiBridge.space;
+                chevron: @image-url("../icons/chevron-down.svg");
+                selected(k) => { AiBridge.space-act("select", k); }
+            }
+            PanelButton { width: 104px; text: @tr("New space"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("new", 0); } }
+        }
+        if AiBridge.space > 0: VerticalLayout {
+            spacing: 4px;
+            if AiBridge.space-files.length == 0: Text { text: "This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+            for f[k] in AiBridge.space-files: HorizontalLayout {
+                spacing: 6px;
+                Text { text: f; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; TouchArea { mouse-cursor: pointer; clicked => { AiBridge.space-act("open", k); } } }
+                PanelButton { text: @tr("Remove"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("remove", k); } }
+            }
+            if root.renaming: HorizontalLayout {
+                spacing: 6px;
+                name-field := TextField {
+                    horizontal-stretch: 1;
+                    text: AiBridge.space-name;
+                    // The cursor in the name at once, as a rename in Finder or Acrobat.
+                    init => { self.focus-input(); }
+                    accepted => { AiBridge.space-rename(self.text); root.renaming = false; }
+                }
+                PanelButton { width: 64px; text: "Done"; clicked => { AiBridge.space-rename(name-field.text); root.renaming = false; } }
+            }
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                PanelButton { text: @tr("Add PDFs…"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("add", 0); } }
+                PanelButton { text: "Rename"; enabled: !AiBridge.busy; clicked => { root.renaming = true; } }
+                PanelButton { text: @tr("Delete space"); enabled: !AiBridge.busy; clicked => { AiBridge.space-act("delete", 0); } }
+            }
+            Text { text: "Drop PDFs on the document to add them to this space."; font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+        }
+        // What the requests read: the whole document (or space), the selection, or some pages.
+        if AiBridge.space == 0: HorizontalLayout {
+            spacing: 6px;
+            SortCombo {
+                width: 170px;
+                current-index <=> root.scope-index;
+                options: AiBridge.selection != "" ? ["Whole document", "Selection", "Pages"] : ["Whole document", "Selection (none)", "Pages"];
+                chevron: @image-url("../icons/chevron-down.svg");
+            }
+            if root.scope-index == 2: TextField { placeholder: @tr("e.g. 1-3, 5"); horizontal-stretch: 1; text <=> root.pages-typed; }
+        }
+        if AiBridge.selection != "" && AiBridge.space == 0: Text { text: @tr("Selected: “{}”", AiBridge.selection); font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
+        // Suggestions (PDF Expert's chips): one click, one request.
+        FlexboxLayout {
+            flex-wrap: FlexboxLayoutWrap.wrap;
+            spacing: 6px;
+            if AiBridge.selection != "" && AiBridge.space == 0: Chip { text: @tr("Explain the selection"); enabled: root.ready; clicked => { AiBridge.act(root.id, "ask", "Explain this passage in simple words.", 1, ""); } }
+            Chip { text: @tr("Summarize"); enabled: root.ready; clicked => { AiBridge.act(root.id, "summarize", "", root.scope, root.pages-typed); } }
+            Chip { text: @tr("Main points"); enabled: root.ready; clicked => { AiBridge.act(root.id, "points", "", root.scope, root.pages-typed); } }
+            Chip { text: @tr("What is this about?"); enabled: root.ready; clicked => { AiBridge.act(root.id, "ask", "What is this document about, in three sentences?", root.scope, root.pages-typed); } }
+            Chip { text: @tr("Podcast script"); enabled: root.ready; clicked => { AiBridge.act(root.id, "podcast", "", root.scope, root.pages-typed); } }
+            Chip { text: @tr("Slides (PowerPoint)"); enabled: root.ready; clicked => { AiBridge.act(root.id, "slides-pptx", "", root.scope, root.pages-typed); } }
+            Chip { text: @tr("Slides (PDF)"); enabled: root.ready; clicked => { AiBridge.act(root.id, "slides-pdf", "", root.scope, root.pages-typed); } }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            lang := SortCombo { horizontal-stretch: 1; options: AiBridge.languages; current-index: AiBridge.language; chevron: @image-url("../icons/chevron-down.svg"); }
+            PanelButton { width: 104px; text: @tr("Translate"); enabled: root.ready; clicked => { AiBridge.act(root.id, "translate", AiBridge.languages[lang.current-index], root.scope, root.pages-typed); } }
+        }
+        // Stirling's Classify: the space's PDFs (or PDFs picked) sorted into categories.
+        HorizontalLayout {
+            spacing: 6px;
+            cats := TextField { placeholder: @tr("Categories, e.g. Invoice, Contract"); horizontal-stretch: 1; }
+            PanelButton { width: 124px; text: AiBridge.space > 0 ? @tr("Classify space") : @tr("Classify PDFs…"); enabled: root.ready; clicked => { AiBridge.act(root.id, "classify", cats.text, 0, ""); } }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            content-y: min(0px, self.visible-height - self.content-height);
+            VerticalLayout {
+                spacing: 8px;
+                alignment: start;
+                if AiBridge.messages.length == 0: Text {
+                    text: @tr("Ask anything about this document, or pick a suggestion. Answers cite the pages they come from.");
+                    font-size: Theme.fs-label;
+                    color: Theme.text-muted;
+                    wrap: word-wrap;
+                }
+                for m[k] in AiBridge.messages: Rectangle {
+                    border-radius: Theme.radius-small;
+                    // An error is outlined in red on the card, never in the colour of the user's own messages.
+                    background: m.error ? Theme.card : m.mine ? Theme.menu-selected-bg : Theme.content-bg;
+                    border-width: m.error ? 1px : 0px;
+                    border-color: Theme.danger;
+                    height: bubble.preferred-height;
+                    bubble := VerticalLayout {
+                        padding: 10px;
+                        spacing: 6px;
+                        Text { text: m.mine ? @tr("You") : m.error ? @tr("Could not answer") : m.live ? "AI · writing…" : @tr("AI"); font-size: Theme.fs-caption; font-weight: Theme.weight-demibold; color: m.error ? Theme.danger : Theme.text-secondary; }
+                        Text { text: m.text; font-size: Theme.fs-label; color: Theme.text; wrap: word-wrap; }
+                        if m.retry || m.settings: HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            if m.retry: PanelButton { text: "Try again"; enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "retry", "" + k, 0, ""); } }
+                            if m.settings: PanelButton { text: "Open AI settings…"; clicked => { AiBridge.act(root.id, "settings", "", 0, ""); } }
+                        }
+                        if !m.mine && !m.error && !m.live: HorizontalLayout {
+                            spacing: 6px;
+                            alignment: start;
+                            PanelButton { text: @tr("Copy"); clicked => { AiBridge.act(root.id, "copy", "" + k, 0, ""); } }
+                            PanelButton { text: @tr("Save…"); clicked => { AiBridge.act(root.id, "save", "" + k, 0, ""); } }
+                            if m.saved != "": PanelButton { text: @tr("Open"); clicked => { AiBridge.act(root.id, "open", "" + k, 0, ""); } }
+                            if m.audio: PanelButton { text: "Save audio…"; enabled: !AiBridge.busy; clicked => { AiBridge.act(root.id, "audio", "" + k, 0, ""); } }
+                        }
+                    }
+                }
+            }
+        }
+        if AiBridge.busy || AiBridge.status != "": HorizontalLayout {
+            spacing: 8px;
+            Text { text: AiBridge.status; font-size: Theme.fs-caption; color: Theme.text-secondary; vertical-alignment: center; wrap: word-wrap; horizontal-stretch: 1; }
+            if AiBridge.busy: PanelButton { text: @tr("Stop"); clicked => { AiBridge.act(root.id, "cancel", "", 0, ""); } }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            question := TextField {
+                placeholder: AiBridge.space > 0 ? @tr("Ask about the space's PDFs") : root.scope == 1 ? @tr("Ask about the selection") : @tr("Ask about this document");
+                enabled: root.ready;
+                horizontal-stretch: 1;
+                accepted => { if question.text != "" { AiBridge.act(root.id, "ask", question.text, root.scope, root.pages-typed); question.text = ""; } }
+            }
+            PanelButton { width: 64px; text: @tr("Ask"); primary: true; enabled: root.ready; clicked => { if question.text != "" { AiBridge.act(root.id, "ask", question.text, root.scope, root.pages-typed); question.text = ""; } } }
+        }
+    }
+}

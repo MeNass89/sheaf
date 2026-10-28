@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { FileItem, PageItem } from "../flow-types.slint";
 
@@ -131,7 +132,7 @@ export component FileCardView inherits Rectangle {
         x: 4px;
         y: 14px + Theme.file-thumb-height + 28px;
         width: parent.width - 8px;
-        text: root.file.preview-failed ? "⚠ preview unavailable" : root.file.info;
+        text: root.file.preview-failed ? @tr("⚠ preview unavailable") : root.file.info;
         font-size: Theme.fs-caption;
         color: root.file.preview-failed ? Theme.warning : Theme.text-muted;
         horizontal-alignment: center;
@@ -210,6 +211,8 @@ export component FileCardView inherits Rectangle {
                     reject
                 }
                 changed has-focus => {
+                    // Tools page tools' keys wait while a field has the keyboard.
+                    PlatformBridge.typing = self.has-focus;
                     if !self.has-focus && root.editing {
                         root.set-pages(self.text);
                         root.editing = false;
@@ -218,7 +221,7 @@ export component FileCardView inherits Rectangle {
             }
             if pages-input.text == "": Text {
                 x: 5px;
-                text: "e.g. 1-3, 5";
+                text: @tr("e.g. 1-3, 5");
                 font-size: Theme.fs-caption;
                 color: Theme.text-muted;
             }
@@ -282,7 +285,7 @@ export component PageCardView inherits Rectangle {
         horizontal-alignment: center;
         overflow: elide;
         // Merge's pages say their file too: "report.pdf · 3".
-        text: root.item.page == 0 ? "Blank" : root.item.label != "" ? root.item.label + " · " + root.item.page : "Page " + root.item.page;
+        text: root.item.page == 0 ? @tr("Blank") : root.item.label != "" ? root.item.label + " · " + root.item.page : @tr("Page {}", root.item.page);
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
@@ -353,7 +356,7 @@ export component SplitPageView inherits Rectangle {
         }
         Text {
             y: Theme.page-thumb-height + 18px;
-            text: "Page " + root.item.page;
+            text: @tr("Page {}", root.item.page);
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
         }

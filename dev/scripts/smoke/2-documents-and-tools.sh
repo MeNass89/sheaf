@@ -218,14 +218,18 @@ else
     echo "SKIP 15 (Office to PDF): LibreOffice not installed"
 fi
 
-# 16. Images opened from outside open JPG to PDF. US Letter (1130,260), Landscape (1188,341), "Merge
-# all images" unticked (1012,453): one Letter landscape PDF next to each image (set in step 10).
+# 16. Images opened from outside open in the reader, each in its own tab, as a preview (C-reader-064, Preview's
+# and Stirling's way): a.png and b.png give two reader tabs, each a one-page preview PDF of its picture in Sheaf's
+# temporary folder; nothing is merged or written next to the pictures.
 mkdir -p "$OUT/img"; convert -size 400x300 xc:'#3366cc' "$OUT/img/a.png"; convert -size 300x400 xc:'#cc6633' "$OUT/img/b.png"
-launch "$OUT/img/a.png" "$OUT/img/b.png"; JT=$(ocr 400x30+100+8)
-click 1130 260 0.5; click 1188 341 0.4; click 1012 453 0.4; shot 16-jpg-options; click 1133 755 1
-for _ in $(seq 1 20); do [ -f "$OUT/img/a.pdf" ] && [ -f "$OUT/img/b.pdf" ] && break; sleep 0.5; done
-JA=$(pdfinfo "$OUT/img/a.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts'); JB=$(pdfinfo "$OUT/img/b.pdf" 2>/dev/null | grep -o '[0-9]* x [0-9]* pts')
-check "images opened from outside open JPG to PDF ($JT); unmerged, a US Letter landscape PDF each ($JA / $JB)" "echo \"$JT\" | grep -q 'JPG to PDF' && [ \"$JA\" = '792 x 612 pts' ] && [ \"$JB\" = '792 x 612 pts' ]"
+launch "$OUT/img/a.png" "$OUT/img/b.png"; sleep 3; JT=$(ocr 700x30+100+8); shot 16-images-opened
+JA=$(ls "$OUT"/profile/tmp/sheaf-previews/*/a.png.pdf 2>/dev/null | head -1); JB=$(ls "$OUT"/profile/tmp/sheaf-previews/*/b.png.pdf 2>/dev/null | head -1)
+NA=$(qpdf --show-npages "$JA" 2>/dev/null); NB=$(qpdf --show-npages "$JB" 2>/dev/null); NX=$(ls "$OUT/img" | grep -vc '\.png$')
+# The page in view is a.png's blue or b.png's orange: a picture, not an empty tool page (8-bit colour; c8 is
+# defined again in 4-flows.sh, which runs later).
+c8() { import -window root -crop "1x1+$1+420" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | head -1; }
+PV=$(c8 760)
+check "images opened from outside open each in its own reader tab ($JT; previews ${NA:-?} + ${NB:-?} pages; $NX other files; page $PV)" "echo \"$JT\" | grep -q 'a.png' && echo \"$JT\" | grep -q 'b.png' && [ \"$NA\" = 1 ] && [ \"$NB\" = 1 ] && [ \"$NX\" = 0 ] && ! echo \"$JT\" | grep -q 'JPG to PDF' && python3 -c 'import sys; v = sys.argv[1].lstrip(\"#\"); r, g, b = (int(v[k:k + 2], 16) for k in (0, 2, 4)); sys.exit(0 if abs(r - b) > 80 else 1)' '${PV:-#FFFFFF}'"
 quit
 
 # 17. A scanned PDF (a page that is only a picture) taken from the reader to PDF to Word: the options
@@ -407,6 +411,39 @@ check "a picked drawing is copied as a picture by ⌘C ($DC)" "echo \"$DC\" | gr
 # closing asked to save until 26/10).
 key ctrl+w; sleep 1.2; CW=$(ntabs)
 check "a document copied from and saved closes without asking ($CW tabs)" "[ \"$CW\" = 0 ]"
+quit
+
+# 20e. A paragraph mixing fonts copied and pasted (C-edit-010, PDF Expert's formatted paste): "Payment is due within"
+# in Helvetica, "thirty days" in Helvetica-Bold, a second line in Helvetica; picked with the Edit tool, ⌘C, page 2,
+# ⌘V, saved: page 2 holds the words in a bold and a regular font (it was one standard font, the bold lost).
+python3 - "$OUT/mixed.pdf" <<'PY'
+import sys
+objs = ["<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>", "<< /Type /Catalog /Pages 3 0 R >>", "<< /Type /Pages /Kids [5 0 R 7 0 R] /Count 2 >>"]
+c = "BT /F1 24 Tf 72 700 Td (Payment is due within ) Tj /F2 24 Tf (thirty days) Tj /F1 24 Tf 0 -30 Td (of the invoice date.) Tj ET"
+objs.append(f"<< /Length {len(c)} >>\nstream\n{c}\nendstream")
+res = "/Resources << /Font << /F1 1 0 R /F2 6 0 R >> >>"
+objs.append(f"<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] /Contents 4 0 R {res} >>")
+objs.append("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>")
+# Page 2 empty, with no fonts of its own: what the paste brings is all pdffonts lists there.
+objs.append("<< /Type /Page /Parent 3 0 R /MediaBox [0 0 612 792] >>")
+b = b"%PDF-1.7\n"; offs = []
+for i, o in enumerate(objs, 1):
+    offs.append(len(b)); b += f"{i} 0 obj\n{o}\nendobj\n".encode()
+x = len(b)
+b += f"xref\n0 {len(objs)+1}\n0000000000 65535 f \n".encode() + b"".join(f"{n:010d} 00000 n \n".encode() for n in offs)
+b += f"trailer\n<< /Size {len(objs)+1} /Root 2 0 R >>\nstartxref\n{x}\n%%EOF\n".encode()
+open(sys.argv[1], "wb").write(b)
+PY
+launch "$OUT/mixed.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
+P=$(at Payment 1020x700+255+90)
+if [ -n "$P" ]; then
+    set -- $P; xdotool mousemove $1 $2 keydown shift click 1 keyup shift; sleep 0.8
+    # Page 2 by its thumbnail (Page Down only scrolls page 1 at this zoom).
+    key ctrl+c; sleep 1.5; click 124 474 1.5; key ctrl+v; sleep 2; shot 20e-pasted; key ctrl+s; sleep 2
+fi
+F2=$(pdffonts -f 2 -l 2 "$OUT/mixed.pdf" 2>/dev/null | tail -n +3 | awk '{print $1}' | tr '\n' ' ')
+T2=$(pdftotext -f 2 -l 2 "$OUT/mixed.pdf" - 2>/dev/null | tr '\n' ' ' | tr -s ' ')
+check "a pasted paragraph mixing fonts keeps its bold run bold (${P:-not found}; page 2 fonts: $F2; text: $T2)" "echo \"$F2\" | grep -q 'Bold' && echo \"$F2\" | tr ' ' '\n' | grep -v Bold | grep -q 'Helvetica\|Arial\|Liberation' && echo \"$T2\" | grep -q 'thirty days' && echo \"$T2\" | grep -q 'invoice date'"
 quit
 
 # 20d. Header & footer with Bates numbers (Acrobat's Header & Footer ▸ Bates Numbering), in the Page numbers tool

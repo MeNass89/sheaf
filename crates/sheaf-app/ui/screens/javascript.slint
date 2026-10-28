@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -5,7 +6,7 @@ import { ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { Modal, SecondaryButton as Button } from "dialogs.slint";
 
-export struct DocumentScriptRow { name: string, source: string, label: string, field: bool, event: string }
+export struct DocumentScriptRow { name: string, source: string, label: string, field: bool, event: string, page: int, link: int }
 export global JavaScriptBridge {
     in-out property <bool> visible;
     in-out property <bool> busy;
@@ -22,23 +23,27 @@ export global JavaScriptBridge {
     in-out property <string> script-name;
     in-out property <string> script-source;
     in-out property <bool> script-field;
+    in-out property <int> script-page: -1;
+    in-out property <int> script-link: -1;
     in-out property <string> script-event: "keystroke";
     callback script-command(string, int);
 }
 
 export component JavaScriptConsole inherits Modal {
     card-width: min(680px, self.width - 32px);
-    Text { text: "JavaScript console"; color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
+    Text { text: @tr("JavaScript console"); color: Theme.text; font-size: Theme.fs-subtitle; font-weight: 600; }
     Text { text: JavaScriptBridge.document; color: Theme.text-secondary; font-size: Theme.fs-body; overflow: elide; }
     if !JavaScriptBridge.scripts-open: Rectangle {
         height: 190px; background: Theme.input-bg; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small;
         editor-scroll := ScrollView {
             source-edit := TextInput {
+                // Tools page tools' keys wait while a field has the keyboard.
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                 text <=> JavaScriptBridge.source; enabled: !JavaScriptBridge.busy;
                 width: editor-scroll.visible-width; height: max(editor-scroll.visible-height, self.preferred-height);
                 single-line: false; wrap: word-wrap; color: Theme.text; font-size: Theme.fs-body; font-family: Theme.mono-family;
                 selection-background-color: Theme.menu-selected-bg; selection-foreground-color: Theme.text;
-                accessible-label: "JavaScript source. Control Enter runs selected text, or the full script when nothing is selected.";
+                accessible-label: @tr("JavaScript source. Control Enter runs selected text, or the full script when nothing is selected.");
                 cursor-position-changed(position) => { JavaScriptBridge.selection-anchor = self.anchor-position-byte-offset; JavaScriptBridge.selection-cursor = self.cursor-position-byte-offset; }
                 key-pressed(e) => {
                     if e.text == Key.Return && (e.modifiers.control || e.modifiers.meta) { JavaScriptBridge.run(self.anchor-position-byte-offset != self.cursor-position-byte-offset); return accept; }
@@ -53,35 +58,36 @@ export component JavaScriptConsole inherits Modal {
             height: min(90px, max(34px, JavaScriptBridge.scripts.length * 34px));
             VerticalLayout {
                 spacing: 4px; alignment: start;
-                if JavaScriptBridge.scripts.length == 0: Text { text: "No document or custom field scripts. Add one below."; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+                if JavaScriptBridge.scripts.length == 0: Text { text: @tr("No document, field, page or link scripts. Add a document script below."); color: Theme.text-secondary; font-size: Theme.fs-caption; }
                 for script[i] in JavaScriptBridge.scripts: Button { text: script.label; clicked => { JavaScriptBridge.script-command("select", i); } }
             }
         }
-        CheckBox { text: "Field script (enter the existing field name below)"; checked <=> JavaScriptBridge.script-field; enabled: !JavaScriptBridge.busy; }
+        CheckBox { text: @tr("Field script (enter the existing field name below)"); checked <=> JavaScriptBridge.script-field; enabled: !JavaScriptBridge.busy && JavaScriptBridge.script-page < 0; }
+        if JavaScriptBridge.script-page >= 0: Text { text: @tr("{} · Edit source or delete this event. New starts a document script.", JavaScriptBridge.script-name); wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
         if JavaScriptBridge.script-field: ComboBox { model: ["keystroke", "format", "validate", "calculate", "mouse_up"]; current-value <=> JavaScriptBridge.script-event; enabled: !JavaScriptBridge.busy; }
-        TextField { label: JavaScriptBridge.script-field ? "Field name" : "Document script name"; text <=> JavaScriptBridge.script-name; enabled: !JavaScriptBridge.busy; }
-        TextEdit { height: 130px; text <=> JavaScriptBridge.script-source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
+        TextField { label: JavaScriptBridge.script-field ? @tr("Field name") : @tr("Document script name"); text <=> JavaScriptBridge.script-name; enabled: !JavaScriptBridge.busy && JavaScriptBridge.script-page < 0; }
+        TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: 130px; text <=> JavaScriptBridge.script-source; enabled: !JavaScriptBridge.busy; font-family: Theme.mono-family; }
         HorizontalLayout {
             spacing: 8px;
-            Button { text: "New"; clicked => { JavaScriptBridge.script-command("new", 0); } }
-            Button { text: "Save script"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.script-command("save", 0); } }
-            Button { text: "Delete script"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.script-command("delete", 0); } }
+            Button { text: @tr("New"); clicked => { JavaScriptBridge.script-command("new", 0); } }
+            Button { text: @tr("Save script"); enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.script-command("save", 0); } }
+            Button { text: @tr("Delete script"); enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.script-command("delete", 0); } }
         }
     }
     HorizontalLayout {
         spacing: 8px;
-        PrimaryButton { text: JavaScriptBridge.busy ? "Running…" : "Run"; enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open; clicked => { JavaScriptBridge.run(false); } }
-        Button { text: "Run selection"; enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open && JavaScriptBridge.selection-anchor != JavaScriptBridge.selection-cursor; clicked => { JavaScriptBridge.run(true); } }
-        Button { text: JavaScriptBridge.scripts-open ? "Console" : "Scripts"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.scripts-open = !JavaScriptBridge.scripts-open; if JavaScriptBridge.scripts-open { JavaScriptBridge.script-command("list", 0); } } }
+        PrimaryButton { text: JavaScriptBridge.busy ? @tr("Running…") : @tr("Run"); enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open; clicked => { JavaScriptBridge.run(false); } }
+        Button { text: @tr("Run selection"); enabled: !JavaScriptBridge.busy && !JavaScriptBridge.scripts-open && JavaScriptBridge.selection-anchor != JavaScriptBridge.selection-cursor; clicked => { JavaScriptBridge.run(true); } }
+        Button { text: JavaScriptBridge.scripts-open ? @tr("Console") : @tr("Scripts"); enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.scripts-open = !JavaScriptBridge.scripts-open; if JavaScriptBridge.scripts-open { JavaScriptBridge.script-command("list", 0); } } }
         Rectangle { horizontal-stretch: 1; }
     }
     HorizontalLayout {
         spacing: 8px;
-        Button { text: "Clear output"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.output = ""; } }
+        Button { text: @tr("Clear output"); enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.output = ""; } }
         Rectangle { horizontal-stretch: 1; }
-        Button { text: "Close"; enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.visible = false; } }
+        Button { text: @tr("Close"); enabled: !JavaScriptBridge.busy; clicked => { JavaScriptBridge.visible = false; } }
     }
-    Text { text: "Output"; color: Theme.text; font-size: Theme.fs-label; }
-    TextEdit { height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
-    Text { text: "Control Enter runs the selection or the full script. Changes can be undone. Save the document to keep them. Page/link scripts and debugging are not available here."; color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
+    Text { text: @tr("Output"); color: Theme.text; font-size: Theme.fs-label; }
+    TextEdit { changed has-focus => { PlatformBridge.typing = self.has-focus; } height: JavaScriptBridge.scripts-open ? 70px : 150px; text: JavaScriptBridge.output; read-only: true; font-family: Theme.mono-family; }
+    Text { text: @tr("Control Enter runs the selection or the full script. Changes can be undone. Save the document to keep them. Page and link action sources are editable in Scripts. Breakpoints and stepping are not available."); color: Theme.text-secondary; font-size: Theme.fs-caption; wrap: word-wrap; }
 }

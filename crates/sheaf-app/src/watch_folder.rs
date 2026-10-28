@@ -1,5 +1,5 @@
 //! Stirling's watched folders, locally while Sheaf is open. A PDF must have the same size and
-//! modification time on two consecutive polls before processing; outputs live outside the inbox.
+//! revision on two consecutive polls before processing; outputs live outside the inbox.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::path::{Path, PathBuf};
@@ -9,11 +9,37 @@ use crate::actions::{self, SavedAction};
 use sheaf_core::{OpdfError, Result};
 
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-struct Stamp { len: u64, modified: SystemTime }
+struct Stamp {
+    len: u64, modified: SystemTime,
+    #[serde(default)]
+    changed: Option<(i64, i64)>,
+    #[serde(default)]
+    fingerprint: Option<u64>,
+}
 
 fn revision(path: &Path) -> Result<Stamp> {
-    let metadata = std::fs::metadata(path)?;
-    Ok(Stamp { len: metadata.len(), modified: metadata.modified()? })
+    let file = std::fs::File::open(path)?;
+    let metadata = file.metadata()?;
+    #[cfg(unix)]
+    let (changed, fingerprint) = {
+        use std::os::unix::fs::MetadataExt;
+        // ctime changes even when a producer restores mtime after a same-size rewrite.
+        (Some((metadata.ctime(), metadata.ctime_nsec())), None)
+    };
+    #[cfg(not(unix))]
+    let (changed, fingerprint) = {
+        use std::{hash::Hasher, io::Read};
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        let mut buffer = [0u8; 64 * 1024];
+        let mut file = file;
+        loop {
+            let n = file.read(&mut buffer)?;
+            if n == 0 { break; }
+            hash.write(&buffer[..n]);
+        }
+        (None, Some(hash.finish()))
+    };
+    Ok(Stamp { len: metadata.len(), modified: metadata.modified()?, changed, fingerprint })
 }
 
 #[derive(Serialize, Deserialize)]
@@ -93,8 +119,11 @@ impl FolderWatch {
             let name = safe_name(&pattern.replace("{name}", &fallback).replace("{title}", title.as_deref().unwrap_or(&fallback)).replace("{counter}", &(sequence + 1).to_string()));
             if !before() { return Err(OpdfError::Cancelled); }
             if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during processing. It will be retried after it becomes stable.".into())); }
-            let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.pdf")), |part| {
-                std::fs::copy(&processed, part)?;
+            let bytes = actions::convert_output(std::sync::Arc::new(std::fs::read(&processed)?), None, &action.output.format, before)?;
+            if !before() { return Err(OpdfError::Cancelled); }
+            if revision(path)? != original_revision { return Err(OpdfError::Unsupported("The input changed during format conversion. It will be retried after it becomes stable.".into())); }
+            let published = sheaf_core::paths::atomic_write(&output.join(format!("{name}.{}", action.output.format)), |part| {
+                std::fs::write(part, bytes.as_slice())?;
                 Ok(())
             })?;
             if archive_inputs {
@@ -134,19 +163,33 @@ impl FolderWatch {
                 let Some(folder) = self.folders.pop_front() else { self.scanning = false; break };
                 self.visited += 1; budget -= 1;
                 if self.visited > 10_000 { return Err(OpdfError::Unsupported("This watch exceeds 10,000 folders. Choose a smaller inbox.".into())); }
-                self.directory = Some(std::fs::read_dir(folder)?);
+                self.directory = match std::fs::read_dir(&folder) {
+                    Ok(directory) => Some(directory),
+                    // Stirling's inbox can be changed by its producer while a scan is sliced.
+                    // Losing a nested folder must not stop the other watched inputs.
+                    Err(e) if e.kind() == std::io::ErrorKind::NotFound && folder != self.input => continue,
+                    Err(e) => return Err(e.into()),
+                };
             }
             let Some(entry) = self.directory.as_mut().and_then(Iterator::next) else { self.directory = None; continue };
             budget = budget.saturating_sub(1);
             let entry = entry?;
-            let kind = entry.file_type()?;
+            let kind = match entry.file_type() {
+                Ok(kind) => kind,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(e.into()),
+            };
             if kind.is_dir() && self.recursive { self.folders.push_back(entry.path()); }
             if !kind.is_file() { continue; }
             let path = entry.path();
             if !path.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) { continue; }
-            let meta = entry.metadata()?;
-            if meta.len() == 0 { continue; }
-            self.current.insert(path, Stamp { len: meta.len(), modified: meta.modified()? });
+            let stamp = match revision(&path) {
+                Ok(stamp) => stamp,
+                Err(OpdfError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => continue,
+                Err(e) => return Err(e),
+            };
+            if stamp.len == 0 { continue; }
+            self.current.insert(path, stamp);
             if self.current.len() > 100_000 { return Err(OpdfError::Unsupported("This watch exceeds 100,000 PDFs. Choose a smaller inbox.".into())); }
         }
         if self.scanning { return Ok(vec![]); }
@@ -157,7 +200,11 @@ impl FolderWatch {
             match self.seen.get(&path) {
                 Some(old) if old.stamp == stamp && old.handled => continue,
                 Some(old) if old.stamp == stamp => {
-                    let latest = revision(&path)?;
+                    let latest = match revision(&path) {
+                        Ok(stamp) => stamp,
+                        Err(OpdfError::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => { self.seen.remove(&path); continue; }
+                        Err(e) => return Err(e),
+                    };
                     if latest != stamp { self.seen.insert(path, Observed { stamp: latest, handled: false }); continue; }
                     let result = process(&path);
                     // Cancellation leaves this file eligible after a later resume/poll.
@@ -184,8 +231,8 @@ pub struct SavedWatch {
 impl SavedWatch {
     pub fn new(action: SavedAction, watch: FolderWatch) -> Result<Self> {
         action.validate()?;
-        if action.steps.iter().any(|s| s.prompt) {
-            return Err(OpdfError::Unsupported("Folder actions cannot pause".into()));
+        if action.steps.iter().any(|s| s.prompt || s.tool == "open_tool") {
+            return Err(OpdfError::Unsupported("Folder actions cannot pause or open interactive tools".into()));
         }
         Ok(Self { version: 1, action, watch })
     }
@@ -221,7 +268,7 @@ impl SavedWatch {
             let saved: Self = serde_json::from_slice(&std::fs::read(path)?).map_err(|e| OpdfError::Unsupported(format!("Cannot read saved folder watch: {e}")))?;
             if saved.version != 1 { return Err(OpdfError::Unsupported("Unsupported folder watch version".into())); }
             saved.action.validate()?;
-            if saved.action.steps.iter().any(|s| s.prompt) { return Err(OpdfError::Unsupported("Folder actions cannot pause".into())); }
+            if saved.action.steps.iter().any(|s| s.prompt || s.tool == "open_tool") { return Err(OpdfError::Unsupported("Folder actions cannot pause or open interactive tools".into())); }
             let mut watch = FolderWatch::new(&saved.watch.input, &saved.watch.output, saved.watch.title_names)?;
             watch.configure_outputs(&saved.watch.pattern, saved.watch.archive_inputs)?;
             if watch.input != saved.watch.input || watch.output != saved.watch.output { return Err(OpdfError::Unsupported("The watched folder moved. Configure the watch again.".into())); }
@@ -389,6 +436,110 @@ mod tests {
         assert_eq!(std::fs::read(input).unwrap(), changed);
         assert!(!out.join("input.pdf").exists());
         assert!(!out.join("Processed inputs").exists());
+    }
+
+    #[test]
+    fn watched_exports_keep_the_selected_format_and_updated_title() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap(); std::fs::create_dir(&out).unwrap();
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Old", "Body").unwrap();
+        std::fs::write(inbox.join("source.pdf"), bytes.as_slice()).unwrap();
+        let mut action = actions::SavedAction::empty();
+        action.steps = vec![actions::ActionStep::from_engine(&sheaf_core::pdfcraft::engine::actions::Step::SetTitle("New title".into()))];
+        action.output.format = "txt".into();
+        let mut watch = FolderWatch::new(&inbox, &out, true).unwrap();
+        assert!(watch.poll(&action, &mut || true).unwrap().is_empty());
+        let results = watch.poll(&action, &mut || true).unwrap();
+        let path = results[0].1.as_ref().unwrap();
+        assert_eq!(path.file_name().unwrap(), "New title.txt");
+        assert!(std::fs::read_to_string(path).unwrap().contains("Body"));
+    }
+
+    #[test]
+    fn watch_detects_same_size_rewrites_with_restored_modification_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap(); std::fs::create_dir(&out).unwrap();
+        let input = inbox.join("input.pdf"); std::fs::write(&input, b"first revision").unwrap();
+        let mtime = std::fs::metadata(&input).unwrap().modified().unwrap();
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
+        let mut count = 0;
+        let mut process = |_: &Path| { count += 1; Ok(out.join("done.pdf")) };
+        assert!(watch.poll_with(&mut process).unwrap().is_empty());
+        assert_eq!(watch.poll_with(&mut process).unwrap().len(), 1);
+        std::fs::write(&input, b"other revision").unwrap();
+        std::fs::File::options().write(true).open(&input).unwrap().set_times(std::fs::FileTimes::new().set_modified(mtime)).unwrap();
+        assert!(watch.poll_with(&mut process).unwrap().is_empty());
+        assert_eq!(watch.poll_with(&mut process).unwrap().len(), 1);
+        assert!(watch.poll_with(&mut process).unwrap().is_empty());
+        assert_eq!(count, 2);
+        let encoded = serde_json::to_string(&watch).unwrap();
+        let mut resumed: FolderWatch = serde_json::from_str(&encoded).unwrap();
+        assert!(resumed.poll_with(&mut |_| panic!("handled revision must survive restart")).unwrap().is_empty());
+    }
+
+    #[test]
+    fn watched_exports_recheck_inputs_after_native_conversion() {
+        let bytes = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Original", "Body").unwrap();
+        let mut action = actions::suggested().remove(3); action.output.format = "txt".into();
+        let watched = |dir: &Path| {
+            let (inbox, out) = (dir.join("in"), dir.join("out"));
+            std::fs::create_dir(&inbox).unwrap();
+            std::fs::write(inbox.join("input.pdf"), bytes.as_slice()).unwrap();
+            let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
+            watch.poll(&action, &mut || true).unwrap();
+            (watch, inbox.join("input.pdf"), out)
+        };
+        // A first run counts the checks the job makes; the input then changes at the last, after
+        // the conversion to text and before it is published (the step count changes with the
+        // action, so it is not written in here).
+        let dry = tempfile::tempdir().unwrap();
+        let (mut watch, _, _) = watched(dry.path());
+        let mut last = 0;
+        assert!(watch.poll(&action, &mut || { last += 1; true }).unwrap()[0].1.is_ok());
+        let dir = tempfile::tempdir().unwrap();
+        let (mut watch, input, out) = watched(dir.path());
+        let mut calls = 0;
+        let result = watch.poll(&action, &mut || { calls += 1; if calls == last { std::fs::write(&input, b"New input during conversion").unwrap(); } true }).unwrap();
+        assert!(result[0].1.is_err()); assert!(!out.join("input.txt").exists());
+        assert_eq!(std::fs::read(input).unwrap(), b"New input during conversion");
+    }
+
+    #[test]
+    fn a_disappearing_upload_does_not_stop_other_files_or_the_next_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir(&inbox).unwrap();
+        for name in ["a.pdf", "b.pdf", "c.pdf"] { std::fs::write(inbox.join(name), b"ready").unwrap(); }
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("wait for stability")).unwrap().is_empty());
+        let results = watch.poll_with(&mut |path| {
+            if path.ends_with("a.pdf") { std::fs::remove_file(inbox.join("b.pdf")).unwrap(); }
+            Ok(out.join(path.file_name().unwrap()))
+        }).unwrap();
+        assert_eq!(results.iter().map(|(p, _)| p.file_name().unwrap().to_str().unwrap()).collect::<Vec<_>>(), ["a.pdf", "c.pdf"]);
+        assert!(results.iter().all(|(_, result)| result.is_ok()));
+        assert!(watch.poll_with(&mut |_| panic!("handled inputs stay handled")).unwrap().is_empty());
+        std::fs::write(inbox.join("b.pdf"), b"new upload").unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("new upload must settle")).unwrap().is_empty());
+        assert_eq!(watch.poll_with(&mut |path| Ok(out.join(path.file_name().unwrap()))).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_removed_nested_folder_is_skipped_between_scan_slices() {
+        let dir = tempfile::tempdir().unwrap();
+        let inbox = dir.path().join("in"); let out = dir.path().join("out");
+        std::fs::create_dir_all(inbox.join("removed")).unwrap();
+        let mut watch = FolderWatch::new(&inbox, &out, false).unwrap(); watch.include_subfolders(true);
+        // Resume a scan slice after its producer removed a queued directory.
+        watch.scanning = true;
+        watch.folders.push_back(inbox.join("removed"));
+        std::fs::remove_dir(inbox.join("removed")).unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("no files")).unwrap().is_empty());
+        assert!(!watch.scan_in_progress());
+        std::fs::remove_dir(inbox).unwrap();
+        assert!(watch.poll_with(&mut |_| panic!("root folder missing")).is_err());
     }
 
 }

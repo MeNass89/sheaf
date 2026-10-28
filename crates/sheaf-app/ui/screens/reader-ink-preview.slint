@@ -1,0 +1,92 @@
+// Acrobat's Output Preview: every real process or spot plate, as a density mask.
+import { Theme } from "../theme.slint";
+import { ScrollView } from "std-widgets.slint";
+import { SmallButton } from "reader-parts.slint";
+
+component PlateButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    height: 28px;
+    width: 170px;
+    border-radius: Theme.radius-button;
+    background: root.selected ? (touch.has-hover ? Theme.accent-hover : Theme.accent) : (touch.has-hover ? Theme.popup-hover : Theme.pill-bg);
+    Text {
+        x: 8px; width: parent.width - 16px;
+        text: root.text; overflow: elide;
+        vertical-alignment: center;
+        font-size: Theme.fs-label; font-weight: Theme.weight-demibold;
+        color: root.selected ? Theme.on-accent : Theme.text;
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export struct InkPlate { name: string, image: image }
+export global PrintPreviewBridge {
+    in-out property <bool> visible;
+    in-out property <bool> busy;
+    in-out property <int> tab;
+    in-out property <int> page;
+    in-out property <int> selected;
+    in-out property <[InkPlate]> plates;
+    in-out property <string> error;
+    in-out property <string> title;
+    in-out property <string> detail;
+    callback open(int, int);
+    callback close();
+}
+
+export component InkPreviewSheet inherits Rectangle {
+    callback focus-pages();
+    background: #00000044;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { PrintPreviewBridge.close(); root.focus-pages(); return accept; }
+            if e.text == Key.UpArrow { PrintPreviewBridge.selected = max(0, PrintPreviewBridge.selected - 1); return accept; }
+            if e.text == Key.DownArrow && PrintPreviewBridge.plates.length > 0 { PrintPreviewBridge.selected = min(PrintPreviewBridge.plates.length - 1, PrintPreviewBridge.selected + 1); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        width: min(920px, root.width - 32px);
+        height: min(740px, root.height - 40px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 10px;
+            Text { text: @tr("{} · page {}", PrintPreviewBridge.title, PrintPreviewBridge.page); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: PrintPreviewBridge.detail; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            if PrintPreviewBridge.busy: Text { text: @tr("Rendering preview…"); color: Theme.text-secondary; font-size: Theme.fs-body; }
+            if PrintPreviewBridge.error != "": Text { text: PrintPreviewBridge.error; wrap: word-wrap; color: Theme.danger; font-size: Theme.fs-body; }
+            if PrintPreviewBridge.plates.length > 0: Text { text: PrintPreviewBridge.plates[PrintPreviewBridge.selected].name; wrap: word-wrap; color: Theme.text-secondary; font-size: Theme.fs-caption; }
+            HorizontalLayout {
+                vertical-stretch: 1;
+                spacing: 16px;
+                ScrollView {
+                    width: 180px;
+                    VerticalLayout {
+                        spacing: 8px;
+                        for plate[i] in PrintPreviewBridge.plates: PlateButton {
+                            text: plate.name;
+                            selected: PrintPreviewBridge.selected == i;
+                            clicked => { PrintPreviewBridge.selected = i; }
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                    }
+                }
+                Image {
+                    source: PrintPreviewBridge.plates[PrintPreviewBridge.selected].image;
+                    image-fit: contain;
+                    horizontal-stretch: 1;
+                }
+            }
+            HorizontalLayout {
+                Rectangle { horizontal-stretch: 1; }
+                SmallButton { text: @tr("Close"); clicked => { PrintPreviewBridge.close(); root.focus-pages(); } }
+            }
+        }
+    }
+}

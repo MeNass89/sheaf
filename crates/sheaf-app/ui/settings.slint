@@ -1,0 +1,44 @@
+// Preferences that are not about one screen (src/settings_ui.rs, src/settings.rs): the print
+// sheet's defaults (iLovePDF's Printer preferences), what documents may open outside Sheaf
+// (Acrobat's Enhanced Security and Trust Manager), opening at login and the quit warning
+// (iLovePDF's General ▸ Processing).
+
+export global SettingsBridge {
+    // Print defaults, numbered as the print sheet's own buttons: two-sided, paper (0 the
+    // printer's, 1 A4, 2 Letter, 3 Legal), grey, comments, fit to paper, orientation (0 auto,
+    // 1 portrait, 2 landscape), layout (0–5 pages per sheet, 6 booklet).
+    in property <bool> print-two-sided;
+    in property <int> print-paper;
+    in property <bool> print-gray;
+    in property <bool> print-comments: true;
+    in property <bool> print-fit: true;
+    in property <int> print-orientation;
+    in property <int> print-quality;
+    callback set-print-quality(int);
+    in property <int> print-layout;
+    callback set-print-defaults(two-sided: bool, paper: int, gray: bool, comments: bool, fit: bool, orientation: int, layout: int);
+
+    // Enhanced security on; web links of untrusted documents (0 ask, 1 allow all, 2 block all);
+    // other apps may open linked and attached files; the trusted locations and remembered sites.
+    in property <bool> enhanced: true;
+    in property <int> web: 0;
+    in property <bool> other-apps: true;
+    in property <[string]> locations;
+    in property <[string]> sites;
+    callback set-trust(enhanced: bool, web: int, other-apps: bool);
+    // 0 add a folder, 1 add a file, 2 remove location k, 3 forget site k.
+    callback trust-list(int, int);
+
+    // A document's web link waiting for an answer ("" none): the address and its site. Allow or
+    // block, remembered for the site or not.
+    in property <string> ask-url;
+    in property <string> ask-site;
+    callback link-answer(allow: bool, remember: bool);
+
+    // Open at login, and its failure ("" none); quitting with a task running asks first.
+    in property <bool> open-at-login;
+    in property <string> login-error;
+    callback set-open-at-login(bool);
+    in property <bool> quit-warning: true;
+    callback set-quit-warning(bool);
+}

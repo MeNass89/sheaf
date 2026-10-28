@@ -9,6 +9,8 @@ license = "MIT OR Apache-2.0"
 description = "PdfCraft engine façade: session, documents, command/tool catalogue"
 
 [dependencies]
+# Sheaf: barcode form fields (Acrobat's), QR Code symbols drawn as vectors.
+qrcode = { version = "0.14", default-features = false }
 pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-measure = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-render = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }

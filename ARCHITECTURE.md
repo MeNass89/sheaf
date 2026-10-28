@@ -21,11 +21,24 @@ Password fields can opt into the reveal control in `ui/widgets/text-field.slint`
 Recents exclusions are saved separately from task history by `history.rs` (`hidden-recents.json`).
 The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 
+Scanner acquisition is shared in `crates/sheaf-core/src/scanner.rs`: local SANE on Linux/macOS
+(including Finder's missing Homebrew PATH), WIA on Windows, decoded pixels before accepting a scan.
+`run::scan_page` supplies the GUI test seam; Home and the reader's Insert from Scanner use this adapter.
+
+`crates/sheaf-core/src/textdocs.rs` renders CommonMark with local image resources, keeping the original
+Markdown file URL as the base for the temporary HTML passed to either PDF layout converter.
+
+Archival profiles live in core `pdfa.rs`: `pdfa1.rs` checks PDF 1.4 restrictions,
+`pdfa_profiles.rs` preserves a/u metadata and checks existing tags, and `pdfa_unicode.rs`
+follows actual text codes through page/Form/annotation resources, with bounded CMap validation.
+
 ## Guided actions
 
-- `crates/sheaf-app/src/action_import.rs`: lossless supported Stirling Automate/Folder Scanning JSON translation.
+- `crates/sheaf-app/src/action_import.rs`: supported Stirling Automate/Folder Scanning translation with explicit native-conversion limits.
 - `crates/sheaf-app/src/actions.rs`: portable action JSON, ordered tool configurations,
-  suggested actions, persistence and sequential execution without replacing originals.
+  suggested actions, persistence and sequential execution without replacing originals; native
+  output formats and run-from-working-bytes snapshots preserve unsaved reader edits.
+- `crates/sheaf-app/src/action_settings.rs`: labelled mark controls round-trip portable watermark/header settings, including literal separators in text.
 - `crates/sheaf-app/src/actions_ui.rs` and `ui/screens/actions.slint`: Home's Actions page,
   step editor, filtered suggested/saved/custom lists, reader custom palette, import/export,
   worker-thread progress and editable pauses. Guided actions is reachable from Tools and the reader.
@@ -41,11 +54,25 @@ The completed toolbox mission is recorded in `dev/SOL_TOOLBOX.md`.
 - `crates/sheaf-app/src/library.rs`, `src/library_ui.rs` and `ui/screens/library.slint`:
   private local files, immutable versions, reader working copies, export, restore and bounded
   ZIP imports with retained folder metadata, file filters and recoverable working copies.
+  Catalogue sorting, folder moves, native raster thumbnails and 96-card pages live in the same modules.
   The reader Save hook checkpoints files and refreshes the list; tab closure releases its checkout.
 
 - `crates/sheaf-app/src/reader_ui/javascript.rs` and `ui/screens/javascript.slint`: active
-  document JavaScript console and named document scripts; `reader_doc` executes at the visible
+  document JavaScript console and document/field/page/link script editing; `reader_doc` executes at the visible
   page and returns output, form changes and local viewer requests for navigation/focus/print/Save As.
+  `third_party/pdfcraft-engine/src/action_scripts.rs` inventories and edits page/link JavaScript
+  targets without replacing other actions; `js::ActionScriptTarget` identifies each event.
+
+## AI
+
+- `crates/sheaf-core/src/ai/`: providers (OpenAI, Anthropic, Gemini, Mistral, xAI, OpenAI-compatible,
+  Ollama, llama.cpp), their requests and errors over `ureq` (`mod.rs`); chunking and map-reduce for
+  ask, summarize, translate, podcast, slides and classify (`tasks.rs`); slides to PDF or PPTX
+  (`deck.rs`); AI spaces (`spaces.rs`). Only text is sent. Tests: `tests/ai.rs` (mock server).
+- `crates/sheaf-app/src/ai_store.rs` (Preferences ▸ AI, keys encrypted in `ai-keys.secure`),
+  `src/ai_ui.rs` (the panel and preferences, requests on a worker thread),
+  `src/reader_ui/ai_doc.rs` (the open document's text and selection), `ui/ai.slint` (`AiBridge`),
+  `ui/screens/ai-panel.slint`, `ui/screens/preferences-ai.slint`. CLI: `sheaf ask | summarize | translate`.
 
 ## Entry points
 
@@ -91,6 +118,8 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `wm_preview.rs` | Add watermark's live preview: page 1 marked with the panel's options, redrawn as they change. |
 | `dialog.rs`, `password.rs`, `open_with.rs`, `icons.rs` | File dialogs, password prompt, files opened from outside, icons. |
 | `platform.rs`, `platform_ui.rs` | The menu bar's commands and their shortcuts (the user's, Preferences ▸ Keyboard shortcuts), check spelling while typing (the card under an editor), tools hidden when they cannot run here, the right-to-left interface; the `PlatformBridge` global (`ui/platform.slint`). |
+| `settings.rs`, `settings_ui.rs` | Preferences ▸ Printing (the print sheet's defaults), Security (enhanced security, web link question, trusted locations, remembered sites) and Startup (open at login, quit warning); the `SettingsBridge` global (`ui/settings.slint`), sections in `ui/screens/preferences-more.slint`. |
+| `feedback.rs`, `feedback_ui.rs` | Help ▸ Report an Issue…: the report (subject, message, files, details) saved as a zip, copied or opened as a new issue in the browser; `ui/screens/feedback.slint` (`FeedbackBridge`). |
 
 ## Where to change what
 
@@ -100,7 +129,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | A reader tool, shortcut or panel | `ui/screens/reader.slint` (composition, pages, keys), `reader-toolbar.slint` (top bar: tools, page field, zoom, search, More menu), `reader-options.slint` (the tool's options bar over the pages), `reader-sheets.slint` (signature pad, print, properties), `reader-form.slint` (Prepare form's field boxes and card), `reader-panel.slint` (side panel), `reader-parts.slint` (small controls) + `src/reader_ui/<part>.rs` (behaviour); state fields in `ui/flow-types.slint` (`ReaderState`, `ReaderBridge`) |
 | An edit to the open document | `Op` in `reader_doc/mod.rs`, sent from `reader_ui/edits.rs` |
 | Colours, sizes, fonts | `ui/theme.slint` |
-| A preference | `prefs.rs` + `ui/screens/preferences.slint` (spelling, keyboard, interface: `prefs.rs` `platform` + `preferences-platform.slint`) |
+| A preference | `prefs.rs` + `ui/screens/preferences.slint` (spelling, keyboard, interface: `prefs.rs` `platform` + `preferences-platform.slint`; printing, security, startup: `prefs.rs` `settings` + `preferences-more.slint`) |
 | A menu bar command | `src/platform.rs` `COMMANDS` (at the end) + its `MenuItem` in `ui/main.slint`'s `MenuBar`, reading `PlatformBridge.keys[<its index>]` |
 | A reader tool's letter | `src/platform.rs` `TOOLS` (by tool number; reader.slint asks `PlatformBridge.tool-for-key`) |
 | Right to left for a row | a `FlexboxLayout` with `flex-direction: PlatformBridge.rtl ? row-reverse : row` (Slint's HorizontalLayout has no direction) |
@@ -134,3 +163,14 @@ Catalog parsing/search and policy application run off the UI thread. `security_p
 keeps password-free named policy files under the application data folder's `security-policies/`.
 OCR options retain every selected language; `OcrOptions::use_local_engine` selects local
 Tesseract explicitly, with the same option in the OCR panel and CLI `--local-engine`.
+
+`sheaf-core/src/optimizer_post.rs` runs the explicit offline Ghostscript transparency pass and qpdf Fast Web View after compression, verifies them, and honours cancellation before publication.
+
+`sheaf-core/tests/ocr_scripts.rs` uses the small `tests/fixtures/ocr-{chinese,japanese,korean}.png` scans to verify installed script packs and invisible Unicode text layers. Portable Tesseract packs are found beside the executable (`tessdata/`), in macOS Resources, Linux `share/sheaf/tessdata`, or the explicit `SHEAF_TESSDATA` folder; debug builds also read ignored `vendor/tessdata/`.
+
+`sheaf-core/src/separations.rs` renders a bounded current-page snapshot into real process/spot plates using local Ghostscript. `flattener_preview.rs` compares a page with a real PDF 1.3 conversion without changing its source. The reader's `reader_ui/output_preview.rs` owns the background job/cancellation; `ui/screens/reader-ink-preview.slint` displays individual plate or before/after images.
+`crates/sheaf-ui` compiles the canonical Slint files in `sheaf-app/ui` and exports the generated
+bindings. `sheaf-app` re-exports them, preserving callers. Isolating generated code keeps the PDF
+engine and application modules out of the same rustc invocation; existing app tests still run.
+
+`sheaf-app/src/display_color.rs` caches pure-Rust sRGB-to-monitor ICC transforms. Preferences stores the selected monitor path; reader page and thumbnail workers apply its transform after page tinting, and both split panes invalidate their render caches when it changes.

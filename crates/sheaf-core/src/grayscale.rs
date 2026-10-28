@@ -354,6 +354,8 @@ fn gray_image(s: &mut Stream, n: u8) -> bool {
         let _ = s.compress();
     }
     s.dict.remove(b"DecodeParms");
+    // A CMYK JPEG's inverted /Decode belonged to its stored components, not to the grey written here.
+    s.dict.remove(b"Decode");
     s.dict.set("ColorSpace", Object::Name(b"DeviceGray".to_vec()));
     s.dict.set("BitsPerComponent", 8);
     true
@@ -417,19 +419,51 @@ mod tests {
         assert_eq!(s.decompressed_content().unwrap(), vec![76u8; 4], "red's lightness");
     }
 
-    /// A CMYK JPEG made grey: a grey JPEG of the same picture.
-    #[test]
-    fn a_cmyk_jpeg_is_made_grey() {
+    /// ImageMagick's red as an Adobe CMYK JPEG (components stored inverted), in an image dictionary
+    /// with the given /Decode.
+    fn adobe_cmyk_red(decode: Option<Vec<Object>>) -> Stream {
         let dir = tempfile::tempdir().unwrap();
         let jpg = dir.path().join("red.jpg");
         let made = std::process::Command::new("convert").args(["-size", "8x8", "xc:red", "-colorspace", "CMYK"]).arg(&jpg).status();
         assert!(made.is_ok_and(|s| s.success()), "ImageMagick's convert makes the CMYK JPEG");
-        let dict = dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8, "Filter" => "DCTDecode" };
-        let mut s = Stream::new(dict, std::fs::read(&jpg).unwrap());
-        assert!(gray_image(&mut s, 4));
+        let mut dict = dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceCMYK", "BitsPerComponent" => 8, "Filter" => "DCTDecode" };
+        if let Some(d) = decode { dict.set("Decode", d); }
+        Stream::new(dict, std::fs::read(&jpg).unwrap())
+    }
+
+    fn grey_of(s: &Stream) -> image::GrayImage {
         assert_eq!(s.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceGray");
-        let g = image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).unwrap().to_luma8();
+        assert!(!s.dict.has(b"Decode"), "the CMYK /Decode is dropped with the CMYK data");
+        image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).unwrap().to_luma8()
+    }
+
+    /// A CMYK JPEG made grey: a grey JPEG of the same picture. With the inverted /Decode Adobe's
+    /// JPEGs come with, PDF viewers show it red.
+    #[test]
+    fn a_cmyk_jpeg_is_made_grey() {
+        let mut s = adobe_cmyk_red(Some([1, 0, 1, 0, 1, 0, 1, 0].map(Object::Integer).to_vec()));
+        assert!(gray_image(&mut s, 4));
+        let g = grey_of(&s);
         // Red's lightness, give or take the JPEG.
         assert!(g.pixels().all(|p| p[0].abs_diff(76) <= 12), "{:?}", g.get_pixel(0, 0));
+    }
+
+    /// The same JPEG with no /Decode: PDFium, Poppler and Ghostscript read its stored components
+    /// raw and show it nearly black (PDFium: rgb(0, 4, 36)), so its grey is dark, not red's (Sol, 27/10:
+    /// the decoder's Adobe inversion was taken for what the page shows).
+    #[test]
+    fn a_cmyk_jpeg_without_decode_is_made_grey_as_viewers_show_it() {
+        let mut s = adobe_cmyk_red(None);
+        assert!(gray_image(&mut s, 4));
+        let g = grey_of(&s);
+        assert!(g.pixels().all(|p| p[0] <= 24), "{:?}", g.get_pixel(0, 0));
+    }
+
+    /// Any other /Decode on a CMYK JPEG is not one we can honour: the picture is left alone.
+    #[test]
+    fn a_cmyk_jpeg_with_a_partial_decode_is_left_alone() {
+        let mut s = adobe_cmyk_red(Some([0, 1, 0, 1, 0, 1, 1, 0].map(Object::Integer).to_vec()));
+        assert!(!gray_image(&mut s, 4));
+        assert_eq!(s.dict.get(b"ColorSpace").unwrap().as_name().unwrap(), b"DeviceCMYK");
     }
 }

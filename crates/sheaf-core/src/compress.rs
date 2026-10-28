@@ -4,6 +4,10 @@ use lopdf::{Object, ObjectId, SaveOptions, Stream};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+#[path = "optimizer_post.rs"]
+mod post;
+pub(crate) use post::page_preview as flatten_page_snapshot;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Level {
     Low,
@@ -46,6 +50,10 @@ pub struct Advanced {
     pub grayscale: bool,
     /// The programs of the standard faces every reader has, taken out (Acrobat's Unembed fonts).
     pub unembed_standard: bool,
+    /// Acrobat's transparency flattener: an explicit PDF 1.3 conversion using local Ghostscript.
+    pub flatten_transparency: bool,
+    /// Acrobat's Fast Web View: qpdf lays out the first page for incremental delivery.
+    pub linearize: bool,
 }
 
 #[derive(Debug)]
@@ -84,12 +92,13 @@ pub fn compress_with(input: &Input, level: Level, out: &Path, progress: &mut dyn
 
 /// [`compress_with`], with [`Advanced`] settings.
 pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path, progress: &mut dyn FnMut(f32) -> bool) -> Result<CompressReport> {
+    let post_factor = if adv.flatten_transparency || adv.linearize { 0.9 } else { 1.0 };
     let (bytes, before, was_encrypted, missed_target, gray_kept) = match level {
         Level::Target(limit) => {
             let n = TARGET_STEPS.len() as f32;
             let mut best: Option<(Vec<u8>, u64, bool, usize)> = None;
             for (k, (max, q)) in TARGET_STEPS.into_iter().enumerate() {
-                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95))?;
+                let tried = squeeze(input, max, q, adv, &mut |p| progress((k as f32 + p) / n * 0.95 * post_factor))?;
                 let fits = tried.0.len() as u64 <= limit;
                 if best.as_ref().is_none_or(|b| tried.0.len() < b.0.len()) {
                     best = Some(tried);
@@ -107,10 +116,12 @@ pub fn compress_advanced(input: &Input, level: Level, adv: &Advanced, out: &Path
             // Pixels per inch to the long side the level allows: 150 ppi on A4's 11.7 in is 1,755 px.
             let max = adv.max_ppi.map_or(max, |ppi| (ppi.clamp(36, 1200) as f64 * 11.7) as u32);
             let q = adv.quality.map_or(q, |q| q.clamp(1, 100));
-            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, progress)?;
+            let (bytes, before, enc, kept) = squeeze(input, max, q, adv, &mut |p| progress(p * post_factor))?;
             (bytes, before, enc, false, kept)
         }
     };
+    let bytes = post::finish(bytes, adv, progress)?;
+    let missed_target = if let Level::Target(limit) = level { bytes.len() as u64 > limit } else { missed_target };
     let after = bytes.len() as u64;
     if !progress(0.95) { return Err(crate::OpdfError::Cancelled); }
     let path = atomic_write(out, |part| Ok(std::fs::write(part, &bytes)?))?;
@@ -372,17 +383,69 @@ pub(crate) fn image_pixels(s: &Stream, gray: bool) -> Option<DynamicImage> {
     ok.then_some(img)
 }
 
-/// A CMYK JPEG's pixels as RGB (the decoder's conversion, Adobe's inverted CMYK included), for the
-/// tools that recolour pictures; `None` for any other picture, a mask, or a /Decode that is not
-/// the identity.
+/// A CMYK JPEG's pixels as RGB the way PDF viewers show them, for the tools that recolour
+/// pictures; `None` for any other picture, a mask, or a /Decode other than the identity or the
+/// fully inverted `[1 0 1 0 1 0 1 0]`.
+/// PDF viewers (PDFium, Poppler, Ghostscript, checked 27/10) take the JPEG's stored components as
+/// they are, then apply /Decode. Adobe's CMYK JPEGs store their components inverted, so producers
+/// pair them with the inverted /Decode. The JPEG decoder always assumes Adobe's inversion
+/// (r = c·k/255), so its RGB is right for the inverted /Decode only; with the identity the stored
+/// components are read raw and converted here.
 pub(crate) fn cmyk_jpeg_rgb(s: &Stream) -> Option<RgbImage> {
-    if s.dict.has(b"Mask") || single_filter(s) != Some(b"DCTDecode") || !identity_decode(s) || jpeg_components(&s.content)? != 4 {
+    if s.dict.has(b"Mask") || single_filter(s) != Some(b"DCTDecode") || jpeg_components(&s.content)? != 4 {
         return None;
     }
     let w = u32::try_from(s.dict.get(b"Width").and_then(Object::as_i64).ok()?).ok()?;
     let h = u32::try_from(s.dict.get(b"Height").and_then(Object::as_i64).ok()?).ok()?;
-    let img = image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8();
+    let img = if identity_decode(s) {
+        let raw = jpeg_stored_cmyk(&s.content)?;
+        if raw.len() != (w as usize).checked_mul(h as usize)?.checked_mul(4)? { return None; }
+        let ink = |v: u8, k: u8| ((255 - u16::from(v)) * (255 - u16::from(k)) / 255) as u8;
+        RgbImage::from_fn(w, h, |x, y| {
+            let p = &raw[(y as usize * w as usize + x as usize) * 4..][..4];
+            image::Rgb([ink(p[0], p[3]), ink(p[1], p[3]), ink(p[2], p[3])])
+        })
+    } else if inverted_cmyk_decode(s) {
+        image::load_from_memory_with_format(&s.content, image::ImageFormat::Jpeg).ok()?.to_rgb8()
+    } else {
+        return None;
+    };
     ((img.width(), img.height()) == (w, h)).then_some(img)
+}
+
+/// A 4-component JPEG's stored components as CMYK bytes, before any inversion: read as they are,
+/// or, for a YCCK JPEG (Adobe transform 2, what ImageMagick and Photoshop write), its YCC turned
+/// back into the stored C, M and Y as libjpeg does (C = 255 − R of the YCC's RGB), K as it is
+/// (Sol, 27/10: such JPEGs without /Decode were left out of Invert and grey).
+fn jpeg_stored_cmyk(data: &[u8]) -> Option<Vec<u8>> {
+    use zune_core::colorspace::ColorSpace;
+    let read = |out: ColorSpace| {
+        let opts = zune_core::options::DecoderOptions::default().jpeg_set_out_colorspace(out);
+        let mut dec = zune_jpeg::JpegDecoder::new_with_options(std::io::Cursor::new(data), opts);
+        let r = dec.decode();
+        (r, dec.input_colorspace())
+    };
+    match read(ColorSpace::CMYK) {
+        (Ok(raw), _) => Some(raw),
+        (Err(_), Some(ColorSpace::YCCK)) => {
+            let mut raw = read(ColorSpace::YCCK).0.ok()?;
+            for p in raw.as_chunks_mut::<4>().0 {
+                let (y, cb, cr) = (f32::from(p[0]), f32::from(p[1]) - 128.0, f32::from(p[2]) - 128.0);
+                let rgb = [y + 1.402 * cr, y - 0.344_136 * cb - 0.714_136 * cr, y + 1.772 * cb];
+                for (c, v) in p.iter_mut().zip(rgb) {
+                    *c = 255 - v.round().clamp(0.0, 255.0) as u8;
+                }
+            }
+            Some(raw)
+        }
+        _ => None,
+    }
+}
+
+/// True when /Decode is `[1 0 1 0 1 0 1 0]`, the array Adobe's inverted CMYK JPEGs come with.
+fn inverted_cmyk_decode(s: &Stream) -> bool {
+    matches!(s.dict.get(b"Decode"), Ok(Object::Array(a)) if a.len() == 8
+        && a.iter().enumerate().all(|(i, v)| v.as_float().ok() == Some(((i + 1) % 2) as f32)))
 }
 
 /// Number of colour components declared in a JPEG's SOF header (1 gray, 3 YCbCr/RGB, 4 CMYK/YCCK).

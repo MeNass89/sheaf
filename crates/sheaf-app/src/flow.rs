@@ -540,6 +540,7 @@ pub fn edit_pages(tab_id: i32, f: impl FnOnce(&mut Vec<u32>)) {
 pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
     let Some(i) = with(|a| a.tab_index(tab_id)) else { return };
     let checkout = with(|a| a.tabs[i].reader_file.clone());
+    let working = with(|a| a.tabs[i].viewer.as_ref().map(|v| v.input.path.clone()));
     crate::reader_ui::remember_position(tab_id);
     crate::reader_ui::stop_work(tab_id);
     crate::wm_preview::forget(tab_id);
@@ -552,6 +553,8 @@ pub fn remove_tab(ui: &AppWindow, tab_id: i32) {
         a.tabs.remove(i);
         a.pw_queue.retain(|(t, _)| *t != tab_id);
     });
+    // A certificate-encrypted file's decrypted copy leaves the disk with its tab.
+    if let Some(w) = working { crate::reader_doc::certificate::forget(&w); }
     if let Some(path) = checkout
         && let Err(e) = sheaf_app::library::Library::new(&sheaf_app::store_file::data_dir()).release_checkout(&path) {
         toast(ui, &format!("The library working copy was kept: {e}"));
@@ -712,7 +715,10 @@ pub fn close_requested(ui: &AppWindow) -> slint::CloseRequestResponse {
 pub fn quit_or_ask(ui: &AppWindow) -> slint::CloseRequestResponse {
     // Unsaved edits, and Redact's marks not applied (Sol, 25/10: quitting dropped them unasked).
     let dirty = with(|a| a.tabs.iter().map(|t| t.id).collect::<Vec<_>>()).into_iter().find(|id| crate::reader_ui::unsaved_name(*id).is_some() || crate::viewer_ui::redact_pending(*id).is_some());
-    match dirty {
+    // A task still running is asked about too (iLovePDF's warning when exiting a task that is
+    // still processing; Preferences ▸ Startup turns it off).
+    let running = || with(|a| a.tabs.iter().find(|t| matches!(t.phase, Phase::Running)).map(|t| t.id)).filter(|_| crate::settings_ui::quit_warning());
+    match dirty.or_else(running) {
         Some(id) => {
             if let Some(i) = with(|a| a.tab_index(id)) {
                 ui.set_active_tab(i as i32);
@@ -738,6 +744,13 @@ pub fn dropped(ui: &AppWindow, path: PathBuf) {
         && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("json")) {
         if !ui.global::<sheaf_app::ActionBridge>().get_busy() { crate::actions_ui::import_path(ui, &path); }
         return;
+    }
+    // Acrobat's AI spaces take files dropped on them: with the AI panel open on a space, a PDF
+    // dropped on the document goes into the space.
+    if let Some((id, _)) = active_tool(ui)
+        && crate::ai_ui::drop_space(id).is_some()
+    {
+        return crate::ai_ui::drop_into_space(ui, path);
     }
     // On a document tab, a PDF dropped opens in its own tab.
     if let Some((id, _)) = active_tool(ui)
@@ -767,6 +780,11 @@ pub fn drop_hint(ui: &AppWindow, path: &std::path::Path) -> (String, bool) {
     }
     let active = active_tool(ui);
     let pdf = files::kind_of(path) == Kind::Pdf;
+    if let Some((id, _)) = active
+        && let Some(space) = crate::ai_ui::drop_space(id)
+    {
+        return (if pdf { format!("Drop to add to the AI space “{space}”") } else { "Only PDFs go in an AI space".into() }, !pdf);
+    }
     if active.is_some_and(|(id, _)| crate::reader_ui::is_reader(id)) {
         return ((if pdf { "Drop to open in a new tab" } else { "Drop to choose a tool for it" }).into(), false);
     }

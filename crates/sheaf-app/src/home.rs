@@ -27,6 +27,7 @@ struct Home {
     dir: PathBuf,
     store: Store,
     prefs: Prefs,
+    display_transform: Option<std::sync::Arc<sheaf_app::display_color::DisplayTransform>>,
     /// SHEAF_THEME: a debug override that wins over the preference.
     forced_theme: Option<ThemePref>,
     ui: slint::Weak<AppWindow>,
@@ -53,9 +54,14 @@ pub fn install(ui: &AppWindow, forced_theme: Option<ThemePref>) {
     let dir = store_file::data_dir();
     // The certificates trusted for signing live with the rest of Sheaf's data.
     sheaf_core::pdfcraft::set_trust_dir(dir.join("trusted"));
+    let prefs = Prefs::load(&dir);
+    let display_transform = prefs.display_profile.as_deref().and_then(|path| {
+        sheaf_app::display_color::DisplayTransform::load(path).map_err(|e| eprintln!("sheaf: {e}; using sRGB")).ok().map(std::sync::Arc::new)
+    });
     let h = Home {
         store: Store::open(&dir),
-        prefs: Prefs::load(&dir),
+        prefs,
+        display_transform,
         dir,
         forced_theme,
         ui: ui.as_weak(),
@@ -359,6 +365,22 @@ pub fn update_platform(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::platform::
     update_prefs(ui, |p| f(&mut p.platform));
 }
 
+/// Preferences ▸ AI changed and saved (src/ai_ui.rs).
+pub fn update_ai(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::ai_store::AiPrefs)) {
+    update_prefs(ui, |p| f(&mut p.ai));
+}
+
+/// The interface's language changed: the texts made in Rust (tool names, sections) built again.
+pub fn language_changed(ui: &AppWindow) {
+    crate::install_catalogue(ui);
+    refresh(ui);
+}
+
+/// Print defaults, Security and Startup changed and saved (src/settings_ui.rs).
+pub fn update_settings(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::settings::SettingsPrefs)) {
+    update_prefs(ui, |p| f(&mut p.settings));
+}
+
 fn push_prefs(ui: &AppWindow) {
     let p = prefs();
     ui.set_theme_pref(p.theme.mode());
@@ -380,12 +402,19 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_metric(p.metric);
     ui.set_guide_colour(i32::from(p.guide_colour));
     ui.set_gpu(!p.no_gpu);
+    let display_name = with(|h| match (&p.display_profile, &h.display_transform) {
+        (Some(path), Some(_)) => path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        (Some(_), None) => "sRGB (saved ICC unavailable)".into(),
+        _ => "sRGB".into(),
+    });
+    ui.set_display_profile(display_name.into());
     ui.set_show_boxes(p.show_boxes);
     ui.set_digital_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())).collect::<Vec<_>>())));
     ui.set_trusted_certs(ModelRc::new(VecModel::from(
         sheaf_core::pdfcraft::trusted_certificates().iter().map(|c| slint::SharedString::from(format!("{} (until {}-{:02})", c.display_name(), c.not_after.year, c.not_after.month))).collect::<Vec<_>>(),
     )));
     ui.set_physical_numbers(p.physical_numbers);
+    ui.set_transparency_grid(p.transparency_grid);
 }
 
 /// Preferences ▸ Appearance ▸ Accent colour.
@@ -470,6 +499,33 @@ pub fn remember_digital_id(ui: &AppWindow, p: &std::path::Path) {
     });
 }
 
+/// Preferences ▸ Signatures ▸ Create a digital ID… (Acrobat's Add Digital ID ▸ A new digital
+/// ID ▸ New PKCS#12 file): saved where the user chooses, with its certificate (.cer) beside it
+/// to send to people who encrypt for them, and kept in the list of IDs.
+pub fn create_digital_id(ui: &AppWindow, spec: sheaf_core::digital_id::NewId, password: String, confirm: &str) {
+    if password != confirm { return crate::flow::toast(ui, "The two passwords differ"); }
+    if spec.name.trim().is_empty() { return crate::flow::toast(ui, "Type the name the digital ID is issued to"); }
+    let d = crate::dialog::new(ui).set_title("Save the new digital ID").set_file_name(format!("{}.p12", spec.name.trim())).add_filter("Digital ID", &["p12", "pfx"]);
+    crate::dialog::save_file(ui, d, move |ui, out| {
+        crate::flow::toast(ui, "Creating the digital ID…");
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let made = sheaf_core::digital_id::create_file(&spec, &password, &out).and_then(|p12| {
+                let id = sheaf_core::pdfcraft::engine::sign::pkcs12::open(&std::fs::read(&p12)?, &password).map_err(|e| sheaf_core::OpdfError::Engine(e.to_string()))?;
+                let cer = sheaf_core::digital_id::export_certificate(&id, &p12.with_extension("cer"))?;
+                Ok((p12, cer))
+            });
+            let _ = weak.upgrade_in_event_loop(move |ui| match made {
+                Ok((p12, cer)) => {
+                    remember_digital_id(&ui, &p12);
+                    crate::flow::toast(&ui, &format!("Digital ID created: {} (certificate to share: {})", p12.display(), cer.file_name().unwrap_or_default().to_string_lossy()));
+                }
+                Err(e) => crate::flow::toast(&ui, &format!("Digital ID not created: {e}")),
+            });
+        });
+    });
+}
+
 /// Preferences ▸ Signatures: `what` 0 a digital ID added from a file, 1 digital ID `k` taken off
 /// the list, 2 a trusted certificate added from a file, 3 trusted certificate `k` removed.
 pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
@@ -517,9 +573,18 @@ pub fn physical_numbers() -> bool {
     with(|h| h.prefs.physical_numbers)
 }
 
-/// Preferences ▸ Page display: `what` 0 the boxes shown, 1 pages called by their place.
+pub fn transparency_grid() -> bool {
+    with(|h| h.prefs.transparency_grid)
+}
+
+/// Preferences ▸ Page display: `what` 0 the boxes shown, 1 pages called by their place, 2 the
+/// transparency grid.
 pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
-    update_prefs(ui, |p| if what == 0 { p.show_boxes = on } else { p.physical_numbers = on });
+    update_prefs(ui, |p| match what {
+        0 => p.show_boxes = on,
+        1 => p.physical_numbers = on,
+        _ => p.transparency_grid = on,
+    });
     crate::viewer_ui::redraw_all(ui);
 }
 
@@ -527,6 +592,31 @@ pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
 pub fn set_gpu(ui: &AppWindow, on: bool) {
     update_prefs(ui, |p| p.no_gpu = !on);
     crate::flow::toast(ui, "Takes effect when Sheaf starts again");
+}
+
+/// Acrobat's display profile changes all open pages without changing PDF bytes.
+pub fn display_transform() -> Option<std::sync::Arc<sheaf_app::display_color::DisplayTransform>> {
+    with(|h| h.display_transform.clone())
+}
+
+pub fn choose_display_profile(ui: &AppWindow) {
+    let d = crate::dialog::new(ui).set_title("Choose RGB monitor ICC profile").add_filter("ICC profile", &["icc", "icm"]);
+    crate::dialog::pick_file(ui, d, move |ui, path| {
+        match sheaf_app::display_color::DisplayTransform::load(&path) {
+            Ok(transform) => {
+                with(|h| h.display_transform = Some(std::sync::Arc::new(transform)));
+                update_prefs(ui, |p| p.display_profile = Some(path));
+                crate::viewer_ui::redraw_all(ui);
+            }
+            Err(error) => crate::flow::toast(ui, &error),
+        }
+    });
+}
+
+pub fn reset_display_profile(ui: &AppWindow) {
+    with(|h| h.display_transform = None);
+    update_prefs(ui, |p| p.display_profile = None);
+    crate::viewer_ui::redraw_all(ui);
 }
 
 /// Preferences ▸ Guides: their colour, of `reader::GUIDE_COLOURS`.
@@ -789,6 +879,22 @@ pub fn open_recent(ui: &AppWindow, i: i32) {
     }
 }
 
+/// The user guide (`guide/sheaf-guide.md`, made into a PDF by `dev/scripts/make-guide.sh`).
+const GUIDE: &[u8] = include_bytes!("../guide/Sheaf Guide.pdf");
+
+/// Help ▸ Sheaf Guide: the guide written to the data folder (again when this version's differs)
+/// and opened in a tab, as PDF Expert opens its Welcome document.
+pub fn open_guide(ui: &AppWindow) {
+    let p = store_file::data_dir().join("Sheaf Guide.pdf");
+    if std::fs::read(&p).ok().as_deref() != Some(GUIDE)
+        && let Err(e) = store_file::replace(&p, GUIDE)
+    {
+        crate::flow::toast(ui, &format!("The guide could not be opened ({e})"));
+        return;
+    }
+    crate::reader_ui::open(ui, p, None);
+}
+
 pub fn remove_recent(ui: &AppWindow, i: i32) {
     if let Some(p) = recent(i) {
         let result = with(|h| h.store.remove_recent(&p));
@@ -878,6 +984,25 @@ pub fn keep_stamp(name: &str, bytes: &[u8]) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
+
+    /// The guide's PDF is made from its Markdown: every section of the Markdown is in it, so a
+    /// guide edited without `dev/scripts/make-guide.sh` fails here.
+    #[test]
+    fn the_guide_pdf_holds_every_section_of_its_markdown() {
+        let dir = tempfile::tempdir().unwrap();
+        let pdf = dir.path().join("guide.pdf");
+        std::fs::write(&pdf, GUIDE).unwrap();
+        let text = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&pdf), &[]).unwrap().join("\n");
+        let squash = |s: &str| s.split_whitespace().collect::<String>();
+        let text = squash(&text);
+        let md = include_str!("../guide/sheaf-guide.md");
+        let heads: Vec<&str> = md.lines().filter_map(|l| l.strip_prefix("## ")).collect();
+        assert!(heads.len() >= 9, "{heads:?}");
+        for h in heads.iter().chain(md.lines().filter(|l| l.starts_with("- **")).map(|l| l.trim_start_matches("- **").split("**").next().unwrap()).collect::<Vec<_>>().iter()) {
+            assert!(text.contains(&squash(h)), "{h} is not in the guide's PDF");
+        }
+    }
+
     use super::*;
 
     #[test]

@@ -25,7 +25,16 @@ export struct ShortcutRow {
 export struct Launcher {
     id: string,
     name: string,
+    // Its keys as the system writes them ("" none), shown in the menu.
+    label: string,
     keys: keys,
+}
+
+// Preferences ▸ Spelling: an installed dictionary, chosen or not (those chosen first, in order).
+export struct DictionaryRow {
+    lang: string,
+    name: string,
+    chosen: bool,
 }
 
 export global PlatformBridge {
@@ -38,6 +47,9 @@ export global PlatformBridge {
     // The dictionary in use, or what is missing to have one.
     in property <string> spell-dictionary;
     in property <[string]> learned;
+    // The dictionaries installed; one ticked or unticked (0) or moved up (-1) or down (+1).
+    in property <[DictionaryRow]> dictionaries;
+    callback dictionary-change(string, int);
     // The editor's text changed (checked a moment after typing pauses; `typing`: the last word,
     // still being typed, is left alone); a new editor opened.
     callback spell-check(text: string, typing: bool);
@@ -58,6 +70,11 @@ export global PlatformBridge {
     in property <[keys]> keys;
     // Tools ▸ Open Tool, every tool on the Tools page with its keys (none unless given).
     in property <[Launcher]> launchers;
+    // The tool a key opens ("" none), asked only while no text field has the keyboard (Stirling
+    // leaves its hotkeys to the field being typed in): every TextInput and TextEdit sets `typing`
+    // as it takes and loses the keyboard.
+    pure callback launcher-for(string, bool, bool, bool, bool) -> string;
+    in-out property <bool> typing;
     // By command: given keys of its own by the user (the reader's and Home's other keys for it
     // stop), and its keys as written in the help sheet.
     in property <[bool]> rebound;
@@ -88,6 +105,9 @@ export global PlatformBridge {
     in property <bool> rtl;
     in property <int> direction;
     callback set-direction(int);
+    // The interface's language: 0 the system's, 1 English, 2 French.
+    in property <int> language;
+    callback set-language(int);
 
     // The menu bar shown (debug builds driven by the GUI smoke hide it unless asked: their clicks
     // are placed for a window without it).
@@ -108,6 +128,7 @@ export global PlatformBridge {
     // Learn, Next (this one left as it is), close.
     callback check-start(int);
     callback check-change(string);
+    callback check-change-all(string);
     callback check-ignore();
     callback check-learn();
     callback check-next();

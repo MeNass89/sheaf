@@ -1,0 +1,104 @@
+// Acrobat's Encrypt with Certificate: recipients chosen from their certificates, each with their
+// own permissions, and what is encrypted. The copy opens with a recipient's digital ID.
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { PanelButton } from "../widgets/panel-button.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { SortCombo } from "../widgets/sort-combo.slint";
+import { Check } from "../widgets/check.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+
+export component CertificateEncryptSheet inherits Rectangle {
+    in property <ToolTab> tab;
+    callback focus-pages();
+    // A policy used or imported sets the scope and the name.
+    property <int> sequence: root.tab.reader.cert-seq;
+    changed sequence => { scope.current-index = root.tab.reader.cert-scope; policy-name.text = root.tab.reader.cert-name; }
+    background: #00000044;
+    TouchArea { }
+    Rectangle {
+        width: min(760px, root.width - 32px);
+        height: min(680px, root.height - 32px);
+        border-radius: Theme.radius-card;
+        background: Theme.card;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            Text { text: @tr("Encrypt with certificates"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Only the recipients below can open the copy, each with their own digital ID and permissions. Add your own ID to open it again."); font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                PanelButton { text: @tr("Add certificate…"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 1, 0, ""); } }
+                PanelButton { text: @tr("Add my digital ID…"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 2, 0, id-password.text); } }
+                id-password := TextField { width: 220px; placeholder: @tr("Digital ID password"); password: true; }
+            }
+            Text { text: @tr("Recipients and what each may do"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+            if root.tab.reader.cert-recipients.length == 0: Text { text: @tr("No recipient yet. Add their certificate (.cer, .crt, .pem, .der)."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+            ScrollView {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    spacing: 10px;
+                    for recipient[k] in root.tab.reader.cert-recipients: VerticalLayout {
+                        spacing: 4px;
+                        HorizontalLayout {
+                            spacing: 8px;
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                Text { text: recipient.name; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; overflow: elide; }
+                                Text { text: recipient.detail; font-size: Theme.fs-caption; color: Theme.text-secondary; overflow: elide; }
+                            }
+                            PanelButton { text: @tr("Remove"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 3, k, ""); } }
+                        }
+                        HorizontalLayout {
+                            spacing: 14px;
+                            for flag[f] in [@tr("Print"), @tr("Copy"), @tr("Edit"), @tr("Comment"), @tr("Fill forms"), @tr("Change security")]: Check {
+                                text: flag;
+                                checked: recipient.flags[f];
+                                enabled: !root.tab.reader.cert-busy && (f == 5 || !recipient.flags[5]);
+                                toggled => { ReaderBridge.cert-flag(root.tab.id, k, f, self.checked); }
+                            }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                alignment: start;
+                Text { text: @tr("Encrypt"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                scope := SortCombo { width: 300px; options: [@tr("All document contents"), @tr("All contents except metadata"), @tr("Only file attachments")]; chevron: @image-url("../icons/chevron-down.svg"); }
+            }
+            Text { text: @tr("Certificate security policies"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                policy-name := TextField { width: 220px; placeholder: @tr("Policy name"); }
+                PanelButton { text: @tr("Save as policy"); enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0; clicked => { ReaderBridge.cert-action(root.tab.id, 5, scope.current-index, policy-name.text); } }
+                PanelButton { text: @tr("Export…"); enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0; clicked => { ReaderBridge.cert-action(root.tab.id, 9, scope.current-index, policy-name.text); } }
+                PanelButton { text: @tr("Import…"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 8, 0, ""); } }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: start;
+                if root.tab.reader.cert-policies.length == 0: Text { text: @tr("No saved policy yet."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                for policy[k] in root.tab.reader.cert-policies: HorizontalLayout {
+                    spacing: 4px;
+                    PanelButton { text: @tr("Use {}", policy); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 6, k, ""); } }
+                    PanelButton { text: "×"; enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 7, k, ""); } }
+                }
+            }
+            Text { text: root.tab.reader.cert-status; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; max-height: 54px; overflow: elide; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                PanelButton { text: @tr("Close"); enabled: !root.tab.reader.cert-busy; clicked => { ReaderBridge.cert-action(root.tab.id, 0, 0, ""); root.focus-pages(); } }
+                PanelButton {
+                    text: @tr("Save encrypted copy…");
+                    primary: true;
+                    enabled: !root.tab.reader.cert-busy && root.tab.reader.cert-recipients.length > 0;
+                    clicked => { ReaderBridge.cert-action(root.tab.id, 4, scope.current-index, ""); }
+                }
+            }
+        }
+    }
+}

@@ -8,11 +8,15 @@ license.workspace = true
 pdfium-render.workspace = true
 lopdf.workspace = true
 image.workspace = true
+zune-jpeg.workspace = true
+zune-core.workspace = true
 thiserror.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tempfile.workspace = true
 getrandom.workspace = true
+rsa.workspace = true
+pdfcraft-cos.workspace = true
 parking_lot.workspace = true
 pdfcraft-engine.workspace = true
 pdfcraft-render.workspace = true
@@ -21,13 +25,22 @@ pdfcraft-edit.workspace = true
 pdfcraft-export.workspace = true
 rust_xlsxwriter.workspace = true
 unicode-normalization.workspace = true
+rust-stemmers.workspace = true
 encoding_rs.workspace = true
+pulldown-cmark.workspace = true
 calamine.workspace = true
 skrifa.workspace = true
 spellbook.workspace = true
+ureq.workspace = true
 
 [dev-dependencies]
+# Reads the QR Codes barcode form fields draw (tests only, pure Rust).
+rqrr = { version = "0.11", default-features = false }
 tempfile.workspace = true
 pdfium-render.workspace = true
 lopdf.workspace = true
 image.workspace = true
+dirs.workspace = true
+zip.workspace = true
+# Exercise the actual desktop ICC module without requiring a linked Slint window.
+moxcms.workspace = true

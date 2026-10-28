@@ -153,6 +153,10 @@ pub fn document_scripts(cos: &pdfcraft_cos::Document) -> Vec<(String, String)> {
     pdfcraft_forms::document_scripts_named(cos)
 }
 
+/// A stable page/link event target for an undoable script edit. Page and annotation indices are zero-based.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ActionScriptTarget { pub page: usize, pub link: Option<usize>, pub event: String }
+
 /// Editable document and custom field scripts for the console manager.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ConsoleScript {
@@ -160,20 +164,22 @@ pub struct ConsoleScript {
     pub source: String,
     /// None for document scripts; otherwise SetFieldScript's event id.
     pub event: Option<String>,
+    pub target: Option<ActionScriptTarget>,
 }
 
 impl crate::Document {
     pub fn console_scripts(&self) -> Vec<ConsoleScript> {
-        let mut result = self.document_scripts().into_iter().map(|(name, source)| ConsoleScript { name, source, event: None }).collect::<Vec<_>>();
+        let mut result = self.document_scripts().into_iter().map(|(name, source)| ConsoleScript { name, source, event: None, target: None }).collect::<Vec<_>>();
         if let Some(editor) = &self.editor {
+            result.extend(crate::action_scripts::inventory(&editor.cos));
             for field in pdfcraft_forms::fields(&editor.cos) {
                 for (event, source) in [("keystroke", field.actions.scripts.keystroke), ("format", field.actions.scripts.format), ("validate", field.actions.scripts.validate), ("calculate", field.actions.scripts.calculate)] {
-                    if let Some(source) = source { result.push(ConsoleScript { name: field.name.clone(), source, event: Some(event.into()) }); }
+                    if let Some(source) = source { result.push(ConsoleScript { name: field.name.clone(), source, event: Some(event.into()), target: None }); }
                 }
                 if let Ok(actions) = pdfcraft_forms::field_actions(&editor.cos, &field.name) {
                     for (trigger, action) in actions {
                         if trigger == pdfcraft_forms::Trigger::MouseUp && let pdfcraft_forms::FieldAction::JavaScript(source) = action {
-                            result.push(ConsoleScript { name: field.name.clone(), source, event: Some("mouse_up".into()) });
+                            result.push(ConsoleScript { name: field.name.clone(), source, event: Some("mouse_up".into()), target: None });
                         }
                     }
                 }

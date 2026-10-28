@@ -2,7 +2,7 @@
 //! arguments ([`Cmd`]), the value enums and value parsers they use, and `sheaf edit`'s items
 //! regrouped by position ([`edit_items`]). `main.rs` dispatches what is parsed here.
 
-use clap::{ArgMatches, Parser, Subcommand, ValueEnum};
+use clap::{ArgMatches, Args, Parser, Subcommand, ValueEnum};
 use sheaf_core::compress::Level;
 use sheaf_core::numbers::Std14;
 use sheaf_core::redact::Pattern;
@@ -349,7 +349,7 @@ pub(crate) enum Cmd {
     Ocr {
         /// The scanned PDF
         input: PathBuf,
-        /// Use installed Tesseract instead of bundled recognition, including Latin text
+        /// Require installed Tesseract (default: prefer complete local packs, then bundled Latin)
         #[arg(long)]
         local_engine: bool,
         /// Language codes joined with + (for example en+ja); extra scripts need local Tesseract packs
@@ -590,6 +590,48 @@ pub(crate) enum Cmd {
         #[arg(long)]
         pages: Option<String>,
     },
+    /// Ask AI a question about a PDF (Acrobat's AI Assistant); only its text is sent
+    Ask {
+        /// The PDF to ask about
+        input: PathBuf,
+        /// The question
+        #[arg(short, long)]
+        question: String,
+        /// Pages to send, e.g. "1-3,5" (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        #[command(flatten)]
+        ai: AiArgs,
+    },
+    /// Summarize a PDF with AI (PDF Expert's Summarize); only its text is sent
+    Summarize {
+        /// The PDF to summarize
+        input: PathBuf,
+        /// Pages to summarize, e.g. "1-3,5" (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        /// The main points as a list instead of paragraphs
+        #[arg(long)]
+        points: bool,
+        #[command(flatten)]
+        ai: AiArgs,
+    },
+    /// Translate a PDF's text with AI (PDF Expert's Translate); only its text is sent
+    Translate {
+        /// The PDF to translate
+        input: PathBuf,
+        /// The language to translate into, e.g. French
+        #[arg(long)]
+        to: String,
+        /// Pages to translate, e.g. "1-3,5" (default: all)
+        #[arg(long)]
+        pages: Option<String>,
+        /// Write the translation to this file (.txt, or .pdf for Western languages) instead of printing it
+        #[arg(short, long)]
+        out: Option<PathBuf>,
+        #[command(flatten)]
+        ai: AiArgs,
+    },
     /// Render one page to a PNG, to look at a result
     Render {
         /// The PDF to read
@@ -601,6 +643,34 @@ pub(crate) enum Cmd {
         #[arg(long, default_value_t = 110, value_parser = clap::value_parser!(u32).range(18..=600))]
         dpi: u32,
         /// The PNG to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Encrypt a PDF for local recipients using RSA certificates and AES-256
+    EncryptCertificates {
+        /// The unsigned PDF to encrypt
+        input: PathBuf,
+        /// Recipient X.509 certificate files (PEM or DER); include your own to reopen
+        #[arg(long = "recipient", required = true, num_args = 1..)]
+        recipients: Vec<PathBuf>,
+        /// Encrypt all contents, leave metadata clear, or encrypt embedded files only
+        #[arg(long, value_enum, default_value = "all")]
+        scope: CliCertificateScope,
+        /// The certificate-encrypted PDF to write
+        #[arg(short, long)]
+        out: PathBuf,
+    },
+    /// Save an authorized unprotected copy using a local PKCS#12 recipient digital ID
+    UnlockCertificate {
+        /// The Adobe.PubSec S5 AES-256 PDF to unlock
+        input: PathBuf,
+        /// A recipient's local PKCS#12 digital ID file (.p12 or .pfx)
+        #[arg(long)]
+        identity: PathBuf,
+        /// Password for the digital ID file
+        #[arg(long)]
+        id_password: String,
+        /// The unprotected PDF copy to write; the encrypted original is retained
         #[arg(short, long)]
         out: PathBuf,
     },
@@ -620,13 +690,93 @@ pub(crate) enum Cmd {
     SearchIndex {
         /// A previously built catalog JSON file
         index: PathBuf,
-        /// Phrase to find, ignoring case and line ends
+        /// Words, phrase, or Boolean expression to find
+        query: String,
+        /// Phrase, all words, any words, Boolean expression, or unordered proximity
+        #[arg(long, value_enum, default_value = "phrase")]
+        mode: CliCatalogMode,
+        /// Match complete words rather than substrings in phrase mode
+        #[arg(long)]
+        whole_words: bool,
+        /// Match letter case (cannot combine with English stemming)
+        #[arg(long, conflicts_with = "english_stems")]
+        match_case: bool,
+        /// Match English word inflections using Snowball stemming
+        #[arg(long)]
+        english_stems: bool,
+        /// Maximum intervening words for proximity mode
+        #[arg(long, default_value_t = 10)]
+        proximity: u32,
+    },
+    /// Find a word or phrase in a PDF: the pages it is on, how often, and around it (JSON)
+    Search {
+        /// The PDF to read
+        input: PathBuf,
+        /// The words to find (case ignored)
+        #[arg(long)]
         query: String,
     },
+    /// List the PDF actions a script or the system's automation can run, with their commands (JSON)
+    Actions,
     /// Describe every command as a JSON schema, for agents
     Tools,
     /// Serve every command as a tool over the Model Context Protocol (JSON-RPC on stdio)
     Mcp,
+}
+
+/// The AI provider of `ask`, `summarize` and `translate`; each falls back on an environment
+/// variable (SHEAF_AI_PROVIDER, SHEAF_AI_MODEL, SHEAF_AI_BASE_URL, SHEAF_AI_KEY or the provider's
+/// own, such as OPENAI_API_KEY), then on a local Ollama or llama.cpp server.
+#[derive(Args, Clone, Default)]
+pub(crate) struct AiArgs {
+    /// openai, anthropic, gemini, mistral, xai, compatible, ollama or llamacpp (env SHEAF_AI_PROVIDER)
+    #[arg(long)]
+    pub(crate) provider: Option<String>,
+    /// The model's name (env SHEAF_AI_MODEL; default: the provider's usual one)
+    #[arg(long)]
+    pub(crate) model: Option<String>,
+    /// The provider's address, e.g. http://localhost:1234/v1 (env SHEAF_AI_BASE_URL)
+    #[arg(long)]
+    pub(crate) base_url: Option<String>,
+    /// The API key (env SHEAF_AI_KEY or the provider's own variable)
+    #[arg(long)]
+    pub(crate) api_key: Option<String>,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliCertificateScope {
+    /// Encrypt every string and content stream
+    All,
+    /// Encrypt contents, leaving XMP metadata readable
+    ExceptMetadata,
+    /// Encrypt embedded file streams while leaving page contents readable
+    Attachments,
+}
+impl CliCertificateScope {
+    pub fn core(self) -> sheaf_core::certificate_security::Scope {
+        use sheaf_core::certificate_security::Scope;
+        match self { Self::All => Scope::All, Self::ExceptMetadata => Scope::ExceptMetadata, Self::Attachments => Scope::Attachments }
+    }
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum CliCatalogMode {
+    /// Exact phrase, including across line ends
+    Phrase,
+    /// Every word on the same page, in any order
+    AllWords,
+    /// At least one word on the page
+    AnyWords,
+    /// AND, OR, NOT, parentheses and quoted phrases
+    Boolean,
+    /// Words near each other in any order
+    Proximity,
+}
+impl CliCatalogMode {
+    pub fn core(self) -> sheaf_core::search_index::SearchMode {
+        use sheaf_core::search_index::SearchMode;
+        match self { Self::Phrase => SearchMode::Phrase, Self::AllWords => SearchMode::AllWords, Self::AnyWords => SearchMode::AnyWords, Self::Boolean => SearchMode::Boolean, Self::Proximity => SearchMode::Proximity }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -798,12 +948,30 @@ impl CliFont {
 
 #[derive(Clone, Copy, ValueEnum)]
 pub(crate) enum CliPdfA {
+    /// PDF/A-1b (older archives; no transparency or attachments)
+    #[value(name = "1b")]
+    A1b,
     /// PDF/A-2b (recommended)
     #[value(name = "2b")]
     A2b,
     /// PDF/A-3b (allows attachments)
     #[value(name = "3b")]
     A3b,
+    /// PDF/A-1a (older archive, existing tags and Unicode required)
+    #[value(name = "1a")]
+    A1a,
+    /// PDF/A-2u (Unicode text)
+    #[value(name = "2u")]
+    A2u,
+    /// PDF/A-3u (Unicode text, attachments allowed)
+    #[value(name = "3u")]
+    A3u,
+    /// PDF/A-2a (existing tags and Unicode required)
+    #[value(name = "2a")]
+    A2a,
+    /// PDF/A-3a (existing tags and Unicode, attachments allowed)
+    #[value(name = "3a")]
+    A3a,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -994,6 +1162,19 @@ mod help_tests {
     use clap::CommandFactory;
 
     /// Every option, input and enumerated value of every command says what it is in `--help`.
+    #[test]
+    fn offline_certificate_commands_require_recipients_identity_and_explicit_scope() {
+        assert!(Cli::try_parse_from(["sheaf", "encrypt-certificates", "input.pdf", "--recipient", "alice.cer", "bob.pem", "--scope", "except-metadata", "-o", "encrypted.pdf"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "encrypt-certificates", "input.pdf", "-o", "encrypted.pdf"]).is_err());
+        assert!(Cli::try_parse_from(["sheaf", "unlock-certificate", "encrypted.pdf", "--identity", "alice.p12", "--id-password", "secret", "-o", "copy.pdf"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "unlock-certificate", "encrypted.pdf", "-o", "copy.pdf"]).is_err());
+    }
+    #[test]
+    fn catalog_advanced_cli_modes_and_conflicting_case_options_are_validated() {
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red AND blue", "--mode", "boolean", "--whole-words"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red blue", "--mode", "proximity", "--proximity", "3", "--english-stems"]).is_ok());
+        assert!(Cli::try_parse_from(["sheaf", "search-index", "catalog.json", "red", "--match-case", "--english-stems"]).is_err());
+    }
     #[test]
     fn every_option_and_value_has_help() {
         let cli = Cli::command();

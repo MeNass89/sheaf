@@ -34,6 +34,8 @@ export component Stepper inherits FlexboxLayout {
         border-width: 1px;
         border-color: n.has-focus ? Theme.text-secondary : Theme.option-border;
         n := TextInput {
+            // Tools page tools' keys wait while a field has the keyboard.
+            changed has-focus => { PlatformBridge.typing = self.has-focus; }
             width: parent.width - 12px;
             text: root.value;
             font-size: Theme.fs-label;
@@ -95,8 +97,8 @@ export component PageRange inherits FlexboxLayout {
     in-out property <string> from;
     in-out property <string> to;
     spacing: 10px;
-    TextField { width: (parent.width - 10px) / 2; label: "From page"; placeholder: "1"; text <=> root.from; }
-    TextField { width: (parent.width - 10px) / 2; label: "To page"; placeholder: "Last"; text <=> root.to; }
+    TextField { width: (parent.width - 10px) / 2; label: @tr("From page"); placeholder: "1"; text <=> root.from; }
+    TextField { width: (parent.width - 10px) / 2; label: @tr("To page"); placeholder: @tr("Last"); text <=> root.to; }
 }
 
 // Crop: page 1 with the kept area outlined and the cut margins dimmed. Margins are drawn from the
@@ -129,7 +131,7 @@ export component CropPreview inherits Rectangle {
     border-radius: Theme.radius-small;
     if !root.ready: Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Preview…";
+        text: @tr("Preview…");
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
@@ -182,15 +184,15 @@ export component FontRow inherits VerticalLayout {
     in-out property <string> size;
     in property <string> size-placeholder;
     spacing: 10px;
-    SectionLabel { text: "Font"; }
+    SectionLabel { text: @tr("Font"); }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
         spacing: 6px;
-        Segment { text: "Sans"; selected: root.family == 0; clicked => { root.family = 0; } }
-        Segment { text: "Serif"; label-family: Theme.serif-family; selected: root.family == 1; clicked => { root.family = 1; } }
-        Segment { text: "Mono"; label-family: Theme.mono-family; selected: root.family == 2; clicked => { root.family = 2; } }
+        Segment { text: @tr("Sans"); selected: root.family == 0; clicked => { root.family = 0; } }
+        Segment { text: @tr("Serif"); label-family: Theme.serif-family; selected: root.family == 1; clicked => { root.family = 1; } }
+        Segment { text: @tr("Mono"); label-family: Theme.mono-family; selected: root.family == 2; clicked => { root.family = 2; } }
     }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
@@ -199,9 +201,9 @@ export component FontRow inherits VerticalLayout {
         spacing: 6px;
         TextField { placeholder: root.size-placeholder; text <=> root.size; }
         Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "pt"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-        Segment { width: 32px; text: "B"; label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
-        Segment { width: 32px; text: "I"; label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
-        Segment { width: 32px; text: "U"; label-underline: true; selected: root.underline; clicked => { root.underline = !root.underline; } }
+        Segment { width: 32px; text: @tr("B"); label-bold: true; selected: root.bold; clicked => { root.bold = !root.bold; } }
+        Segment { width: 32px; text: @tr("I"); label-italic: true; selected: root.italic; clicked => { root.italic = !root.italic; } }
+        Segment { width: 32px; text: @tr("U"); label-underline: true; selected: root.underline; clicked => { root.underline = !root.underline; } }
     }
 }
 
@@ -210,13 +212,13 @@ export component ColourRow inherits VerticalLayout {
     in-out property <int> colour;
     in-out property <string> hex;
     spacing: 10px;
-    SectionLabel { text: "Colour"; }
+    SectionLabel { text: @tr("Colour"); }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
         spacing: 6px;
-        for c[k] in ["Black", "Grey", "Red", "Blue"]: Segment {
+        for c[k] in [@tr("Black"), @tr("Grey"), @tr("Red"), @tr("Blue")]: Segment {
             text: c;
             selected: root.hex == "" && root.colour == k;
             clicked => { root.colour = k; root.hex = ""; }
@@ -227,7 +229,7 @@ export component ColourRow inherits VerticalLayout {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
         spacing: 8px;
-        TextField { placeholder: "Custom: RRGGBB"; text <=> root.hex; error: Parse.colour-error(root.hex); }
+        TextField { placeholder: @tr("Custom: RRGGBB"); text <=> root.hex; error: Parse.colour-error(root.hex); }
         // The colour the text will take.
         VerticalLayout {
             alignment: start;

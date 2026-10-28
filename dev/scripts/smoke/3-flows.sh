@@ -1,10 +1,12 @@
 # Sourced by dev/scripts/gui-smoke.sh, in name order: shares its helpers, profile and variables.
 # Steps 21–78: tool flows (reorder, Merge, Split, Compare, Protect) and the later reader features.
 
-# 21. A tool's files reorder by drag (iLovePDF, Stirling): three images open in JPG to PDF, a.png's card dragged
-# past c.png's (cards at 101/237/373, 130); the dragged card dims, a bar shows where it goes; the order becomes b c a.
+# 21. A tool's files reorder by drag (iLovePDF, Stirling): three images added to JPG to PDF (Tools 67,113 ▸ JPG to PDF
+# 271,517 ▸ Open file 494,405, the dialog answered with the three; images opened from outside go to the reader since
+# C-reader-064), a.png's card dragged past c.png's (cards at 101/237/373, 130); the dragged card dims, a bar shows
+# where it goes; the order becomes b c a.
 mkdir -p "$OUT/reo"; convert -size 300x400 xc:'#3366cc' "$OUT/reo/a.png"; convert -size 300x400 xc:'#cc6633' "$OUT/reo/b.png"; convert -size 300x400 xc:'#33aa55' "$OUT/reo/c.png"
-launch "$OUT/reo/a.png" "$OUT/reo/b.png" "$OUT/reo/c.png"; sleep 1
+jpg_to_pdf "$OUT/reo/a.png" "$OUT/reo/b.png" "$OUT/reo/c.png"
 xdotool mousemove 101 130 mousedown 1; for i in 1 2 3 4 5 6 7 8 9 10; do xdotool mousemove $(( 101 + i * 35 )) 140; sleep 0.08; done; sleep 0.4; shot 21-dragging; xdotool mouseup 1; sleep 1
 # Read by place, not by OCR's word order (it reads a row of names out of order).
 RX=$(for n in a b c; do at "$n.png" 460x30+40+180 | cut -d' ' -f1; done | tr '\n' ' ')
@@ -21,7 +23,7 @@ quit
 # 21b. More files than fit: a card held at the bottom edge scrolls the files and goes past what was in view.
 # 30 images, f01 held at the bottom: the files scroll to the end and it lands in the last row (before f27).
 for i in $(seq 1 30); do convert -size 60x80 xc:"hsl($(( i * 12 )),60%,50%)" "$OUT/reo/f$(printf %02d "$i").png"; done
-launch "$OUT"/reo/f*.png; sleep 1
+jpg_to_pdf "$OUT"/reo/f*.png
 xdotool mousemove 101 130 mousedown 1; for y in 200 300 400 500 600 700 750 765; do xdotool mousemove 300 $y; sleep 0.08; done; sleep 2.5; xdotool mouseup 1; sleep 0.8; shot 21b-edge
 F1=$(at f01 940x30+20+712)
 check "a card held at the bottom edge scrolls the files and lands in the last row (f01 at $F1)" "[ -n \"$F1\" ]"
@@ -100,7 +102,7 @@ launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 click 223 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 110x26+1000+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
+SF=$(ocr 72x26+978+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
 check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
 quit
 
@@ -108,7 +110,7 @@ quit
 # Highlight existing fields); Document properties of a file with only an owner password say what it forbids.
 launch "$OUT/form.pdf"; key ctrl+9; sleep 1
 tint() { import -window root -crop 1x1+640+300 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}'; }
-T0=$(tint); click 1127 61 0.8; click 1008 211 1; T1=$(tint); click 1127 61 0.8; click 1008 211 1; T2=$(tint)
+T0=$(tint); click 1108 61 0.8; click 1008 211 1; T1=$(tint); click 1108 61 0.8; click 1008 211 1; T2=$(tint)
 check "Highlight form fields turns the fields' tint off and on ($T0 → $T1 → $T2)" "[ \"$T0\" != \"$T1\" ] && [ \"$T0\" = \"$T2\" ] && [ \"$T1\" = '#FFFFFF' ]"
 quit
 qpdf --encrypt "" owner 256 --print=none --extract=n -- "$OUT/text.pdf" "$OUT/owner.pdf"
@@ -231,8 +233,8 @@ quit
 # (1008,295) swaps them (Acrobat's right-to-left page order).
 convert -size 300x400 xc:'#E02020' xc:'#2040E0' "$OUT/rl.pdf"; launch "$OUT/rl.pdf"; sleep 1
 colour_at() { import -window root -crop "1x1+$1+420" txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}'; }
-click 1127 61 0.8; click 1008 239 1.2; L0=$(colour_at 620); R0=$(colour_at 900)
-click 1127 61 0.8; click 1008 295 1.2; L1=$(colour_at 620); R1=$(colour_at 900)
+click 1108 61 0.8; click 1008 239 1.2; L0=$(colour_at 620); R0=$(colour_at 900)
+click 1108 61 0.8; click 1008 295 1.2; L1=$(colour_at 620); R1=$(colour_at 900)
 reddish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, b = int(v[0:2], 16), int(v[4:6], 16); sys.exit(0 if r > b + 80 else 1)' "$1"; }
 check "two pages read left to right, then right to left ($L0 $R0 → $L1 $R1)" "reddish '${L0:-#000000}' && reddish '${R1:-#000000}' && ! reddish '${R0:-#FF0000}' && ! reddish '${L1:-#FF0000}'"
 quit
@@ -256,17 +258,17 @@ quit
 # 35c. More (1127,61) ▸ Page background… (13th item, 1008,435): pale yellow chosen (the first colour), Apply,
 # saved: the pages' corners turn pale yellow, behind the text (a /Background artifact).
 cp "$OUT/text.pdf" "$OUT/bg.pdf"; launch "$OUT/bg.pdf"; sleep 1
-click 1127 61 0.8; click 1008 435 1; shot 35c-background; BG=$(read CX CY <<< "$(at Cancel 700x500+300+150)"; [ -n "$CY" ] && echo "$(( CX + 70 )) $CY"); [ -n "$BG" ] && click $BG 1.5; key ctrl+s; sleep 1.5
+click 1108 61 0.8; click 1008 435 1; shot 35c-background; BG=$(read CX CY <<< "$(at Cancel 700x500+300+150)"; [ -n "$CY" ] && echo "$(( CX + 70 )) $CY"); [ -n "$BG" ] && click $BG 1.5; key ctrl+s; sleep 1.5
 BC=$(pdftoppm -r 10 -f 1 -l 1 -png "$OUT/bg.pdf" 2>/dev/null | convert - -format "%[pixel:p{2,2}]" info: 2>/dev/null)
 check "Page background puts a colour behind every page (${BG:-no Apply}; corner $BC)" "[ \"$BC\" = 'srgb(255,248,214)' ] && qpdf --qdf --object-streams=disable $OUT/bg.pdf - 2>/dev/null | grep -aq '/Background'"
 quit
 # 35d. More ▸ Versions… (14th item, 1008,463), Acrobat's Revert: a background applied and not saved, then Revert to
 # saved: the page is white again and nothing is left to save; Open on version 1 opens it in a tab of its own.
 cp "$OUT/text.pdf" "$OUT/ver.pdf"; launch "$OUT/ver.pdf"; sleep 1
-click 1127 61 0.8; click 1008 435 1; AP=$(read CX CY <<< "$(at Cancel 700x500+300+150)"; [ -n "$CY" ] && echo "$(( CX + 70 )) $CY"); [ -n "$AP" ] && click $AP 1.5
-click 1127 61 0.8; click 1008 463 1; shot 35d-versions; RV=$(at Revert 700x500+300+150); [ -n "$RV" ] && click $RV 2
+click 1108 61 0.8; click 1008 435 1; AP=$(read CX CY <<< "$(at Cancel 700x500+300+150)"; [ -n "$CY" ] && echo "$(( CX + 70 )) $CY"); [ -n "$AP" ] && click $AP 1.5
+click 1108 61 0.8; click 1008 463 1; shot 35d-versions; RV=$(at Revert 700x500+300+150); [ -n "$RV" ] && click $RV 2
 VC=$(import -window root -crop 1x1+700+700 txt:- 2>/dev/null | tail -1 | awk '{ print $3 }')
-click 1127 61 0.8; click 1008 463 1; OP=$(at Open 700x500+300+150); [ -n "$OP" ] && click $OP 2.5
+click 1108 61 0.8; click 1008 463 1; OP=$(at Open 700x500+300+150); [ -n "$OP" ] && click $OP 2.5
 check "Versions: Revert drops the unsaved background, Open shows version 1 in a tab (${RV:-no Revert} ${OP:-no Open}; page $VC; $(ntabs) tabs)" "echo \"$VC\" | grep -qi 'FFFFFF\|white' && [ \"\$(ntabs)\" = 2 ]"
 quit
 # 35b. A thumbnail's right-click menu (Acrobat's, Preview's): Reverse page order turns text.pdf's four pages back to
@@ -311,7 +313,7 @@ quit
 # selects the blue one, Delete takes it out (saved: three pages, no blue); a double-click on the red one closes
 # the grid on it (it fills the width again).
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/grid.pdf"; launch "$OUT/grid.pdf"; sleep 1
-click 1127 61 0.8; click 1008 267 1.5
+click 1108 61 0.8; click 1008 267 1.5
 # The x of the first pixel where colour channel $1 (r, g or b) dominates on row y = $2, right of the panel.
 first_x() { import -window root -crop "1030x1+250+$2" txt:- 2>/dev/null | python3 -c '
 import re, sys
@@ -584,7 +586,7 @@ quit
 # 63. More (1127,61) ▸ Copy an area as a picture (16th item, 1008,519; Acrobat's Snapshot): a box dragged over the
 # page puts a PNG on the clipboard.
 cp "$OUT/text.pdf" "$OUT/snap.pdf"; launch "$OUT/snap.pdf"; sleep 1
-click 1127 61 0.8; click 1008 519 0.8
+click 1108 61 0.8; click 1008 519 0.8
 xdotool mousemove 500 300 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) $(( 300 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.5
 CT=$(xclip -selection clipboard -t TARGETS -o 2>/dev/null | tr '\n' ' ')
 check "Copy an area puts a picture on the clipboard ($CT)" "echo \"$CT\" | grep -q 'image/png'"
@@ -593,7 +595,7 @@ quit
 # 64. More (1127,61) ▸ Scroll automatically (17th item, 1008,547; Acrobat's): "quick" climbs by itself (60 px a
 # second: read after 1.5 s, before it leaves the view); Escape stops it.
 cp "$OUT/text.pdf" "$OUT/autoscroll.pdf"; launch "$OUT/autoscroll.pdf"; sleep 1
-read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1127 61 0.8; click 1008 547 1.2
+read _ AY0 <<< "$(at quick 1020x700+255+90)"; click 1108 61 0.8; click 1008 547 1.2
 # Read above where it was (the next page's "quick" may have come into view below).
 read _ AY1 <<< "$(at quick 1020x$(( ${AY0:-700} - 92 ))+255+90)"; key Escape; sleep 0.5; read _ AY2 <<< "$(at quick 1020x700+255+90)"; sleep 1; read _ AY3 <<< "$(at quick 1020x700+255+90)"
 check "Scroll automatically moves the pages up until Escape (quick at ${AY0:-?}, ${AY1:-?}, then ${AY2:-?} = ${AY3:-?})" "[ -n \"$AY1\" ] && [ \"$AY1\" -lt \$(( ${AY0:-0} - 40 )) ] && [ \"$AY2\" = \"$AY3\" ]"
@@ -690,7 +692,7 @@ quit
 # 67. More (1127,61) ▸ One page at a time (18th item, 1008,575; Acrobat's Single Page): the page fits the view; one
 # wheel notch down shows page 2 alone (its "Page 2" in view, no "Page 1").
 cp "$OUT/text.pdf" "$OUT/single-view.pdf"; launch "$OUT/single-view.pdf"; sleep 1
-click 1127 61 0.8; click 1008 575 1.5; xdotool mousemove 640 450; xdotool click 5; sleep 1.2; shot 67-one-page
+click 1108 61 0.8; click 1008 575 1.5; xdotool mousemove 640 450; xdotool click 5; sleep 1.2; shot 67-one-page
 SP=$(ocr 1020x720+255+80)
 check "One page at a time turns to page 2 alone with one wheel notch ($(echo "$SP" | cut -c1-60))" "echo \"$SP\" | grep -q 'Page 2' && ! echo \"$SP\" | grep -q 'Page 1' && ! echo \"$SP\" | grep -q 'Page 3'"
 # Zoomed in (⌘9, the page wider than the view and taller): a notch scrolls through the page first, page 2 stays
@@ -714,7 +716,7 @@ quit
 # Email: a copy holding the note goes to the mail app (the test seam names the file attached).
 cp "$OUT/text.pdf" "$OUT/mail.pdf"; launch "$OUT/mail.pdf"; sleep 1; rm -f "$OUT/mail-sent"
 key n; click 640 400 0.8; xdotool type --delay 10 "mailed note"; key ctrl+Return; sleep 0.8
-click 1127 61 0.8; click 1008 603 1.2; MF=$(cat "$OUT/mail-sent" 2>/dev/null)
+click 1108 61 0.8; click 1008 603 1.2; MF=$(cat "$OUT/mail-sent" 2>/dev/null)
 check "Email attaches the document as it is now (${MF:-nothing attached})" "[ -f \"$MF\" ] && qpdf --qdf --object-streams=disable \"$MF\" - 2>/dev/null | grep -aq 'mailed note'"
 quit
 

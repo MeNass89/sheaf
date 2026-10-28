@@ -14,7 +14,7 @@ use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
 use sheaf_app::platform::{self, PlatformPrefs, COMMANDS, TOOLS};
-use sheaf_app::{AppWindow, Launcher, PlatformBridge, ShortcutRow, SpellIssue};
+use sheaf_app::{AppWindow, DictionaryRow, Launcher, PlatformBridge, ShortcutRow, SpellIssue};
 use sheaf_core::spell::Speller;
 use sheaf_core::tools::ToolId;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
@@ -54,7 +54,12 @@ fn with_spell<R>(f: impl FnOnce(&mut Spell) -> R) -> R {
     let spell = guard.get_or_insert_with(|| {
         let langs: Vec<String> = sys_locale::get_locales().take(3).collect();
         let dirs = [sheaf_app::store_file::data_dir().join("dictionaries")];
-        let mut speller = Speller::load(&langs, &dirs);
+        // The dictionaries chosen in Preferences, in their order; else the system's language.
+        let chosen = CHOSEN.lock().map(|c| c.clone()).unwrap_or_default();
+        let mut speller = match Speller::load_chosen(&chosen, &dirs) {
+            Some(s) => Ok(s),
+            None => Speller::load(&langs, &dirs),
+        };
         if let Ok(s) = speller.as_mut() {
             for w in &learned_at_start() {
                 s.learn(w);
@@ -63,6 +68,32 @@ fn with_spell<R>(f: impl FnOnce(&mut Spell) -> R) -> R {
         Spell { speller, corrections: HashMap::new() }
     });
     f(spell)
+}
+
+/// The dictionaries chosen (Preferences ▸ Spelling), for the worker that loads them.
+static CHOSEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// The dictionaries listed in Preferences ▸ Spelling, chosen first.
+fn push_dictionaries(ui: &AppWindow) {
+    let p = home::prefs().platform;
+    let dirs = [sheaf_app::store_file::data_dir().join("dictionaries")];
+    let installed: Vec<String> = sheaf_core::spell::installed_dictionaries(&dirs).into_iter().map(|d| d.lang).collect();
+    let rows: Vec<DictionaryRow> = platform::dictionary_rows(&p, &installed)
+        .into_iter()
+        .map(|(lang, chosen)| DictionaryRow { name: format!("{} · {lang}", sheaf_core::spell::language_name(&lang)).into(), lang: lang.into(), chosen })
+        .collect();
+    ui.global::<PlatformBridge>().set_dictionaries(ModelRc::new(VecModel::from(rows)));
+}
+
+/// The choice of dictionaries changed: read again (the corrections found so far go too).
+fn reload_dictionaries(ui: &AppWindow) {
+    if let Ok(mut c) = CHOSEN.lock() {
+        *c = home::prefs().platform.dictionaries;
+    }
+    *SPELL.lock().unwrap_or_else(|e| e.into_inner()) = None;
+    push_dictionaries(ui);
+    load_dictionary(ui);
+    check_again(ui);
 }
 
 /// The learned words, read on the UI thread when the window starts (the worker cannot reach
@@ -244,7 +275,10 @@ fn push_keys(ui: &AppWindow) {
         .into_iter()
         .enumerate()
         .filter(|(_, (id, _))| !hidden.iter().any(|h| h.as_str() == *id))
-        .map(|(k, (id, name))| Launcher { id: id.into(), name: name.into(), keys: platform::keys(&platform::launch_key(&p, k)) })
+        .map(|(k, (id, name))| {
+            let own = platform::launch_key(&p, k);
+            Launcher { id: id.into(), name: name.into(), label: platform::display(&own).into(), keys: platform::keys(&own) }
+        })
         .collect();
     ui.global::<PlatformBridge>().set_launchers(ModelRc::new(VecModel::from(launchers)));
     let keys: Vec<slint::Keys> = (0..COMMANDS.len()).map(|i| platform::keys(&platform::effective(&p, i))).collect();
@@ -252,7 +286,11 @@ fn push_keys(ui: &AppWindow) {
     g.set_keys(ModelRc::new(VecModel::from(keys)));
     g.set_rebound(ModelRc::new(VecModel::from((0..COMMANDS.len()).map(|i| platform::rebound(&p, i)).collect::<Vec<_>>())));
     g.set_key_labels(ModelRc::new(VecModel::from((0..COMMANDS.len()).map(|i| SharedString::from(platform::label(&p, i))).collect::<Vec<_>>())));
-    TOOL_KEYS.with(|t| t.borrow_mut().tool_keys = p.tool_keys.clone());
+    TOOL_KEYS.with(|t| {
+        let mut t = t.borrow_mut();
+        t.tool_keys = p.tool_keys.clone();
+        t.launch_keys = p.launch_keys.clone();
+    });
     g.set_tool_letters(ModelRc::new(VecModel::from((0..TOOLS.len()).map(|k| SharedString::from(platform::tool_key(&p, k).to_uppercase())).collect::<Vec<_>>())));
 }
 
@@ -273,9 +311,28 @@ fn push(ui: &AppWindow) {
     g.set_hide_unavailable(p.hide_unavailable_tools);
     g.set_direction(i32::from(p.direction));
     g.set_rtl(platform::right_to_left(&p, sys_locale::get_locale().as_deref()));
+    g.set_language(i32::from(p.language));
+    set_language(ui, p.language);
     push_keys(ui);
     push_rows(ui);
 }
+
+/// The interface in the language chosen (Preferences ▸ Interface ▸ Language): the Slint texts
+/// (bundled catalogues) and the ones made in Rust (`sheaf_app::i18n::tr`), which are pushed again.
+fn set_language(ui: &AppWindow, pref: u8) {
+    let lang = sheaf_app::i18n::language_for(pref, sys_locale::get_locale().as_deref());
+    if sheaf_app::i18n::current() == lang && LANGUAGE_SET.load(Ordering::Relaxed) {
+        return;
+    }
+    LANGUAGE_SET.store(true, Ordering::Relaxed);
+    sheaf_app::i18n::set(lang);
+    if let Err(e) = slint::select_bundled_translation(lang) {
+        eprintln!("sheaf: interface language {lang:?}: {e:?}");
+    }
+    crate::home::language_changed(ui);
+}
+
+static LANGUAGE_SET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// The dictionary read in the background as the window starts, so the first check is quick and
 /// Preferences ▸ Spelling says which one is used (or what is missing).
@@ -429,16 +486,15 @@ fn edit_key(ui: &AppWindow, key: &str, shift: bool) {
     slint::Timer::single_shot(Duration::from_millis(wait), send);
 }
 
-/// The modifiers the user holds now (from the window's own events, main.rs): Shift, Alt, Super, Ctrl.
+/// The modifiers the user holds now, as Slint names them (from the window's own events, main.rs):
+/// Shift, Alt, Meta, Control.
 static HELD: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
-const HELD_SHIFT: u8 = 1;
-const HELD_ALT: u8 = 2;
-const HELD_META: u8 = 4;
-const HELD_CTRL: u8 = 8;
+use platform::{HELD_ALT, HELD_CTRL, HELD_META, HELD_SHIFT};
 
-/// The window's modifiers changed (winit's ModifiersChanged).
-pub fn modifiers_changed(shift: bool, alt: bool, meta: bool, ctrl: bool) {
-    HELD.store((u8::from(shift) * HELD_SHIFT) | (u8::from(alt) * HELD_ALT) | (u8::from(meta) * HELD_META) | (u8::from(ctrl) * HELD_CTRL), Ordering::Relaxed);
+/// The window's modifiers changed (winit's ModifiersChanged: physical keys, Super being the Windows
+/// key or a Mac's Command).
+pub fn modifiers_changed(shift: bool, alt: bool, super_key: bool, control: bool) {
+    HELD.store(platform::held_modifiers(shift, alt, control, super_key, cfg!(target_os = "macos")), Ordering::Relaxed);
 }
 
 /// Edit ▸ Check Spelling… on a document: its texts (comments, replies, form fields), what the
@@ -577,6 +633,35 @@ fn check_change(ui: &AppWindow, to: &str) {
     check_advance(ui);
 }
 
+/// Change All (Acrobat's): the misspelt word shown becomes `to` wherever it comes in the comments,
+/// replies and fields still to check, one undo step per text changed.
+fn check_change_all(ui: &AppWindow, to: &str) {
+    if to.trim().is_empty() {
+        return check_change(ui, to);
+    }
+    let put = PASS.with(|p| {
+        let mut p = p.borrow_mut();
+        let pass = p.as_mut()?;
+        let check = pass.check.as_mut()?;
+        let before = check.left();
+        let mut texts: Vec<String> = pass.texts.iter().map(|t| t.2.clone()).collect();
+        let changed = check.change_all(&mut texts, to);
+        pass.changed += before.saturating_sub(check.left());
+        let mut out = Vec::new();
+        for k in changed {
+            pass.texts[k].2 = texts[k].clone();
+            out.push((pass.texts[k].0.clone(), texts[k].clone()));
+        }
+        Some((pass.tab, out))
+    });
+    if let Some((tab, changed)) = put {
+        for (target, text) in changed {
+            crate::reader_ui::spelling_set(ui, tab, &target, &text);
+        }
+    }
+    check_advance(ui);
+}
+
 /// Starts the pass on a reader tab: its texts collected, then scanned on a worker thread.
 fn check_start(ui: &AppWindow, tab: i32) {
     let texts = crate::reader_ui::spelling_texts(tab);
@@ -604,6 +689,10 @@ fn check_start(ui: &AppWindow, tab: i32) {
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
     let _ = LEARNED.set(home::prefs().platform.learned_words);
+    if let Ok(mut c) = CHOSEN.lock() {
+        *c = home::prefs().platform.dictionaries;
+    }
+    push_dictionaries(ui);
     push(ui);
     load_dictionary(ui);
     let g = ui.global::<PlatformBridge>();
@@ -677,6 +766,10 @@ pub fn install(ui: &AppWindow) {
     });
     let weak = ui.as_weak();
     g.on_record_shortcut(move |i, text, control, alt, shift, meta| weak.upgrade().is_none_or(|ui| record(&ui, i, &text, control, alt, shift, meta)));
+    // A key no field took, where no text field has the keyboard: the tool it opens, if any.
+    g.on_launcher_for(|text, control, alt, shift, meta| {
+        TOOL_KEYS.with(|t| platform::launcher_for(&t.borrow(), &text, control, alt, shift, meta).and_then(|k| platform::launchers().get(k).map(|l| SharedString::from(l.0))).unwrap_or_default())
+    });
     g.on_tool_for_key(|text| TOOL_KEYS.with(|t| platform::tool_for_key(&t.borrow(), &text).map_or(-1, |k| k as i32)));
     on!(on_clear_shortcut, |ui, i| {
         if let Some(k) = (i.max(0) as usize).checked_sub(COMMANDS.len() + TOOLS.len()) {
@@ -747,10 +840,17 @@ pub fn install(ui: &AppWindow) {
         crate::install_catalogue(&ui);
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
+    on!(on_set_language, |ui, l| update(&ui, |p| p.language = l.clamp(0, 2) as u8));
     on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
     g.on_shift_held(|| HELD.load(Ordering::Relaxed) & HELD_SHIFT != 0);
     on!(on_check_start, |ui, tab| check_start(&ui, tab));
     on!(on_check_change, |ui, to| check_change(&ui, &to));
+    on!(on_check_change_all, |ui, to| check_change_all(&ui, &to));
+    on!(on_dictionary_change, |ui, lang, step| {
+        let lang = lang.to_string();
+        update(&ui, |p| platform::dictionary_change(p, &lang, step));
+        reload_dictionaries(&ui);
+    });
     on!(on_check_next, |ui| check_step(&ui, sheaf_core::spell::CheckPass::skip));
     on!(on_check_ignore, |ui| {
         if let Some(word) = shown_misspelt() {

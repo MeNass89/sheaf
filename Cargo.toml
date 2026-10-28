@@ -1,8 +1,8 @@
 [workspace]
 resolver = "3"
-members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app"]
+members = ["crates/sheaf-core", "crates/sheaf-cli", "crates/sheaf-app", "crates/sheaf-ui"]
 # Patched third-party code, built as a dependency only (not linted or tested as ours).
-exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export"]
+exclude = ["third_party/pdfcraft-annot", "third_party/pdfcraft-cos", "third_party/pdfcraft-edit", "third_party/pdfcraft-engine", "third_party/pdfcraft-export", "third_party/pdfcraft-preflight"]
 
 [workspace.package]
 version = "0.2.1"
@@ -15,6 +15,11 @@ pdfium-render = "0.9.4"
 lopdf = "0.45"
 # Glyph outlines of the bundled handwriting fonts (the version PdfCraft uses).
 skrifa = "0.44"
+# Raw CMYK from JPEGs (image always applies Adobe's inversion); the version image uses.
+zune-jpeg = "0.5"
+zune-core = "0.5"
+# Pure-Rust ICC display transforms; already present through image.
+moxcms = "0.8.1"
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp", "tiff", "bmp", "gif"] }
 thiserror = "2"
 tempfile = "3"
@@ -27,16 +32,25 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Local library ZIP extraction; pure Rust, same major already used by calamine.
 zip = { version = "4.6.1", default-features = false, features = ["deflate"] }
-getrandom = "0.4"
+getrandom = { version = "0.4", features = ["sys_rng"] }
 # Authenticated local signature storage; no keyring program required.
 chacha20poly1305 = { version = "0.10", default-features = false, features = ["alloc"] }
 parking_lot = "0.12"
 unicode-normalization = "0.1"
+# Offline Snowball stemming for Acrobat-style catalog searches.
+rust-stemmers = "1.2"
 encoding_rs = "0.8"
+# Stirling-compatible CommonMark parsing; pure Rust, no network or executable.
+pulldown-cmark = { version = "0.13.4", default-features = false, features = ["html"] }
 rust_xlsxwriter = { version = "0.99", default-features = false }
 calamine = { version = "0.31", default-features = false }
 # Check spelling (sheaf-core/src/spell.rs): a pure-Rust Hunspell, reading the system's dictionaries.
 spellbook = "0.4"
+# Existing transitive pure-Rust crypto/parser crates, now used by offline PubSec encryption.
+rsa = { version = "=0.10.0-rc.18", default-features = false, features = ["std", "encoding"] }
+# The AI panel's requests (sheaf-core/src/ai): a small blocking HTTP client, TLS by rustls.
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+pdfcraft-cos = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-engine = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-edit = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 pdfcraft-fonts = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
@@ -52,6 +66,10 @@ hayro-syntax = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5
 hayro-jbig2 = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 lopdf = { git = "https://github.com/storytold/pdfcraft", rev = "d3a91c5c5f7b33dd39bc2ed8b5d3916960736d24" }
 
+# Generated Slint code is isolated from the PDF/application graph to fit worker memory caps.
+[profile.dev.package.sheaf-ui]
+debug = false
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
@@ -59,6 +77,7 @@ strip = true
 
 # PdfCraft patched for speed on large files and for text box fonts (third_party/README.md).
 [patch."https://github.com/storytold/pdfcraft"]
+pdfcraft-preflight = { path = "third_party/pdfcraft-preflight" }
 pdfcraft-annot = { path = "third_party/pdfcraft-annot" }
 pdfcraft-cos = { path = "third_party/pdfcraft-cos" }
 pdfcraft-edit = { path = "third_party/pdfcraft-edit" }

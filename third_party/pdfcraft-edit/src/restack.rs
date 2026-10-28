@@ -57,20 +57,21 @@ struct Gs {
     ctm: Matrix,
     /// Clipping paths in force: the matrix each was set in, and its operators (path, `W`, `n`).
     clips: Rc<Vec<(Matrix, Vec<Op>)>>,
-    /// The last operator that set each of [`PARAMS`], and `Tf`.
-    params: Rc<BTreeMap<&'static str, Op>>,
+    /// The last operator that set each of [`PARAMS`], and `Tf`, with its place in the content (so
+    /// it is set again in the order it was set among the `gs` operators, which set parameters too).
+    params: Rc<BTreeMap<&'static str, (usize, Op)>>,
     /// Stroke and fill colour: a colour space operator and the colour, or one operator for both.
     stroke: Rc<Vec<Op>>,
     fill: Rc<Vec<Op>>,
-    /// `gs` operators in force, in order (each sets some parameters of its own).
-    ext: Rc<Vec<Op>>,
+    /// `gs` operators in force, in order (each sets some parameters of its own), with their places.
+    ext: Rc<Vec<(usize, Op)>>,
 }
 
 impl Gs {
     /// The text font size times the horizontal scaling: what a `TJ` number is a thousandth of.
     fn text_unit(&self) -> f64 {
-        let size = self.params.get("Tf").and_then(|o| o.num(1)).unwrap_or(0.0);
-        let scale = self.params.get("Tz").and_then(|o| o.num(0)).unwrap_or(100.0) / 100.0;
+        let size = self.params.get("Tf").and_then(|o| o.1.num(1)).unwrap_or(0.0);
+        let scale = self.params.get("Tz").and_then(|o| o.1.num(0)).unwrap_or(100.0) / 100.0;
         size * scale
     }
 }
@@ -95,7 +96,7 @@ fn walk(ops: &[Op]) -> Walk {
     let mut underflow = false;
     let mut before = Vec::with_capacity(ops.len());
     let mut in_text = Vec::with_capacity(ops.len());
-    for op in ops {
+    for (at, op) in ops.iter().enumerate() {
         before.push(gs.clone());
         in_text.push(text);
         let name = op.op.as_slice();
@@ -138,20 +139,20 @@ fn walk(ops: &[Op]) -> Walk {
                 fill.truncate(keep);
                 fill.push(op.clone());
             }
-            b"gs" => Rc::make_mut(&mut gs.ext).push(op.clone()),
+            b"gs" => Rc::make_mut(&mut gs.ext).push((at, op.clone())),
             b"Tf" => {
-                Rc::make_mut(&mut gs.params).insert("Tf", op.clone());
+                Rc::make_mut(&mut gs.params).insert("Tf", (at, op.clone()));
             }
             b"\"" => {
                 if let (Some(aw), Some(ac)) = (op.operands.first(), op.operands.get(1)) {
                     let params = Rc::make_mut(&mut gs.params);
-                    params.insert("Tw", Op::new("Tw", vec![aw.clone()]));
-                    params.insert("Tc", Op::new("Tc", vec![ac.clone()]));
+                    params.insert("Tw", (at, Op::new("Tw", vec![aw.clone()])));
+                    params.insert("Tc", (at, Op::new("Tc", vec![ac.clone()])));
                 }
             }
             _ => {
                 if let Some(key) = PARAMS.iter().find(|k| k.as_bytes() == name) {
-                    Rc::make_mut(&mut gs.params).insert(*key, op.clone());
+                    Rc::make_mut(&mut gs.params).insert(*key, (at, op.clone()));
                 }
             }
         }
@@ -179,11 +180,16 @@ fn setup(target: &Gs, at: &Gs) -> Option<Vec<Op>> {
         cur = *m;
     }
     out.extend(cm(target.ctm.then(&cur.invert()?)));
-    out.extend(PARAMS.iter().map(|k| target.params.get(k).cloned().unwrap_or_else(|| default_param(k))));
-    out.extend(target.params.get("Tf").cloned());
     if target.stroke.is_empty() { out.push(Op::new("G", vec![num(0.0)])) } else { out.extend(target.stroke.iter().cloned()) }
     if target.fill.is_empty() { out.push(Op::new("g", vec![num(0.0)])) } else { out.extend(target.fill.iter().cloned()) }
-    out.extend(target.ext[at.ext.len()..].iter().cloned());
+    // The parameters and the `gs` operators in the order the content set them: a `gs` setting the
+    // line width before an explicit `5 w` must not override it (Sol, 27/10). Parameters never
+    // set come first, at their defaults. A `gs` already in force is set again (the same values).
+    let mut set: Vec<(usize, Op)> = PARAMS.iter().map(|k| target.params.get(k).cloned().unwrap_or_else(|| (0, default_param(k)))).collect();
+    set.extend(target.params.get("Tf").cloned());
+    set.extend(target.ext.iter().cloned());
+    set.sort_by_key(|(at, _)| *at);
+    out.extend(set.into_iter().map(|(_, op)| op));
     Some(out)
 }
 

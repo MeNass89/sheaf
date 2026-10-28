@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 
 // Single-line input with an optional label above and an error line below.
@@ -38,6 +39,8 @@ export component TextField inherits VerticalLayout {
             vertical-alignment: center;
         }
         input := TextInput {
+            // Tools page tools' keys wait while a field has the keyboard.
+            changed has-focus => { PlatformBridge.typing = self.has-focus; }
             enabled: root.enabled;
             x: 10px;
             width: parent.width - (root.password && root.allow-reveal ? 52px : 20px);
@@ -57,7 +60,7 @@ export component TextField inherits VerticalLayout {
             border-radius: Theme.radius-small;
             background: eye.has-hover || focus.has-focus ? Theme.menu-hover-bg : transparent;
             accessible-role: button;
-            accessible-label: root.revealed ? "Hide password" : "Show password";
+            accessible-label: root.revealed ? @tr("Hide password") : @tr("Show password");
             accessible-action-default => { root.revealed = !root.revealed; }
             if !root.revealed: Image {
                 width: 16px;

@@ -541,10 +541,17 @@ fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
     let path = t.path().join("rich.pdf");
     let mut doc = lopdf::Document::with_version("1.7");
     let rc = "<?xml version=\"1.0\"?><body xmlns=\"http://www.w3.org/1999/xhtml\" style=\"font-size:12pt;color:#000000\"><p>A <span style=\"font-weight:bold;color:#000000\">bold</span> and <span style=\"font-size:18pt;background-color:#FFFF00\">large</span> word</p></body>";
+    // Drawn by that program: a bold run and an 18-point run, each in its own font and size.
+    let helv = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" });
+    let bold = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding" });
+    let ap = doc.add_object(Stream::new(
+        dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![72.into(), 650.into(), 372.into(), 700.into()], "Resources" => dictionary! { "Font" => dictionary! { "Helv" => helv, "HeBo" => bold } } },
+        b"1 1 0 rg 160 660 40 20 re f BT /Helv 12 Tf 0 g 74 680 Td (A ) Tj /HeBo 12 Tf (bold) Tj /Helv 12 Tf ( and ) Tj /Helv 18 Tf (large) Tj /Helv 12 Tf ( word) Tj ET".to_vec(),
+    ));
     let annot = doc.add_object(dictionary! {
         "Type" => "Annot", "Subtype" => "FreeText", "Rect" => vec![72.into(), 650.into(), 372.into(), 700.into()],
         "Contents" => Object::string_literal("A bold and large word"), "DA" => Object::string_literal("0 0 0 rg /Helv 12 Tf"),
-        "RC" => Object::string_literal(rc), "DS" => Object::string_literal("font: 12pt Helvetica; color:#000000"),
+        "RC" => Object::string_literal(rc), "DS" => Object::string_literal("font: 12pt Helvetica; color:#000000"), "AP" => dictionary! { "N" => ap },
     });
     let pages = doc.new_object_id();
     let content = doc.add_object(Stream::new(dictionary! {}, Vec::new()));
@@ -570,4 +577,579 @@ fn a_recoloured_rich_text_box_keeps_its_mixed_runs() {
     assert!(rc.contains("color:#FF0000") && !rc.contains("color:#000000"), "every text colour is the new one: {rc}");
     assert!(rc.contains("background-color:#FFFF00"), "a background colour is not a text colour: {rc}");
     assert!(ds.contains("color:#FF0000"), "{ds}");
+    // What shows: the same runs, in their own fonts and sizes, now red; the yellow behind kept
+    // (Sol, 27/10: the box was redrawn from its plain text in one font and size).
+    let n = a.get(b"AP").unwrap().as_dict().unwrap().get(b"N").unwrap().as_reference().unwrap();
+    let Object::Stream(st) = saved.get_object(n).unwrap() else { panic!("no appearance stream") };
+    let drawn = String::from_utf8_lossy(&st.decompressed_content().unwrap_or_else(|_| st.content.clone())).into_owned();
+    assert!(drawn.contains("/HeBo 12 Tf") && drawn.contains("/Helv 18 Tf"), "its runs are drawn as before: {drawn}");
+    assert!(drawn.contains("1 0 0 rg") && !drawn.contains(" 0 g "), "its text red: {drawn}");
+    assert!(drawn.contains("1 1 0 rg 160 660 40 20 re f"), "the background as it was: {drawn}");
+}
+
+#[test]
+fn pattern_and_type3_hairlines_are_private_per_use_and_leave_shared_pages_unchanged() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"q /Pattern cs /Tiles scn 30 40 100 100 re f Q BT /Glyphs 10 Tf 1 0 0 1 40 100 Tm (A) Tj /Glyphs 20 Tf (A) Tj ET"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap();
+    let pattern = pdf.add_object(Stream::new(dictionary! {
+        "Type" => "Pattern", "PatternType" => 1, "PaintType" => 1, "TilingType" => 1,
+        "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()], "XStep" => 10, "YStep" => 10,
+        "Matrix" => vec![0.5.into(), 0.into(), 0.into(), 0.5.into(), 0.into(), 0.into()], "Resources" => dictionary! {}
+    }, b"0 w 0 0 m 10 10 l S".to_vec()));
+    let glyph = pdf.add_object(Stream::new(dictionary! {}, b"500 0 0 0 500 500 d1 0 w 0 0 m 500 500 l S".to_vec()));
+    let font = pdf.add_object(dictionary! {
+        "Type" => "Font", "Subtype" => "Type3", "FontBBox" => vec![0.into(), 0.into(), 500.into(), 500.into()],
+        "FontMatrix" => vec![0.001.into(), 0.into(), 0.into(), 0.001.into(), 0.into(), 0.into()],
+        "FirstChar" => 65, "LastChar" => 65, "Widths" => vec![500.into()],
+        "Encoding" => dictionary! { "Type" => "Encoding", "Differences" => vec![65.into(), Object::Name(b"A".to_vec())] },
+        "CharProcs" => dictionary! { "A" => glyph }, "Resources" => dictionary! {}
+    });
+    let resources = dictionary! { "Pattern" => dictionary! { "Tiles" => pattern }, "Font" => dictionary! { "Glyphs" => font } };
+    let page = pdf.get_pages()[&1];
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Resources", resources.clone());
+    let parent = pdf.get_dictionary(page).unwrap().get(b"Parent").unwrap().as_reference().unwrap();
+    let content = pdf.get_dictionary(page).unwrap().get(b"Contents").unwrap().clone();
+    let other = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => parent, "Contents" => content, "Resources" => resources });
+    let pages = pdf.get_object_mut(parent).unwrap().as_dict_mut().unwrap();
+    pages.set("Kids", vec![page.into(), other.into()]); pages.set("Count", 2);
+    let before_other = pdf.get_page_content(other);
+    pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::FixPageHairlines { pages: vec![0], minimum: 0.25 }).unwrap();
+    let out = doc.save(&t.path().join("fixed-artwork.pdf")).unwrap();
+    let pdf = lopdf::Document::load(out).unwrap();
+    assert_eq!(pdf.get_page_content(pdf.get_pages()[&2]), before_other);
+    let res = pdf.get_dictionary(pdf.get_pages()[&1]).unwrap().get(b"Resources").unwrap().as_dict().unwrap();
+    let patterns = res.get(b"Pattern").unwrap().as_dict().unwrap();
+    let copied = patterns.iter().find(|(name, _)| name.starts_with(b"SheafHairlinePattern")).unwrap().1.as_reference().unwrap();
+    let width_before_stroke = |data: &[u8]| {
+        let ops = lopdf::content::Content::decode(data).unwrap().operations;
+        let stroke = ops.iter().position(|o| o.operator == "S").unwrap();
+        assert_eq!(ops[stroke - 1].operator, "w");
+        ops[stroke - 1].operands[0].as_float().unwrap()
+    };
+    assert!((width_before_stroke(&pdf.get_object(copied).unwrap().as_stream().unwrap().get_plain_content().unwrap()) - 0.5).abs() < 1e-5);
+    let fonts = res.get(b"Font").unwrap().as_dict().unwrap();
+    let mut widths: Vec<_> = fonts.iter().filter(|(n, _)| n.starts_with(b"SheafHairlineFont")).map(|(_, f)| {
+        let font = pdf.get_dictionary(f.as_reference().unwrap()).unwrap();
+        let charprocs = font.get(b"CharProcs").unwrap().as_dict().unwrap();
+        let glyph = pdf.get_object(charprocs.get(b"A").unwrap().as_reference().unwrap()).unwrap().as_stream().unwrap();
+        width_before_stroke(&glyph.get_plain_content().unwrap())
+    }).collect();
+    widths.sort_by(f32::total_cmp);
+    assert_eq!(widths.len(), 2);
+    assert!((widths[0] - 12.5).abs() < 1e-4 && (widths[1] - 25.0).abs() < 1e-4);
+    let old = pdf.get_dictionary(pdf.get_pages()[&2]).unwrap().get(b"Resources").unwrap().as_dict().unwrap();
+    let old_font = old.get(b"Font").unwrap().as_dict().unwrap().get(b"Glyphs").unwrap().as_reference().unwrap();
+    let old_font = pdf.get_dictionary(old_font).unwrap();
+    let old_glyph = old_font.get(b"CharProcs").unwrap().as_dict().unwrap().get(b"A").unwrap().as_reference().unwrap();
+    assert_eq!(pdf.get_object(old_glyph).unwrap().as_stream().unwrap().get_plain_content().unwrap(), b"500 0 0 0 500 500 d1 0 w 0 0 m 500 500 l S");
+    let id = doc.id(); doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("undone-artwork.pdf")).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert_eq!(undone.get_page_content(undone.get_pages()[&1]), before_other);
+}
+
+#[test]
+fn printer_marks_include_all_plate_registration_process_bars_and_embedded_page_info() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 g 0 0 500 500 re f"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    let edit = || Edit::AddPrinterMarks { pages: vec![0], registration: true, colour_bars: true, page_information: true, width: 0.5 };
+    doc.apply(edit()).unwrap();
+    let out = doc.save(&t.path().join("production-marks.pdf")).unwrap();
+    let pdf = lopdf::Document::load(&out).unwrap();
+    let page = pdf.get_pages()[&1];
+    let dict = pdf.get_dictionary(page).unwrap();
+    let content = pdf.get_page_content(page);
+    let text = String::from_utf8_lossy(&content);
+    assert!(text.contains("0.5 w") && text.contains("1 SCN") && text.contains("/Artifact BMC"));
+    let resources = dict.get(b"Resources").unwrap().as_dict().unwrap();
+    let separation = resources.get(b"ColorSpace").unwrap().as_dict().unwrap().iter().find(|(name, _)| name.starts_with(b"SheafRegistration")).unwrap().1.as_array().unwrap();
+    assert_eq!(separation[1].as_name().unwrap(), b"All");
+    assert_eq!(dict.get(b"TrimBox").unwrap().as_array().unwrap()[0].as_float().unwrap(), 30.0);
+    let ops = lopdf::content::Content::decode(&content).unwrap().operations;
+    assert_eq!(ops.iter().filter(|o| o.operator == "k").count(), 7);
+    assert!(common::shown_texts(&out)[0].contains("Page 1 / 1"));
+    assert!(doc.document().print_readiness().fonts_not_embedded.is_empty());
+    doc.apply(edit()).unwrap();
+    let again = doc.save(&t.path().join("again-marks.pdf")).unwrap();
+    let again = lopdf::Document::load(again).unwrap();
+    assert_eq!(again.get_page_content(again.get_pages()[&1]), content);
+    let id = doc.id(); doc.session_mut().undo(id).unwrap(); doc.session_mut().undo(id).unwrap();
+    let undone = doc.save(&t.path().join("undone-marks.pdf")).unwrap();
+    let undone = lopdf::Document::load(undone).unwrap();
+    assert_eq!(undone.get_page_content(undone.get_pages()[&1]), b"0 g 0 0 500 500 re f\n");
+}
+
+#[test]
+fn paddle_preprocessing_matches_reference_bilinear_pixels_and_rejects_invalid_images() {
+    use sheaf_core::pdfcraft::engine::ocr::recognition_input;
+    let (width, height) = (37usize, 19usize);
+    let rgb: Vec<u8> = (0..width * height * 3).map(|n| (n * 17 % 256) as u8).collect();
+    for line in [[0.0, 0.0, 37.0, 19.0], [4.5, 3.0, 28.0, 14.5], [-3.0, -2.0, 15.0, 8.0]] {
+        let input = recognition_input(&rgb, width, height, line).unwrap();
+        let pad = (line[3] - line[1]).max(1.0) * 0.25;
+        let x0 = (line[0] - pad).floor().max(0.0) as usize;
+        let y0 = (line[1] - pad).floor().max(0.0) as usize;
+        let x1 = ((line[2] + pad).ceil() as usize).min(width);
+        let y1 = ((line[3] + pad).ceil() as usize).min(height);
+        let (cw, ch) = (x1 - x0, y1 - y0);
+        let w = ((cw as f32 * 48.0 / ch as f32).round() as usize).clamp(8, 4000);
+        let (sx, sy) = (cw as f32 / w as f32, ch as f32 / 48.0);
+        assert_eq!((input.width, input.crop_left, input.crop_width), (w, x0, cw));
+        assert_eq!(input.pixels.len(), 3 * 48 * w);
+        for y in 0..48 {
+            let fy = ((y as f32 + 0.5) * sy - 0.5).clamp(0.0, (ch - 1) as f32);
+            let (ya, dy) = (fy.floor() as usize, fy.fract());
+            let yb = (ya + 1).min(ch - 1);
+            for x in 0..w {
+                let fx = ((x as f32 + 0.5) * sx - 0.5).clamp(0.0, (cw - 1) as f32);
+                let (xa, dx) = (fx.floor() as usize, fx.fract());
+                let xb = (xa + 1).min(cw - 1);
+                for channel in 0..3 {
+                    let at = |px: usize, py: usize| f32::from(rgb[((y0 + py) * width + x0 + px) * 3 + channel]);
+                    let v = at(xa, ya) * (1.0 - dx) * (1.0 - dy) + at(xb, ya) * dx * (1.0 - dy) + at(xa, yb) * (1.0 - dx) * dy + at(xb, yb) * dx * dy;
+                    assert_eq!(input.pixels[(2 - channel) * 48 * w + y * w + x].to_bits(), (v / 127.5 - 1.0).to_bits());
+                }
+            }
+        }
+    }
+    for pixels in [&[][..], &rgb[..rgb.len() - 1]] { assert!(recognition_input(pixels, width, height, [0.0, 0.0, 20.0, 10.0]).is_none()); }
+    assert!(recognition_input(&rgb, width, height, [f32::NAN, 0.0, 20.0, 10.0]).is_none());
+    assert!(recognition_input(&rgb, width, height, [50.0, 20.0, 60.0, 25.0]).is_none());
+}
+
+#[test]
+fn paddle_installations_do_not_require_the_unused_english_recognition_file() {
+    use sheaf_core::pdfcraft::engine::ocr::Models;
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["text-detection.rten", "latin-recognition.onnx", "latin-dict.txt"] {
+        std::fs::write(dir.path().join(name), []).unwrap();
+    }
+    assert!(Models::in_dir(dir.path()).unwrap().reads_accents());
+    std::fs::remove_file(dir.path().join("latin-dict.txt")).unwrap();
+    assert!(Models::in_dir(dir.path()).is_none(), "incomplete Paddle data must not be offered");
+    std::fs::write(dir.path().join("text-recognition.rten"), []).unwrap();
+    assert!(!Models::in_dir(dir.path()).unwrap().reads_accents());
+}
+
+#[test]
+fn wizard_page_ranges_and_mark_settings_edit_only_selected_pages() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::actions::{self, Step}}};
+    let dir = tempfile::tempdir().unwrap();
+    let input = common::fixture_pdf(dir.path(), "pages.pdf", 3);
+    let mut doc = Doc::open(&Input::new(&input)).unwrap();
+    let step = Step::from_id("watermark_options", "24|0.25|0|10|-20|Courier|2|REVIEW").unwrap();
+    doc.apply(actions::command_edit(&step, 3).unwrap()).unwrap();
+    let output = doc.save(&dir.path().join("marked.pdf")).unwrap();
+    let text = common::page_texts(&output);
+    assert!(!text[0].contains("REVIEW")); assert!(text[1].contains("REVIEW")); assert!(!text[2].contains("REVIEW"));
+    doc.apply(actions::command_edit(&Step::KeepPages("1,3".into()), 3).unwrap()).unwrap();
+    let output = doc.save(&dir.path().join("kept.pdf")).unwrap();
+    let text = common::page_texts(&output);
+    assert_eq!(text.len(), 2); assert!(text[0].contains("Page 1")); assert!(text[1].contains("Page 3"));
+    assert!(actions::command_edit(&Step::DeletePages("all".into()), 2).is_err());
+    for bad in ["0", "4", "2-1", "1,", ""] { assert!(actions::page_selection(bad, 3).is_err()); }
+    assert!(Step::from_id("watermark_options", "24|NaN|0|0|0|Courier|all|Bad").is_none());
+    let header = Step::HeaderFooterOptions("0|12|Times-Roman|1|Header".into());
+    assert!(matches!(actions::command_edit(&header, 3).unwrap(), Edit::AddHeaderFooter { pages, settings, .. } if pages == [0] && settings.text[0] == "Header" && settings.font_size == 12.0));
+}
+
+#[test]
+fn wizard_metadata_steps_replace_clear_and_remove_native_metadata() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::actions::{self, Step}}};
+    let dir = tempfile::tempdir().unwrap();
+    let input = common::fixture_pdf(dir.path(), "metadata.pdf", 1);
+    let mut doc = Doc::open(&Input::new(input)).unwrap();
+    doc.apply(actions::command_edit(&Step::SetMetadata("Title|New title".into()), 1).unwrap()).unwrap();
+    assert_eq!(doc.document().info.title.as_deref(), Some("New title"));
+    doc.apply(actions::command_edit(&Step::SetMetadata("Title|".into()), 1).unwrap()).unwrap();
+    assert!(doc.document().info.title.is_none());
+    doc.apply(actions::command_edit(&Step::SetMetadata("Author|Owner".into()), 1).unwrap()).unwrap();
+    doc.apply(actions::command_edit(&Step::RemoveMetadata, 1).unwrap()).unwrap();
+    let out = doc.save(&dir.path().join("clean.pdf")).unwrap();
+    let pdf = lopdf::Document::load(out).unwrap();
+    assert!(pdf.trailer.get(b"Info").is_err() || pdf.get_dictionary(pdf.trailer.get(b"Info").unwrap().as_reference().unwrap()).unwrap().get(b"Author").is_err());
+}
+
+#[test]
+fn accessibility_suggestion_tags_text_and_preserves_existing_tags_by_refusal() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{self, Action, Step}};
+    let bytes = Session::new().create_from_text("Accessible title", "Readable text").unwrap();
+    let action = Action { name: "Prepare".into(), description: String::new(), steps: vec![Step::PrepareAccessibility("fr-FR".into())], builtin: false };
+    let result = actions::run_on(&action, "source.pdf", bytes, |_, _| {}).unwrap();
+    let mut session = Session::new();
+    let id = session.open("prepared.pdf", None, result.bytes.clone(), None).unwrap();
+    let doc = session.get(id).unwrap();
+    assert_eq!(doc.initial_view().language.as_deref(), Some("fr-FR"));
+    assert!(doc.initial_view().display_title); assert!(!doc.tags().is_empty());
+    assert!(actions::run_on(&action, "prepared.pdf", result.bytes, |_, _| {}).is_err());
+    assert!(Step::from_id("prepare_accessibility", "fr--FR").is_none());
+}
+
+#[test]
+fn console_edits_page_and_link_scripts_preserving_other_events_chains_and_undo() {
+    use sheaf_core::{pages::Input, pdfcraft::{Doc, engine::js::ActionScriptTarget}};
+    let dir = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(dir.path(), &[b"BT ET"]);
+    let mut pdf = lopdf::Document::load(&path).unwrap(); let page = pdf.get_pages()[&1];
+    let close = pdf.add_object(Stream::new(dictionary! {}, b"console.println('close');".to_vec()));
+    let link = pdf.add_object(dictionary! {"Type" => "Annot", "Subtype" => "Link", "Rect" => vec![10.into(),20.into(),100.into(),60.into()],
+        "A" =>  dictionary! {"S" => "JavaScript", "JS" => Object::string_literal("console.println('link');"), "Next" => dictionary! {"S" => "URI","URI" => Object::string_literal("https://example.test")}},
+        "AA" => dictionary! {"E" => dictionary! {"S" => "JavaScript","JS" => Object::string_literal("console.println('enter');")}}
+    });
+    let pd = pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap();
+    pd.set("AA", dictionary! {"O" => dictionary! {"S" => "JavaScript","JS" => Object::string_literal("console.println('open');")}, "C" => dictionary! {"S" => "JavaScript","JS" => close}});
+    pd.set("Annots", vec![link.into()]); pdf.save(&path).unwrap();
+    let mut doc = Doc::open(&Input::new(path)).unwrap();
+    let scripts = doc.document().console_scripts(); assert_eq!(scripts.iter().filter(|s| s.target.is_some()).count(), 4);
+    assert!(scripts.iter().any(|s| s.source.contains("close")));
+    let open = ActionScriptTarget {page:0, link:None, event:"O".into()};
+    doc.apply(Edit::SetActionScript {target:open.clone(), script:Some("console.println('updated');".into())}).unwrap();
+    assert!(doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&open) && s.source.contains("updated")));
+    let activate = ActionScriptTarget {page:0, link:Some(0), event:"A".into()};
+    doc.apply(Edit::SetActionScript {target:activate.clone(), script:Some("console.println('é');".into())}).unwrap();
+    let output = doc.save(&dir.path().join("edited.pdf")).unwrap();
+    let saved = lopdf::Document::load(output).unwrap();
+    let action = saved.get_dictionary(link).unwrap().get(b"A").unwrap().as_dict().unwrap();
+    assert!(action.get(b"Next").is_ok(), "editing a source preserves its chained action");
+    assert!(doc.apply(Edit::SetActionScript {target:activate.clone(), script:None}).is_err());
+    let id = doc.id(); doc.session_mut().undo(id).unwrap();
+    assert!(doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&activate) && s.source.contains("link")));
+    doc.apply(Edit::SetActionScript {target:open.clone(), script:None}).unwrap();
+    assert!(!doc.document().console_scripts().iter().any(|s| s.target.as_ref() == Some(&open)));
+    assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("close")));
+    assert!(doc.document().console_scripts().iter().any(|s| s.source.contains("enter")));
+}
+
+#[test]
+fn wizard_protection_encrypts_the_final_output_with_only_the_prompted_password() {
+    use sheaf_core::pdfcraft::engine::{Session, actions::{self, Action, Step}};
+    let bytes = Session::new().create_from_text("Title", "Body").unwrap();
+    let action = Action { name: "Protect".into(), description: String::new(), builtin: false, steps: vec![Step::Protect(String::new())] };
+    assert!(actions::run_on(&action, "input.pdf", bytes.clone(), |_, _| {}).is_err());
+    let output = actions::run_guided(&action, "input.pdf", bytes, None, |_, _| Some(Step::Protect("runtime secret".into()))).unwrap();
+    let mut session = Session::new();
+    assert!(session.open("output.pdf", None, output.bytes.clone(), None).is_err());
+    assert!(session.open("output.pdf", None, output.bytes, Some("runtime secret")).is_ok());
+}
+
+/// A paragraph set in an embedded font (Great Vibes), copied with the Edit tool and pasted on
+/// another page, is written there in that very font, its lines as they broke: the font is copied
+/// in with its program, the text reads back and is page text again (PDF Expert's paste; Sol,
+/// 27/10: pasted paragraphs became Helvetica, Times or Courier).
+#[test]
+fn a_pasted_paragraph_keeps_its_embedded_font() {
+    use sheaf_core::pages::Input;
+    use sheaf_core::pdfcraft::engine::{AddedText, ObjectKind};
+    use sheaf_core::pdfcraft::Doc;
+    let dir = tempfile::tempdir().unwrap();
+    let pdf = common::fixture_pdf(dir.path(), "two.pdf", 2);
+    let mut doc = Doc::open(&Input::new(&pdf)).unwrap();
+    let vibes = std::sync::Arc::new(std::fs::read(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/fonts/GreatVibes-Regular.ttf")).unwrap());
+    let text = AddedText { rect: [72.0, 500.0, 500.0, 560.0], text: "Kind regards\nAda Lovelace".into(), size: 24.0, ..Default::default() };
+    doc.apply(Edit::AddTextInFont { page: 0, text, font: vibes }).unwrap();
+    let made = doc.save(&dir.path().join("vibes.pdf")).unwrap();
+    let doc = Doc::open(&Input::new(&made)).unwrap();
+    let d = doc.document();
+    let objects = d.editable_objects(0).unwrap();
+    let para: Vec<_> = objects.iter().filter(|o| o.target.kind == ObjectKind::Text && o.text.as_deref().is_some_and(|t| t.contains("regards"))).collect();
+    assert_eq!(para.len(), 1, "{:?}", objects.iter().map(|o| &o.text).collect::<Vec<_>>());
+    let targets = [para[0].target];
+    let fonts = d.objects_text_fonts(0, &targets);
+    let (font, lines) = fonts[0].clone().expect("Great Vibes writes its own text again");
+    assert_eq!(lines, "Kind regards\nAda Lovelace");
+    let copied = std::sync::Arc::new(d.objects_pdf(0, &targets, para[0].rect).unwrap());
+    let mut text = d.objects_texts(0, &targets)[0].clone().unwrap();
+    text.text = lines;
+    text.rect = [72.0, 300.0, 500.0, 360.0];
+    let mut doc = doc;
+    doc.apply(Edit::AddTextInCopiedFont { page: 1, text, pdf: copied, font }).unwrap();
+    let out = doc.save(&dir.path().join("pasted.pdf")).unwrap();
+    common::qpdf_clean(&out);
+    // Page 2's fonts: Great Vibes, embedded.
+    let l = lopdf::Document::load(&out).unwrap();
+    let page2 = l.get_pages()[&2];
+    let fonts = l.get_page_fonts(page2).unwrap();
+    let vibes: Vec<_> = fonts.values().filter(|f| f.get(b"BaseFont").ok().and_then(|b| b.as_name().ok()).is_some_and(|b| String::from_utf8_lossy(b).contains("GreatVibes"))).collect();
+    assert_eq!(vibes.len(), 1, "page 2's fonts: {:?}", fonts.keys().map(|k| String::from_utf8_lossy(k).into_owned()).collect::<Vec<_>>());
+    let embedded = |f: &&lopdf::Dictionary| {
+        let desc = |d: &lopdf::Dictionary| d.get(b"FontDescriptor").ok().and_then(|r| l.dereference(r).ok()).and_then(|(_, o)| o.as_dict().ok().cloned());
+        let own = desc(f).or_else(|| {
+            let kids = l.dereference(f.get(b"DescendantFonts").ok()?).ok()?.1.as_array().ok()?.clone();
+            desc(l.dereference(kids.first()?).ok()?.1.as_dict().ok()?)
+        });
+        own.is_some_and(|d| d.has(b"FontFile2") || d.has(b"FontFile3") || d.has(b"FontFile"))
+    };
+    assert!(vibes.iter().all(|f| embedded(f)), "the program is copied too");
+    let shown = common::shown_texts(&out);
+    assert!(shown[1].contains("Kind regards") && shown[1].contains("Ada Lovelace"), "{shown:?}");
+    // Page text again, a paragraph the Edit tool edits.
+    let again = Doc::open(&Input::new(&out)).unwrap();
+    assert!(again.document().text_blocks(1).iter().any(|b| b.text.contains("regards") && b.base_font.contains("GreatVibes")), "{:?}", again.document().text_blocks(1).iter().map(|b| (&b.text, &b.base_font)).collect::<Vec<_>>());
+}
+
+/// A certificate recipient's permissions (Acrobat's Encrypt with Certificate) hold the decrypted
+/// working copy the way a restricted password would, and survive a save.
+#[test]
+fn a_certificate_recipients_permissions_refuse_edits_printing_and_copying_after_saves_too() {
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 0 m 10 10 l S"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    let id = doc.id();
+    // Comment and fill forms only: no printing, copying or page changes.
+    let comment_only = sheaf_core::certificate_security::Permissions::new(false, false, false, true, true, false);
+    assert!(doc.session_mut().restrict(id, comment_only.0 as i32));
+    let check = |doc: &Doc| {
+        let d = doc.session().get(id).unwrap();
+        assert!(!d.allows_printing() && !d.allows_copying());
+        assert!(d.permissions().is_some_and(|p| p.annotate() && !p.assemble()));
+    };
+    check(&doc);
+    assert!(doc.apply(Edit::RotatePages { pages: vec![0], degrees: 90 }).unwrap_err().to_string().contains("page changes"));
+    let bytes = doc.session().save_bytes(id).unwrap();
+    doc.session_mut().mark_saved(id, bytes, None).unwrap();
+    check(&doc);
+}
+
+/// Acrobat's barcode field: the form's data, tab-delimited under the field names, is drawn as a QR
+/// Code in the field and drawn again when a field changes; the error correction chosen sets its
+/// density. Read back from the rendered page with a QR reader.
+#[test]
+fn a_barcode_field_draws_the_forms_data_as_a_qr_code_and_follows_every_change() {
+    use sheaf_core::pdfcraft::engine::{barcode::BarcodeSettings, FieldValue, NewField};
+    use sheaf_core::{pages::Input, pdfcraft::Doc};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 0 m 10 10 l S"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::AddField { page: 0, rect: [40.0, 300.0, 200.0, 320.0], kind: NewField::Text { multiline: false }, name: Some("Name".into()) }).unwrap();
+    doc.apply(Edit::AddField { page: 0, rect: [40.0, 260.0, 60.0, 280.0], kind: NewField::CheckBox, name: Some("Agree".into()) }).unwrap();
+    doc.apply(Edit::AddField { page: 0, rect: [100.0, 60.0, 250.0, 210.0], kind: NewField::Text { multiline: false }, name: Some("Code".into()) }).unwrap();
+    doc.apply(Edit::SetBarcode { name: "Code".into(), settings: BarcodeSettings { ecc: 1, names: true } }).unwrap();
+    let read = |doc: &Doc| {
+        let r = doc.render(0, 3.0).unwrap();
+        let (w, h) = (r.width as usize, r.height as usize);
+        let mut img = rqrr::PreparedImage::prepare_from_greyscale(w, h, |x, y| r.rgba[(y * w + x) * 4]);
+        let grids = img.detect_grids();
+        assert_eq!(grids.len(), 1, "one QR Code on the page");
+        let (meta, text) = grids[0].decode().unwrap();
+        (meta.ecc_level, text)
+    };
+    let (_, first) = read(&doc);
+    assert_eq!(first, "Name\tAgree\n\t", "the other fields' names, then their (empty) values");
+    doc.apply(Edit::SetFieldValue { name: "Name".into(), value: FieldValue::Text("Ada Lovelace".into()) }).unwrap();
+    doc.apply(Edit::SetFieldValue { name: "Agree".into(), value: FieldValue::Check(true) }).unwrap();
+    let (ecc, after) = read(&doc);
+    assert!(after.starts_with("Name\tAgree\nAda Lovelace\t"), "{after:?}");
+    // Saved and reopened, the barcode and its settings stay.
+    let out = doc.save(&t.path().join("barcode.pdf")).unwrap();
+    let mut doc = Doc::open(&Input::new(&out)).unwrap();
+    assert_eq!(read(&doc).1, after);
+    doc.apply(Edit::SetBarcode { name: "Code".into(), settings: BarcodeSettings { ecc: 3, names: false } }).unwrap();
+    let (high, values) = read(&doc);
+    assert!(values.starts_with("Ada Lovelace\t") && !values.contains("Name"), "{values:?}");
+    assert_ne!(ecc, high, "error correction chosen is the one drawn");
+    // Only a text field can become a barcode field.
+    assert!(doc.apply(Edit::SetBarcode { name: "Agree".into(), settings: BarcodeSettings::default() }).is_err());
+}
+
+/// A signature carrying its own revocation evidence (Acrobat's `adbe-revocationInfoArchival`
+/// signed attribute, the CRL Acrobat embeds when it signs) is judged with it offline: a CRL that
+/// revokes the signer makes the signature invalid; one that does not says so. Nothing is fetched.
+#[test]
+fn revocation_evidence_inside_a_signature_is_checked_offline() {
+    use sheaf_core::pdfcraft::engine::sign::{der, pkcs12, DigestAlg, Time};
+    use sheaf_core::pdfcraft::engine::{revocation_archive, SignatureStatus};
+    use sheaf_core::{pages::Input, pdfcraft::Doc, sign};
+    let t = tempfile::tempdir().unwrap();
+    let spec = sheaf_core::digital_id::NewId { name: "Archive Signer".into(), ..Default::default() };
+    let p12 = sheaf_core::digital_id::create_file(&spec, "secret-pw", &t.path().join("id.p12")).unwrap();
+    let id = pkcs12::open(&std::fs::read(&p12).unwrap(), "secret-pw").unwrap();
+    let invoice = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/invoice.pdf");
+    let digital = sign::DigitalSpec { p12: p12.clone(), password: "secret-pw".into(), reason: None, location: None, certify: None };
+    let signed = sign::sign(&Input::new(&invoice), &sign::SignSpec { page: 0, rect: [72.0, 72.0, 272.0, 132.0], graphic: sign::Graphic::Typed("Ada".into(), Default::default()), digital: Some(digital) }, &t.path().join("signed.pdf")).unwrap().path;
+    let bytes = std::fs::read(&signed).unwrap();
+
+    // The signer's own CRL (self-signed ID), its window around now; `revoked` lists its serial.
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs() as i64;
+    let crl = |revoked: bool| {
+        let alg = id.key.signature_algorithm(DigestAlg::Sha256);
+        let entry = der::seq(&[&der::seq(&[&der::uint(&id.certificate.serial), &Time::from_unix(now - 3600).encode()])]);
+        let mut parts: Vec<&[u8]> = vec![&[2, 1, 1][..], &alg, &id.certificate.subject.raw];
+        let (this, next) = (Time::from_unix(now - 86_400).encode(), Time::from_unix(now + 86_400).encode());
+        parts.extend([this.as_slice(), next.as_slice()]);
+        if revoked { parts.push(&entry); }
+        let tbs = der::seq(&parts);
+        der::seq(&[&tbs, &alg, &der::bit_string(&id.key.sign(DigestAlg::Sha256, &tbs).unwrap())])
+    };
+    // The signature's CMS rebuilt with the archive attribute among its signed attributes, signed
+    // again; the PDF bytes it signs are unchanged.
+    let with_archive = |crl: &[u8]| -> Vec<u8> {
+        // The placeholder is the gap the /ByteRange leaves: "<" hex ">".
+        let (start, end) = {
+            let at = bytes.windows(10).position(|w| w == b"/ByteRange").unwrap();
+            let open = at + bytes[at..].iter().position(|b| *b == b'[').unwrap();
+            let close = open + bytes[open..].iter().position(|b| *b == b']').unwrap();
+            let n: Vec<usize> = std::str::from_utf8(&bytes[open + 1..close]).unwrap().split_whitespace().map(|v| v.parse().unwrap()).collect();
+            (n[1] + 1, n[2] - 1)
+        };
+        let hex = std::str::from_utf8(&bytes[start..end]).unwrap();
+        let cms: Vec<u8> = (0..hex.len()).step_by(2).map(|i| u8::from_str_radix(&hex[i..i + 2], 16).unwrap()).collect();
+        let (ci, _) = der::Tlv::parse_ber(&cms).unwrap();
+        let ci_parts = ci.children().unwrap();
+        let sd = ci_parts[1].inner().unwrap();
+        let mut sd_parts: Vec<Vec<u8>> = sd.children().unwrap().iter().map(|c| c.raw.to_vec()).collect();
+        let signer_set = der::Tlv::parse_all(sd_parts.last().unwrap()).unwrap();
+        let signer = signer_set.children().unwrap()[0];
+        let mut fields: Vec<Vec<u8>> = signer.children().unwrap().iter().map(|c| c.raw.to_vec()).collect();
+        let attrs_at = fields.iter().position(|f| f[0] == 0xA0).unwrap();
+        let attrs = der::Tlv::parse_all(&fields[attrs_at]).unwrap();
+        let archive = der::seq(&[&der::oid("1.2.840.113583.1.1.8"), &der::set_of(&[&der::seq(&[&der::explicit(0, &der::seq(&[crl]))])])]);
+        let mut list: Vec<Vec<u8>> = attrs.children().unwrap().iter().map(|a| a.raw.to_vec()).collect();
+        list.push(archive);
+        let refs: Vec<&[u8]> = list.iter().map(Vec::as_slice).collect();
+        let set = der::set_of(&refs);
+        fields[attrs_at] = [&[0xA0][..], &set[1..]].concat();
+        let sig_at = fields.iter().rposition(|f| f[0] == der::tag::OCTET_STRING).unwrap();
+        fields[sig_at] = der::octets(&id.key.sign(DigestAlg::Sha256, &set).unwrap());
+        let refs: Vec<&[u8]> = fields.iter().map(Vec::as_slice).collect();
+        let signer = der::seq(&refs);
+        *sd_parts.last_mut().unwrap() = der::set_of(&[&signer]);
+        let refs: Vec<&[u8]> = sd_parts.iter().map(Vec::as_slice).collect();
+        let cms = der::seq(&[ci_parts[0].raw, &der::explicit(0, &der::seq(&refs))]);
+        let mut hex: String = cms.iter().map(|b| format!("{b:02X}")).collect();
+        assert!(hex.len() <= end - start, "fits the placeholder");
+        hex.extend(std::iter::repeat_n('0', end - start - hex.len()));
+        let mut out = bytes.clone();
+        out[start..end].copy_from_slice(hex.as_bytes());
+        out
+    };
+    let judged = |name: &str, pdf: Vec<u8>| {
+        let path = t.path().join(name);
+        std::fs::write(&path, pdf).unwrap();
+        let doc = Doc::open(&Input::new(&path)).unwrap();
+        doc.document().signatures.iter().find(|s| s.signed).cloned().unwrap()
+    };
+    let plain = judged("plain.pdf", bytes.clone());
+    assert_eq!(plain.status, SignatureStatus::Unknown, "{:?}", plain.details);
+    let good = judged("good.pdf", with_archive(&crl(false)));
+    assert_eq!(good.status, SignatureStatus::Unknown, "a self-signed ID stays untrusted: {:?}", good.details);
+    assert!(good.details.iter().any(|d| d.message.contains("has not been revoked")), "{:?}", good.details);
+    let revoked = judged("revoked.pdf", with_archive(&crl(true)));
+    assert_eq!(revoked.status, SignatureStatus::Invalid, "{:?}", revoked.details);
+    assert!(revoked.details.iter().any(|d| d.message.contains("revoked (CRL in the signature")), "{:?}", revoked.details);
+    let (crls, ocsps) = revocation_archive::evidence(&[0x30, 0x00]);
+    assert!(crls.is_empty() && ocsps.is_empty(), "no archive, no evidence");
+}
+
+/// iLovePDF's repeated signature: the copies placed on several pages in one step carry one group
+/// in their /NM, which a later move does not change; a single comment, or comments added on one
+/// page, have none.
+#[test]
+fn a_repeated_signature_keeps_its_group_wherever_a_copy_is_moved() {
+    use sheaf_core::pdfcraft::engine::comment_group;
+    use sheaf_core::pdfcraft::render::PageInfo;
+    use sheaf_core::{pages::Input, pdfcraft::Doc, sign};
+    let t = tempfile::tempdir().unwrap();
+    let path = prepress_pdf(t.path(), &[b"0 0 m 10 10 l S"]);
+    let mut doc = Doc::open(&Input::new(&path)).unwrap();
+    doc.apply(Edit::DuplicatePages { pages: vec![0] }).unwrap();
+    let n = doc.document().info.pages.len();
+    assert!(n >= 2, "two pages to repeat on");
+    let info: PageInfo = doc.document().info.pages[0].clone();
+    let graphic = sign::Graphic::Typed("Ada".into(), Default::default());
+    let copies = (0..n).map(|p| sign::signature_edit(&info, p, [140.0, 300.0], 100.0, &graphic).unwrap()).collect();
+    doc.apply(Edit::Batch { label: "Signature on several pages".into(), edits: copies }).unwrap();
+    doc.apply(sign::signature_edit(&info, 0, [140.0, 80.0], 100.0, &graphic).unwrap()).unwrap();
+    let names = |doc: &Doc| doc.document().info.annotations.iter().map(|a| (a.page, a.index, a.name.clone().unwrap_or_default())).collect::<Vec<_>>();
+    let all = names(&doc);
+    let groups: Vec<_> = all.iter().map(|(_, _, nm)| comment_group(nm).map(str::to_string)).collect();
+    let group = groups.iter().flatten().next().cloned().unwrap_or_else(|| panic!("the repeated copies have a group: {all:?}"));
+    assert_eq!(groups.iter().filter(|g| g.as_deref() == Some(group.as_str())).count(), n, "{all:?}");
+    assert_eq!(groups.iter().filter(|g| g.is_none()).count(), 1, "the lone signature has none: {all:?}");
+    // One copy moved far away (and saved): still in the group.
+    let (page, index, _) = all.iter().find(|(p, _, nm)| *p == 1 && comment_group(nm).is_some()).cloned().unwrap();
+    doc.apply(Edit::MoveAnnotation { page, index, dx: -60.0, dy: -200.0 }).unwrap();
+    let out = doc.save(&t.path().join("moved.pdf")).unwrap();
+    let doc = Doc::open(&Input::new(&out)).unwrap();
+    let moved = names(&doc).into_iter().find(|(p, i, _)| *p == page && *i == index).unwrap();
+    assert_eq!(comment_group(&moved.2), Some(group.as_str()));
+}
+
+/// A paragraph mixing a regular and a bold font ("Payment is due within" in Helvetica, "thirty days"
+/// in Helvetica-Bold, then a second line in Helvetica), copied with the Edit tool: its runs come
+/// back each in its own font and weight, and pasted run by run on another page they keep them
+/// there, in their places (PDF Expert's formatted paste; Sol, 28/10: the paragraph was pasted in
+/// one standard font and lost its bold).
+#[test]
+fn a_pasted_paragraph_mixing_fonts_keeps_each_runs_font() {
+    use sheaf_core::pages::Input;
+    use sheaf_core::pdfcraft::engine::ObjectKind;
+    use sheaf_core::pdfcraft::Doc;
+    let dir = tempfile::tempdir().unwrap();
+    let mut pdf = lopdf::Document::with_version("1.7");
+    let font = |base: &str| dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => base.to_string(), "Encoding" => "WinAnsiEncoding" };
+    let (f1, f2) = (pdf.add_object(font("Helvetica")), pdf.add_object(font("Helvetica-Bold")));
+    let content = b"BT /F1 12 Tf 72 700 Td (Payment is due within ) Tj /F2 12 Tf (thirty days) Tj /F1 12 Tf 0 -15 Td (of the invoice date.) Tj ET".to_vec();
+    let c = pdf.add_object(Stream::new(dictionary! {}, content));
+    let pages = pdf.new_object_id();
+    let mk = |pdf: &mut lopdf::Document, contents: Option<lopdf::ObjectId>| {
+        let mut d = dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 612.into(), 792.into()],
+            "Resources" => dictionary! { "Font" => dictionary! { "F1" => f1, "F2" => f2 } } };
+        if let Some(c) = contents {
+            d.set("Contents", c);
+        }
+        pdf.add_object(d)
+    };
+    let (p1, p2) = (mk(&mut pdf, Some(c)), mk(&mut pdf, None));
+    pdf.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![p1.into(), p2.into()], "Count" => 2 }));
+    let cat = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+    pdf.trailer.set("Root", cat);
+    let src = dir.path().join("mixed.pdf");
+    pdf.save(&src).unwrap();
+
+    let mut doc = Doc::open(&Input::new(&src)).unwrap();
+    let d = doc.document();
+    let objects = d.editable_objects(0).unwrap();
+    let para: Vec<_> = objects.iter().filter(|o| o.target.kind == ObjectKind::Text && o.text.as_deref().is_some_and(|t| t.contains("Payment"))).collect();
+    assert_eq!(para.len(), 1, "one paragraph: {:?}", objects.iter().map(|o| &o.text).collect::<Vec<_>>());
+    assert!(para[0].text.as_deref().is_some_and(|t| t.contains("invoice")), "both lines in it: {:?}", para[0].text);
+    let targets = [para[0].target];
+    assert_eq!(d.objects_text_fonts(0, &targets), vec![None], "not one font");
+    let runs = d.objects_text_runs(0, &targets)[0].clone().expect("a mixed paragraph comes as runs");
+    let bold: Vec<_> = runs.iter().filter(|(t, _)| t.bold).map(|(t, _)| t.text.as_str()).collect();
+    assert_eq!(bold, ["thirty days"], "{runs:?}");
+    assert_eq!(runs.iter().map(|(t, _)| t.text.trim()).collect::<Vec<_>>().join("|"), "Payment is due within|thirty days|of the invoice date.");
+    // Pasted 400 pt lower on page 2, run by run, as ⌘V does.
+    let copied = std::sync::Arc::new(d.objects_pdf(0, &targets, para[0].rect).unwrap());
+    let edits = runs
+        .into_iter()
+        .map(|(mut text, font)| {
+            text.rect = [text.rect[0], text.rect[1] - 400.0, text.rect[2] + 0.04 * (text.rect[2] - text.rect[0]) + 2.0, text.rect[3] - 400.0];
+            match font {
+                Some(font) => Edit::AddTextInCopiedFont { page: 1, text, pdf: copied.clone(), font },
+                None => Edit::AddText { page: 1, text },
+            }
+        })
+        .collect();
+    doc.apply(Edit::Batch { label: "Paste objects".into(), edits }).unwrap();
+    let out = doc.save(&dir.path().join("pasted.pdf")).unwrap();
+    common::qpdf_clean(&out);
+    let shown = common::shown_texts(&out);
+    for w in ["Payment is due within", "thirty days", "of the invoice date."] {
+        assert!(shown[1].contains(w), "{w} on page 2: {shown:?}");
+    }
+    // Page 2's text: the bold run in a bold font, the others in a regular one, on two lines.
+    let again = Doc::open(&Input::new(&out)).unwrap();
+    let lines = again.document().text_lines(1);
+    let font_of = |w: &str| lines.iter().find(|l| l.text.contains(w)).map(|l| (l.base_font.clone(), l.bold, l.rect[1])).unwrap_or_else(|| panic!("{w} in {:?}", lines.iter().map(|l| &l.text).collect::<Vec<_>>()));
+    let (pay, days, inv) = (font_of("Payment"), font_of("thirty"), font_of("invoice"));
+    assert!(days.1 && days.0.contains("Bold"), "the bold run stays bold: {days:?}");
+    assert!(!pay.1 && !pay.0.contains("Bold") && !inv.1, "the regular runs stay regular: {pay:?} {inv:?}");
+    assert!((pay.2 - days.2).abs() < 2.0 && pay.2 - inv.2 > 10.0, "the runs keep their lines: {pay:?} {days:?} {inv:?}");
 }

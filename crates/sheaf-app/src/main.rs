@@ -21,6 +21,9 @@ mod wm_preview;
 mod reader_ui;
 mod reader_doc;
 mod platform_ui;
+mod ai_ui;
+mod settings_ui;
+mod feedback_ui;
 mod windows;
 
 use std::cell::RefCell;
@@ -62,6 +65,17 @@ fn deliver(paths: Vec<PathBuf>) {
     for (tool, files) in plan.convert {
         flow::open_tool(&ui, tool, files);
     }
+    // Texts and pictures shown in the reader to browse (Stirling's non-PDF viewer).
+    for p in plan.preview {
+        let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        match sheaf_app::file_preview::preview_pdf(&p) {
+            Ok(pdf) => {
+                reader_ui::open(&ui, pdf, None);
+                flow::toast(&ui, &format!("Preview of {name}: Save As keeps it as a PDF"));
+            }
+            Err(e) => flow::toast(&ui, &format!("Can't preview {name}: {e}")),
+        }
+    }
     if let Some(msg) = plan.notice {
         flow::toast(&ui, &msg);
     }
@@ -80,7 +94,7 @@ fn category_index(c: Category) -> i32 {
 pub(crate) fn tool_card(t: &ToolInfo) -> ToolCard {
     ToolCard {
         id: t.id.as_str().into(),
-        name: t.name.into(),
+        name: sheaf_app::i18n::tr(t.name).into(),
         category: category_index(t.category),
         icon: icon_image(t.icon),
         tile: tile_colour(t.id),
@@ -98,7 +112,7 @@ pub(crate) fn install_catalogue(ui: &AppWindow) {
     let sections: Vec<ToolSection> = Category::ALL
         .iter()
         .map(|c| ToolSection {
-            title: c.label().into(),
+            title: sheaf_app::i18n::tr(c.label()).into(),
             collapsed: false,
             tools: ModelRc::new(VecModel::from(
                 catalogue.iter().copied().filter(|t| t.category == *c).map(tool_card).collect::<Vec<_>>(),
@@ -206,17 +220,18 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_accessibility_fix, |ui, id, k| reader_ui::accessibility_fix(&ui, id, k));
     wire_global!(ui, rb, on_accessibility_report, |ui, id| reader_ui::accessibility_report(&ui, id));
     wire_global!(ui, rb, on_print_preflight, |ui, id| reader_ui::print_preflight(&ui, id));
-    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed));
+    wire_global!(ui, rb, on_preflight_check, |ui, id, fail, target, bleed, preset| reader_ui::preflight_check(&ui, id, &fail, &target, &bleed, preset));
     wire_global!(ui, rb, on_preflight_save, |ui, id| reader_ui::preflight_save(&ui, id));
     rb.on_preflight_close(reader_ui::preflight_close);
     wire_global!(ui, rb, on_preflight_page, |ui, id, page| reader_ui::preflight_page(&ui, id, page));
     wire_global!(ui, rb, on_fix_page_hairlines, |ui, id| reader_ui::fix_page_hairlines(&ui, id));
     wire_global!(ui, rb, on_add_crop_marks, |ui, id| reader_ui::add_crop_marks(&ui, id));
     wire_global!(ui, rb, on_press_profile, |ui, id| reader_ui::press_profile(&ui, id));
-    wire_global!(ui, rb, on_press_export, |ui, id, condition| reader_ui::press_export(&ui, id, &condition));
+    wire_global!(ui, rb, on_press_export, |ui, id, condition, level| reader_ui::press_export(&ui, id, &condition, level));
+    wire_global!(ui, rb, on_press_preset, |ui, id, preset| reader_ui::press_preset(&ui, id, preset));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));
-    wire_global!(ui, rb, on_production_marks, |ui, id, all| reader_ui::production_marks(&ui, id, all));
+    wire_global!(ui, rb, on_production_marks, |ui, id, all, style, width| reader_ui::production_marks(&ui, id, all, style, &width));
     wire_global!(ui, rb, on_production_box, |ui, id, which, left, bottom, right, top, reset, all| reader_ui::production_box(&ui, id, which, [&left, &bottom, &right, &top], reset, all));
     wire_global!(ui, rb, on_page_transition, |ui, id, style, advance| reader_ui::page_transition(&ui, id, style, &advance));
     wire_global!(ui, rb, on_fields_nudge, |ui, id, dx, dy| reader_ui::fields_nudge(&ui, id, dx, dy));
@@ -250,6 +265,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_toggle_horizontal, |ui, id| reader_ui::toggle_horizontal(&ui, id));
     wire_global!(ui, rb, on_split_view, |ui, id, m| split::open(&ui, id, m));
     wire_global!(ui, rb, on_split_focus, |ui, id| split::focus(&ui, id));
+    rb.on_split_press_other(split::press_other);
     wire_global!(ui, rb, on_split_sync, |ui, id| split::toggle_sync(&ui, id));
     rb.on_split_frac(split::set_frac);
     wire_global!(ui, rb, on_split_with, |ui, id, k| split::open_with(&ui, id, k));
@@ -284,7 +300,10 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_policy_open(reader_ui::policy_open);
     wire_global!(ui, rb, on_policy_action, |ui, id, action, index| reader_ui::policy_action(&ui, id, action, index));
     rb.on_policy_save(|id, name, printing, copying, editing, commenting, forms, metadata, quality, changes, algorithm| reader_ui::policy_save(id, &name, [printing, copying, editing, commenting, forms, metadata], [quality, changes, algorithm]));
-    wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation));
+    rb.on_cert_open(reader_ui::cert_open);
+    wire_global!(ui, rb, on_cert_action, |ui, id, action, index, password| reader_ui::cert_action(&ui, id, action, index, &password));
+    rb.on_cert_flag(reader_ui::cert_flag);
+    wire_global!(ui, rb, on_policy_apply, |ui, id, user, confirmation, owner, owner_confirmation, remember| reader_ui::policy_apply(&ui, id, &user, &confirmation, &owner, &owner_confirmation, remember));
     rb.on_catalog_open(reader_ui::catalog_open);
     wire_global!(ui, rb, on_catalog_action, |ui, id, action, index, query| reader_ui::catalog_action(&ui, id, action, index, &query));
     wire_global!(ui, rb, on_review_ocr, |ui, id| reader_ui::review_ocr(&ui, id));
@@ -404,6 +423,8 @@ fn main() -> Result<(), slint::PlatformError> {
     };
     // The window opens in the saved appearance; `home::install` keeps it in sync afterwards.
     let saved = sheaf_app::prefs::Prefs::load(&sheaf_app::store_file::data_dir());
+    // Decrypted copies of certificate-encrypted files a crashed session left behind.
+    reader_doc::certificate::sweep(&sheaf_app::store_file::data_dir());
     let initial = forced.unwrap_or(saved.theme);
     let winit_theme = match initial {
         ThemePref::Light => Some(WinitTheme::Light),
@@ -426,6 +447,7 @@ fn main() -> Result<(), slint::PlatformError> {
     library_ui::install(&ui);
     portfolio_ui::install(&ui);
     reader_ui::javascript::install(&ui);
+    reader_ui::output_preview::install(&ui);
     install_catalogue(&ui);
     state::install_tabs_model(&ui);
 
@@ -517,7 +539,14 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_tool_query(move |q| {
         if let Some(ui) = weak.upgrade() {
             let hidden = platform_ui::hidden_tools();
-            let found: Vec<ToolCard> = tools::search(&q).into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
+            // Names as shown match too ("fusion" finds Fusionner des PDF in French), after the English ones.
+            let mut hits = tools::search(&q);
+            for t in sheaf_app::i18n::matching(tools::catalogue(), &q, |t| t.name) {
+                if !hits.iter().any(|h| h.id == t.id) {
+                    hits.push(t);
+                }
+            }
+            let found: Vec<ToolCard> = hits.into_iter().filter(|t| !hidden.contains(&t.id)).map(tool_card).collect();
             ui.set_tool_results(ModelRc::new(VecModel::from(found)));
         }
         q.trim().into()
@@ -541,7 +570,11 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_close_active_tab, |ui| flow::close_active_tab(&ui));
     wire!(ui, on_close_tabs_around, |ui, id, which| flow::close_tabs_around(&ui, id, which));
     wire!(ui, on_confirm_keep, |ui| {
-        state::with(|a| a.pending_close = None);
+        // Keeping the task running stops a quit too.
+        state::with(|a| {
+            a.pending_close = None;
+            a.quitting = false;
+        });
         ui.set_confirm_visible(false);
     });
     wire!(ui, on_confirm_cancel_job, |ui| {
@@ -549,6 +582,9 @@ fn main() -> Result<(), slint::PlatformError> {
         if let Some(id) = state::with(|a| a.pending_close.take()) {
             jobs::cancel(id);
             flow::remove_tab(&ui, id);
+        }
+        if state::with(|a| a.quitting) {
+            flow::quit_or_ask(&ui);
         }
     });
 
@@ -581,6 +617,7 @@ fn main() -> Result<(), slint::PlatformError> {
     ui.on_insert_blank(|id| flow::edit_pages(id, |o| o.push(0)));
     wire!(ui, on_pw_unlock, |ui, pw| password::entered(&ui, pw.into()));
     wire!(ui, on_pw_skip, |ui| password::skipped(&ui));
+    wire!(ui, on_pw_choose_id, |ui| reader_ui::certificate::choose_id(&ui));
 
     // Run and result
     wire!(ui, on_run_tool, |ui, id, opts| run::run_tool(&ui, id, opts));
@@ -592,6 +629,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_continue_to, |ui, id, tool| run::continue_to(&ui, id, &tool));
     // Recents, history, preferences
     wire!(ui, on_open_recent, |ui, i| home::open_recent(&ui, i));
+    wire!(ui, on_open_guide, |ui| home::open_guide(&ui));
     ui.on_reveal_recent(home::reveal_recent);
     wire!(ui, on_remove_recent, |ui, i| home::remove_recent(&ui, i));
     wire!(ui, on_pin_recent, |ui, i| home::pin_recent(&ui, i));
@@ -611,6 +649,8 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_default_zoom, |ui, z| home::set_default_zoom(&ui, z));
     wire!(ui, on_set_default_spread, |ui, s| home::set_default_spread(&ui, s));
     wire!(ui, on_set_open_first_page, |ui, f| home::set_open_first_page(&ui, f));
+    wire!(ui, on_choose_display_profile, |ui| home::choose_display_profile(&ui));
+    wire!(ui, on_reset_display_profile, |ui| home::reset_display_profile(&ui));
     wire!(ui, on_set_smoothing, |ui, k, on| home::set_smoothing(&ui, k, on));
     wire!(ui, on_set_stamp_date, |ui, f| home::set_stamp_date(&ui, f));
     wire!(ui, on_set_metric, |ui, m| home::set_metric(&ui, m));
@@ -618,6 +658,10 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_gpu, |ui, on| home::set_gpu(&ui, on));
     wire!(ui, on_set_page_display, |ui, what, on| home::set_page_display(&ui, what, on));
     wire!(ui, on_signature_prefs, |ui, what, k| home::signature_prefs(&ui, what, k));
+    wire!(ui, on_create_digital_id, |ui, name, unit, org, email, country, password, confirm, encryption| {
+        let spec = sheaf_core::digital_id::NewId { name: name.into(), unit: unit.into(), organization: org.into(), email: email.into(), country: country.into(), encryption };
+        home::create_digital_id(&ui, spec, password.into(), &confirm);
+    });
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
@@ -645,6 +689,9 @@ fn main() -> Result<(), slint::PlatformError> {
     wire_reader(&ui);
     // Check spelling, the menu bar's shortcuts, tools shown, direction (ui/platform.slint).
     platform_ui::install(&ui);
+    ai_ui::install(&ui);
+    settings_ui::install(&ui);
+    feedback_ui::install(&ui);
     wire!(ui, on_unsaved_answer, |ui, a| flow::unsaved_answer(&ui, a));
     let weak = ui.as_weak();
     ui.window().on_close_requested(move || match weak.upgrade() {
@@ -683,6 +730,10 @@ fn main() -> Result<(), slint::PlatformError> {
         winit::event::WindowEvent::ModifiersChanged(m) => {
             let s = m.state();
             platform_ui::modifiers_changed(s.shift_key(), s.alt_key(), s.super_key(), s.control_key());
+            EventResult::Propagate
+        }
+        winit::event::WindowEvent::Focused(true) => {
+            state::refresh_office_runtime();
             EventResult::Propagate
         }
         winit::event::WindowEvent::HoveredFile(path) => {

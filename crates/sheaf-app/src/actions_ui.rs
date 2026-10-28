@@ -55,20 +55,24 @@ fn status(ui: &AppWindow, message: impl AsRef<str>) { ui.global::<ActionBridge>(
 
 fn rows(ui: &AppWindow) {
     let filter = ui.global::<ActionBridge>().get_filter();
+    let query = ui.global::<ActionBridge>().get_query();
     let rows = STATE.with(|state| {
         let s = state.borrow();
         actions::suggested().iter().map(|a| (a, true))
             .chain(s.saved.iter().map(|a| (a, false)))
             .enumerate().filter(|(_, (a, builtin))| match filter { 1 => *builtin, 2 => !*builtin && !a.custom_tool, 3 => !*builtin && a.custom_tool, _ => true })
+            .filter(|(_, (a, _))| a.matches_query(&query))
             .map(|(i, (a, builtin))| ActionRow { name: a.name.as_str().into(), description: a.description.as_str().into(), builtin, custom: a.custom_tool, source: i as i32 }).collect::<Vec<_>>()
     });
     ui.global::<ActionBridge>().set_rows(ModelRc::new(VecModel::from(rows)));
     let commands = STATE.with(|state| {
         state.borrow().saved.iter().enumerate().filter(|(_, a)| a.custom_tool).flat_map(|(i, a)| {
             a.steps.iter().enumerate().map(move |(j, step)| ActionCommandRow {
-                label: format!("{} · {}", a.name, if step.label.is_empty() { step.engine().map(|s| s.label()).unwrap_or("Step") } else { &step.label }).into(),
+                label: format!("{} · {}", a.name, step.display_label()).into(),
+                icon: sheaf_core::tools::ToolId::from_str(&step.argument).filter(|_| step.tool == "open_tool").map(|id| sheaf_app::icons::icon_image(sheaf_core::tools::find(id).icon)).unwrap_or_default(),
+                interactive: step.tool == "open_tool",
                 separator: step.separator,
-                current: !step.prompt && step.engine().is_ok_and(|s| sheaf_core::pdfcraft::engine::actions::command_edit(&s, 1).is_ok()),
+                current: step.supports_current_document(),
                 action: i as i32, step: j as i32,
             })
         }).collect::<Vec<_>>()
@@ -89,9 +93,10 @@ fn draft(ui: &AppWindow) {
         b.set_output_prefix(s.draft.output.prefix.as_str().into());
         b.set_output_suffix(s.draft.output.suffix.as_str().into());
         b.set_overwrite(s.draft.output.overwrite);
+        b.set_output_format(s.draft.output.format.as_str().into());
         b.set_step(s.step);
         b.set_steps(ModelRc::new(VecModel::from(s.draft.steps.iter().map(|step| ActionStepRow {
-            label: step.engine().map(|s| s.label()).unwrap_or("Unknown tool").into(),
+            label: step.display_label().into(),
             detail: if step.prompt { "Pauses for you" } else if !step.instruction.is_empty() { "Instructions" } else { "" }.into(),
         }).collect::<Vec<_>>())));
         let step = usize::try_from(s.step).ok().and_then(|i| s.draft.steps.get(i));
@@ -104,6 +109,14 @@ fn draft(ui: &AppWindow) {
             b.set_number_size(fields.get(2).copied().unwrap_or("8").into());
             b.set_argument(fields.get(3).copied().unwrap_or("Page <<1>> of <<n>>").into());
         } else { b.set_argument(argument.into()); }
+        if let Some(step) = step.filter(|s| matches!(s.tool.as_str(), "watermark_options" | "header_footer_options")) {
+            let settings = sheaf_app::action_settings::MarkSettings::decode(step.tool.as_str(), argument);
+            b.set_mark_text(settings.text.into()); b.set_mark_size(settings.size.into());
+            b.set_mark_opacity(settings.opacity.into()); b.set_mark_rotation(settings.rotation.into());
+            b.set_mark_x(settings.x.into()); b.set_mark_y(settings.y.into());
+            b.set_mark_font(settings.font.into()); b.set_mark_pages(settings.pages.into());
+            b.set_mark_position(settings.position);
+        }
         b.set_command_label(step.map(|s| s.label.as_str()).unwrap_or_default().into());
         b.set_separator(step.is_some_and(|s| s.separator));
         b.set_instruction(step.map(|s| s.instruction.as_str()).unwrap_or_default().into());
@@ -119,11 +132,16 @@ fn flush(ui: &AppWindow) {
         s.draft.name = b.get_name().to_string();
         s.draft.description = b.get_description().to_string();
         s.draft.custom_tool = b.get_custom();
-        s.draft.output = actions::OutputOptions { same_folder: b.get_same_folder(), prefix: b.get_output_prefix().to_string(), suffix: b.get_output_suffix().to_string(), overwrite: b.get_overwrite() };
+        s.draft.output = actions::OutputOptions { same_folder: b.get_same_folder(), prefix: b.get_output_prefix().to_string(), suffix: b.get_output_suffix().to_string(), overwrite: b.get_overwrite(), format: b.get_output_format().to_string() };
         let index = s.step;
         if let Some(step) = usize::try_from(index).ok().and_then(|i| s.draft.steps.get_mut(i)) {
-            step.argument = if step.tool == "page_numbers" {
+            step.argument = if step.tool == "protect" { String::new() } else if step.tool == "page_numbers" {
                 format!("{}|{}|{}|{}", b.get_number_position(), b.get_number_start(), b.get_number_size(), b.get_argument())
+            } else if matches!(step.tool.as_str(), "watermark_options" | "header_footer_options") {
+                sheaf_app::action_settings::MarkSettings { text: b.get_mark_text().to_string(), size: b.get_mark_size().to_string(),
+                    opacity: b.get_mark_opacity().to_string(), rotation: b.get_mark_rotation().to_string(),
+                    x: b.get_mark_x().to_string(), y: b.get_mark_y().to_string(), font: b.get_mark_font().to_string(),
+                    pages: b.get_mark_pages().to_string(), position: b.get_mark_position() }.encode(&step.tool)
             } else { b.get_argument().to_string() };
             step.instruction = b.get_instruction().to_string();
             step.label = b.get_command_label().to_string();
@@ -138,6 +156,7 @@ pub fn install(ui: &AppWindow) {
         Ok(saved) => STATE.with(|s| s.borrow_mut().saved = saved),
         Err(e) => status(ui, format!("{e}. Your saved file has been left unchanged.")),
     }
+    ui.global::<ActionBridge>().set_toolbox(ModelRc::new(VecModel::from(sheaf_core::tools::catalogue().iter().map(|t| slint::SharedString::from(t.id.as_str())).collect::<Vec<_>>())));
     ui.global::<ActionBridge>().set_tools(ModelRc::new(VecModel::from(Step::all().iter().map(|s| s.label().into()).collect::<Vec<slint::SharedString>>())));
     match actions::load_draft(&store_file::data_dir()) {
         Ok(Some(recovered)) => { STATE.with(|s| { let mut s = s.borrow_mut(); s.draft = recovered; s.baseline = SavedAction::empty(); }); status(ui, "Recovered your action draft. Save it to keep it in your actions."); }
@@ -195,7 +214,9 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
     if what == "filter" { rows(ui); return; }
     if what == "custom-tools" {
         rows(ui);
-        ui.global::<ActionBridge>().set_current_tab(ui.get_active_tab());
+        // Acrobat's custom commands follow the reader's stable tab ID, not its list position.
+        let reader = crate::flow::active_tool(ui).map(|(id, _)| id).filter(|id| crate::reader_ui::is_reader(*id));
+        ui.global::<ActionBridge>().set_current_tab(reader.unwrap_or(-1));
         ui.global::<ActionBridge>().set_tools_visible(true);
         return;
     }
@@ -209,6 +230,13 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
                 Some(action)
             });
             if let Some(action) = action {
+                if let Some(step) = action.steps.first().filter(|s| s.tool == "open_tool") {
+                    let Some(tool) = crate::flow::tool_from_str(&step.argument) else { return status(ui, "This toolbox tool is unavailable"); };
+                    ui.global::<ActionBridge>().set_tools_visible(false);
+                    if !step.instruction.is_empty() { crate::flow::toast(ui, &step.instruction); }
+                    crate::flow::open_tool(ui, tool, Vec::new());
+                    return;
+                }
                 if what == "custom-current" {
                     match crate::reader_ui::custom_tools::apply(ui, ui.global::<ActionBridge>().get_current_tab(), &action.steps[0]) {
                         Ok(()) => ui.global::<ActionBridge>().set_tools_visible(false), Err(e) => status(ui, e),
@@ -270,12 +298,37 @@ fn command(ui: &AppWindow, what: &str, index: i32) {
         }
         "import" => return import(ui),
         "export" | "export-stirling" => return export(ui, what == "export-stirling"),
+        "run-open" => {
+            let action = STATE.with(|s| s.borrow().draft.clone());
+            if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+            if action.steps.iter().any(|s| s.tool == "open_tool") { return status(ui, "Choose an interactive command in Custom tools instead of running this set unattended."); }
+            let inputs = match crate::reader_ui::custom_tools::open_inputs() { Ok(inputs) => inputs, Err(e) => return status(ui, e) };
+            let files = inputs.iter().map(|i| i.path.clone()).collect();
+            // Output copies have an explicit destination; never replace an open reader's file.
+            let mut action = action; action.output.same_folder = false; action.output.overwrite = false;
+            let d = crate::dialog::new(ui).set_title("Save action results from open PDFs");
+            crate::dialog::pick_folder(ui, d, move |ui, out| start_with_snapshots(ui, action, files, out, Some(inputs)));
+            return;
+        }
         "run-folder" => {
             let action = STATE.with(|s| s.borrow().draft.clone());
             if let Err(e) = action.validate() { return status(ui, e.to_string()); }
             let d = crate::dialog::new(ui).set_title("Choose the input PDF folder");
-            crate::dialog::pick_folder(ui, d, move |ui, folder| match actions::folder_inputs(&folder) {
-                Ok(files) => pick_output(ui, action, files), Err(e) => status(ui, e.to_string()),
+            crate::dialog::pick_folder(ui, d, move |ui, folder| {
+                let recursive = ui.global::<ActionBridge>().get_recursive();
+                let cancel = Arc::new(AtomicBool::new(false));
+                STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
+                ui.global::<ActionBridge>().set_busy(true);
+                status(ui, "Finding PDFs in the input folder…");
+                let weak = ui.as_weak();
+                std::thread::spawn(move || {
+                    let files = actions::folder_inputs_cancellable(&folder, recursive, &mut || !cancel.load(Ordering::Relaxed));
+                    let _ = weak.upgrade_in_event_loop(move |ui| {
+                        ui.global::<ActionBridge>().set_busy(false);
+                        if cancel.load(Ordering::Relaxed) { status(&ui, "Folder search stopped. No files were processed."); return; }
+                        match files { Ok(files) => pick_output(&ui, action, files), Err(e) => status(&ui, e.to_string()) }
+                    });
+                });
             });
             return;
         }
@@ -399,6 +452,7 @@ fn export(ui: &AppWindow, stirling: bool) {
 
 fn pick_run(ui: &AppWindow, action: SavedAction) {
     if let Err(e) = action.validate() { return status(ui, e.to_string()); }
+    if action.steps.iter().any(|s| s.tool == "open_tool") { return status(ui, "This set contains interactive toolbox shortcuts. Open Custom tools and choose a command; it cannot run unattended on PDFs."); }
     let d = crate::dialog::new(ui).add_filter("PDF", &["pdf"]);
     crate::dialog::pick_files(ui, d, move |ui, files| {
         pick_output(ui, action, files);
@@ -412,10 +466,15 @@ fn pick_output(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>) {
 }
 
 fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf) {
+    start_with_snapshots(ui, action, files, out, None);
+}
+
+fn start_with_snapshots(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf, snapshots: Option<Vec<actions::ActionInput>>) {
     let password = ui.global::<ActionBridge>().get_password().to_string();
     let per_file_password = ui.global::<ActionBridge>().get_per_file_password();
     ui.global::<ActionBridge>().set_password("".into());
     ui.global::<ActionBridge>().set_outputs(ModelRc::new(VecModel::default()));
+    ui.global::<ActionBridge>().set_failures(ModelRc::new(VecModel::default()));
     let cancel = Arc::new(AtomicBool::new(false));
     STATE.with(|s| s.borrow_mut().cancel = cancel.clone());
     ui.global::<ActionBridge>().set_busy(true);
@@ -425,6 +484,11 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
         let mut errors = Vec::new();
         for (file_index, file) in files.iter().enumerate() {
             if cancel.load(Ordering::Relaxed) { break; }
+            let snapshot = snapshots.as_ref().and_then(|sources| sources.get(file_index));
+            let input_bytes = match snapshot {
+                Some(snapshot) => snapshot.bytes.clone(),
+                None => match std::fs::read(file) { Ok(bytes) => Arc::new(bytes), Err(e) => { errors.push(format!("{}: {e}", file.display())); continue; } },
+            };
             let file_password = if per_file_password {
                 let (tx, rx) = mpsc::channel();
                 let prompt = format!("Password for {} (leave blank for an unprotected PDF)", file.display());
@@ -436,21 +500,22 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                 }).is_err() { break; }
                 let Some(answer) = wait_answer(&rx, &cancel) else { cancel.store(true, Ordering::Relaxed); break };
                 answer
-            } else { password.clone() };
-            let r = actions::run_file_configured(&action, file, &out, (!file_password.is_empty()).then_some(file_password.as_str()), &mut |i, step| {
+            } else { snapshot.and_then(|s| s.password.clone()).unwrap_or_else(|| password.clone()) };
+            let r = actions::run_bytes_configured(&action, file, input_bytes, &out, (!file_password.is_empty()).then_some(file_password.as_str()), &mut |i, step| {
                 if cancel.load(Ordering::Relaxed) { return false; }
                 let message = format!("File {}/{} · Step {}/{} · {}", file_index + 1, files.len(), i + 1, action.steps.len(), step.engine().map(|s| s.label()).unwrap_or("Step"));
                 let prompt = if step.prompt { format!("{message}\n{}", step.instruction) } else { String::new() };
                 let message = if !step.instruction.is_empty() { format!("{message} · {}", step.instruction) } else { message };
                 let (tx, rx) = mpsc::channel();
                 let pause = step.prompt;
+                let secret = step.tool == "protect";
                 let argument = step.argument.clone();
                 let has_argument = step.engine().is_ok_and(|s| s.arg().is_some());
                 if weak.upgrade_in_event_loop(move |ui| {
                     status(&ui, &message);
                     if pause {
                         STATE.with(|s| s.borrow_mut().answer = Some(tx));
-                        ui.global::<ActionBridge>().set_prompt_password(false);
+                        ui.global::<ActionBridge>().set_prompt_password(secret);
                         ui.global::<ActionBridge>().set_prompt_argument(argument.into());
                         ui.global::<ActionBridge>().set_prompt_has_argument(has_argument);
                         ui.global::<ActionBridge>().set_prompt(prompt.into());
@@ -480,8 +545,13 @@ fn start(ui: &AppWindow, action: SavedAction, files: Vec<PathBuf>, out: PathBuf)
                 Err(e) => errors.push(format!("{}: {e}", file.display())),
             }
         }
-        let message = format!("{}{} file(s) written to {}. {}", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, if action.output.same_folder { "the input folders".to_string() } else { out.display().to_string() }, errors.join(" · "));
-        let _ = weak.upgrade_in_event_loop(move |ui| { ui.global::<ActionBridge>().set_busy(false); ui.global::<ActionBridge>().set_prompt("".into()); status(&ui, message); });
+        let message = format!("{}{} of {} file(s) written · {} failed", if cancel.load(Ordering::Relaxed) { "Stopped. " } else { "" }, written, files.len(), errors.len());
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            let b = ui.global::<ActionBridge>();
+            b.set_busy(false); b.set_prompt("".into());
+            b.set_failures(ModelRc::new(VecModel::from(errors.iter().map(|e| slint::SharedString::from(e.as_str())).collect::<Vec<_>>())));
+            status(&ui, message);
+        });
     });
 }
 
@@ -523,8 +593,8 @@ fn watch(ui: &AppWindow) {
 
 fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
     let identity = saved.identity();
-    let allowed = STATE.with(|s| { let s = s.borrow(); !s.watch_ids.contains(&identity) && s.watch_ids.len() < 2 });
-    if !allowed { status(ui, "This inbox is already active, or two watches are running. Stop watches before starting another."); return; }
+    let allowed = STATE.with(|s| { let s = s.borrow(); !s.watch_ids.contains(&identity) });
+    if !allowed { status(ui, "This inbox is already active. Stop its watch before starting another action on it."); return; }
     if let Err(e) = saved.save(&store_file::data_dir()) { return status(ui, e.to_string()); }
     let description = saved.description();
     ui.global::<ActionBridge>().set_saved_watch(description.clone().into());
@@ -536,6 +606,10 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
         let mut written = 0;
         let mut failure = String::new();
         while !cancel.load(Ordering::Relaxed) {
+            // One native watch job at a time: many inboxes must not launch many OCR/render jobs.
+            static WATCH_WORK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+            let work = WATCH_WORK.lock().unwrap_or_else(|e| e.into_inner());
+            if cancel.load(Ordering::Relaxed) { break; }
             let message = match saved.watch.poll(&saved.action, &mut || !cancel.load(Ordering::Relaxed)) {
                 Ok(results) if results.is_empty() => None,
                 Ok(results) => {
@@ -552,6 +626,7 @@ fn start_watch(ui: &AppWindow, mut saved: sheaf_app::watch_folder::SavedWatch) {
                 }
                 Err(e) => { cancel.store(true, Ordering::Relaxed); failure = e.to_string(); Some(format!("Folder watch stopped: {e}")) }
             };
+            drop(work);
             if let Some(message) = message
                 && weak.upgrade_in_event_loop(move |ui| status(&ui, message)).is_err() { break; }
             std::thread::sleep(std::time::Duration::from_millis(if saved.watch.scan_in_progress() { 100 } else { 3000 }));

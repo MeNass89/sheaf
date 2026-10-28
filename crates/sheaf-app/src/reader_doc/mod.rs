@@ -129,6 +129,12 @@ pub struct CopiedObjects {
     pub shown: [f64; 4],
     /// Per object, its text when it is a paragraph (pasted as text again).
     pub texts: Vec<Option<sheaf_core::pdfcraft::engine::AddedText>>,
+    /// Per object, the font of `pdf`'s page its paragraph is pasted in again (its own, embedded),
+    /// when it can be; `None`: its nearest standard family.
+    pub fonts: Vec<Option<String>>,
+    /// Per object, a paragraph mixing fonts or styles as its runs (in its page's user space), each
+    /// in its own font when it writes the run again: pasted run by run (PDF Expert's).
+    pub runs: Vec<Option<crate::state::TextRuns>>,
     /// The PDF of the objects that are not text, when there are both.
     pub rest: Option<Arc<Vec<u8>>>,
 }
@@ -545,7 +551,7 @@ pub enum Op {
     /// Accessibility check: the full check's report.
     AccessibilityCheck,
     /// A measured print-readiness report from the current document (Acrobat's Preflight).
-    PrintPreflight { profile: sheaf_core::preflight::Profile },
+    PrintPreflight { profile: sheaf_core::preflight::Profile, preset: sheaf_core::preflight::Preset },
     ExportPdfX { to: PathBuf, options: sheaf_core::press::Options },
     /// Acrobat’s Correct Recognized Text, on the live working document.
     ReviewOcr,
@@ -664,6 +670,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                 Err(e) => return reply(Reply::OpenFailed(e)),
             };
             debug(format_args!("document opened in {:?}", t0.elapsed()));
+            certificate::restrict(&mut doc, &input.path);
             reply(Reply::Opened(Box::new(snap(&doc))));
             let mut path = input.path.clone();
             // A preview on the document: the dirty, undo and redo state before it, which the
@@ -834,7 +841,19 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                     Op::LoupeArea { page, rect } => reply(Reply::Loupe(area_pixels(doc.document(), page, rect, Some(720.0)))),
                     Op::CopyObjects { page, objects, parts, rect, shown } => {
                         let d = doc.document();
-                        let texts = d.objects_texts(page, &objects);
+                        let mut texts = d.objects_texts(page, &objects);
+                        // A paragraph in a font that writes its text again keeps that font and its lines.
+                        let fonts: Vec<Option<String>> = d
+                            .objects_text_fonts(page, &objects)
+                            .into_iter()
+                            .zip(texts.iter_mut())
+                            .map(|(f, t)| {
+                                let (font, lines) = f?;
+                                t.as_mut()?.text = lines;
+                                Some(font)
+                            })
+                            .collect();
+                        let runs = d.objects_text_runs(page, &objects);
                         let made = area_pixels(d, page, rect, None).and_then(|pixels| {
                             let pdf = Arc::new(d.objects_pdf(page, &objects, rect)?);
                             // With paragraphs among them, the rest goes as one item of its own.
@@ -847,7 +866,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                                     Some(Arc::new(d.objects_pdf(page, &targets, r)?))
                                 }
                             };
-                            Ok(CopiedObjects { pixels, pdf, shown, texts, rest })
+                            Ok(CopiedObjects { pixels, pdf, shown, texts, fonts, runs, rest })
                         });
                         reply(Reply::ObjectsCopied(made));
                     }
@@ -909,6 +928,12 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                         let note = (error.is_none()).then(|| format!("{} found", sheaf_core::tools::count(n, "field")));
                         // An undo step was counted for it by the window: `applied` even when refused, so it is taken back.
                         reply(Reply::Changed { snap: Box::new(snap(&doc)), pages: Some(pages), error, applied: true, note, preview: false });
+                    }
+                    // A certificate-encrypted file saves encrypted again, its working copy stays.
+                    Op::Save { to } if certificate::original(&path).is_some() => {
+                        let target = to.clone().or_else(|| certificate::original(&path)).unwrap_or_else(|| path.clone());
+                        let error = certificate::save(&mut doc, &path, &target).err();
+                        reply(Reply::Saved { snap: Box::new(snap(&doc)), to: target, error });
                     }
                     Op::Save { to } => {
                         let target = to.clone().unwrap_or_else(|| path.clone());
@@ -973,10 +998,10 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                             Err(error) => reply(Reply::PdfXExported(Err(error.to_string()))),
                         }
                     }
-                    Op::PrintPreflight { profile } => {
+                    Op::PrintPreflight { profile, preset } => {
                         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                         let date = chrono::Local::now().format("%Y-%m-%d %H:%M:%S %:z").to_string();
-                        reply(Reply::PrintPreflight(sheaf_core::preflight::report_with_profile(&doc, &name, &date, profile).map_err(|e| e.to_string())));
+                        reply(Reply::PrintPreflight(sheaf_core::preflight::report_with_preset(&doc, &name, &date, profile, preset).map_err(|e| e.to_string())));
                     }
                     Op::ExportFormData { to } => {
                         let id = doc.id();
@@ -1097,6 +1122,8 @@ pub fn debug(args: std::fmt::Arguments) {
         eprintln!("reader: {args}");
     }
 }
+
+pub mod certificate;
 
 #[cfg(test)]
 mod tests;

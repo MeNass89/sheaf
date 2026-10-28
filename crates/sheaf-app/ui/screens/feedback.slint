@@ -1,0 +1,125 @@
+// Help ▸ Report an Issue (iLovePDF's Contact us: a subject, a message, up to five files and the
+// app's details). Sheaf sends nothing itself: the report is saved as a zip, copied, or opened as a
+// new issue in the browser (src/feedback_ui.rs, src/feedback.rs).
+import { Theme } from "../theme.slint";
+import { Segment } from "../widgets/radio-card.slint";
+import { SecondaryButton, Modal } from "dialogs.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { Check } from "../widgets/check.slint";
+import { PlatformBridge } from "../platform.slint";
+
+export global FeedbackBridge {
+    in-out property <bool> open;
+    // 0 Report a problem, 1 Suggest a feature.
+    in-out property <int> subject;
+    // The files attached (names), the app's details as they are sent, what went wrong ("" none).
+    in property <[string]> files;
+    in property <string> diagnostics;
+    in property <string> error;
+    callback opened();
+    callback add-files();
+    callback remove-file(int);
+    // 0 save the zip, 1 copy the text, 2 open the new-issue page; the message and whether the
+    // details go with it.
+    callback act(int, string, bool);
+}
+
+export component ReportIssueDialog inherits Modal {
+    // Wide enough for its four buttons on one row.
+    card-width: 580px;
+    init => { FeedbackBridge.opened(); message.focus(); }
+    Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: @tr("Report an issue");
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+    }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.start;
+        spacing: 8px;
+        for s[i] in [@tr("Report a problem"), @tr("Suggest a feature")]: Segment {
+            width: 170px;
+            text: s;
+            selected: FeedbackBridge.subject == i;
+            clicked => { FeedbackBridge.subject = i; }
+        }
+    }
+    Rectangle {
+        height: 140px;
+        border-radius: Theme.radius-small;
+        border-width: 1px;
+        border-color: message.has-focus ? Theme.text-secondary : Theme.input-border;
+        background: Theme.input-bg;
+        if message.text == "": Text {
+            x: PlatformBridge.rtl ? parent.width - 10px - self.width : 10px;
+            y: 8px;
+            text: FeedbackBridge.subject == 0 ? @tr("What happened, and what you expected") : @tr("What you would like Sheaf to do");
+            font-size: Theme.fs-label;
+            color: Theme.text-muted;
+        }
+        message := TextInput {
+            changed has-focus => { PlatformBridge.typing = self.has-focus; }
+            x: 10px;
+            y: 8px;
+            width: parent.width - 20px;
+            height: parent.height - 16px;
+            single-line: false;
+            wrap: word-wrap;
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+        }
+    }
+    for f[k] in FeedbackBridge.files: FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
+        spacing: 8px;
+        Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: f; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        SecondaryButton { text: @tr("Remove"); clicked => { FeedbackBridge.remove-file(k); } }
+    }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
+        spacing: 8px;
+        SecondaryButton { text: @tr("Attach files…"); enabled: FeedbackBridge.files.length < 5; clicked => { FeedbackBridge.add-files(); } }
+        details := Check { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Include this computer's details"); checked: true; }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    if details.checked: Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: FeedbackBridge.diagnostics;
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+    if FeedbackBridge.error != "": Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: FeedbackBridge.error;
+        font-size: Theme.fs-caption;
+        color: Theme.danger;
+        wrap: word-wrap;
+    }
+    Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: @tr("Sheaf sends nothing by itself: save the report to send it, or open the issue page in your browser and attach the files there.");
+        font-size: Theme.fs-caption;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
+        spacing: 8px;
+        SecondaryButton { text: @tr("Cancel"); clicked => { FeedbackBridge.open = false; } }
+        Rectangle { horizontal-stretch: 1; }
+        SecondaryButton { text: @tr("Copy"); clicked => { FeedbackBridge.act(1, message.text, details.checked); } }
+        SecondaryButton { text: @tr("Save report…"); clicked => { FeedbackBridge.act(0, message.text, details.checked); } }
+        PrimaryButton { text: @tr("Open issue page"); clicked => { FeedbackBridge.act(2, message.text, details.checked); } }
+    }
+}

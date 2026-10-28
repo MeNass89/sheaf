@@ -284,6 +284,10 @@ pub struct CommentClip {
     pub page: usize,
 }
 
+/// A paragraph's runs, each of one font: its text in its box, and its font in the copied PDF
+/// (`None`: the nearest standard family).
+pub type TextRuns = Vec<(sheaf_core::pdfcraft::engine::AddedText, Option<String>)>;
+
 /// Objects copied with the Edit tool: a PDF of them alone, where they showed (display rect), the
 /// file and page they came from, and the size of their picture put on the system clipboard.
 #[derive(Clone)]
@@ -295,11 +299,33 @@ pub struct ObjectsClip {
     pub pixels: (usize, usize),
     /// The paragraphs among them, each as text in its box as shown: pasted as text again.
     pub texts: Vec<sheaf_core::pdfcraft::engine::AddedText>,
+    /// Per paragraph of `texts`, its own font in `pdf` (pasted in it), or `None`.
+    pub fonts: Vec<Option<String>>,
+    /// Per paragraph of `texts`, when it mixes fonts or styles: its runs, each in its box as shown
+    /// and its own font in `pdf` (or `None`: the nearest standard family): pasted run by run.
+    pub runs: Vec<Option<TextRuns>>,
     /// With paragraphs, the other objects: their PDF and where they showed.
     pub rest: Option<CopiedRest>,
 }
 
 impl ObjectsClip {
+    /// A mixed paragraph's runs (boxes in its page's user space, the paragraph's `from`) moved to
+    /// where the paragraph showed (`shown`), each box a little wider so its words keep one line.
+    pub fn place_runs(
+        runs: TextRuns,
+        from: [f64; 4],
+        shown: [f64; 4],
+    ) -> TextRuns {
+        let (dx, dy) = (shown[0] - from[0], shown[1] - from[1]);
+        runs.into_iter()
+            .map(|(mut t, font)| {
+                let r = t.rect;
+                t.rect = [r[0] + dx, r[1] + dy, r[2] + dx + 0.04 * (r[2] - r[0]) + 2.0, r[3] + dy];
+                (t, font)
+            })
+            .collect()
+    }
+
     /// The paragraphs copied, placed in their box as shown (`layout`, one per object; a little
     /// wider so the text keeps its lines in another font), and the rest's box as shown.
     pub fn split(
@@ -723,6 +749,26 @@ pub fn move_in_order(from: usize, to: usize) {
     }
 }
 
+/// Recheck once on returning from an installer, rather than probing on every model refresh.
+pub fn refresh_office_runtime() {
+    let available = sheaf_core::office::find_soffice().is_some()
+        && !(cfg!(debug_assertions) && std::env::var_os("SHEAF_NO_SOFFICE").is_some());
+    with(|app| {
+        let mut changed = Vec::new();
+        for tab in &mut app.tabs {
+            if update_office_runtime(tab, available) { changed.push(tab.id); }
+        }
+        for id in changed { refresh(app, id); }
+    });
+}
+
+fn update_office_runtime(tab: &mut TabState, available: bool) -> bool {
+    if !matches!(tab.tool, ToolId::WordToPdf | ToolId::PowerPointToPdf | ToolId::ExcelToPdf | ToolId::HtmlToPdf)
+        || tab.office_missing != available { return false; }
+    tab.office_missing = !available;
+    true
+}
+
 /// Pushes the tab `id` into its model row.
 pub fn refresh(app: &App, id: i32) {
     if let Some(i) = app.tab_index(id) {
@@ -736,6 +782,20 @@ pub fn refresh(app: &App, id: i32) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn office_runtime_refresh_enables_existing_tabs_after_install_and_disables_after_removal() {
+        let mut tab = TabState::new(1, ToolId::WordToPdf);
+        tab.office_missing = true;
+        assert!(update_office_runtime(&mut tab, true));
+        assert!(!tab.office_missing);
+        assert!(!update_office_runtime(&mut tab, true));
+        assert!(update_office_runtime(&mut tab, false));
+        assert!(tab.office_missing);
+        tab.tool = ToolId::Merge;
+        assert!(!update_office_runtime(&mut tab, true));
+        assert!(tab.office_missing);
+    }
 
     #[test]
     fn edit_items_are_dropped_when_the_file_changes_or_is_removed() {
@@ -841,17 +901,17 @@ mod tests {
     fn pdfa_result_shows_the_summary_and_the_rules_left() {
         let o = JobOutcome {
             outputs: vec![PathBuf::from("/x/a-pdfa.pdf")],
-            summary: "1 file does not fully conform to PDF/A-2b".into(),
+            summary: "1 file did not pass PDF/A-2b checks".into(),
             notes: vec!["6.2.11.4: The font Helvetica isn't embedded".into()],
             ..Default::default()
         };
         let tab = done_tab(ToolId::PdfToPdfA, o);
-        assert_eq!(tab.result_sub, "1 file does not fully conform to PDF/A-2b");
+        assert_eq!(tab.result_sub, "1 file did not pass PDF/A-2b checks");
         assert_eq!(tab.notes.row_data(0).unwrap(), "6.2.11.4: The font Helvetica isn't embedded");
         assert!(tab.notes_title.starts_with("Not fixed"));
-        let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Conforms to PDF/A-2b".into(), ..Default::default() };
+        let ok = JobOutcome { outputs: vec![PathBuf::from("/x/a-pdfa.pdf")], summary: "Checks passed for PDF/A-2b".into(), ..Default::default() };
         let tab = done_tab(ToolId::PdfToPdfA, ok);
-        assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Conforms to PDF/A-2b", ""));
+        assert_eq!((tab.result_sub.as_str(), tab.notes_title.as_str()), ("Checks passed for PDF/A-2b", ""));
     }
 
     #[test]

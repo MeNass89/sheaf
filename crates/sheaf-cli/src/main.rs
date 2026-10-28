@@ -9,6 +9,7 @@
 mod agent;
 mod args;
 mod mcp;
+mod actions;
 
 use args::{edit_items, Cli, CliCompare, CliPdfA, CliSheets, Cmd, NumberFormat, WmPosition};
 use clap::{CommandFactory, FromArgMatches};
@@ -67,11 +68,12 @@ impl Cmd {
             Cmd::Number { .. } | Cmd::Watermark { .. } | Cmd::Crop { .. } | Cmd::Pdfa { .. } | Cmd::Ocr { .. } |
             Cmd::ToWord { .. } | Cmd::ToPowerpoint { .. } | Cmd::ToExcel { .. } | Cmd::Compare { .. } | Cmd::Redact { .. } |
             // Sign refuses protected inputs.
-            Cmd::Sign { .. } |
+            Cmd::Sign { .. } | Cmd::EncryptCertificates { .. } | Cmd::UnlockCertificate { .. } |
             Cmd::Edit { .. } | Cmd::CorrectOcr { .. } | Cmd::ApplySecurityPolicy { .. } |
             Cmd::Compress { .. } | Cmd::Protect { .. } | Cmd::Unlock { .. } | Cmd::FromImages { .. } | Cmd::Office { .. } => vec![],
             // They write no PDF.
-            Cmd::ReviewOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::ReviewOcr { .. } | Cmd::SaveSecurityPolicy { .. } | Cmd::Index { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Search { .. } | Cmd::Actions | Cmd::Render { .. } | Cmd::Tools | Cmd::Mcp => vec![],
+            Cmd::Ask { .. } | Cmd::Summarize { .. } | Cmd::Translate { .. } => vec![],
         }
     }
 
@@ -80,8 +82,12 @@ impl Cmd {
     fn out_dir(&self) -> Option<&Path> {
         match self {
             Cmd::Split { out, .. } | Cmd::ToJpg { out, .. } => Some(out),
-            Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Tools | Cmd::Mcp => None,
-            Cmd::CorrectOcr { out, .. }
+            Cmd::ReviewOcr { .. } | Cmd::SearchIndex { .. } | Cmd::Info { .. } | Cmd::Text { .. } | Cmd::Search { .. } | Cmd::Actions | Cmd::Tools | Cmd::Mcp => None,
+            Cmd::Ask { .. } | Cmd::Summarize { .. } => None,
+            Cmd::Translate { out, .. } => out.as_deref().and_then(Path::parent).filter(|p| !p.as_os_str().is_empty()),
+            Cmd::EncryptCertificates { out, .. }
+            | Cmd::UnlockCertificate { out, .. }
+            | Cmd::CorrectOcr { out, .. }
             | Cmd::SaveSecurityPolicy { out, .. }
             | Cmd::ApplySecurityPolicy { out, .. }
             | Cmd::Index { out, .. }
@@ -126,6 +132,28 @@ fn run(cli: Cli) -> sheaf_core::Result<Vec<PathBuf>> {
         note!("{NOT_PROTECTED}");
     }
     r
+}
+
+/// The AI setup from flags and environment, and the pages' text as labelled sources.
+fn ai_input(i: &Input, pages: Option<&str>, a: &args::AiArgs) -> sheaf_core::Result<(sheaf_core::ai::Config, Vec<sheaf_core::ai::tasks::Source>)> {
+    let cfg = sheaf_core::ai::config_from(a.provider.as_deref(), a.model.as_deref(), a.base_url.as_deref(), a.api_key.as_deref(), &|k| std::env::var(k).ok())
+        .map_err(OpdfError::Unsupported)?;
+    let n = sheaf_core::pdfcraft::Doc::open(i)?.document().info.pages.len() as u32;
+    let wanted: Vec<usize> = match pages {
+        Some(spec) => sheaf_core::ranges::parse_ranges(spec, n)?.into_iter().flatten().map(|p| p as usize - 1).collect(),
+        None => (0..n as usize).collect(),
+    };
+    let texts = sheaf_core::text::page_texts(i, &wanted)?;
+    let src = wanted.iter().zip(texts).filter(|(_, t)| !t.trim().is_empty()).map(|(p, t)| sheaf_core::ai::tasks::Source { label: format!("p. {}", p + 1), text: t.trim().to_string() }).collect();
+    Ok((cfg, src))
+}
+
+fn ai_error(e: sheaf_core::ai::AiError) -> OpdfError {
+    match e {
+        sheaf_core::ai::AiError::Cancelled => OpdfError::Cancelled,
+        // The app's wording points at Preferences; here the flags are the place.
+        e => OpdfError::Engine(e.to_string().replace("in Preferences ▸ AI", "with --api-key or SHEAF_AI_KEY").replace("Preferences ▸ AI", "--provider and --base-url")),
+    }
 }
 
 const NOT_PROTECTED: &str = "note: the output is not password-protected";
@@ -383,7 +411,54 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             agent::set_text(sheaf_core::text::page_texts(&i, &pages)?);
             Ok(vec![])
         }
+        Cmd::Ask { input: i, question, pages, ai } => {
+            let (cfg, src) = ai_input(&input(i), pages.as_deref(), &ai)?;
+            agent::set_text(vec![sheaf_core::ai::tasks::ask(&cfg, &src, None, &question, &[], &mut |_, _| true).map_err(ai_error)?]);
+            Ok(vec![])
+        }
+        Cmd::Summarize { input: i, pages, points, ai } => {
+            let (cfg, src) = ai_input(&input(i), pages.as_deref(), &ai)?;
+            let form = if points { sheaf_core::ai::tasks::Summary::MainPoints } else { sheaf_core::ai::tasks::Summary::Paragraphs };
+            agent::set_text(vec![sheaf_core::ai::tasks::summarize(&cfg, &src, form, &mut |_, _| true).map_err(ai_error)?]);
+            Ok(vec![])
+        }
+        Cmd::Translate { input: i, to, pages, out, ai } => {
+            let i = input(i);
+            let (cfg, src) = ai_input(&i, pages.as_deref(), &ai)?;
+            let text = sheaf_core::ai::tasks::translate(&cfg, &src, &to, &mut |_, _| true).map_err(ai_error)?;
+            match out {
+                None => {
+                    agent::set_text(vec![text]);
+                    Ok(vec![])
+                }
+                Some(out) => {
+                    let title = format!("{} ({to})", i.path.file_stem().unwrap_or_default().to_string_lossy());
+                    one(sheaf_core::ai::write_text(&title, &text, &out))
+                }
+            }
+        }
+        Cmd::Search { input: i, query } => {
+            agent::set_data(actions::search(&sheaf_core::text::page_texts(&input(i), &[])?, &query));
+            Ok(vec![])
+        }
+        Cmd::Actions => {
+            agent::set_data(actions::json());
+            Ok(vec![])
+        }
         Cmd::Render { input: i, page, dpi, out } => one(images::render_png(&input(i), page as usize - 1, dpi, &out)),
+        Cmd::EncryptCertificates { input: source, recipients, scope, out } => {
+            let certificates = recipients.iter().map(|path| {
+                let bytes = std::fs::read(path)?;
+                let der = sheaf_core::pdfcraft::certificate_der(&bytes).ok_or_else(|| OpdfError::Unsupported(format!("{} is not an X.509 certificate", path.display())))?;
+                sheaf_core::pdfcraft::engine::sign::Certificate::parse(&der).map_err(|e| OpdfError::Unsupported(e.to_string()))
+            }).collect::<sheaf_core::Result<Vec<_>>>()?;
+            note!("Offline RSA/AES-256 encryption. All recipients have full permissions; include the sender's certificate to reopen. Reopen via unlock-certificate; external object streams are not supported yet.");
+            one(sheaf_core::certificate_security::encrypt(&input(source), &certificates, scope.core(), &out))
+        }
+        Cmd::UnlockCertificate { input, identity, id_password, out } => {
+            let identity = sheaf_core::pdfcraft::engine::sign::pkcs12::open(&std::fs::read(identity)?, &id_password).map_err(|e| OpdfError::Unsupported(e.to_string()))?;
+            one(sheaf_core::certificate_security::unlock(&input, &identity, &out))
+        }
         Cmd::Index { inputs, update, out } => {
             let inputs: Vec<Input> = inputs.into_iter().map(input).collect();
             let catalog = match update {
@@ -392,11 +467,11 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
             };
             one(catalog.save(&out))
         }
-        Cmd::SearchIndex { index, query } => {
+        Cmd::SearchIndex { index, query, mode, whole_words, match_case, english_stems, proximity } => {
             let catalog = sheaf_core::search_index::Catalog::load(&index)?;
             let stale = catalog.stale_sources();
             if !stale.is_empty() { note!("{} changed or missing sources excluded; update the catalog", stale.len()); }
-            let hits = catalog.search(&query)?;
+            let hits = catalog.search_with_options(&query, sheaf_core::search_index::SearchOptions { mode: mode.core(), whole_words, case_sensitive: match_case, english_stemming: english_stems, proximity: proximity as usize })?;
             agent::set_data(serde_json::to_value(hits).map_err(|e| OpdfError::Engine(e.to_string()))?);
             Ok(vec![])
         }
@@ -410,8 +485,14 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
         }
         Cmd::Pdfa { input: i, level, out } => {
             let level = match level {
+                CliPdfA::A1b => PdfALevel::A1b,
                 CliPdfA::A2b => PdfALevel::A2b,
                 CliPdfA::A3b => PdfALevel::A3b,
+                CliPdfA::A1a => PdfALevel::A1a,
+                CliPdfA::A2u => PdfALevel::A2u,
+                CliPdfA::A3u => PdfALevel::A3u,
+                CliPdfA::A2a => PdfALevel::A2a,
+                CliPdfA::A3a => PdfALevel::A3a,
             };
             let r = pdfa::to_pdfa(&input(i), level, &out)?;
             if r.issues.is_empty() {
@@ -421,7 +502,7 @@ fn dispatch(cmd: Cmd, input: &dyn Fn(PathBuf) -> Input) -> sheaf_core::Result<Ve
                 note!("warning: {} ({}): {}", level.label(), issue.clause, issue.message);
             }
             if !r.issues.is_empty() {
-                note!("error: the output does not fully conform to {}", level.label());
+                note!("error: the output did not pass all built-in {} checks", level.label());
                 NOT_CONFORMING.store(true, std::sync::atomic::Ordering::Relaxed);
             }
             warned(Ok((r.path, r.was_encrypted)))

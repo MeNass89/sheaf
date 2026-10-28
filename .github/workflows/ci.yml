@@ -24,11 +24,11 @@ jobs:
       - name: Tools the tests compare against
         run: |
           if [ "$RUNNER_OS" = macOS ]; then
-            brew install qpdf poppler
+            brew install qpdf poppler ghostscript
           else
             sudo apt-get update
             # The GUI layer of scripts/test.sh drives the app on Xvfb with xdotool.
-            sudo apt-get install -y qpdf poppler-utils libfontconfig1-dev libxkbcommon-dev libudev-dev \
+            sudo apt-get install -y qpdf ghostscript poppler-utils libfontconfig1-dev libxkbcommon-dev libudev-dev \
               xvfb xdotool xclip imagemagick x11-utils libxkbcommon-x11-0
           fi
       - run: sh scripts/fetch-pdfium.sh && sh scripts/fetch-models.sh && sh scripts/fetch-fonts.sh
@@ -50,3 +50,9 @@ jobs:
       - run: sh scripts/package-windows.sh
       - name: Smoke test
         run: sh scripts/smoke.sh target/Sheaf-*-windows-x64/sheaf-cli.exe
+      # The portable zip kept a week, to try a branch on Windows before a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sheaf-windows-x64
+          path: target/Sheaf-*-windows-x64.zip
+          retention-days: 7

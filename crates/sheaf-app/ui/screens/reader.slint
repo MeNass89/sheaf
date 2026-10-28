@@ -10,8 +10,11 @@ import { Theme } from "../theme.slint";
 import { ToolButton, SmallButton, Divider, ColourDot } from "reader-parts.slint";
 import { SignatureManagerSheet } from "signature-manager.slint";
 import { SecurityPolicySheet } from "security-policy.slint";
+import { CertificateEncryptSheet } from "certificate-encrypt.slint";
 import { CatalogSheet } from "catalog.slint";
 import { OcrReviewPanel } from "ocr-review.slint";
+import { AiPanel } from "ai-panel.slint";
+import { AiBridge } from "../ai.slint";
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
@@ -19,6 +22,7 @@ import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } f
 import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
 import { ProductionSheet } from "reader-production.slint";
 import { PreflightSheet } from "reader-prepress.slint";
+import { InkPreviewSheet, PrintPreviewBridge } from "reader-ink-preview.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 import { SpellStrip } from "../widgets/spell-strip.slint";
@@ -100,7 +104,18 @@ export component ReaderScreen inherits Rectangle {
     // over another document's pane, the pinch is left to nothing.
     property <length> pinch-ox;
     property <length> pinch-oy;
-    property <bool> pinch-skip;
+    // A pinch begun over another document's pane: that tab (it comes forward and zooms), the
+    // scale already applied, its horizontal scroll when the pinch began.
+    property <int> pinch-other: -1;
+    property <float> pinch-prev: 1;
+    property <length> pinch-sx0;
+    // A press in another document's pane goes on to that tab, its drag too: the tab, the press in
+    // its content and in the window (the drag's later points are the press's moved as the pointer is).
+    property <int> other-press: -1;
+    property <length> op-cx0;
+    property <length> op-cy0;
+    property <length> op-wx0;
+    property <length> op-wy0;
     // A drag with the hand, Space or the middle button in the other pane moves that pane.
     property <bool> pane-panning;
     property <PointerEventButton> pan2-button;
@@ -398,14 +413,23 @@ export component ReaderScreen inherits Rectangle {
                     started => {
                         let over-other = root.split > 0 && self.center.x >= sv2.x && self.center.x < sv2.x + sv2.width
                             && self.center.y >= sv2.y && self.center.y < sv2.y + sv2.height;
-                        root.pinch-skip = over-other && root.tab.split-title != "";
+                        // Over another document's pane: its tab comes forward and that document zooms, by
+                        // steps of the pinch's scale (Sol, 27/10: the pinch did nothing there).
+                        root.pinch-other = over-other && root.tab.split-title != "" ? root.tab.split-other : -1;
+                        root.pinch-prev = 1;
+                        root.pinch-sx0 = -sv2.content-x;
                         root.pinch-ox = over-other ? sv2.x : sv.x;
                         root.pinch-oy = over-other ? sv2.y : sv.y;
-                        if over-other && !root.pinch-skip { ReaderBridge.split-focus(root.id); }
+                        if over-other { ReaderBridge.split-focus(root.id); }
                         root.pinch-zoom0 = root.tab.viewer-zoom;
                     }
                     updated => {
-                        if !root.pinch-skip { root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy); }
+                        if root.pinch-other >= 0 {
+                            ViewerBridge.zoom-by(root.pinch-other, self.scale / root.pinch-prev, (self.center.x - root.pinch-ox) / 1px, (self.center.y - root.pinch-oy) / 1px, root.pinch-sx0 / 1px);
+                            root.pinch-prev = self.scale;
+                        } else {
+                            root.zoom-around(root.pinch-zoom0 * self.scale, self.center.x - root.pinch-ox, self.center.y - root.pinch-oy);
+                        }
                     }
                 }
                 sv := ScrollView {
@@ -644,7 +668,8 @@ export component ReaderScreen inherits Rectangle {
                             // Pages across: a mouse's wheel moves along the strip when there is nothing to
                             // scroll down (a trackpad sends the sideways movement itself).
                             if root.tab.reader.horizontal && e.delta-x == 0 && e.delta-y != 0 && sv.content-height <= sv.visible-height + 1px {
-                                sv.content-x = clamp(sv.content-x + e.delta-y, min(0px, sv.visible-width - sv.content-width), 0px);
+                                // Right to left: down goes on to later pages, leftward (as Space does).
+                                sv.content-x = clamp(sv.content-x + (root.tab.reader.rtl ? -e.delta-y : e.delta-y), min(0px, sv.visible-width - sv.content-width), 0px);
                                 return accept;
                             }
                             reject
@@ -689,24 +714,24 @@ export component ReaderScreen inherits Rectangle {
                         bar := HorizontalLayout {
                             padding: 2px;
                             spacing: 0px;
-                            ToolButton { icon: @image-url("../icons/copy.svg"); tip: "Copy (⌘C)"; clicked => { clip.text = root.tab.reader.selected-text; clip.select-all(); clip.copy(); keys.focus(); } }
+                            ToolButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Copy (⌘C)"); clicked => { clip.text = root.tab.reader.selected-text; clip.select-all(); clip.copy(); keys.focus(); } }
                             // PDF Expert's "Search": the selected words in the search field, results listed.
                             ToolButton {
                                 icon: @image-url("../icons/search.svg");
-                                tip: "Search for this (⇧⌘E)";
+                                tip: @tr("Search for this (⇧⌘E)");
                                 clicked => { root.bare = false; toolbar.search-for(root.tab.reader.selected-text); keys.focus(); }
                             }
-                            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: "Highlight"; clicked => { ReaderBridge.markup(root.id, 1); } }
-                            ToolButton { icon: @image-url("../icons/underline.svg"); tip: "Underline"; clicked => { ReaderBridge.markup(root.id, 2); } }
-                            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: "Strikethrough"; clicked => { ReaderBridge.markup(root.id, 3); } }
+                            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: @tr("Highlight"); clicked => { ReaderBridge.markup(root.id, 1); } }
+                            ToolButton { icon: @image-url("../icons/underline.svg"); tip: @tr("Underline"); clicked => { ReaderBridge.markup(root.id, 2); } }
+                            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: @tr("Strikethrough"); clicked => { ReaderBridge.markup(root.id, 3); } }
                             // Acrobat's and PDF Expert's link from selected text.
-                            ToolButton { icon: @image-url("../icons/link.svg"); tip: "Link… (⌘K)"; clicked => { ReaderBridge.link-selection(root.id); } }
+                            ToolButton { icon: @image-url("../icons/link.svg"); tip: @tr("Link… (⌘K)"); clicked => { ReaderBridge.link-selection(root.id); } }
                             // Acrobat's Replace Text: struck out, the new words in a caret note.
-                            ToolButton { icon: @image-url("../icons/replace.svg"); tip: "Replace text…"; clicked => { ReaderBridge.replace-selection(root.id); } }
+                            ToolButton { icon: @image-url("../icons/replace.svg"); tip: @tr("Replace text…"); clicked => { ReaderBridge.replace-selection(root.id); } }
                             // Acrobat's Insert Text: words proposed after the selection, nothing struck out.
-                            ToolButton { icon: @image-url("../icons/plus.svg"); tip: "Insert text after…"; clicked => { ReaderBridge.insert-after-selection(root.id); } }
+                            ToolButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert text after…"); clicked => { ReaderBridge.insert-after-selection(root.id); } }
                             // PDF Expert's and Preview's Look Up: the words in the system's dictionary.
-                            ToolButton { icon: @image-url("../icons/book-open.svg"); tip: "Look up"; clicked => { ReaderBridge.look-up(root.tab.reader.selected-text); keys.focus(); } }
+                            ToolButton { icon: @image-url("../icons/book-open.svg"); tip: @tr("Look up"); clicked => { ReaderBridge.look-up(root.tab.reader.selected-text); keys.focus(); } }
                             Divider { y: 7px; }
                             // Highlight in one of the five colours straight from the selection.
                             for c[k] in root.light-colours: ColourDot {
@@ -768,6 +793,8 @@ export component ReaderScreen inherits Rectangle {
                             triggered => { inplace-edit.focus(); self.running = false; }
                         }
                         inplace-edit := TextInput {
+                            // Tools page tools' keys wait while a field has the keyboard.
+                            changed has-focus => { PlatformBridge.typing = self.has-focus; }
                             x: 3px;
                             y: 3px;
                             width: parent.width - 6px;
@@ -857,7 +884,7 @@ export component ReaderScreen inherits Rectangle {
                             padding: 8px;
                             spacing: 6px;
                             Text {
-                                text: root.tab.reader.note.kind == 0 ? "Note" : root.tab.reader.note.kind == 1 ? "Text box" : root.tab.reader.note.kind == 2 ? "Edit text — ⌘↩ to apply" : root.tab.reader.note.kind == 4 ? "↩ done · Tab next field" : root.tab.reader.note.kind == 5 ? "Choose" : root.tab.reader.note.kind == 6 ? "Comment" : root.tab.reader.note.kind == 7 ? "Reply — ↩ to send" : root.tab.reader.note.kind == 8 ? "Link to — a page number or a web address" : root.tab.reader.note.kind == 9 ? "Link — change where it goes, or remove it" : root.tab.reader.note.kind == 10 ? "Replace with — ↩ to propose" : root.tab.reader.note.kind == 11 ? "Insert after — ↩ to propose" : root.tab.reader.note.kind == 12 ? "Its real length — such as 4.5 m" : "Add text";
+                                text: root.tab.reader.note.kind == 0 ? @tr("Note") : root.tab.reader.note.kind == 1 ? @tr("Text box") : root.tab.reader.note.kind == 2 ? @tr("Edit text — ⌘↩ to apply") : root.tab.reader.note.kind == 4 ? @tr("↩ done · Tab next field") : root.tab.reader.note.kind == 5 ? @tr("Choose") : root.tab.reader.note.kind == 6 ? @tr("Comment") : root.tab.reader.note.kind == 7 ? @tr("Reply — ↩ to send") : root.tab.reader.note.kind == 8 ? @tr("Link to — a page number or a web address") : root.tab.reader.note.kind == 9 ? @tr("Link — change where it goes, or remove it") : root.tab.reader.note.kind == 10 ? @tr("Replace with — ↩ to propose") : root.tab.reader.note.kind == 11 ? @tr("Insert after — ↩ to propose") : root.tab.reader.note.kind == 12 ? @tr("Its real length — such as 4.5 m") : @tr("Add text");
                                 font-size: Theme.fs-caption;
                                 font-weight: Theme.weight-demibold;
                                 color: Theme.text-secondary;
@@ -882,6 +909,8 @@ export component ReaderScreen inherits Rectangle {
                                 }
                             }
                             note-edit := TextEdit {
+                                // Tools page tools' keys wait while a field has the keyboard.
+                                changed has-focus => { PlatformBridge.typing = self.has-focus; }
                                 // Hidden for a choice list; otherwise it takes the room left.
                                 visible: root.tab.reader.note.kind != 5;
                                 min-height: root.tab.reader.note.kind == 5 ? 0px : 28px;
@@ -939,9 +968,9 @@ export component ReaderScreen inherits Rectangle {
                                 spacing: 6px;
                                 alignment: end;
                                 // An existing link: remove it (as Acrobat's Delete on a selected link).
-                                if root.tab.reader.note.kind == 9: SmallButton { text: "Remove link"; clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
-                                SmallButton { text: "Cancel"; clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
-                                SmallButton { text: "Done"; primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
+                                if root.tab.reader.note.kind == 9: SmallButton { text: @tr("Remove link"); clicked => { ReaderBridge.note-commit(root.id, ""); keys.focus(); } }
+                                SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.note-cancel(root.id); keys.focus(); } }
+                                SmallButton { text: @tr("Done"); primary: true; clicked => { ReaderBridge.note-commit(root.id, note-edit.text); keys.focus(); } }
                             }
                         }
                     }
@@ -1026,14 +1055,28 @@ export component ReaderScreen inherits Rectangle {
                             // Another document: its tab comes to the front, this one in its other pane, and
                             // the click goes on to it there, at the same point (a link, a comment, a note
                             // placed; Sol, 27/10: it was lost). That tab's view then takes the pointer.
-                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" {
-                                let other = root.tab.split-other;
-                                let x = self.mouse-x;
-                                let y = self.mouse-y;
-                                ReaderBridge.split-focus(root.id);
+                            // Its drag goes on there too, a selection or a comment dragged (Sol, 27/10: the press
+                            // was a click at once). That tab is laid out as this pane at the press; it comes
+                            // forward when the button is let go, so this screen keeps the pointer meanwhile
+                            // (round 30: handed over at the press, the screen hid and the drag was lost).
+                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left && root.tab.split-title != "" && root.other-press < 0 {
+                                let other = ReaderBridge.split-press-other(root.id);
+                                root.op-cx0 = self.mouse-x;
+                                root.op-cy0 = self.mouse-y;
+                                root.op-wx0 = self.absolute-position.x + self.mouse-x;
+                                root.op-wy0 = self.absolute-position.y + self.mouse-y;
                                 if other >= 0 {
-                                    ReaderBridge.pressed(other, x, y, e.modifiers.shift ? 17 : 1);
-                                    ReaderBridge.released(other, x, y);
+                                    root.other-press = other;
+                                    ReaderBridge.pressed(other, root.op-cx0, root.op-cy0, e.modifiers.shift ? 17 : 1);
+                                }
+                                return;
+                            }
+                            if root.other-press >= 0 {
+                                if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                                    let other = root.other-press;
+                                    root.other-press = -1;
+                                    ReaderBridge.released(other, root.op-cx0 + (self.absolute-position.x + self.mouse-x - root.op-wx0), root.op-cy0 + (self.absolute-position.y + self.mouse-y - root.op-wy0));
+                                    ReaderBridge.split-focus(root.id);
                                 }
                                 return;
                             }
@@ -1052,16 +1095,19 @@ export component ReaderScreen inherits Rectangle {
                         }
                         moved => {
                             if root.pane-press { ReaderBridge.moved(root.id, root.main-x(self.absolute-position.x + self.mouse-x), root.main-y(self.absolute-position.y + self.mouse-y)); }
+                            if root.other-press >= 0 { ReaderBridge.moved(root.other-press, root.op-cx0 + (self.absolute-position.x + self.mouse-x - root.op-wx0), root.op-cy0 + (self.absolute-position.y + self.mouse-y - root.op-wy0)); }
                         }
                         // ⌘ / Ctrl + wheel zooms this pane around the pointer: it becomes the active one
                         // (Sol, 27/10: it scrolled); the wheel alone scrolls it as it is.
                         scroll-event(e) => {
-                            if e.modifiers.control && e.delta-y != 0 && root.tab.split-title == "" {
+                            // Another document's pane: its tab comes forward and zooms (Sol, 27/10: it scrolled).
+                            if e.modifiers.control && e.delta-y != 0 {
                                 let ax = self.absolute-position.x + self.mouse-x - sv2.absolute-position.x;
                                 let ay = self.absolute-position.y + self.mouse-y - sv2.absolute-position.y;
                                 let sx = -sv2.content-x;
+                                let target = root.tab.split-title == "" ? root.id : root.tab.split-other;
                                 ReaderBridge.split-focus(root.id);
-                                ViewerBridge.zoom-by(root.id, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), ax / 1px, ay / 1px, sx / 1px);
+                                if target >= 0 { ViewerBridge.zoom-by(target, clamp(pow(1.002, e.delta-y / 1px), 0.8, 1.25), ax / 1px, ay / 1px, sx / 1px); }
                                 return accept;
                             }
                             reject
@@ -1112,8 +1158,8 @@ export component ReaderScreen inherits Rectangle {
                     height: 26px;
                     split-bar := HorizontalLayout {
                         spacing: 4px;
-                        SmallButton { text: root.tab.split-sync ? "✓ Sync scroll and zoom" : "Sync scroll and zoom"; clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
-                        SmallButton { text: "Close"; clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
+                        SmallButton { text: root.tab.split-sync ? @tr("✓ Sync scroll and zoom") : @tr("Sync scroll and zoom"); clicked => { ReaderBridge.split-sync(root.id); keys.focus(); } }
+                        SmallButton { text: @tr("Close"); clicked => { ReaderBridge.split-view(root.id, 0); keys.focus(); } }
                     }
                 }
                 // The hand tool in use, and how to leave it.
@@ -1125,7 +1171,7 @@ export component ReaderScreen inherits Rectangle {
                     border-radius: 14px;
                     background: Theme.info-bg;
                     hand-tip := Text {
-                        text: "Hand tool: drag to move, ⌥ drag to zoom · ⇧H or Escape to leave";
+                        text: @tr("Hand tool: drag to move, ⌥ drag to zoom · ⇧H or Escape to leave");
                         font-size: Theme.fs-caption;
                         color: Theme.info;
                     }
@@ -1197,19 +1243,19 @@ export component ReaderScreen inherits Rectangle {
                         spacing: 10px;
                         HorizontalLayout {
                             spacing: 6px;
-                            Text { text: "Reflow · page " + (root.tab.viewer-current + 1); font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
+                            Text { text: @tr("Reflow · page {}", (root.tab.viewer-current + 1)); font-size: Theme.fs-label; color: Theme.text-muted; vertical-alignment: center; }
                             Rectangle { horizontal-stretch: 1; }
                             SmallButton { text: "‹"; clicked => { ReaderBridge.page-step(root.id, -1); } }
                             SmallButton { text: "›"; clicked => { ReaderBridge.page-step(root.id, 1); } }
-                            SmallButton { text: "A−"; clicked => { ReaderBridge.reflow(root.id, -1); } }
-                            SmallButton { text: "A+"; clicked => { ReaderBridge.reflow(root.id, 1); } }
-                            SmallButton { text: "Close"; clicked => { ReaderBridge.reflow(root.id, 0); keys.focus(); } }
+                            SmallButton { text: @tr("A−"); clicked => { ReaderBridge.reflow(root.id, -1); } }
+                            SmallButton { text: @tr("A+"); clicked => { ReaderBridge.reflow(root.id, 1); } }
+                            SmallButton { text: @tr("Close"); clicked => { ReaderBridge.reflow(root.id, 0); keys.focus(); } }
                         }
                         ScrollView {
                             VerticalLayout {
                                 alignment: start;
                                 Text {
-                                    text: root.tab.reader.reflow-text == "" ? "No text on this page (a scan: OCR reads it)." : root.tab.reader.reflow-text;
+                                    text: root.tab.reader.reflow-text == "" ? @tr("No text on this page (a scan: OCR reads it).") : root.tab.reader.reflow-text;
                                     wrap: word-wrap;
                                     font-size: root.tab.reader.reflow-size * 1px * 4 / 3;
                                     color: Theme.text;
@@ -1270,8 +1316,20 @@ export component ReaderScreen inherits Rectangle {
         tab: root.tab;
         focus-pages => { keys.focus(); }
     }
+    if root.tab.reader.cert-open: CertificateEncryptSheet {
+        tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.catalog-open: CatalogSheet {
         tab: root.tab;
+        focus-pages => { keys.focus(); }
+    }
+    if AiBridge.open && AiBridge.tab == root.tab.id: AiPanel {
+        x: parent.width - self.width;
+        y: 46px;
+        width: min(380px, parent.width - 24px);
+        height: parent.height - self.y;
+        id: root.tab.id;
         focus-pages => { keys.focus(); }
     }
     if root.tab.reader.ocr-review-open: OcrReviewPanel {
@@ -1314,6 +1372,9 @@ export component ReaderScreen inherits Rectangle {
         id: root.id;
         focus-pages => { keys.focus(); }
     }
+    if PrintPreviewBridge.visible && PrintPreviewBridge.tab == root.tab.id: InkPreviewSheet {
+        focus-pages => { keys.focus(); }
+    }
     if root.tab.reader.preflight-open: PreflightSheet {
         tab: root.tab;
         id: root.id;
@@ -1343,6 +1404,8 @@ export component ReaderScreen inherits Rectangle {
 
     // Copy goes through a hidden text field: Slint's clipboard is a text input's.
     clip := TextInput {
+        // Tools page tools' keys wait while a field has the keyboard.
+        changed has-focus => { PlatformBridge.typing = self.has-focus; }
         x: -1000px;
         width: 10px;
         height: 10px;
@@ -1358,6 +1421,8 @@ export component ReaderScreen inherits Rectangle {
         height: 0;
         // A Space let go while the keyboard was elsewhere never arrives: no hand left stuck.
         changed has-focus => {
+            // The pages have the keyboard: no field has it (a field closed while focused said nothing).
+            if self.has-focus { PlatformBridge.typing = false; }
             // The same for a drag with the hand tool's ⌥ zoom: no zoom left following a button not held.
             if !self.has-focus { root.space-held = false; root.panned = false; root.panning = false; root.dyn-zooming = false; root.pane-panning = false; }
         }

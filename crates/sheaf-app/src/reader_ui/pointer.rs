@@ -32,6 +32,50 @@ fn grid_gap(v: &Viewer, x: f64, y: f64) -> Option<usize> {
 
 /// `clicks`: 1, or 2 on a double-click; plus 16 when ⇧ is held.
 pub fn pressed(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
+    // The second click of a double-click whose first one handed the pointer over from another
+    // document's pane: the tab came forward between the two, so the view never sees the pair; it is
+    // made a double-click when let go, as the view would (Sol, 28/10: the word was not selected).
+    if clicks == 1 {
+        let now = std::time::Instant::now();
+        let second = HANDED.with(|h| h.take().is_some_and(|first| first.is_second(tab_id, x as f64, y as f64, now)));
+        SECOND.with(|c| c.set(second.then_some(tab_id)));
+    }
+    pressed_one(ui, tab_id, x, y, clicks);
+}
+
+/// A click let go in another document's pane, whose tab then came forward ([`crate::split::focus`]).
+#[derive(Clone, Copy)]
+pub(crate) struct HandedClick {
+    pub(crate) tab: i32,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+    pub(crate) at: std::time::Instant,
+}
+
+impl HandedClick {
+    /// A press on `tab` at (`x`, `y`) is this click's second: soon enough and close enough, as the
+    /// toolkit's double-click (500 ms, a few pixels).
+    pub(crate) fn is_second(&self, tab: i32, x: f64, y: f64, now: std::time::Instant) -> bool {
+        tab == self.tab && now.duration_since(self.at) < std::time::Duration::from_millis(500) && (x - self.x).hypot(y - self.y) <= 6.0
+    }
+}
+
+thread_local! {
+    static HANDED: std::cell::Cell<Option<HandedClick>> = const { std::cell::Cell::new(None) };
+    static RELEASED: std::cell::Cell<Option<HandedClick>> = const { std::cell::Cell::new(None) };
+    static SECOND: std::cell::Cell<Option<i32>> = const { std::cell::Cell::new(None) };
+}
+
+/// The click just let go on `tab` handed the pointer over to it from another document's pane.
+pub(crate) fn handed_over(tab: i32) {
+    // Let go just now (a ⌘ + wheel also brings the tab forward, with no click).
+    let fresh = |r: &HandedClick| r.tab == tab && r.at.elapsed() < std::time::Duration::from_millis(100);
+    if let Some(click) = RELEASED.with(|r| r.get()).filter(fresh) {
+        HANDED.with(|h| h.set(Some(click)));
+    }
+}
+
+fn pressed_one(ui: &AppWindow, tab_id: i32, x: f32, y: f32, clicks: i32) {
     // Text typed in place is finished by a click elsewhere, as in Acrobat and PDF Expert: it is
     // added, and this click does nothing more.
     let typed = update(tab_id, |r, _| r.draft.as_ref().is_some_and(|d| matches!(d.kind, 1 | 3) && d.block.is_none()).then(|| std::mem::take(&mut r.inplace_text))).flatten();
@@ -443,6 +487,14 @@ pub fn moved(tab_id: i32, x: f32, y: f32) {
 }
 
 pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
+    RELEASED.with(|r| r.set(Some(HandedClick { tab: tab_id, x: x as f64, y: y as f64, at: std::time::Instant::now() })));
+    released_one(ui, tab_id, x, y);
+    if SECOND.with(|c| c.take()) == Some(tab_id) {
+        pressed_one(ui, tab_id, x, y, 2);
+    }
+}
+
+fn released_one(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
     moved(tab_id, x, y);
     // The page grid: the pages dragged (the selection, when the page pressed is in it) go to the gap.
     let grid = update(tab_id, |r, _| {
@@ -681,7 +733,11 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             update(tab_id, |r, v| jump_dest(r, v, page, &view));
             crate::viewer_ui::request(ui, tab_id);
         }
-        Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => crate::run::open_detached(&u),
+        // Opened, asked about or refused as Preferences ▸ Security says (Acrobat's Trust Manager).
+        Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("http://") || u.starts_with("https://") || u.starts_with("mailto:") => {
+            let doc = update(tab_id, |r, _| r.path.clone()).unwrap_or_default();
+            crate::settings_ui::open_web_link(ui, &doc, &u);
+        }
         // A link to a local file: a PDF opens in its own tab; any other file opens in its own app once
         // the user agrees (Acrobat asks before launching one).
         Some(Pending::Link(render::LinkTarget::Uri(u))) if u.starts_with("file:") => {
@@ -689,9 +745,13 @@ pub fn released(ui: &AppWindow, tab_id: i32, x: f32, y: f32) {
             match reader::file_link_path(&u, &dir) {
                 Some(p) if p.is_file() && p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")) => crate::flow::home_files(ui, vec![p]),
                 Some(p) if p.exists() => {
-                    // It runs in its own app: asked first, as Acrobat does.
-                    ui.set_launch_name(super::file_name(&p).into());
-                    with(|a| a.pending_launch = Some(p));
+                    // It runs in its own app: asked first, as Acrobat does (Preferences ▸ Security may
+                    // refuse it, or trust the document's location).
+                    let doc = update(tab_id, |r, _| r.path.clone()).unwrap_or_default();
+                    if crate::settings_ui::ask_other_app(ui, &doc, &p) {
+                        ui.set_launch_name(super::file_name(&p).into());
+                        with(|a| a.pending_launch = Some(p));
+                    }
                 }
                 _ => crate::flow::toast(ui, "The linked file was not found"),
             }
@@ -955,5 +1015,23 @@ mod tests {
         // Never under 8 points.
         let r = pulled_box(b, 3, (-1000.0, -1000.0));
         assert!((r[3] - 8.0).abs() < 1e-9 && (r[2] - 16.0).abs() < 1e-9, "{r:?}");
+    }
+}
+
+#[cfg(test)]
+mod handed_tests {
+    use super::HandedClick;
+    use std::time::{Duration, Instant};
+
+    /// A double-click begun in another document's pane: the press on that tab right after, at the
+    /// same point, is its second click; a later one, one elsewhere or on another tab is not.
+    #[test]
+    fn a_click_after_a_hand_over_at_the_same_point_is_its_second() {
+        let at = Instant::now();
+        let first = HandedClick { tab: 7, x: 100.0, y: 50.0, at };
+        assert!(first.is_second(7, 102.0, 51.0, at + Duration::from_millis(200)));
+        assert!(!first.is_second(7, 102.0, 51.0, at + Duration::from_millis(700)), "too late");
+        assert!(!first.is_second(7, 140.0, 50.0, at + Duration::from_millis(200)), "elsewhere");
+        assert!(!first.is_second(3, 100.0, 50.0, at + Duration::from_millis(200)), "another tab");
     }
 }

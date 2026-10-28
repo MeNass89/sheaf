@@ -64,17 +64,17 @@ component TabItem inherits Rectangle {
     // Right click: close the others, those to the left or to the right, or all (iLovePDF's tab menu).
     ContextMenuArea {
         Menu {
-            MenuItem { title: "Close Other Tabs"; activated => { root.close-around(0); } }
-            MenuItem { title: "Close Tabs to the Left"; activated => { root.close-around(1); } }
-            MenuItem { title: "Close Tabs to the Right"; activated => { root.close-around(2); } }
-            MenuItem { title: "Close All Tabs"; activated => { root.close-around(3); } }
+            MenuItem { title: @tr("Close Other Tabs"); activated => { root.close-around(0); } }
+            MenuItem { title: @tr("Close Tabs to the Left"); activated => { root.close-around(1); } }
+            MenuItem { title: @tr("Close Tabs to the Right"); activated => { root.close-around(2); } }
+            MenuItem { title: @tr("Close All Tabs"); activated => { root.close-around(3); } }
             // A document's file (PDF Expert's File menu): renamed where it is, shown, or trashed.
             MenuSeparator { }
-            MenuItem { title: "Rename…"; enabled: root.tab.is-reader; activated => { root.close-around(4); } }
-            MenuItem { title: "Show in Folder"; enabled: root.tab.is-reader; activated => { root.close-around(5); } }
-            MenuItem { title: "Move to Trash"; enabled: root.tab.is-reader; activated => { root.close-around(6); } }
-            MenuItem { title: "Move to New Window"; enabled: root.tab.is-reader; activated => { root.close-around(7); } }
-            MenuItem { title: "Merge All Windows"; activated => { root.close-around(8); } }
+            MenuItem { title: @tr("Rename…"); enabled: root.tab.is-reader; activated => { root.close-around(4); } }
+            MenuItem { title: @tr("Show in Folder"); enabled: root.tab.is-reader; activated => { root.close-around(5); } }
+            MenuItem { title: @tr("Move to Trash"); enabled: root.tab.is-reader; activated => { root.close-around(6); } }
+            MenuItem { title: @tr("Move to New Window"); enabled: root.tab.is-reader; activated => { root.close-around(7); } }
+            MenuItem { title: @tr("Merge All Windows"); activated => { root.close-around(8); } }
         }
     }
     if root.divider: Rectangle {
@@ -211,7 +211,7 @@ export component TabBar inherits Rectangle {
                     colorize: Theme.text;
                 }
                 Text {
-                    text: "Home";
+                    text: @tr("Home");
                     font-size: Theme.fs-tab;
                     font-weight: root.active == -1 ? Theme.weight-demibold : 400;
                     color: Theme.text;

@@ -1,3 +1,4 @@
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
 import { PrimaryButton } from "../widgets/button.slint";
@@ -21,7 +22,7 @@ component PageSketch inherits Rectangle {
         border-color: Theme.art-stroke;
         background: Theme.art-page;
         for i in 5: Rectangle {
-            x: 14px;
+            x: PlatformBridge.rtl ? parent.width - (14px) - self.width : 14px;
             y: 22px + i * 16px;
             width: i == 4 ? 36px : 64px;
             height: 1.5px;
@@ -71,36 +72,38 @@ export component RecentsScreen inherits Rectangle {
             VerticalLayout {
                 alignment: center;
                 spacing: 8px;
-                HorizontalLayout {
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: center;
                     spacing: 8px;
                     PrimaryButton {
-                        text: "Open file";
+                        text: @tr("Open file");
                         width: 92px;
                         clicked => { root.open-file(); }
                     }
                     SecondaryButton {
-                        text: "New blank PDF";
+                        text: @tr("New blank PDF");
                         clicked => { root.new-blank(); }
                     }
                     // Acrobat's Create PDF from Clipboard, Preview's New from Clipboard.
                     SecondaryButton {
-                        text: "From clipboard";
+                        text: @tr("From clipboard");
                         clicked => { root.new-from-clipboard(); }
                     }
                     // Acrobat's Create PDF ▸ Screen capture.
                     SecondaryButton {
-                        text: "From screenshot";
+                        text: @tr("From screenshot");
                         clicked => { root.new-from-screenshot(); }
                     }
                     // Acrobat's Create PDF ▸ Scanner.
                     SecondaryButton {
-                        text: "From scanner";
+                        text: @tr("From scanner");
                         clicked => { root.new-from-scanner(); }
                     }
                 }
                 Text {
-                    text: "PDFs, images or documents, or drag & drop anywhere";
+                    text: @tr("PDFs, images or documents, or drag & drop anywhere");
                     font-size: Theme.fs-button;
                     color: Theme.text-muted;
                     horizontal-alignment: center;
@@ -112,8 +115,9 @@ export component RecentsScreen inherits Rectangle {
             padding-top: 24px;
             spacing: 14px;
             Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 height: Theme.button-height;
-                text: "Recent tools";
+                text: @tr("Recent tools");
                 font-size: Theme.fs-subtitle;
                 font-weight: Theme.weight-demibold;
                 color: Theme.text-heading;
@@ -121,6 +125,8 @@ export component RecentsScreen inherits Rectangle {
             }
             // Wraps at narrow widths (six cards are wider than the window's minimum).
             FlexboxLayout {
+                // Right to left, the cards flow from the right.
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: wrap;
                 spacing: Theme.grid-spacing;
                 for t in root.recent-tools: ToolCardView {
@@ -134,11 +140,15 @@ export component RecentsScreen inherits Rectangle {
         if root.recents.length > 0 || root.query != "": VerticalLayout {
             padding-top: 24px;
             spacing: 14px;
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 height: Theme.button-height;
                 spacing: 10px;
                 Text {
-                    text: "Recent files";
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                    text: @tr("Recent files");
                     font-size: Theme.fs-subtitle;
                     font-weight: Theme.weight-demibold;
                     color: Theme.text-heading;
@@ -148,19 +158,19 @@ export component RecentsScreen inherits Rectangle {
                 // Finder's search and sort, as PDF Expert's file browser has them.
                 TextField {
                     width: 200px;
-                    placeholder: "Search recent files";
+                    placeholder: @tr("Search recent files");
                     text <=> root.query;
                 }
                 SortCombo {
-                    options: ["Newest", "Name", "Size"];
+                    options: [@tr("Newest"), @tr("Name"), @tr("Size")];
                     current-index <=> root.order;
                     chevron: @image-url("../icons/chevron-down.svg");
                     selected(i) => { root.filter-recents(root.query, i); }
                 }
                 SecondaryButton {
-                    text: "Clear recents";
+                    text: @tr("Clear recents");
                     accessible-role: button;
-                    accessible-label: "Clear recents";
+                    accessible-label: @tr("Clear recents");
                     accessible-action-default => { root.clear-recents(); }
                     border-color: clear-focus.has-focus ? Theme.text-secondary : Theme.input-border;
                     clicked => { root.clear-recents(); }
@@ -176,6 +186,8 @@ export component RecentsScreen inherits Rectangle {
                 }
             }
             FlexboxLayout {
+                // Right to left, the cards flow from the right.
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: wrap;
                 spacing: 14px;
                 for f[i] in root.recents: RecentCard {
@@ -215,7 +227,7 @@ export component RecentsScreen inherits Rectangle {
 
         if root.recents.length == 0: Rectangle { height: 16px; }
         if root.recents.length == 0: Text {
-            text: "Your recent files will appear here";
+            text: @tr("Your recent files will appear here");
             font-size: Theme.fs-button;
             color: Theme.text-muted;
             horizontal-alignment: center;

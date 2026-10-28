@@ -13,6 +13,10 @@
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
 pub mod actions;
+/// Sheaf: barcode form fields.
+pub mod barcode;
+/// Sheaf: revocation evidence embedded in a signature's CMS.
+pub mod revocation_archive;
 pub mod autotag;
 pub mod build_info;
 pub mod camera;
@@ -41,6 +45,7 @@ pub mod dates;
 pub mod doc_attachments;
 pub mod export;
 pub mod js;
+mod action_scripts;
 pub mod links;
 pub mod ocr;
 pub mod optimizer;
@@ -251,7 +256,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::DashAnnotation { .. }
         | Edit::SetTextFont { .. }
         | Edit::SetAnnotationInfo { .. } => Scope::Comments,
-        Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } => Scope::Form,
+        Edit::SetFieldValue { .. } | Edit::ResetForm { .. } | Edit::SetFieldImage { .. } | Edit::ApplyScriptChanges { .. } | Edit::SetBarcode { .. } => Scope::Form,
         // Page content, resources and added content/marks only: the page tree, annotations,
         // fields, links and document metadata are untouched (see `refresh_content`).
         Edit::MoveObjects { .. }
@@ -265,6 +270,7 @@ fn scope_of(edit: &Edit) -> Scope {
         | Edit::RemoveImages { .. }
         | Edit::AddText { .. }
         | Edit::AddTextInFont { .. }
+        | Edit::AddTextInCopiedFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -1504,6 +1510,12 @@ pub enum Edit {
         name: String,
         image: Arc<Vec<u8>>,
     },
+    /// Sheaf: make a text field Acrobat's barcode field (its value and QR Code drawn from the
+    /// form's data, again after every change to the form).
+    SetBarcode {
+        name: String,
+        settings: barcode::BarcodeSettings,
+    },
     /// Duplicate a field onto other pages (same field, shared value).
     DuplicateField {
         name: String,
@@ -1556,8 +1568,9 @@ pub enum Edit {
     MarkDecorative {
         figure: u32,
     },
-    /// Document JavaScripts: add, replace (`script`) or remove (`None`) the document-level
-    /// script `name`.
+    /// Edit a page or link event, preserving unrelated actions and undo history.
+    SetActionScript { target: js::ActionScriptTarget, script: Option<String> },
+    /// Document JavaScripts: add, replace (`script`) or remove (`None`) script `name`.
     SetDocumentScript {
         name: String,
         script: Option<String>,
@@ -1578,6 +1591,8 @@ pub enum Edit {
     FixPageHairlines { pages: Vec<usize>, minimum: f64 },
     /// Sheaf: black crop marks outside the existing bleed (Acrobat's Add Printer Marks).
     AddCropMarks { pages: Vec<usize> },
+    /// Sheaf: selected printer marks and physical line style, one undoable operation.
+    AddPrinterMarks { pages: Vec<usize>, registration: bool, colour_bars: bool, page_information: bool, width: f64 },
     /// What a script (button or console) changed in form fields: values, read-only, required
     /// and visibility.
     ApplyScriptChanges {
@@ -1711,6 +1726,15 @@ pub enum Edit {
         page: usize,
         rect: [f64; 4],
         pdf: Arc<Vec<u8>>,
+    },
+    /// Sheaf: a copied paragraph pasted as page text in its own font: font `font` of page 1 of
+    /// `pdf` (the copied objects' PDF) copied in, then `text` written in it (PDF Expert's paste
+    /// keeps the paragraph's font; pdfcraft-edit's `add_text_in_copied_font`).
+    AddTextInCopiedFont {
+        page: usize,
+        text: AddedText,
+        pdf: Arc<Vec<u8>>,
+        font: String,
     },
     /// Sheaf: another PDF's pages drawn over `pages` (Acrobat's and PDF Expert's overlay): its
     /// page 1 on the first, 2 on the second…, its last again past its end; each an added item the
@@ -2062,6 +2086,7 @@ impl Edit {
             Edit::AddLoupe { .. } => Label::of("Add loupe"),
             Edit::SetLoupeMagnify { .. } => Label::of("Change loupe"),
             Edit::AddTextInFont { .. } => Label::of("Add text"),
+            Edit::AddTextInCopiedFont { .. } => Label::of("Paste text"),
             Edit::AddTextBoxInFont { .. } => Label::of("Add text box"),
             Edit::SetTextBoxFontProgram { .. } => Label::of("Change font"),
             Edit::AddMask { .. } => Label::of("Add mask"),
@@ -2092,6 +2117,7 @@ impl Edit {
             }
             Edit::SetFieldValue { name, .. } => Label::with("Fill in {name}", name.as_str()),
             Edit::SetFieldImage { name, .. } => Label::with("Set the image of {name}", name.as_str()),
+            Edit::SetBarcode { .. } => Label::of("Change barcode field"),
             Edit::ResetForm { .. } => Label::of("Clear form"),
             Edit::AddField { .. } => Label::of("Add field"),
             Edit::SetFieldProps { .. } => Label::of("Change field properties"),
@@ -2113,7 +2139,9 @@ impl Edit {
             Edit::ConvertPdfA { level } => Label::with("Save as {level}", level.label()),
             Edit::FixPageHairlines { .. } => Label::of("Fix page hairlines"),
             Edit::AddCropMarks { .. } => Label::of("Add crop marks"),
+            Edit::AddPrinterMarks { .. } => Label::of("Add printer marks"),
             Edit::SetFieldScript { name, .. } => Label::with("Edit script of {name}", name.as_str()),
+            Edit::SetActionScript { .. } => Label::of("Edit page or link JavaScript"),
             Edit::SetDocumentScript { script: None, .. } => Label::of("Delete document JavaScript"),
             Edit::SetDocumentScript { .. } => Label::of("Edit document JavaScript"),
             Edit::EditTextLine { .. } | Edit::EditTextBlock { .. } | Edit::EditTextBlockInFont { .. } => Label::of("Edit text"),
@@ -2298,9 +2326,11 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::AddBackground { .. }
         | Edit::RemoveMarks { .. }
         | Edit::AddField { .. }
+        | Edit::SetBarcode { .. }
         | Edit::ApplyRedactions { .. }
         | Edit::AddText { .. }
         | Edit::AddTextInFont { .. }
+        | Edit::AddTextInCopiedFont { .. }
         | Edit::AddImage { .. }
         | Edit::AddArtwork { .. }
         | Edit::OverlayPdf { .. }
@@ -2334,11 +2364,13 @@ fn check_permission(edit: &Edit, p: &pdfcraft_cos::Permissions) -> Result<(), Ed
         | Edit::MoveTag { .. }
         | Edit::MarkDecorative { .. }
         | Edit::AddOcrText { .. }
+        | Edit::SetActionScript { .. }
         | Edit::SetDocumentScript { .. }
         | Edit::SetFieldScript { .. }
         | Edit::ConvertPdfA { .. }
         | Edit::FixPageHairlines { .. }
         | Edit::AddCropMarks { .. }
+        | Edit::AddPrinterMarks { .. }
         | Edit::EditTextLine { .. }
         | Edit::EditTextBlock { .. }
         | Edit::EditTextBlockInFont { .. }
@@ -2379,6 +2411,9 @@ struct EditCtx {
     /// Fields the edit renamed to keep imported names separate (old → new), for the repair
     /// log and the undo label.
     renamed_fields: Vec<(String, String)>,
+    /// Sheaf: the group the comments added now belong to (see `Edit::Batch`), put before
+    /// their `/NM` as `group~id`.
+    group: Option<String>,
     /// Sheaf: the font an edited paragraph drew some characters in, because its own lacks them.
     substituted: Option<String>,
 }
@@ -2406,6 +2441,7 @@ impl EditCtx {
             seed,
             count: 0,
             renamed_fields: Vec::new(),
+            group: None,
             substituted: None,
         }
     }
@@ -2443,7 +2479,25 @@ impl EditCtx {
             0x8000 | (b >> 48) & 0x3fff,
             b & 0xffff_ffff_ffff
         );
+        let id = match &self.group {
+            Some(g) => format!("{g}~{id}"),
+            None => id,
+        };
         pdfcraft_annot::Meta { date: self.date.clone(), id }
+    }
+}
+
+/// Sheaf: the group of comments added together that `nm` (a comment's `/NM`) belongs to, if any.
+pub fn comment_group(nm: &str) -> Option<&str> {
+    nm.split_once('~').map(|(g, _)| g).filter(|g| !g.is_empty())
+}
+
+/// Sheaf: an edit that may change a field's value, or which fields there are.
+fn changes_fields(edit: &Edit) -> bool {
+    match edit {
+        Edit::Batch { edits, .. } => edits.iter().any(changes_fields),
+        Edit::AddField { .. } | Edit::SetFieldProps { .. } | Edit::DeleteField { .. } | Edit::DuplicateField { .. } | Edit::CopyField { .. } => true,
+        e => scope_of(e) == Scope::Form,
     }
 }
 
@@ -2524,6 +2578,10 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_annot::add_annotation(doc, a, &cx.meta())?;
         }
         Edit::AddTextInFont { page, text, font } => pdfcraft_edit::add_text_in_font(doc, *page, text, font)?,
+        Edit::AddTextInCopiedFont { page, text, pdf, font } => {
+            let src = open_source("Copied objects", pdf)?;
+            pdfcraft_edit::add_text_in_copied_font(doc, *page, text, &src, 0, font)?;
+        }
         Edit::AddTextBoxInFont { annotation, align, font } => {
             let index = pdfcraft_annot::add_annotation(doc, annotation, &cx.meta())?;
             pdfcraft_annot::set_text_font(doc, annotation.page, index, "Helv", None, Some(*align), &cx.meta())?;
@@ -2646,6 +2704,7 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
         Edit::AddField { page, rect, kind, name } => {
             pdfcraft_forms::add_field(doc, *page, *rect, kind, name.as_deref())?;
         }
+        Edit::SetBarcode { name, settings } => barcode::make(doc, name, *settings).map_err(EditError::Invalid)?,
         Edit::SetFieldProps { name, props } => {
             pdfcraft_forms::set_props(doc, name, props)?;
             if let Some(pdfcraft_forms::af::Calculate::Notation(expr)) = &props.calculate {
@@ -2700,6 +2759,8 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             pdfcraft_edit::prepress::fix_page_hairlines(doc, pages, *minimum)?;
         }
         Edit::AddCropMarks { pages } => prepress::add_crop_marks(doc, pages)?,
+        Edit::AddPrinterMarks { pages, registration, colour_bars, page_information, width } => prepress::add_printer_marks(doc, pages, *registration, *colour_bars, *page_information, *width)?,
+        Edit::SetActionScript { target, script } => action_scripts::set(doc, target, script.as_deref()).map_err(EditError::Invalid)?,
         Edit::SetDocumentScript { name, script } => pdfcraft_forms::set_document_script(doc, name, script.as_deref())?,
         Edit::AddOcrText { page, words } => {
             pdfcraft_edit::stamp(doc, *page, "OCR", pdfcraft_ocr::text_layer(words))?;
@@ -2935,9 +2996,25 @@ fn run_edit(doc: &mut pdfcraft_cos::Document, edit: &Edit, cx: &mut EditCtx) -> 
             doc.remove_encryption();
         }
         Edit::Batch { edits, .. } => {
-            for e in edits {
-                run_edit(doc, e, cx)?;
+            // Sheaf: comments added to several pages in one step (a signature repeated on every
+            // page) share a group in their `/NM`, so the copies stay one group however they are
+            // moved later (iLovePDF's repeated signatures are deleted together).
+            let page_of = |e: &Edit| match e {
+                Edit::AddAnnotation(a) => Some(a.page),
+                Edit::AddCustomStamp { page, .. } => Some(*page),
+                _ => None,
+            };
+            let mut pages = edits.iter().filter_map(page_of);
+            let first = pages.next();
+            let grouped = cx.group.is_none() && edits.iter().all(|e| page_of(e).is_some()) && first.is_some_and(|f| pages.any(|p| p != f));
+            if grouped {
+                cx.group = Some(cx.meta().id);
             }
+            let r = edits.iter().try_for_each(|e| run_edit(doc, e, cx));
+            if grouped {
+                cx.group = None;
+            }
+            r?;
         }
     }
     Ok(())
@@ -3501,7 +3578,10 @@ fn xfa_values_from_datasets(doc: &mut pdfcraft_cos::Document) -> Result<Vec<Stri
 
 /// Validate the signature fields of `cos` (written as `bytes`).
 fn signatures_of(cos: &pdfcraft_cos::Document, bytes: &[u8], trust: &TrustStore, cache: &pdfcraft_sign::DigestCache) -> Arc<Vec<SignatureInfo>> {
-    Arc::new(pdfcraft_sign::pdf::list_cached(cos, bytes, trust, cache))
+    let mut list = pdfcraft_sign::pdf::list_cached(cos, bytes, trust, cache);
+    // Sheaf: the revocation evidence a signature carries in its own CMS (Acrobat's archive).
+    revocation_archive::apply(cos, &mut list);
+    Arc::new(list)
 }
 
 impl Session {
@@ -3897,6 +3977,10 @@ impl Session {
         // `next` is a copy: if the edit fails or crashes, the document is unchanged.
         guard(|| run_edit(&mut next, &edit, &mut cx))
             .unwrap_or_else(|m| Err(EditError::Invalid(format!("{} failed unexpectedly ({m}); the document was not changed", edit.label()))))?;
+        // Sheaf: barcode fields encode the form as it is now (Acrobat recalculates them).
+        if changes_fields(&edit) {
+            barcode::refresh(&mut next).map_err(EditError::Invalid)?;
+        }
         // Sheaf: a loupe shows its page as it is now (the page's content changed under it).
         if matches!(scope_of(&edit), Scope::Content | Scope::Full) {
             pdfcraft_annot::loupe_mask::refresh_loupes(&mut next);
@@ -4369,8 +4453,11 @@ impl Session {
             appended = bytes.len() > before.len() && bytes[..before.len()] == before[..] && !editor.cos.encryption_changed();
             // An encrypted file needs the password it is protected with now (the owner
             // password when known, so saving never downgrades this session's rights).
+            let restricted = editor.cos.restricted();
             editor.cos = pdfcraft_cos::Document::open_with_password(bytes.clone(), editor.keys.reopen.as_deref())
                 .map_err(|e| EditError::Reopen(e.to_string()))?;
+            // Sheaf: a certificate recipient keeps their permissions after a save.
+            if let Some(p) = restricted { editor.cos.restrict(p); }
         }
         if let Some(p) = path {
             doc.name = std::path::Path::new(&p).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.clone());
@@ -4432,7 +4519,9 @@ impl Session {
             .into_iter()
             .find_map(|k| pdfcraft_cos::Document::open_with_password(base.clone(), k.reopen.as_deref()).ok().map(|c| (c, k)))
             .ok_or_else(|| EditError::Reopen("the saved file can't be opened".into()))?;
+        let restricted = editor.cos.restricted();
         editor.cos = cos;
+        if let Some(p) = restricted { editor.cos.restrict(p); }
         editor.keys = keys;
         editor.undo.clear();
         editor.redo.clear();
@@ -5068,6 +5157,17 @@ impl Session {
 
     pub fn close(&mut self, id: DocId) {
         self.docs.retain(|d| d.id != id);
+    }
+
+    /// Sheaf: hold document `id` to a certificate recipient's permissions (Acrobat's
+    /// Encrypt with Certificate): edits, printing and copying then refuse as for a restricted
+    /// password. `bits` is the envelope's permission word (Table 22). False when the document
+    /// has no editor (opened read only).
+    pub fn restrict(&mut self, id: DocId, bits: i32) -> bool {
+        match self.docs.iter_mut().find(|d| d.id == id).and_then(|d| d.editor.as_mut()) {
+            Some(editor) => { editor.cos.restrict(pdfcraft_cos::Permissions { bits, owner: false }); true }
+            None => false,
+        }
     }
 
     pub fn get(&self, id: DocId) -> Option<&Document> {

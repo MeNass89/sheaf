@@ -13,6 +13,7 @@ path = "src/main.rs"
 # Local time for dynamic stamps ("By … at 2:14 pm, Oct 02, 2026"); already in the graph through PdfCraft.
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
 sheaf-core = { path = "../sheaf-core" }
+sheaf-ui = { path = "../sheaf-ui" }
 slint = { workspace = true, features = ["unstable-winit-030", "raw-window-handle-06"] }
 rfd.workspace = true
 # The system language, ticked first in OCR's languages (already in the tree through slint).
@@ -24,6 +25,7 @@ zip.workspace = true
 chacha20poly1305.workspace = true
 getrandom.workspace = true
 image.workspace = true
+moxcms.workspace = true
 pdfium-render.workspace = true
 tempfile.workspace = true
 lopdf.workspace = true
@@ -36,5 +38,8 @@ objc2 = "0.6"
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSArray", "NSURL"] }
 objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder"] }
 
-[build-dependencies]
-slint-build.workspace = true
+# A pinch sent to the reader's gesture handler in a test (tests/pinch.rs, C-reader-010): Xvfb has no
+# gesture events. The same versions Slint already pulls in.
+[dev-dependencies]
+i-slint-backend-testing = "=1.18.1"
+i-slint-core = "=1.18.1"

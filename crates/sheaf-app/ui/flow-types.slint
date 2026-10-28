@@ -251,6 +251,13 @@ export struct ReaderFieldProps {
 }
 
 // A page found by In a folder…: its file, its page ("p. 3") and the line around the words.
+// Encrypt with certificates: one recipient, and Print, Copy, Edit, Comment, Fill forms, Change security.
+export struct CertRecipient {
+    name: string,
+    detail: string,
+    flags: [bool],
+}
+
 export struct FolderHit {
     file: string,
     page: string,
@@ -384,6 +391,8 @@ export struct ReaderState {
     show-fields: bool,
     // Prepare form: the kind of field to add, every field drawn over its page, the selected one's card.
     field-kind: int,
+    // Prepare form ▸ Barcode: the error correction of new barcode fields, as said.
+    barcode-ecc: string,
     form-fields: [ReaderFormField],
     // Prepare form: Grid on (fields snap to it) and its lines over the pages in view.
     form-grid: bool,
@@ -499,6 +508,15 @@ export struct ReaderState {
     policy-choices: [int],
     policy-status: string,
     policy-seq: int,
+    policy-remembered: bool,
+    cert-open: bool,
+    cert-busy: bool,
+    cert-recipients: [CertRecipient],
+    cert-status: string,
+    cert-policies: [string],
+    cert-scope: int,
+    cert-seq: int,
+    cert-name: string,
     catalog-open: bool,
     catalog-busy: bool,
     catalog-status: string,
@@ -515,7 +533,10 @@ export struct ReaderState {
     folder-open: bool,
     folder-busy: bool,
     folder-title: string,
+    folder-status: string,
     folder-results: [FolderHit],
+    // PDFs of the folder that could not be read: name, and why (a password, damaged).
+    folder-skipped: [FolderHit],
     versions: int,
     undo-label: string,
     redo-label: string,
@@ -594,6 +615,8 @@ export struct ToolOptions {
     discard-tags: bool,      // compress, advanced: structure tags taken out
     discard-meta: bool,      // compress, advanced: document information and XMP taken out
     compress-gray: bool,     // compress: every colour made grey (Stirling's Convert to grayscale)
+    flatten-transparency: bool, // compress: explicit PDF 1.3 copy via local Ghostscript
+    linearize: bool,          // compress: Fast Web View via local qpdf
     unembed-fonts: bool,     // compress, advanced: standard faces' programs taken out
     adjust-brightness: int,  // adjust colours: −100 to 100 (0 as it is)
     adjust-contrast: int,
@@ -690,9 +713,10 @@ export struct ToolOptions {
     crop-left: string,
     crop-right: string,
     // PDF to PDF/A
-    pdfa-level: int,     // 0 PDF/A-2b, 1 PDF/A-3b
+    pdfa-level: int,     // 0 2b, 1 3b, 2 1b, 3 2u, 4 3u, 5 1a, 6 2a, 7 3a
     pdfa-allow-incomplete: bool,
     html-long-page: bool,
+    html-screen-width: int,
     // OCR
     ocr-languages: string, // selected language codes, ",en,fr," (all selected codes are used)
     ocr-local-engine: bool,
@@ -885,6 +909,8 @@ export global ReaderBridge {
     // The computer's fonts a paragraph can be set in (Acrobat's Edit PDF font list), read when the
     // list is first opened (text-format 9).
     in property <[string]> system-fonts;
+    // For each of those, why it can't be embedded ("": it can): listed dimmed, said when picked.
+    in property <[string]> system-fonts-why;
     callback panel-resized(length);
     // Print: open the sheet; print with printer, copies, pages (0 all, 1 current, 2 range),
     // the range typed, fit to paper, two-sided, paper (0 the printer's, 1 A4, 2 Letter, 3 Legal),
@@ -929,7 +955,12 @@ export global ReaderBridge {
     callback policy-open(int);
     callback policy-action(int, int, int);
     callback policy-save(int, string, bool, bool, bool, bool, bool, bool, int, int, int);
-    callback policy-apply(int, string, string, string, string);
+    callback policy-apply(int, string, string, string, string, bool);
+    // Encrypt with certificates: 0 close, 1 add certificate, 2 add digital ID (password), 3 remove k, 4 save with scope k,
+    // 5 save as policy (name, scope k), 6 use policy k, 7 delete policy k, 8 import policy, 9 export policy (name, scope k).
+    callback cert-open(int);
+    callback cert-action(int, int, int, string);
+    callback cert-flag(int, int, int, bool);
     callback catalog-open(int);
     callback catalog-action(int, int, int, string);
     callback review-ocr(int);
@@ -948,6 +979,8 @@ export global ReaderBridge {
     // active one; its Sync scroll.
     callback split-view(int, int);
     callback split-focus(int);
+    // A press in another document's pane: that tab laid out as the pane is; returns its id (−1: none).
+    callback split-press-other(int) -> int;
     callback split-sync(int);
     // The divider dragged: the first half's share of the area (0.2 to 0.8).
     callback split-frac(int, float);
@@ -1052,17 +1085,18 @@ export global ReaderBridge {
     callback accessibility-report(int);
     // Print Production ▸ Preflight: a saved report of the current document's print checks.
     callback print-preflight(int);
-    callback preflight-check(int, string, string, string);
+    callback preflight-check(int, string, string, string, int);
     callback preflight-save(int);
     callback preflight-close(int);
     callback preflight-page(int, int);
     callback fix-page-hairlines(int);
     callback add-crop-marks(int);
     callback press-profile(int);
-    callback press-export(int, string);
+    callback press-export(int, string, int);
+    callback press-preset(int, int);
     callback production-close(int);
     callback production-hairlines(int, string, bool);
-    callback production-marks(int, bool);
+    callback production-marks(int, bool, int, string);
     callback production-box(int, int, string, string, string, string, bool, bool);
     callback form-grid(int);
     callback fields-nudge(int, float, float);

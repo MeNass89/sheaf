@@ -1,5 +1,5 @@
 import { PlatformBridge } from "../platform.slint";
-import { Slider, ScrollView } from "std-widgets.slint";
+import { Slider, ScrollView, ComboBox } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ToolOptions, Parse, OcrInfo, SignBridge, Picked } from "../flow-types.slint";
 import { TextField } from "../widgets/text-field.slint";
@@ -22,7 +22,7 @@ export component OptionsPanel inherits VerticalLayout {
     in property <bool> has-preview;
     in property <float> preview-w;
     in property <float> preview-h;
-    out property <bool> valid: (!root.office-missing || (root.tool == "excel_to_pdf" && root.layout == 2)) && (
+    out property <bool> valid: (!root.office-missing || (root.tool == "excel_to_pdf" && root.layout == 2) || (root.tool == "html_to_pdf" && root.layout != 0 && root.html-screen-width > 0)) && (
         root.tool == "protect" ? (root.require-open ? root.password != "" && root.password == root.confirm : root.owner != "")
         : root.tool == "remove_pages" ? root.pages != "" || root.remove-blank
         : root.tool == "extract_pages" ? root.pages != ""
@@ -77,6 +77,7 @@ export component OptionsPanel inherits VerticalLayout {
         root.layout = o.layout;
         root.landscape = o.landscape;
         root.html-long-page = o.html-long-page;
+        root.html-screen-width = o.html-screen-width;
         root.merge-images = !o.one-per-image;
         root.margin = o.margin;
         root.quality = o.quality;
@@ -158,6 +159,9 @@ export component OptionsPanel inherits VerticalLayout {
         root.discard-meta = o.discard-meta;
         root.compress-gray = o.compress-gray;
         root.unembed-fonts = o.unembed-fonts;
+        root.flatten-transparency = o.flatten-transparency;
+        root.linearize = o.linearize;
+        root.compress-advanced = o.flatten-transparency || o.linearize || o.unembed-fonts || o.discard-thumbs || o.discard-tags || o.discard-meta || o.compress-ppi != "" || o.compress-quality != "";
         root.adjust-brightness = o.adjust-brightness;
         root.adjust-contrast = o.adjust-contrast;
         root.adjust-saturation = o.adjust-saturation;
@@ -172,7 +176,7 @@ export component OptionsPanel inherits VerticalLayout {
         allow-editing: root.allow-editing, allow-commenting: root.allow-commenting,
         allow-filling-forms: root.allow-filling-forms,
         pages: root.pages, remove-blank: root.remove-blank, blank-level: root.blank-level, rotate-parity: root.rotate-parity, rotate-orientation: root.rotate-orientation, protect-sanitize: root.protect-sanitize, compare-old-pages: root.compare-old-pages, compare-new-pages: root.compare-new-pages, split-mode: root.split-mode, ranges: root.ranges, every: root.every, split-one-file: root.split-one-file, split-size: root.split-size, split-cols: root.split-cols, split-rows: root.split-rows, organize-order: root.organize-order,
-        html-long-page: root.html-long-page, degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
+        html-screen-width: root.html-screen-width, html-long-page: root.html-long-page, degrees: root.degrees, layout: root.layout, landscape: root.landscape, one-per-image: !root.merge-images, margin: root.margin, quality: root.quality, png: root.png, extract-images: root.extract-images,
         out-name: root.out-name,
         from-page: root.from-page, to-page: root.to-page,
         num-position: root.num-position, num-double: root.num-double, num-cover: root.num-cover,
@@ -195,7 +199,7 @@ export component OptionsPanel inherits VerticalLayout {
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
         sign-reason: root.sign-reason, sign-location: root.sign-location, sign-certify: root.sign-certify,
-        compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray, unembed-fonts: root.unembed-fonts,
+        compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray, unembed-fonts: root.unembed-fonts, flatten-transparency: root.flatten-transparency, linearize: root.linearize,
         adjust-brightness: root.adjust-brightness, adjust-contrast: root.adjust-contrast, adjust-saturation: root.adjust-saturation, adjust-invert: root.adjust-invert,
         redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-margin: root.redact-margin, redact-repeat: root.redact-repeat,
     };
@@ -229,6 +233,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <bool> discard-meta;
     in-out property <bool> compress-gray;
     in-out property <bool> unembed-fonts;
+    in-out property <bool> flatten-transparency;
+    in-out property <bool> linearize;
     in-out property <int> adjust-brightness;
     in-out property <int> adjust-contrast;
     in-out property <int> adjust-saturation;
@@ -272,6 +278,7 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <int> layout: 0;
     in-out property <bool> landscape: false;
     in-out property <bool> html-long-page: false;
+    in-out property <int> html-screen-width: 0;
     in-out property <bool> merge-images: true;
     in-out property <int> margin: 0;
     in-out property <int> quality: 0;
@@ -330,6 +337,11 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> crop-left: "10";
     in-out property <string> crop-right: "10";
     in-out property <int> pdfa-level: 0;
+    // This self-inverse order map keeps saved ids 0/1/2 while listing ISO versions in order.
+    property <[int]> pdfa-index-map: [2, 5, 0, 3, 6, 1, 4, 7];
+    property <int> pdfa-choice: 2;
+    changed pdfa-level => { root.pdfa-choice = root.pdfa-level >= 0 && root.pdfa-level < 8 ? root.pdfa-index-map[root.pdfa-level] : 2; }
+    changed pdfa-choice => { root.pdfa-level = root.pdfa-choice >= 0 && root.pdfa-choice < 8 ? root.pdfa-index-map[root.pdfa-choice] : 0; }
     in-out property <bool> pdfa-allow-incomplete: true;
     in-out property <string> ocr-languages: "," + OcrInfo.default-language + ",";
     in-out property <bool> ocr-local-engine;
@@ -345,7 +357,7 @@ export component OptionsPanel inherits VerticalLayout {
     alignment: start;
 
     if root.tool == "merge": TextField {
-        label: "Output file name";
+        label: @tr("Output file name");
         placeholder: root.default-out;
         text <=> root.out-name;
         error: Parse.file-name-error(root.out-name);
@@ -357,42 +369,42 @@ export component OptionsPanel inherits VerticalLayout {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
         spacing: 8px;
-        Segment { width: 100px; text: "Files"; selected: !root.merge-pages; clicked => { root.show-pages(false); } }
-        Segment { width: 100px; text: "Pages"; selected: root.merge-pages; clicked => { root.show-pages(true); } }
+        Segment { width: 100px; text: @tr("Files"); selected: !root.merge-pages; clicked => { root.show-pages(false); } }
+        Segment { width: 100px; text: @tr("Pages"); selected: root.merge-pages; clicked => { root.show-pages(true); } }
     }
-    if root.tool == "merge" && root.merge-pages: InfoBox { text: "Every page of every file, in the order they will be merged: hover a page to move it with the arrows or drop it with ×."; }
+    if root.tool == "merge" && root.merge-pages: InfoBox { text: @tr("Every page of every file, in the order they will be merged: hover a page to move it with the arrows or drop it with ×."); }
 
     if root.tool == "split": VerticalLayout {
         spacing: 10px;
         RadioCard {
-            title: "Split by range";
-            description: "One file for each range you type";
+            title: @tr("Split by range");
+            description: @tr("One file for each range you type");
             selected: root.split-mode == 0;
             clicked => { root.split-mode = 0; }
         }
         RadioCard {
-            title: "Split every N pages";
-            description: "Fixed-size chunks";
+            title: @tr("Split every N pages");
+            description: @tr("Fixed-size chunks");
             selected: root.split-mode == 1;
             clicked => { root.split-mode = 1; }
         }
         // Acrobat's other two ways.
         RadioCard {
-            title: "Split by bookmarks";
-            description: "One file per top-level bookmark, named after it";
+            title: @tr("Split by bookmarks");
+            description: @tr("One file per top-level bookmark, named after it");
             selected: root.split-mode == 2;
             clicked => { root.split-mode = 2; }
         }
         RadioCard {
-            title: "Split by file size";
-            description: "Files no larger than the size you type";
+            title: @tr("Split by file size");
+            description: @tr("Files no larger than the size you type");
             selected: root.split-mode == 3;
             clicked => { root.split-mode = 3; }
         }
         // Stirling PDF's Split pages into sections: a scanned spread made two pages again.
         RadioCard {
-            title: "Cut each page into parts";
-            description: "A spread scanned on one page becomes two pages; a poster, sheets";
+            title: @tr("Cut each page into parts");
+            description: @tr("A spread scanned on one page becomes two pages; a poster, sheets");
             selected: root.split-mode == 4;
             clicked => { root.split-mode = 4; }
         }
@@ -401,10 +413,10 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "Left | right"; selected: root.split-cols == 2 && root.split-rows == 1; clicked => { root.split-cols = 2; root.split-rows = 1; } }
-            Segment { text: "Top / bottom"; selected: root.split-cols == 1 && root.split-rows == 2; clicked => { root.split-cols = 1; root.split-rows = 2; } }
+            Segment { text: @tr("Left | right"); selected: root.split-cols == 2 && root.split-rows == 1; clicked => { root.split-cols = 2; root.split-rows = 1; } }
+            Segment { text: @tr("Top / bottom"); selected: root.split-cols == 1 && root.split-rows == 2; clicked => { root.split-cols = 1; root.split-rows = 2; } }
             Segment {
-                text: "Grid";
+                text: @tr("Grid");
                 selected: !(root.split-cols == 2 && root.split-rows == 1) && !(root.split-cols == 1 && root.split-rows == 2);
                 clicked => { root.split-cols = 2; root.split-rows = 2; }
             }
@@ -415,14 +427,14 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Across"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Across"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Stepper { value <=> root.split-cols; minimum: 1; }
-            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Down"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Down"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Stepper { value <=> root.split-rows; minimum: 1; }
         }
         Rectangle { height: 4px; }
         if root.split-mode == 0: TextField {
-            label: "Ranges";
+            label: @tr("Ranges");
             placeholder: "1-3,5,8-10";
             text <=> root.ranges;
             error: root.ranges != "" && root.split-files < 0 ? "Pages run from 1 to \{root.page-count}" : "";
@@ -433,34 +445,34 @@ export component OptionsPanel inherits VerticalLayout {
                 : root.split-one-file ? "One PDF with these \{root.split-files} ranges in order."
                 : root.split-files == 1 ? "1 PDF will be created." : "\{root.split-files} PDFs will be created.";
         }
-        if root.split-mode == 0: Check { text: "Merge all ranges into one PDF file"; checked <=> root.split-one-file; }
+        if root.split-mode == 0: Check { text: @tr("Merge all ranges into one PDF file"); checked <=> root.split-one-file; }
         if root.split-mode == 1: VerticalLayout {
             spacing: 6px;
-            SectionLabel { text: "Pages per file"; }
+            SectionLabel { text: @tr("Pages per file"); }
             Stepper { value <=> root.every; }
         }
         if root.split-mode == 3: TextField {
-            label: "Largest file (MB)";
+            label: @tr("Largest file (MB)");
             placeholder: "2";
             text <=> root.split-size;
             error: root.split-size != "" && !(root.split-size.is-float() && root.split-size.to-float() > 0) ? "Type megabytes, such as 2 or 1.5" : "";
         }
         if root.split-mode == 1 && root.page-count > 0: InfoBox {
-            text: "\{ceil(root.page-count / max(1, root.every))} PDFs of \{root.every} pages will be created.";
+            text: @tr("{} PDFs of {} pages will be created.", ceil(root.page-count / max(1, root.every)), root.every);
         }
     }
 
     if root.tool == "remove_pages" || root.tool == "extract_pages": VerticalLayout {
         spacing: 10px;
         // Acrobat's Remove Blank Pages: no text and nothing drawn but specks.
-        if root.tool == "remove_pages": Check { text: "The blank pages (found for you)"; checked <=> root.remove-blank; }
+        if root.tool == "remove_pages": Check { text: @tr("The blank pages (found for you)"); checked <=> root.remove-blank; }
         // How blank (Stirling's threshold): a scan's grey paper needs the lenient step.
         if root.tool == "remove_pages" && root.remove-blank: FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            for label[i] in ["Strict", "Normal", "Scans"]: Segment {
+            for label[i] in [@tr("Strict"), @tr("Normal"), @tr("Scans")]: Segment {
                 width: 96px;
                 text: label;
                 selected: root.blank-level == i;
@@ -468,32 +480,32 @@ export component OptionsPanel inherits VerticalLayout {
             }
         }
         if !(root.tool == "remove_pages" && root.remove-blank): TextField {
-            label: root.tool == "remove_pages" ? "Pages to remove" : "Pages to extract";
+            label: root.tool == "remove_pages" ? @tr("Pages to remove") : @tr("Pages to extract");
             placeholder: "1-3,5";
             text <=> root.pages;
         }
-        InfoBox { text: "Use commas and dashes: 2,4-6 means pages 2, 4, 5 and 6."; }
+        InfoBox { text: @tr("Use commas and dashes: 2,4-6 means pages 2, 4, 5 and 6."); }
     }
 
     if root.tool == "organize": VerticalLayout {
         spacing: 10px;
         Segment {
-            text: "Insert blank page";
+            text: @tr("Insert blank page");
             clicked => { root.insert-blank(); }
         }
-        InfoBox { text: "Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."; }
+        InfoBox { text: @tr("Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."); }
         // Acrobat's custom order and its odd-and-even and duplex rules: typed, it replaces the grid's.
-        TextField { label: "Or an order"; placeholder: "3,1,2,5-4"; text <=> root.organize-order; }
+        TextField { label: @tr("Or an order"); placeholder: "3,1,2,5-4"; text <=> root.organize-order; }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            Segment { text: "Odd, then even"; selected: root.organize-order == "odd,even"; clicked => { root.organize-order = "odd,even"; } }
-            Segment { text: "Collate a 2-sided scan"; selected: root.organize-order == "collate"; clicked => { root.organize-order = "collate"; } }
+            Segment { text: @tr("Odd, then even"); selected: root.organize-order == "odd,even"; clicked => { root.organize-order = "odd,even"; } }
+            Segment { text: @tr("Collate a 2-sided scan"); selected: root.organize-order == "collate"; clicked => { root.organize-order = "collate"; } }
         }
         // Acrobat's Multiple pages per sheet and Booklet; iLovePDF's Pages per sheet.
-        SectionLabel { text: "Pages per sheet"; }
+        SectionLabel { text: @tr("Pages per sheet"); }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
@@ -507,24 +519,24 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            Segment { text: "Booklet"; selected: root.per-sheet == 5; clicked => { root.per-sheet = 5; } }
-            Segment { text: "One long page"; selected: root.per-sheet == 6; clicked => { root.per-sheet = 6; } }
+            Segment { text: @tr("Booklet"); selected: root.per-sheet == 5; clicked => { root.per-sheet = 5; } }
+            Segment { text: @tr("One long page"); selected: root.per-sheet == 6; clicked => { root.per-sheet = 6; } }
         }
-        if root.per-sheet == 6: InfoBox { text: "Every page one under the other on a single long page (200 inches at most)."; }
-        if root.per-sheet == 5: InfoBox { text: "Two pages to a side, in the order that reads 1, 2, 3… once the sheets are printed on both sides and folded."; }
+        if root.per-sheet == 6: InfoBox { text: @tr("Every page one under the other on a single long page (200 inches at most)."); }
+        if root.per-sheet == 5: InfoBox { text: @tr("Two pages to a side, in the order that reads 1, 2, 3… once the sheets are printed on both sides and folded."); }
     }
 
     if root.tool == "rotate": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Rotation"; }
+        SectionLabel { text: @tr("Rotation"); }
         // Acrobat's directions; the files' cards show page 1 turned as chosen.
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "Left 90°"; selected: root.degrees == 270; clicked => { root.degrees = 270; } }
-            Segment { text: "Right 90°"; selected: root.degrees == 90; clicked => { root.degrees = 90; } }
+            Segment { text: @tr("Left 90°"); selected: root.degrees == 270; clicked => { root.degrees = 270; } }
+            Segment { text: @tr("Right 90°"); selected: root.degrees == 90; clicked => { root.degrees = 90; } }
             Segment { text: "180°"; selected: root.degrees == 180; clicked => { root.degrees = 180; } }
         }
         // A mirror image of the pages (for transfers and printing on film).
@@ -533,13 +545,13 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "Flip ↔"; selected: root.degrees == -1; clicked => { root.degrees = -1; } }
-            Segment { text: "Flip ↕"; selected: root.degrees == -2; clicked => { root.degrees = -2; } }
+            Segment { text: @tr("Flip ↔"); selected: root.degrees == -1; clicked => { root.degrees = -1; } }
+            Segment { text: @tr("Flip ↕"); selected: root.degrees == -2; clicked => { root.degrees = -2; } }
         }
         Rectangle { height: 4px; }
         TextField {
-            label: "Pages (optional)";
-            placeholder: "All pages";
+            label: @tr("Pages (optional)");
+            placeholder: @tr("All pages");
             text <=> root.pages;
         }
         // Acrobat's Rotate Pages: of those, the even or odd ones, the portrait or landscape ones.
@@ -548,49 +560,49 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            for label[i] in ["All pages", "Odd", "Even"]: Segment { text: label; selected: root.rotate-parity == i; clicked => { root.rotate-parity = i; } }
+            for label[i] in [@tr("All pages"), @tr("Odd"), @tr("Even")]: Segment { text: label; selected: root.rotate-parity == i; clicked => { root.rotate-parity = i; } }
         }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            for label[i] in ["Any shape", "Portrait", "Landscape"]: Segment { text: label; selected: root.rotate-orientation == i; clicked => { root.rotate-orientation = i; } }
+            for label[i] in [@tr("Any shape"), @tr("Portrait"), @tr("Landscape")]: Segment { text: label; selected: root.rotate-orientation == i; clicked => { root.rotate-orientation = i; } }
         }
     }
 
     if root.tool == "compress": VerticalLayout {
         spacing: 10px;
         RadioCard {
-            title: "Extreme compression";
-            description: "Smallest file, softer images";
+            title: @tr("Extreme compression");
+            description: @tr("Smallest file, softer images");
             selected: root.level == 0;
             clicked => { root.level = 0; }
         }
         RadioCard {
-            title: "Recommended compression";
-            description: "Small file, sharp enough to read";
+            title: @tr("Recommended compression");
+            description: @tr("Small file, sharp enough to read");
             selected: root.level == 1;
             clicked => { root.level = 1; }
         }
         RadioCard {
-            title: "Low compression";
-            description: "Best image quality, modest saving";
+            title: @tr("Low compression");
+            description: @tr("Best image quality, modest saving");
             selected: root.level == 2;
             clicked => { root.level = 2; }
         }
         // iLovePDF's and Smallpdf's target size: stronger settings in turn until the file fits.
         RadioCard {
-            title: "To a size";
-            description: "The largest file, in MB";
+            title: @tr("To a size");
+            description: @tr("The largest file, in MB");
             selected: root.level == 3;
             clicked => { root.level = 3; }
         }
-        if root.level == 3: TextField { label: "Largest file (MB)"; placeholder: "2"; text <=> root.compress-target; }
+        if root.level == 3: TextField { label: @tr("Largest file (MB)"); placeholder: "2"; text <=> root.compress-target; }
         // Stirling's Convert to grayscale (Acrobat's Convert Colors to Gray): text and drawings stay vector.
-        Check { text: "Convert to grayscale"; checked <=> root.compress-gray; }
+        Check { text: @tr("Convert to grayscale"); checked <=> root.compress-gray; }
         // Acrobat's PDF Optimizer: the images' resolution and quality chosen, parts that do not show taken out.
-        Check { text: "Advanced settings"; checked <=> root.compress-advanced; }
+        Check { text: @tr("Advanced settings"); checked <=> root.compress-advanced; }
         if root.compress-advanced: VerticalLayout {
             spacing: 8px;
             if root.level != 3: FlexboxLayout {
@@ -598,29 +610,33 @@ export component OptionsPanel inherits VerticalLayout {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
-                TextField { label: "Images at most (ppi)"; placeholder: "150"; text <=> root.compress-ppi; }
-                TextField { label: "JPEG quality (1–100)"; placeholder: "70"; text <=> root.compress-quality; }
+                TextField { label: @tr("Images at most (ppi)"); placeholder: "150"; text <=> root.compress-ppi; }
+                TextField { label: @tr("JPEG quality (1–100)"); placeholder: "70"; text <=> root.compress-quality; }
             }
-            Check { text: "Remove page thumbnails"; checked <=> root.discard-thumbs; }
-            Check { text: "Remove structure tags (accessibility)"; checked <=> root.discard-tags; }
-            Check { text: "Remove document information and metadata"; checked <=> root.discard-meta; }
+            Check { text: @tr("Remove page thumbnails"); checked <=> root.discard-thumbs; }
+            Check { text: @tr("Remove structure tags (accessibility)"); checked <=> root.discard-tags; }
+            Check { text: @tr("Remove document information and metadata"); checked <=> root.discard-meta; }
             // Acrobat's Unembed fonts: the faces every reader has (Arial, Times, Courier…).
-            Check { text: "Unembed standard fonts (Arial, Times, Courier…)"; checked <=> root.unembed-fonts; }
+            Check { text: @tr("Unembed standard fonts (Arial, Times, Courier…)"); checked <=> root.unembed-fonts; }
+            Check { text: @tr("Flatten transparency (PDF 1.3 copy)"); checked <=> root.flatten-transparency; }
+            if root.flatten-transparency: InfoBox { text: @tr("Needs local Ghostscript. Artwork may become images. Use an untagged copy without forms, layers, signatures or attachments."); }
+            Check { text: @tr("Fast Web View (linearize)"); checked <=> root.linearize; }
+            if root.linearize: InfoBox { text: @tr("Needs local qpdf. The first page loads before the rest of the file. These settings may increase file size."); }
         }
         Rectangle { height: 4px; }
-        InfoBox { text: root.level == 3 ? "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so." : "Recommended and Extreme recompress images; text and vector graphics stay as they are (grey with Convert to grayscale)."; }
+        InfoBox { text: root.level == 3 ? @tr("Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so.") : @tr("Recommended and Extreme recompress images; text and vector graphics stay as they are (grey with Convert to grayscale)."); }
     }
 
     if root.tool == "protect": VerticalLayout {
         spacing: 12px;
         // A file opened with its password: Protect is Acrobat's Change Password.
-        if root.any-locked: InfoBox { text: "This PDF already has a password: the new ones replace it."; }
-        Check { text: "Require a password to open"; checked <=> root.require-open; }
+        if root.any-locked: InfoBox { text: @tr("This PDF already has a password: the new ones replace it."); }
+        Check { text: @tr("Require a password to open"); checked <=> root.require-open; }
         if root.require-open: TextField {
-            label: "Password";
+            label: @tr("Password");
             password: true;
             allow-reveal: true;
-            placeholder: "Type a password";
+            placeholder: @tr("Type a password");
             text <=> root.password;
         }
         if root.require-open && root.password != "": meter := VerticalLayout {
@@ -641,72 +657,72 @@ export component OptionsPanel inherits VerticalLayout {
             }
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: meter.strength == 0 ? "Weak" : meter.strength == 1 ? "Fair" : "Strong";
+                text: meter.strength == 0 ? @tr("Weak") : meter.strength == 1 ? @tr("Fair") : @tr("Strong");
                 font-size: Theme.fs-caption;
                 color: Theme.text-secondary;
             }
         }
         if root.require-open: TextField {
-            label: "Repeat password";
+            label: @tr("Repeat password");
             password: true;
             allow-reveal: true;
-            placeholder: "Type it again";
+            placeholder: @tr("Type it again");
             text <=> root.confirm;
             error: root.confirm != "" && root.confirm != root.password ? "Passwords do not match" : "";
         }
         TextField {
-            label: root.require-open ? "Permissions password (optional)" : "Permissions password";
+            label: root.require-open ? @tr("Permissions password (optional)") : @tr("Permissions password");
             password: true;
             allow-reveal: true;
-            placeholder: "Needed to lift the restrictions";
+            placeholder: @tr("Needed to lift the restrictions");
             text <=> root.owner;
         }
-        SectionLabel { text: "Allow"; }
-        Check { text: "Printing"; checked <=> root.allow-printing; }
-        Check { text: "Copying text and images"; checked <=> root.allow-copying; }
-        Check { text: "Editing"; checked <=> root.allow-editing; }
-        Check { text: "Commenting"; checked <=> root.allow-commenting; }
-        Check { text: "Filling forms"; checked <=> root.allow-filling-forms; }
+        SectionLabel { text: @tr("Allow"); }
+        Check { text: @tr("Printing"); checked <=> root.allow-printing; }
+        Check { text: @tr("Copying text and images"); checked <=> root.allow-copying; }
+        Check { text: @tr("Editing"); checked <=> root.allow-editing; }
+        Check { text: @tr("Commenting"); checked <=> root.allow-commenting; }
+        Check { text: @tr("Filling forms"); checked <=> root.allow-filling-forms; }
         // Acrobat's Protect ▸ Sanitize Document, in the same panel.
-        SectionLabel { text: "Hidden information"; }
-        Check { text: "Remove it first: metadata, scripts, attachments, links, hidden text, layers"; checked <=> root.protect-sanitize; }
+        SectionLabel { text: @tr("Hidden information"); }
+        Check { text: @tr("Remove it first: metadata, scripts, attachments, links, hidden text, layers"); checked <=> root.protect-sanitize; }
     }
 
     if root.tool == "unlock": InfoBox {
-        text: "Sheaf asks for each file's password when you add it. The copies are saved without one.";
+        text: @tr("Sheaf asks for each file's password when you add it. The copies are saved without one.");
     }
 
     if root.tool == "repair": InfoBox {
-        text: "The file is rebuilt from what can still be read. Keep the original until you have checked the copy.";
+        text: @tr("The file is rebuilt from what can still be read. Keep the original until you have checked the copy.");
     }
 
     // iLovePDF's Excel to PDF: use saved print areas or one complete sheet per page.
     if root.tool == "excel_to_pdf": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Spreadsheet layout"; }
+        SectionLabel { text: @tr("Spreadsheet layout"); }
         RadioCard {
-            title: "Saved print layout";
-            description: "Use the workbook's paper and print areas";
+            title: @tr("Saved print layout");
+            description: @tr("Use the workbook's paper and print areas");
             selected: root.layout == 0;
             clicked => { root.layout = 0; }
         }
         RadioCard {
-            title: "One page per whole sheet";
-            description: "Page size grows to fit each sheet";
+            title: @tr("One page per whole sheet");
+            description: @tr("Page size grows to fit each sheet");
             selected: root.layout == 1;
             clicked => { root.layout = 1; }
         }
-        if root.layout == 1: InfoBox { text: "Includes hidden sheets. Saved paper sizes and print areas are ignored."; }
+        if root.layout == 1: InfoBox { text: @tr("Includes hidden sheets. Saved paper sizes and print areas are ignored."); }
         RadioCard {
-            title: "Built-in data report";
-            description: "Cell addresses and saved values; no LibreOffice";
+            title: @tr("Built-in data report");
+            description: @tr("Cell addresses and saved values; no LibreOffice");
             selected: root.layout == 2;
             clicked => { root.layout = 2; }
         }
         if root.layout == 2: VerticalLayout {
             spacing: 10px;
-            TextField { label: "Sheet numbers (blank = visible sheets)"; placeholder: "For example, 1,3-5"; text <=> root.pages; }
-            InfoBox { text: "XLS, XLSX, XLSB and ODS; values only.\nNo styles, charts or formula recalculation.\nWestern European text; raw date values.\nHidden sheets need an explicit number."; }
+            TextField { label: @tr("Sheet numbers (blank = visible sheets)"); placeholder: @tr("For example, 1,3-5"); text <=> root.pages; }
+            InfoBox { text: @tr("XLS, XLSX, XLSB and ODS; values only.\nNo styles, charts or formula recalculation.\nWestern European text; raw date values.\nHidden sheets need an explicit number."); }
         }
 
     }
@@ -714,47 +730,57 @@ export component OptionsPanel inherits VerticalLayout {
     if root.tool == "jpg_to_pdf" || root.tool == "html_to_pdf": VerticalLayout {
         spacing: 10px;
         // iLovePDF's options: page size, orientation (for paper), margin, one PDF or one each.
-        SectionLabel { text: "Page size"; }
-        RadioCard { title: root.tool == "html_to_pdf" ? "Original layout" : "Fit"; description: root.tool == "html_to_pdf" ? "Use the file's print settings" : "Same page size as image"; selected: root.layout == 0; clicked => { root.layout = 0; } }
-        RadioCard { title: "A4"; description: "210 × 297 mm"; selected: root.layout == 1; clicked => { root.layout = 1; } }
-        RadioCard { title: "US Letter"; description: "8.5 × 11 in"; selected: root.layout == 2; clicked => { root.layout = 2; } }
+        SectionLabel { text: @tr("Page size"); }
+        RadioCard { title: root.tool == "html_to_pdf" ? @tr("Original layout") : @tr("Fit"); description: root.tool == "html_to_pdf" ? @tr("Use the file's print settings") : @tr("Same page size as image"); selected: root.layout == 0; clicked => { root.layout = 0; } }
+        RadioCard { title: @tr("A4"); description: @tr("210 × 297 mm"); selected: root.layout == 1; clicked => { root.layout = 1; } }
+        RadioCard { title: @tr("US Letter"); description: @tr("8.5 × 11 in"); selected: root.layout == 2; clicked => { root.layout = 2; } }
         if root.layout != 0: VerticalLayout {
             spacing: 10px;
             padding-top: 6px;
-            SectionLabel { text: "Orientation"; }
+            SectionLabel { text: @tr("Orientation"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
-                Segment { text: "Portrait"; selected: !root.landscape; clicked => { root.landscape = false; } }
-                Segment { text: "Landscape"; selected: root.landscape; clicked => { root.landscape = true; } }
+                Segment { text: @tr("Portrait"); selected: !root.landscape; clicked => { root.landscape = false; } }
+                Segment { text: @tr("Landscape"); selected: root.landscape; clicked => { root.landscape = true; } }
             }
-            SectionLabel { text: "Margin"; }
+            SectionLabel { text: @tr("Margin"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
-                Segment { text: "None"; selected: root.margin == 0; clicked => { root.margin = 0; } }
-                Segment { text: "Small"; selected: root.margin == 1; clicked => { root.margin = 1; } }
-                Segment { text: "Big"; selected: root.margin == 2; clicked => { root.margin = 2; } }
+                Segment { text: @tr("None"); selected: root.margin == 0; clicked => { root.margin = 0; } }
+                Segment { text: @tr("Small"); selected: root.margin == 1; clicked => { root.margin = 1; } }
+                Segment { text: @tr("Big"); selected: root.margin == 2; clicked => { root.margin = 2; } }
             }
         }
         if root.tool == "jpg_to_pdf" && root.file-count > 1: VerticalLayout {
             padding-top: 6px;
-            Check { text: "Merge all images into one PDF file"; checked <=> root.merge-images; }
+            Check { text: @tr("Merge all images into one PDF file"); checked <=> root.merge-images; }
         }
     }
 
     if root.tool == "html_to_pdf" && root.layout != 0: VerticalLayout {
         spacing: 10px;
-        Check { text: "Stack pages into one long page"; checked <=> root.html-long-page; }
-        if root.html-long-page: InfoBox { text: "Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."; }
+        SectionLabel { text: @tr("Layout engine and screen width"); }
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.start;
+            spacing: 8px;
+            Segment { text: @tr("LibreOffice"); selected: root.html-screen-width == 0; clicked => { root.html-screen-width = 0; } }
+            for width in [800, 1280, 1920]: Segment { text: @tr("{} px", width); selected: root.html-screen-width == width; clicked => { root.html-screen-width = width; } }
+        }
+        Check { text: root.html-screen-width > 0 ? @tr("One continuous screen page") : @tr("Stack printed paper pages"); checked <=> root.html-long-page; }
+        if root.html-screen-width > 0: InfoBox { text: @tr("Uses local Chromium, Chrome or Edge.\nKeeps screen CSS, grid and flex layout.\nLocal images and styles only; scripts off.\nNothing is downloaded or uploaded."); }
+        if root.html-long-page && root.html-screen-width == 0: InfoBox { text: @tr("Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."); }
     }
 
     if root.tool == "html_to_pdf": InfoBox {
-        text: "Local HTML, Markdown or email.\nPictures use the source base address.\nNo URL capture or browser screen mode.";
+        text: @tr("Local HTML, Markdown or email.\nPictures use the source base address.\nNo URL capture.\nScreen mode uses local resources only.");
     }
 
     if root.tool == "pdf_to_jpg": VerticalLayout {
@@ -764,54 +790,54 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "Page to image"; selected: !root.extract-images; clicked => { root.extract-images = false; } }
-            Segment { text: "Extract images"; selected: root.extract-images; clicked => { root.extract-images = true; } }
+            Segment { text: @tr("Page to image"); selected: !root.extract-images; clicked => { root.extract-images = false; } }
+            Segment { text: @tr("Extract images"); selected: root.extract-images; clicked => { root.extract-images = true; } }
         }
-        if root.extract-images: InfoBox { text: "Every picture placed in the pages is saved as stored, each once."; }
+        if root.extract-images: InfoBox { text: @tr("Every picture placed in the pages is saved as stored, each once."); }
         if !root.extract-images: VerticalLayout {
             spacing: 10px;
             RadioCard {
-                title: "Normal quality";
-                description: "150 dpi, smaller images";
+                title: @tr("Normal quality");
+                description: @tr("150 dpi, smaller images");
                 selected: root.quality == 0;
                 clicked => { root.quality = 0; }
             }
             RadioCard {
-                title: "High quality";
-                description: "300 dpi, for print";
+                title: @tr("High quality");
+                description: @tr("300 dpi, for print");
                 selected: root.quality == 1;
                 clicked => { root.quality = 1; }
             }
             RadioCard {
-                title: "Very high quality";
-                description: "600 dpi, for enlargements";
+                title: @tr("Very high quality");
+                description: @tr("600 dpi, for enlargements");
                 selected: root.quality == 2;
                 clicked => { root.quality = 2; }
             }
         }
-        SectionLabel { text: "Format"; }
+        SectionLabel { text: @tr("Format"); }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "JPG"; selected: !root.png; clicked => { root.png = false; } }
-            Segment { text: "PNG (lossless)"; selected: root.png; clicked => { root.png = true; } }
+            Segment { text: @tr("JPG"); selected: !root.png; clicked => { root.png = false; } }
+            Segment { text: @tr("PNG (lossless)"); selected: root.png; clicked => { root.png = true; } }
         }
     }
 
     if root.tool == "page_numbers": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Page mode"; }
+        SectionLabel { text: @tr("Page mode"); }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "Single page"; selected: !root.num-double; clicked => { root.num-double = false; } }
-            Segment { text: "Double-sided"; selected: root.num-double; clicked => { root.num-double = true; } }
+            Segment { text: @tr("Single page"); selected: !root.num-double; clicked => { root.num-double = false; } }
+            Segment { text: @tr("Double-sided"); selected: root.num-double; clicked => { root.num-double = true; } }
         }
-        Check { text: "First page is cover page"; checked <=> root.num-cover; }
+        Check { text: @tr("First page is cover page"); checked <=> root.num-cover; }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
@@ -819,29 +845,29 @@ export component OptionsPanel inherits VerticalLayout {
             spacing: 14px;
             VerticalLayout {
                 spacing: 6px;
-                SectionLabel { text: "Position"; }
+                SectionLabel { text: @tr("Position"); }
                 PositionGrid { edges-only: true; selected <=> root.num-position; }
             }
             VerticalLayout {
                 spacing: 6px;
                 alignment: start;
-                SectionLabel { text: "Margin"; }
-                Segment { text: "Small"; selected: root.num-margin == 0; clicked => { root.num-margin = 0; } }
-                Segment { text: "Recommended"; selected: root.num-margin == 1; clicked => { root.num-margin = 1; } }
-                Segment { text: "Big"; selected: root.num-margin == 2; clicked => { root.num-margin = 2; } }
+                SectionLabel { text: @tr("Margin"); }
+                Segment { text: @tr("Small"); selected: root.num-margin == 0; clicked => { root.num-margin = 0; } }
+                Segment { text: @tr("Recommended"); selected: root.num-margin == 1; clicked => { root.num-margin = 1; } }
+                Segment { text: @tr("Big"); selected: root.num-margin == 2; clicked => { root.num-margin = 2; } }
             }
         }
         if root.file-count <= 1: PageRange { from <=> root.from-page; to <=> root.to-page; }
-        if root.file-count > 1: InfoBox { text: "All pages will be numbered because multiple PDFs have been selected."; }
-        TextField { label: "First number"; placeholder: "1"; text <=> root.num-start; }
-        SectionLabel { text: "Text"; }
-        RadioCard { title: "Insert page number only (recommended)"; selected: root.num-text == 0; clicked => { root.num-text = 0; } }
+        if root.file-count > 1: InfoBox { text: @tr("All pages will be numbered because multiple PDFs have been selected."); }
+        TextField { label: @tr("First number"); placeholder: "1"; text <=> root.num-start; }
+        SectionLabel { text: @tr("Text"); }
+        RadioCard { title: @tr("Insert page number only (recommended)"); selected: root.num-text == 0; clicked => { root.num-text = 0; } }
         RadioCard { title: "Page {n}"; selected: root.num-text == 1; clicked => { root.num-text = 1; } }
         RadioCard { title: "Page {n} of {p}"; selected: root.num-text == 2; clicked => { root.num-text = 2; } }
-        RadioCard { title: "Custom"; selected: root.num-text == 3; clicked => { root.num-text = 3; } }
-        RadioCard { title: "No page number (header and footer text only)"; selected: root.num-text == 4; clicked => { root.num-text = 4; } }
+        RadioCard { title: @tr("Custom"); selected: root.num-text == 3; clicked => { root.num-text = 3; } }
+        RadioCard { title: @tr("No page number (header and footer text only)"); selected: root.num-text == 4; clicked => { root.num-text = 4; } }
         // Acrobat's Header & Footer ▸ Remove: Sheaf's and other apps' (Acrobat's Pagination artifacts).
-        RadioCard { title: "Remove page numbers, headers and footers"; selected: root.num-text == 5; clicked => { root.num-text = 5; } }
+        RadioCard { title: @tr("Remove page numbers, headers and footers"); selected: root.num-text == 5; clicked => { root.num-text = 5; } }
         if root.num-text == 3: TextField {
             placeholder: "Sheet {n} of {p}";
             text <=> root.num-custom;
@@ -851,30 +877,30 @@ export component OptionsPanel inherits VerticalLayout {
         // How the numbers look (Acrobat's and Stirling's font, size and colour).
         FontRow {
             family <=> root.num-family; bold <=> root.num-bold; italic <=> root.num-italic; underline <=> root.num-underline;
-            size <=> root.num-font-size; size-placeholder: "Size: 12";
+            size <=> root.num-font-size; size-placeholder: @tr("Size: 12");
         }
         ColourRow { colour <=> root.num-color; hex <=> root.num-hex; }
         // Acrobat's Header & Footer: text in any of the six places, Bates numbers among it.
-        SectionLabel { text: "Header and footer"; }
+        SectionLabel { text: @tr("Header and footer"); }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: "Top"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-            TextField { placeholder: "Left"; text <=> root.hf-tl; error: Parse.custom-text-error(root.hf-tl); }
-            TextField { placeholder: "Centre"; text <=> root.hf-tc; error: Parse.custom-text-error(root.hf-tc); }
-            TextField { placeholder: "Right"; text <=> root.hf-tr; error: Parse.custom-text-error(root.hf-tr); }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: @tr("Top"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            TextField { placeholder: @tr("Left"); text <=> root.hf-tl; error: Parse.custom-text-error(root.hf-tl); }
+            TextField { placeholder: @tr("Centre"); text <=> root.hf-tc; error: Parse.custom-text-error(root.hf-tc); }
+            TextField { placeholder: @tr("Right"); text <=> root.hf-tr; error: Parse.custom-text-error(root.hf-tr); }
         }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: "Bottom"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
-            TextField { placeholder: "Left"; text <=> root.hf-bl; error: Parse.custom-text-error(root.hf-bl); }
-            TextField { placeholder: "Centre"; text <=> root.hf-bc; error: Parse.custom-text-error(root.hf-bc); }
-            TextField { placeholder: "Right"; text <=> root.hf-br; error: Parse.custom-text-error(root.hf-br); }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; width: 48px; text: @tr("Bottom"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            TextField { placeholder: @tr("Left"); text <=> root.hf-bl; error: Parse.custom-text-error(root.hf-bl); }
+            TextField { placeholder: @tr("Centre"); text <=> root.hf-bc; error: Parse.custom-text-error(root.hf-bc); }
+            TextField { placeholder: @tr("Right"); text <=> root.hf-br; error: Parse.custom-text-error(root.hf-br); }
         }
         InfoBox { text: "{n} page number, {p} page count, {date} today, {bates} the Bates number below."; }
         FlexboxLayout {
@@ -882,18 +908,18 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            TextField { label: "Bates prefix"; placeholder: "ACME-"; text <=> root.bates-prefix; }
-            TextField { width: 80px; label: "From"; placeholder: "1"; text <=> root.bates-start; }
+            TextField { label: @tr("Bates prefix"); placeholder: @tr("ACME-"); text <=> root.bates-prefix; }
+            TextField { width: 80px; label: @tr("From"); placeholder: "1"; text <=> root.bates-start; }
         }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Digits"; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Digits"); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
             Stepper { value <=> root.bates-digits; minimum: 3; }
         }
-        Check { text: "Replace existing headers, footers"; checked <=> root.hf-replace; }
+        Check { text: @tr("Replace existing headers, footers"); checked <=> root.hf-replace; }
     }
 
     if root.tool == "watermark": VerticalLayout {
@@ -903,28 +929,28 @@ export component OptionsPanel inherits VerticalLayout {
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 8px;
-            Segment { text: "Place Text"; selected: !root.wm-remove && !root.wm-image-mode; clicked => { root.wm-image-mode = false; root.wm-remove = false; } }
-            Segment { text: "Place Image"; selected: !root.wm-remove && root.wm-image-mode; clicked => { root.wm-image-mode = true; root.wm-remove = false; } }
-            Segment { text: "Remove"; selected: root.wm-remove; clicked => { root.wm-remove = true; } }
+            Segment { text: @tr("Place Text"); selected: !root.wm-remove && !root.wm-image-mode; clicked => { root.wm-image-mode = false; root.wm-remove = false; } }
+            Segment { text: @tr("Place Image"); selected: !root.wm-remove && root.wm-image-mode; clicked => { root.wm-image-mode = true; root.wm-remove = false; } }
+            Segment { text: @tr("Remove"); selected: root.wm-remove; clicked => { root.wm-remove = true; } }
         }
         if root.wm-remove: InfoBox {
-            text: "Takes out the watermarks Sheaf, Acrobat and other PDF editors placed. The page's own text and images stay.";
+            text: @tr("Takes out the watermarks Sheaf, Acrobat and other PDF editors placed. The page's own text and images stay.");
         }
         if !root.wm-remove: VerticalLayout {
             spacing: 10px;
             if !root.wm-image-mode: VerticalLayout {
                 spacing: 10px;
-                TextField { label: "Text"; placeholder: "CONFIDENTIAL"; text <=> root.wm-text; }
+                TextField { label: @tr("Text"); placeholder: @tr("CONFIDENTIAL"); text <=> root.wm-text; }
                 FontRow {
                     family <=> root.wm-family; bold <=> root.wm-bold; italic <=> root.wm-italic; underline <=> root.wm-underline;
-                    size <=> root.wm-font-size; size-placeholder: "Size: 48";
+                    size <=> root.wm-font-size; size-placeholder: @tr("Size: 48");
                 }
                 ColourRow { colour <=> root.wm-color; hex <=> root.wm-hex; }
             }
             if root.wm-image-mode: VerticalLayout {
                 spacing: 10px;
                 Segment {
-                    text: root.wm-image == "" ? "Choose an image…" : "Change image…";
+                    text: root.wm-image == "" ? @tr("Choose an image…") : @tr("Change image…");
                     clicked => {
                         Picked.pick-watermark(root.tab-id);
                     }
@@ -936,7 +962,7 @@ export component OptionsPanel inherits VerticalLayout {
                     color: Theme.text-muted;
                     overflow: elide;
                 }
-                SectionLabel { text: "Size"; }
+                SectionLabel { text: @tr("Size"); }
                 FlexboxLayout {
                     flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
@@ -955,36 +981,36 @@ export component OptionsPanel inherits VerticalLayout {
                 spacing: 14px;
                 VerticalLayout {
                     spacing: 6px;
-                    SectionLabel { text: "Position"; }
+                    SectionLabel { text: @tr("Position"); }
                     PositionGrid { selected <=> root.wm-position; enabled: !root.wm-mosaic; }
                 }
                 VerticalLayout {
                     spacing: 6px;
                     alignment: start;
-                    SectionLabel { text: "Layer"; }
-                    Segment { text: "Over the content"; selected: !root.wm-below; clicked => { root.wm-below = false; } }
-                    Segment { text: "Below the content"; selected: root.wm-below; clicked => { root.wm-below = true; } }
-                    Check { text: "Mosaic"; checked <=> root.wm-mosaic; }
+                    SectionLabel { text: @tr("Layer"); }
+                    Segment { text: @tr("Over the content"); selected: !root.wm-below; clicked => { root.wm-below = false; } }
+                    Segment { text: @tr("Below the content"); selected: root.wm-below; clicked => { root.wm-below = true; } }
+                    Check { text: @tr("Mosaic"); checked <=> root.wm-mosaic; }
                 }
             }
-            SectionLabel { text: "Transparency"; }
+            SectionLabel { text: @tr("Transparency"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Segment { text: "No"; selected: root.wm-transparency == 0; clicked => { root.wm-transparency = 0; } }
+                Segment { text: @tr("No"); selected: root.wm-transparency == 0; clicked => { root.wm-transparency = 0; } }
                 Segment { text: "25%"; selected: root.wm-transparency == 1; clicked => { root.wm-transparency = 1; } }
                 Segment { text: "50%"; selected: root.wm-transparency == 2; clicked => { root.wm-transparency = 2; } }
                 Segment { text: "75%"; selected: root.wm-transparency == 3; clicked => { root.wm-transparency = 3; } }
             }
-            SectionLabel { text: "Rotate"; }
+            SectionLabel { text: @tr("Rotate"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 6px;
-                Segment { text: "None"; selected: root.wm-rotation == 0; clicked => { root.wm-rotation = 0; } }
+                Segment { text: @tr("None"); selected: root.wm-rotation == 0; clicked => { root.wm-rotation = 0; } }
                 Segment { text: "45°"; selected: root.wm-rotation == 1; clicked => { root.wm-rotation = 1; } }
                 Segment { text: "90°"; selected: root.wm-rotation == 2; clicked => { root.wm-rotation = 2; } }
             }
@@ -998,46 +1024,46 @@ export component OptionsPanel inherits VerticalLayout {
                 Segment { text: "−45°"; selected: root.wm-rotation == 5; clicked => { root.wm-rotation = 5; } }
             }
             if root.file-count <= 1: PageRange { from <=> root.from-page; to <=> root.to-page; }
-            if root.file-count > 1: InfoBox { text: "All pages will be stamped because multiple PDFs have been selected."; }
-            Check { text: "Replace the watermarks already there"; checked <=> root.wm-replace; }
+            if root.file-count > 1: InfoBox { text: @tr("All pages will be stamped because multiple PDFs have been selected."); }
+            Check { text: @tr("Replace the watermarks already there"); checked <=> root.wm-replace; }
         }
     }
 
     if root.tool == "crop": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Apply to:"; }
-        RadioCard { title: "All pages"; description: "Apply the same crop to every page"; selected: root.crop-mode == 0; clicked => { root.crop-mode = 0; } }
-        RadioCard { title: "Selected pages"; description: "Choose which pages to crop"; selected: root.crop-mode == 1; clicked => { root.crop-mode = 1; } }
-        RadioCard { title: "Remove crop"; description: "Show the full pages again"; selected: root.crop-mode == 2; clicked => { root.crop-mode = 2; } }
-        RadioCard { title: "Remove white margins"; description: "Cut each page to what is drawn on it"; selected: root.crop-mode == 3; clicked => { root.crop-mode = 3; } }
+        SectionLabel { text: @tr("Apply to:"); }
+        RadioCard { title: @tr("All pages"); description: @tr("Apply the same crop to every page"); selected: root.crop-mode == 0; clicked => { root.crop-mode = 0; } }
+        RadioCard { title: @tr("Selected pages"); description: @tr("Choose which pages to crop"); selected: root.crop-mode == 1; clicked => { root.crop-mode = 1; } }
+        RadioCard { title: @tr("Remove crop"); description: @tr("Show the full pages again"); selected: root.crop-mode == 2; clicked => { root.crop-mode = 2; } }
+        RadioCard { title: @tr("Remove white margins"); description: @tr("Cut each page to what is drawn on it"); selected: root.crop-mode == 3; clicked => { root.crop-mode = 3; } }
         // Acrobat's Set Page Boxes ▸ Change Page Size.
-        RadioCard { title: "Change page size"; description: "Scale every page to a paper size"; selected: root.crop-mode == 4; clicked => { root.crop-mode = 4; } }
+        RadioCard { title: @tr("Change page size"); description: @tr("Scale every page to a paper size"); selected: root.crop-mode == 4; clicked => { root.crop-mode = 4; } }
         if root.crop-mode == 4: FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
             spacing: 6px;
-            for p[i] in ["A4", "Letter", "A3", "A5", "Legal"]: Segment { width: 46px; text: p; selected: root.crop-paper == i; clicked => { root.crop-paper = i; } }
+            for p[i] in [@tr("A4"), @tr("Letter"), @tr("A3"), @tr("A5"), @tr("Legal")]: Segment { width: 46px; text: p; selected: root.crop-paper == i; clicked => { root.crop-paper = i; } }
         }
-        if root.crop-mode == 1: TextField { label: "Pages"; placeholder: "1-3,5"; text <=> root.pages; }
+        if root.crop-mode == 1: TextField { label: @tr("Pages"); placeholder: "1-3,5"; text <=> root.pages; }
         if root.crop-mode < 2: VerticalLayout {
             spacing: 10px;
-            SectionLabel { text: "Margins to cut (mm)"; }
+            SectionLabel { text: @tr("Margins to cut (mm)"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 10px;
-                TextField { width: (parent.width - 10px) / 2; label: "Top"; placeholder: "0"; text <=> root.crop-top; }
-                TextField { width: (parent.width - 10px) / 2; label: "Bottom"; placeholder: "0"; text <=> root.crop-bottom; }
+                TextField { width: (parent.width - 10px) / 2; label: @tr("Top"); placeholder: "0"; text <=> root.crop-top; }
+                TextField { width: (parent.width - 10px) / 2; label: @tr("Bottom"); placeholder: "0"; text <=> root.crop-bottom; }
             }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 10px;
-                TextField { width: (parent.width - 10px) / 2; label: "Left"; placeholder: "0"; text <=> root.crop-left; }
-                TextField { width: (parent.width - 10px) / 2; label: "Right"; placeholder: "0"; text <=> root.crop-right; }
+                TextField { width: (parent.width - 10px) / 2; label: @tr("Left"); placeholder: "0"; text <=> root.crop-left; }
+                TextField { width: (parent.width - 10px) / 2; label: @tr("Right"); placeholder: "0"; text <=> root.crop-right; }
             }
             CropPreview {
                 source: root.preview;
@@ -1063,7 +1089,7 @@ export component OptionsPanel inherits VerticalLayout {
                 alignment: center;
                 spacing: 8px;
                 Segment { width: 32px; text: "‹"; clicked => { root.preview-step(-1); } }
-                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Page " + root.preview-page + " of " + root.preview-pages; font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Page {} of {}", root.preview-page, root.preview-pages); font-size: Theme.fs-label; color: Theme.text-secondary; vertical-alignment: center; }
                 Segment { width: 32px; text: "›"; clicked => { root.preview-step(1); } }
             }
         }
@@ -1071,7 +1097,7 @@ export component OptionsPanel inherits VerticalLayout {
 
     if root.tool == "ocr": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Document languages"; }
+        SectionLabel { text: @tr("Document languages"); }
         ScrollView {
             height: 216px;
             VerticalLayout {
@@ -1083,16 +1109,17 @@ export component OptionsPanel inherits VerticalLayout {
                 }
             }
         }
-        InfoBox { text: "Select every language on the page. Latin text uses built-in recognition; other scripts use installed Tesseract packs. Mixed scripts need a local pack for each selected language. Horizontal and vertical packs run in separate jobs."; }
-        Check { text: "Use installed Tesseract"; checked <=> root.ocr-local-engine; }
-        InfoBox { text: "An alternative for large scans. Uses local language packs instead of the built-in model. Speed depends on your computer and the installed packs."; }
-        Check { text: "Also read pages with text"; checked <=> root.ocr-all-pages; }
+        InfoBox { text: @tr("Select every language on the page. Installed Tesseract packs are preferred. Latin text can use built-in recognition."); }
+        InfoBox { text: @tr("Mixed scripts need a local pack for every selected language. Run horizontal and vertical packs in separate jobs."); }
+        Check { text: @tr("Require installed Tesseract"); checked <=> root.ocr-local-engine; }
+        InfoBox { text: @tr("When required, a missing local pack stops the job. Leave this off to allow built-in Latin recognition when local packs are unavailable."); }
+        Check { text: @tr("Also read pages with text"); checked <=> root.ocr-all-pages; }
         // Acrobat's Enhance scanned pages, before it reads them.
-        Check { text: "Straighten and clean scans first"; checked <=> root.ocr-enhance; }
-        InfoBox { text: "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added. Straightened and cleaned, a scanned page is drawn again level, its paper white and its ink dark."; }
+        Check { text: @tr("Straighten and clean scans first"); checked <=> root.ocr-enhance; }
+        InfoBox { text: @tr("The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added. Straightened and cleaned, a scanned page is drawn again level, its paper white and its ink dark."); }
         if !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
-            text: "No OCR models or local language packs were found. Reinstall Sheaf or install Tesseract and language packs locally, then restart Sheaf.";
+            text: @tr("No OCR models or local language packs were found. Reinstall Sheaf or install Tesseract and language packs locally, then restart Sheaf.");
         }
     }
 
@@ -1101,14 +1128,14 @@ export component OptionsPanel inherits VerticalLayout {
             : ["HTML", "Markdown", "RTF", "text", "XML", "EPUB"][root.text-format];
         spacing: 10px;
         RadioCard {
-            title: "No OCR (text PDFs)";
-            description: "OCR is not required";
+            title: @tr("No OCR (text PDFs)");
+            description: @tr("OCR is not required");
             selected: !root.export-ocr;
             clicked => { root.export-ocr = false; }
         }
         RadioCard {
-            title: "OCR (scanned PDFs)";
-            description: "Reads the text of scanned pages";
+            title: @tr("OCR (scanned PDFs)");
+            description: @tr("Reads the text of scanned pages");
             selected: root.export-ocr;
             clicked => { root.export-ocr = true; }
         }
@@ -1120,24 +1147,24 @@ export component OptionsPanel inherits VerticalLayout {
         // iLovePDF converts a scan's pages as pictures unless OCR is chosen: say so when a file is one.
         if !root.export-ocr && root.any-scanned: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
-            text: "This PDF looks scanned: its text can't be selected. Choose OCR to get editable text.";
+            text: @tr("This PDF looks scanned: its text can't be selected. Choose OCR to get editable text.");
         }
         if root.export-ocr && !OcrInfo.available: InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
-            text: "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.";
+            text: @tr("The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR.");
         }
         // Acrobat's Word settings: flowing text (editable paragraphs and tables) or the page layout.
         if root.tool == "pdf_to_word": VerticalLayout {
             spacing: 10px;
             padding-top: 4px;
-            SectionLabel { text: "Layout:"; }
+            SectionLabel { text: @tr("Layout:"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
-                Segment { text: "Flowing text"; selected: !root.export-exact; clicked => { root.export-exact = false; } }
-                Segment { text: "Page layout"; selected: root.export-exact; clicked => { root.export-exact = true; } }
+                Segment { text: @tr("Flowing text"); selected: !root.export-exact; clicked => { root.export-exact = false; } }
+                Segment { text: @tr("Page layout"); selected: root.export-exact; clicked => { root.export-exact = true; } }
             }
             InfoBox {
                 text: root.export-exact
@@ -1148,28 +1175,28 @@ export component OptionsPanel inherits VerticalLayout {
         if root.tool == "pdf_to_excel": VerticalLayout {
             spacing: 10px;
             padding-top: 4px;
-            SectionLabel { text: "Layout:"; }
+            SectionLabel { text: @tr("Layout:"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
-                Segment { text: "One sheet"; selected: root.excel-layout == 0; clicked => { root.excel-layout = 0; } }
-                Segment { text: "Multiple sheets"; selected: root.excel-layout == 1; clicked => { root.excel-layout = 1; } }
+                Segment { text: @tr("One sheet"); selected: root.excel-layout == 0; clicked => { root.excel-layout = 0; } }
+                Segment { text: @tr("Multiple sheets"); selected: root.excel-layout == 1; clicked => { root.excel-layout = 1; } }
             }
-            InfoBox { text: "Choose to place all tables on one sheet or create a new sheet for each table. Pages without a table keep their text in column A."; }
+            InfoBox { text: @tr("Choose to place all tables on one sheet or create a new sheet for each table. Pages without a table keep their text in column A."); }
         }
         // Acrobat's Export ▸ HTML Web Page and More Formats (Text, Rich Text), and Markdown.
         if root.tool == "pdf_to_text": VerticalLayout {
             spacing: 10px;
             padding-top: 4px;
-            SectionLabel { text: "Format:"; }
+            SectionLabel { text: @tr("Format:"); }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.stretch;
                 spacing: 8px;
-                for label[i] in ["Web page", "Markdown", "Rich text", "Plain text", "XML", "Ebook"]: Segment {
+                for label[i] in [@tr("Web page"), @tr("Markdown"), @tr("Rich text"), @tr("Plain text"), @tr("XML"), @tr("Ebook")]: Segment {
                     text: label;
                     selected: root.text-format == i;
                     clicked => { root.text-format = i; }
@@ -1186,27 +1213,27 @@ export component OptionsPanel inherits VerticalLayout {
                 ][root.text-format];
             }
         }
-        InfoBox { text: "Layout is approximate: text, paragraphs, tables and images are recovered; exact formatting may differ."; }
+        InfoBox { text: @tr("Layout is approximate: text, paragraphs, tables and images are recovered; exact formatting may differ."); }
     }
 
     if root.tool == "compare": VerticalLayout {
         spacing: 10px;
         RadioCard {
-            title: "Semantic Text";
-            description: "A report of what changed: the words, then pictures and drawings";
+            title: @tr("Semantic Text");
+            description: @tr("A report of what changed: the words, then pictures and drawings");
             selected: root.compare-mode == 0;
             clicked => { root.compare-mode = 0; }
         }
         RadioCard {
-            title: "Content Overlay";
-            description: "Marks on the changed PDF";
+            title: @tr("Content Overlay");
+            description: @tr("Marks on the changed PDF");
             selected: root.compare-mode == 1;
             clicked => { root.compare-mode = 1; }
         }
         // Acrobat's side-by-side view: both documents on one sheet, scrolled together.
         RadioCard {
-            title: "Side by side";
-            description: "The original beside the marked copy";
+            title: @tr("Side by side");
+            description: @tr("The original beside the marked copy");
             selected: root.compare-mode == 2;
             clicked => { root.compare-mode = 2; }
         }
@@ -1217,37 +1244,32 @@ export component OptionsPanel inherits VerticalLayout {
                 : "Changed words are highlighted (blue changed, green added, a red note where words were removed); other changed areas, such as pictures, are outlined in red.";
         }
         // Acrobat's page ranges: part of each document compared.
-        TextField { label: "Original's pages (optional)"; placeholder: "All pages"; text <=> root.compare-old-pages; }
-        TextField { label: "Changed document's pages (optional)"; placeholder: "All pages"; text <=> root.compare-new-pages; }
+        TextField { label: @tr("Original's pages (optional)"); placeholder: @tr("All pages"); text <=> root.compare-old-pages; }
+        TextField { label: @tr("Changed document's pages (optional)"); placeholder: @tr("All pages"); text <=> root.compare-new-pages; }
     }
 
     if root.tool == "pdf_to_pdfa": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Set the PDF/A conformance level"; }
-        RadioCard {
-            title: "PDF/A-2b (recommended)";
-            description: "For long-term archiving";
-            selected: root.pdfa-level == 0;
-            clicked => { root.pdfa-level = 0; }
+        SectionLabel { text: @tr("Set the PDF/A conformance level"); }
+        // iLovePDF's version-ordered list; stored option indices 0/1/2 retain their meaning.
+        ComboBox {
+            model: [@tr("PDF/A-1b"), @tr("PDF/A-1a"), @tr("PDF/A-2b (recommended)"), @tr("PDF/A-2u"), @tr("PDF/A-2a"), @tr("PDF/A-3b"), @tr("PDF/A-3u"), @tr("PDF/A-3a")];
+            current-index <=> root.pdfa-choice;
         }
-        RadioCard {
-            title: "PDF/A-3b";
-            description: "Archiving, attachments allowed";
-            selected: root.pdfa-level == 1;
-            clicked => { root.pdfa-level = 1; }
-        }
-        Check { text: "Keep a copy even if checks fail"; checked <=> root.pdfa-allow-incomplete; }
-        InfoBox { text: "The written PDF is checked before saving.\nUnfixed issues appear in the results.\nChecks cover structure, not full ISO validation."; }
-        if !root.pdfa-allow-incomplete: InfoBox { text: "If a check fails, no output is saved.\nThe source file is kept."; }
+        if root.pdfa-level == 2 || root.pdfa-level == 5: InfoBox { text: @tr("PDF 1.4, without layers or transparency.\nThose features are reported.\nChoose 2b to preserve them."); }
+        if root.pdfa-level >= 3: InfoBox { text: @tr("Checks Unicode for every text code.\nLevel a requires existing tags.\nReview reading order before archiving."); }
+        Check { text: @tr("Keep a copy even if checks fail"); checked <=> root.pdfa-allow-incomplete; }
+        InfoBox { text: @tr("The written PDF is checked before saving.\nUnfixed issues appear in the results.\nChecks cover structure, not full ISO validation."); }
+        if !root.pdfa-allow-incomplete: InfoBox { text: @tr("If a check fails, no output is saved.\nThe source file is kept."); }
     }
 
     // Stirling's Adjust Colours/Contrast, Preview's Adjust Color: −100 to 100 each, or inverted.
     if root.tool == "adjust_colours": VerticalLayout {
         spacing: 10px;
         for a[i] in [
-            { label: "Brightness", value: root.adjust-brightness },
-            { label: "Contrast", value: root.adjust-contrast },
-            { label: "Saturation", value: root.adjust-saturation },
+            { label: @tr("Brightness"), value: root.adjust-brightness },
+            { label: @tr("Contrast"), value: root.adjust-contrast },
+            { label: @tr("Saturation"), value: root.adjust-saturation },
         ]: FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
@@ -1266,38 +1288,38 @@ export component OptionsPanel inherits VerticalLayout {
             }
             Text { width: 40px; text: a.value; font-size: Theme.fs-label; color: Theme.text; horizontal-alignment: right; vertical-alignment: center; }
         }
-        Check { text: "Invert the colours (light on dark)"; checked <=> root.adjust-invert; }
-        InfoBox { text: "Text and drawings stay sharp and selectable: their colours change, and the pictures'. Gradients and spot colours are left as they are."; }
+        Check { text: @tr("Invert the colours (light on dark)"); checked <=> root.adjust-invert; }
+        InfoBox { text: @tr("Text and drawings stay sharp and selectable: their colours change, and the pictures'. Gradients and spot colours are left as they are."); }
     }
 
     // Acrobat's Redaction Properties ▸ Appearance: the boxes' fill and a text over each.
     if root.tool == "redact": VerticalLayout {
         spacing: 10px;
-        SectionLabel { text: "Boxes"; }
+        SectionLabel { text: @tr("Boxes"); }
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 6px;
             alignment: start;
-            for c[i] in ["Black", "White", "Grey", "Red"]: Chip {
+            for c[i] in [@tr("Black"), @tr("White"), @tr("Grey"), @tr("Red")]: Chip {
                 text: c;
                 selected: root.redact-fill == i;
                 clicked => { root.redact-fill = i; }
             }
         }
         TextField {
-            label: "Text over each box (optional)";
-            placeholder: "Redacted";
+            label: @tr("Text over each box (optional)");
+            placeholder: @tr("Redacted");
             text <=> root.redact-overlay;
         }
         // Acrobat's margins round each redaction: accents and descenders go too.
         TextField {
-            label: "Margin round each mark (points, optional)";
+            label: @tr("Margin round each mark (points, optional)");
             placeholder: "0";
             text <=> root.redact-margin;
         }
         if root.redact-overlay != "": Check {
-            text: "Repeat it to fill the box";
+            text: @tr("Repeat it to fill the box");
             checked: root.redact-repeat;
             toggled => { root.redact-repeat = !root.redact-repeat; }
         }
@@ -1307,7 +1329,7 @@ export component OptionsPanel inherits VerticalLayout {
         spacing: 10px;
         Rectangle { height: 1px; background: Theme.separator; }
         Check {
-            text: "Use a certificate (.p12)";
+            text: @tr("Use a certificate (.p12)");
             checked: root.sign-cert;
             toggled => { root.sign-cert = !root.sign-cert; }
         }
@@ -1315,13 +1337,13 @@ export component OptionsPanel inherits VerticalLayout {
             spacing: 10px;
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: "Signs the document digitally with your digital ID, so changes made after signing can be detected.";
+                text: @tr("Signs the document digitally with your digital ID, so changes made after signing can be detected.");
                 font-size: Theme.fs-caption;
                 color: Theme.text-muted;
                 wrap: word-wrap;
             }
             Segment {
-                text: root.sign-p12 == "" ? "Choose certificate file" : "Change certificate file";
+                text: root.sign-p12 == "" ? @tr("Choose certificate file") : @tr("Change certificate file");
                 clicked => {
                     Picked.pick-p12(root.tab-id);
                 }
@@ -1334,30 +1356,30 @@ export component OptionsPanel inherits VerticalLayout {
                 overflow: elide;
             }
             TextField {
-                label: "Certificate password";
+                label: @tr("Certificate password");
                 password: true;
-                placeholder: "Password of the .p12 file";
+                placeholder: @tr("Password of the .p12 file");
                 text <=> root.sign-p12-password;
             }
             TextField {
-                label: "Reason (optional)";
-                placeholder: "I approve this document";
+                label: @tr("Reason (optional)");
+                placeholder: @tr("I approve this document");
                 text <=> root.sign-reason;
             }
             TextField {
-                label: "Location (optional)";
-                placeholder: "City";
+                label: @tr("Location (optional)");
+                placeholder: @tr("City");
                 text <=> root.sign-location;
             }
             // Acrobat's Certify (a certification signature): the first signature, saying which
             // changes stay allowed after it.
-            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: "Certify the document, allowing"; font-size: Theme.fs-caption; color: Theme.text-muted; }
+            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Certify the document, allowing"); font-size: Theme.fs-caption; color: Theme.text-muted; }
             FlexboxLayout {
                 flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 spacing: 6px;
                 alignment: start;
-                for c[i] in ["Not certified", "No changes", "Forms, signing", "And comments"]: Chip {
+                for c[i] in [@tr("Not certified"), @tr("No changes"), @tr("Forms, signing"), @tr("And comments")]: Chip {
                     text: c;
                     selected: root.sign-certify == i;
                     clicked => { root.sign-certify = i; }
@@ -1367,8 +1389,8 @@ export component OptionsPanel inherits VerticalLayout {
     }
 
     if !root.office-missing && (root.tool == "word_to_pdf" || root.tool == "powerpoint_to_pdf"
-            || (root.tool == "excel_to_pdf" && root.layout != 2) || root.tool == "html_to_pdf"): InfoBox {
-        text: "Converted with LibreOffice on this computer. Nothing is uploaded.";
+            || (root.tool == "excel_to_pdf" && root.layout != 2) || (root.tool == "html_to_pdf" && (root.layout == 0 || root.html-screen-width == 0))): InfoBox {
+        text: @tr("Converted with LibreOffice on this computer. Nothing is uploaded.");
     }
     // Every tool runs here, offline (iLovePDF Desktop's offline tools): said at the foot of the
     // options; Office conversion says it above, with LibreOffice.
@@ -1386,21 +1408,21 @@ export component OptionsPanel inherits VerticalLayout {
         }
         Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: "Runs on this computer. Nothing is uploaded.";
+            text: @tr("Runs on this computer. Nothing is uploaded.");
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
         }
     }
 
-    if root.tool == "excel_to_pdf" && root.layout == 2: InfoBox { text: "Created in Sheaf. Nothing is uploaded."; }
-    if root.office-missing && !(root.tool == "excel_to_pdf" && root.layout == 2): VerticalLayout {
+    if root.tool == "excel_to_pdf" && root.layout == 2: InfoBox { text: @tr("Created in Sheaf. Nothing is uploaded."); }
+    if root.office-missing && !(root.tool == "excel_to_pdf" && root.layout == 2) && !(root.tool == "html_to_pdf" && root.layout != 0 && root.html-screen-width > 0): VerticalLayout {
         spacing: 10px;
         InfoBox {
             icon: @image-url("../icons/triangle-alert.svg");
-            text: root.tool == "excel_to_pdf" ? "Choose Built-in data report, or install LibreOffice for the workbook’s print layout." : "Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files.";
+            text: root.tool == "excel_to_pdf" ? @tr("Choose Built-in data report, or install LibreOffice for the workbook’s print layout.") : @tr("Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files.");
         }
         Segment {
-            text: "Get LibreOffice";
+            text: @tr("Get LibreOffice");
             clicked => { root.get-libreoffice(); }
         }
     }

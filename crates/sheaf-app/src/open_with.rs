@@ -50,6 +50,9 @@ pub struct Plan {
     /// PowerPoint, Excel or HTML to PDF), in the order they came: opened in that tool, as Acrobat
     /// creates a PDF from a file it is asked to open.
     pub convert: Vec<(sheaf_core::tools::ToolId, Vec<PathBuf>)>,
+    /// Text files and pictures, shown in the reader as a preview to browse
+    /// ([`crate::file_preview`], Stirling's non-PDF viewer).
+    pub preview: Vec<PathBuf>,
     /// A toast about the files left out, shown instead of "Choose a tool".
     pub notice: Option<String>,
 }
@@ -62,6 +65,7 @@ fn name(p: &Path) -> String {
 pub fn plan(paths: Vec<PathBuf>) -> Plan {
     let mut open: Vec<PathBuf> = Vec::new();
     let mut convert: Vec<(sheaf_core::tools::ToolId, Vec<PathBuf>)> = Vec::new();
+    let mut preview: Vec<PathBuf> = Vec::new();
     let mut skipped: Vec<String> = Vec::new();
     for p in paths {
         if !p.is_file() {
@@ -70,6 +74,10 @@ pub fn plan(paths: Vec<PathBuf>) -> Plan {
             if !open.contains(&p) {
                 open.push(p);
             }
+        } else if crate::file_preview::previewable(&p) {
+            if !preview.contains(&p) {
+                preview.push(p);
+            }
         } else if let Some(tool) = to_pdf_tool(&p) {
             match convert.iter_mut().find(|(t, _)| *t == tool) {
                 Some((_, v)) if !v.contains(&p) => v.push(p),
@@ -77,15 +85,15 @@ pub fn plan(paths: Vec<PathBuf>) -> Plan {
                 None => convert.push((tool, vec![p])),
             }
         } else {
-            skipped.push(format!("Not a PDF or a document: {}", name(&p)));
+            skipped.push(format!("Not a PDF, a document, a text or a picture: {}", name(&p)));
         }
     }
     let notice = match skipped.len() {
         0 => None,
         1 => Some(skipped.remove(0)),
-        n => Some(format!("{n} files skipped: only PDFs and documents can be opened")),
+        n => Some(format!("{n} files skipped: only PDFs, documents, texts and pictures can be opened")),
     };
-    Plan { open, convert, notice }
+    Plan { open, convert, preview, notice }
 }
 
 /// The tool that makes a PDF of `p` (an image, an Office or HTML file), if one does.
@@ -241,27 +249,29 @@ mod tests {
         let b = dir.path().join("B.PDF");
         let txt = dir.path().join("notes.txt");
         let (doc, ppt, doc2, png) = (dir.path().join("r.docx"), dir.path().join("s.pptx"), dir.path().join("t.odt"), dir.path().join("u.png"));
-        for p in [&a, &b, &txt, &doc, &ppt, &doc2, &png] {
+        let (webp, zip) = (dir.path().join("v.webp"), dir.path().join("w.zip"));
+        for p in [&a, &b, &txt, &doc, &ppt, &doc2, &png, &webp, &zip] {
             std::fs::write(p, b"x").unwrap();
         }
         let gone = dir.path().join("gone.pdf");
 
-        let none = Vec::new;
-        assert_eq!(plan(vec![a.clone(), b.clone(), a.clone()]), Plan { open: vec![a.clone(), b.clone()], convert: none(), notice: None });
-        assert_eq!(plan(vec![a.clone(), txt.clone()]), Plan { open: vec![a.clone()], convert: none(), notice: Some("Not a PDF or a document: notes.txt".into()) });
-        assert_eq!(plan(vec![gone.clone()]), Plan { open: vec![], convert: none(), notice: Some("File not found: gone.pdf".into()) });
+        assert_eq!(plan(vec![a.clone(), b.clone(), a.clone()]), Plan { open: vec![a.clone(), b.clone()], ..Default::default() });
+        // A text file and a picture are previewed in the reader (Stirling's non-PDF viewer; Sol, 27/10: a .txt was refused).
+        assert_eq!(plan(vec![a.clone(), txt.clone(), png.clone(), txt.clone()]), Plan { open: vec![a.clone()], preview: vec![txt.clone(), png.clone()], ..Default::default() });
+        assert_eq!(plan(vec![zip.clone()]), Plan { notice: Some("Not a PDF, a document, a text or a picture: w.zip".into()), ..Default::default() });
+        assert_eq!(plan(vec![gone.clone()]), Plan { notice: Some("File not found: gone.pdf".into()), ..Default::default() });
         assert_eq!(
-            plan(vec![gone, txt, dir.path().to_path_buf()]),
-            Plan { open: vec![], convert: none(), notice: Some("3 files skipped: only PDFs and documents can be opened".into()) }
+            plan(vec![gone, zip, dir.path().to_path_buf()]),
+            Plan { notice: Some("3 files skipped: only PDFs, documents, texts and pictures can be opened".into()), ..Default::default() }
         );
-        // Documents go to the tool that converts them, Word files together.
+        // Documents go to the tool that converts them, Word files together; a picture PdfCraft cannot read too.
         use sheaf_core::tools::ToolId;
         assert_eq!(
-            plan(vec![doc.clone(), ppt.clone(), png.clone(), doc2.clone(), a.clone()]),
+            plan(vec![doc.clone(), ppt.clone(), webp.clone(), doc2.clone(), a.clone()]),
             Plan {
                 open: vec![a.clone()],
-                convert: vec![(ToolId::WordToPdf, vec![doc, doc2]), (ToolId::PowerPointToPdf, vec![ppt]), (ToolId::JpgToPdf, vec![png])],
-                notice: None
+                convert: vec![(ToolId::WordToPdf, vec![doc, doc2]), (ToolId::PowerPointToPdf, vec![ppt]), (ToolId::JpgToPdf, vec![webp])],
+                ..Default::default()
             }
         );
         assert_eq!(plan(vec![]), Plan::default());

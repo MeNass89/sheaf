@@ -939,8 +939,17 @@ pub fn delete_selected(ui: &AppWindow, tab_id: i32) {
         // together, one undo step (Sol, 26/10: only the one selected went).
         // Drawn signatures are ink, picture and typed ones stamps (Sol, 26/10: ink was left).
         let twins: Vec<(usize, usize)> = if a.fill_sign && matches!(a.subtype.as_str(), "Stamp" | "Ink") {
+            // Copies placed together share a group in their /NM (iLovePDF's repeated signatures: one
+            // group, however a copy was moved since; Sol, 27/10). Copies saved before groups existed
+            // are known by where the placement put them.
+            let group = sheaf_core::pdfcraft::engine::comment_group(&a.nm);
             let same = |b: &reader_doc::AnnotEntry| {
-                b.page != a.page && b.subtype == a.subtype && b.fill_sign && b.contents == a.contents && shown(b).zip(at).is_some_and(|(p, q)| viewer::same_place(p, q))
+                let size = |p: usize| v.viewer.boxes.get(p).map(|bx| bx.view_size());
+                b.page != a.page && b.subtype == a.subtype && b.fill_sign && match group {
+                    Some(g) => sheaf_core::pdfcraft::engine::comment_group(&b.nm) == Some(g),
+                    None => b.contents == a.contents
+                        && shown(b).zip(at).zip(size(b.page).zip(size(a.page))).is_some_and(|((p, q), (pb, pa))| super::sign::placed_together(q, pa, p, pb)),
+                }
             };
             r.annots().iter().filter(|b| same(b)).map(|b| (b.page, b.index)).collect()
         } else {
@@ -1079,10 +1088,19 @@ pub(super) fn paste_objects(ui: &AppWindow, tab_id: i32) -> bool {
         }
         // Paragraphs come back as text, editable (Acrobat's); the rest as one item. One undo step.
         let rest = clip.rest.iter().map(|(pdf, s)| Edit::AddArtwork { page: to, rect: moved(*s), pdf: pdf.clone() });
-        let texts = clip.texts.iter().map(|t| {
-            let mut text = t.clone();
-            text.rect = moved(t.rect);
-            Edit::AddText { page: to, text }
+        // Each in its own embedded font when it has one that writes it (PDF Expert's).
+        let one = |mut text: sheaf_core::pdfcraft::engine::AddedText, font: Option<String>| {
+            text.rect = moved(text.rect);
+            match font {
+                Some(font) => Edit::AddTextInCopiedFont { page: to, text, pdf: clip.pdf.clone(), font },
+                None => Edit::AddText { page: to, text },
+            }
+        };
+        // A paragraph mixing fonts or bold goes run by run, each in its own font (PDF Expert's
+        // formatted paste; Sol, 28/10: it became one standard font).
+        let texts = clip.texts.iter().enumerate().flat_map(|(k, t)| match clip.runs.get(k).cloned().flatten() {
+            Some(runs) => runs.into_iter().map(|(t, f)| one(t, f)).collect::<Vec<_>>(),
+            None => vec![one(t.clone(), clip.fonts.get(k).cloned().flatten())],
         });
         (to, Edit::Batch { label: "Paste objects".into(), edits: rest.chain(texts).collect() })
     });

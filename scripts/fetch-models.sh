@@ -34,7 +34,8 @@ fetch_url() {
 }
 
 fetch() {
-    fetch_url "$1.rten" "https://ocrs-models.s3-accelerate.amazonaws.com/$1.rten" "$2"
+    # ocrs' own bucket refuses downloads since 27/10/2026: our mirror (same files, checked below).
+    fetch_url "$1.rten" "https://github.com/MeNass89/sheaf/releases/download/models-1/$1.rten" "$2"
 }
 
 fetch text-detection f15cfb56bd02c4bf478a20343986504a1f01e1665c2b3a0ad66340f054b1b5ca

@@ -1,5 +1,6 @@
 // Small controls shared by the reader screen and its side panel.
 
+import { PlatformBridge } from "../platform.slint";
 import { Theme } from "../theme.slint";
 
 export component ToolButton inherits Rectangle {
@@ -147,6 +148,8 @@ export component PanelField inherits Rectangle {
         vertical-alignment: center;
     }
     input := TextInput {
+        // Tools page tools' keys wait while a field has the keyboard.
+        changed has-focus => { PlatformBridge.typing = self.has-focus; }
         x: 8px;
         width: parent.width - 16px;
         font-size: Theme.fs-label;

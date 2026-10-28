@@ -312,6 +312,8 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 discard_metadata: opts.discard_meta,
                 grayscale: opts.compress_gray,
                 unembed_standard: opts.unembed_fonts,
+                flatten_transparency: opts.flatten_transparency,
+                linearize: opts.linearize,
             },
         },
         ToolId::Protect => Job::Protect {
@@ -351,6 +353,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
                 paper: if opts.layout == 2 { sheaf_core::html::Paper::Letter } else { sheaf_core::html::Paper::A4 },
                 landscape: opts.landscape,
                 long_page: opts.html_long_page,
+                screen_width: (opts.html_screen_width > 0).then_some(opts.html_screen_width as u32),
                 margin: [0.0, 18.0, 36.0][opts.margin.clamp(0, 2) as usize],
             });
             Job::Office { items: pairs(inputs).into_iter().map(|(i, o)| (i.path, o)).collect(), html, whole_sheets: tool == ToolId::ExcelToPdf && opts.layout == 1, data_sheets: (tool == ToolId::ExcelToPdf && opts.layout == 2).then(|| opts.pages.to_string()) }
@@ -419,7 +422,7 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             };
             Job::Edit { input: one(inputs)?, items, out: single()? }
         }
-        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: if opts.pdfa_level == 1 { PdfALevel::A3b } else { PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
+        ToolId::PdfToPdfA => Job::PdfA { items: pairs(inputs), level: match opts.pdfa_level { 1 => PdfALevel::A3b, 2 => PdfALevel::A1b, 3 => PdfALevel::A2u, 4 => PdfALevel::A3u, 5 => PdfALevel::A1a, 6 => PdfALevel::A2a, 7 => PdfALevel::A3a, _ => PdfALevel::A2b }, allow_incomplete: opts.pdfa_allow_incomplete },
     })
 }
 
@@ -617,13 +620,8 @@ pub fn speak(text: &str, speed: u8, voice: Option<&str>) -> Option<std::process:
 }
 
 /// File `f` put on the clipboard as a file (Finder's, Explorer's and file managers' copy), to paste
-/// in a folder, a chat or a mail. Debug builds write its path to `SHEAF_TEST_CLIPFILE` (gui-smoke).
+/// in a folder, a chat or a mail.
 pub fn copy_file_to_clipboard(f: &std::path::Path) -> bool {
-    if cfg!(debug_assertions)
-        && let Some(log) = std::env::var_os("SHEAF_TEST_CLIPFILE")
-    {
-        return std::fs::write(log, f.to_string_lossy().as_bytes()).is_ok();
-    }
     let p = f.to_string_lossy();
     #[cfg(target_os = "macos")]
     return std::process::Command::new("osascript").args(["-e", &format!("set the clipboard to (POSIX file \"{}\")", p.replace('"', "\\\""))]).status().is_ok_and(|s| s.success());
@@ -658,7 +656,7 @@ pub fn airdrop(f: &std::path::Path) -> bool {
             "ObjC.import('AppKit'); var s = $.NSSharingService.sharingServiceNamed($.NSSharingServiceNameSendViaAirDrop); var u = $.NSURL.fileURLWithPath('{}'); s.canPerformWithItems([u]) ? (s.performWithItems([u]), 'ok') : 'no'",
             f.display().to_string().replace('\'', "\\'")
         );
-        return std::process::Command::new("osascript").args(["-l", "JavaScript", "-e", &script]).output().is_ok_and(|o| o.stdout.starts_with(b"ok"));
+        std::process::Command::new("osascript").args(["-l", "JavaScript", "-e", &script]).output().is_ok_and(|o| o.stdout.starts_with(b"ok"))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -917,7 +915,7 @@ pub fn clipboard_to_pdf(c: &ClipPages, path: &std::path::Path) -> sheaf_core::Re
 }
 
 /// A page scanned (Acrobat's Create PDF ▸ Scanner) to `to` as PNG; blocks until it is done: the
-/// Windows scan dialog (WIA), SANE's scanimage elsewhere. Debug builds copy the image
+/// Windows scan dialog (WIA), SANE's scanimage on Linux and macOS. Debug builds copy the image
 /// `SHEAF_TEST_SCAN` names instead (gui-smoke). Err: what went wrong, said to the user.
 pub fn scan_page(to: &std::path::Path) -> std::result::Result<(), String> {
     if cfg!(debug_assertions)
@@ -925,30 +923,7 @@ pub fn scan_page(to: &std::path::Path) -> std::result::Result<(), String> {
     {
         return std::fs::copy(image, to).map(|_| ()).map_err(|e| e.to_string());
     }
-    #[cfg(target_os = "macos")]
-    {
-        let _ = to;
-        Err("Scan with Image Capture, then open the file here: macOS gives other apps no scanner".into())
-    }
-    #[cfg(windows)]
-    {
-        let path = to.to_string_lossy().replace('\'', "''");
-        let script = format!(
-            "$d = New-Object -ComObject WIA.CommonDialog; $i = $d.ShowAcquireImage(1, 1, 0, '{{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}}'); \
-             if ($i) {{ $i.SaveFile('{path}'); exit 0 }}; exit 1"
-        );
-        let done = std::process::Command::new("powershell").args(["-NoProfile", "-STA", "-Command", &script]).status().is_ok_and(|s| s.success());
-        if done && to.is_file() { Ok(()) } else { Err("No page was scanned".into()) }
-    }
-    #[cfg(not(any(target_os = "macos", windows)))]
-    {
-        let out = std::process::Command::new("scanimage").args(["--format=png", "--resolution", "300", "-o"]).arg(to).output();
-        match out {
-            Ok(o) if o.status.success() && to.is_file() => Ok(()),
-            Ok(o) => Err(String::from_utf8_lossy(&o.stderr).lines().last().unwrap_or("No scanner was found").trim().to_string()),
-            Err(_) => Err("No scanner software: install SANE (sane-utils)".into()),
-        }
-    }
+    sheaf_core::scanner::scan_to_png(to).map_err(|e| e.to_string())
 }
 
 /// Preferences ▸ Open PDFs with Sheaf by default: Sheaf made the system's PDF handler (macOS's
@@ -968,6 +943,16 @@ pub fn make_default_pdf_app() -> String {
         "osascript",
         &["-l", "JavaScript", "-e", "ObjC.import('CoreServices'); $.LSSetDefaultRoleHandlerForContentType($('com.adobe.pdf'), $.kLSRolesAll, $('app.sheaf.Sheaf')) === 0"],
     );
+    // The tools as Finder's Quick Actions (right-click ▸ Quick Actions, and Services), as
+    // iLovePDF's context menu: one Automator bundle per tool, then the Services list refreshed.
+    #[cfg(target_os = "macos")]
+    {
+        if let (Some(home), Ok(exe)) = (dirs::home_dir(), std::env::current_exe())
+            && sheaf_app::quick_actions::install(&home.join("Library/Services"), &exe).is_ok()
+        {
+            let _ = ran("/System/Library/CoreServices/pbs", &["-update"]);
+        }
+    }
     // Windows asks the user itself; Sheaf is first registered for this user as an app that opens
     // PDFs (its ProgID and .pdf's Open with list), so it is there to pick even from the portable
     // folder (Sol, 26/10: Default apps did not list it).
@@ -1012,7 +997,8 @@ pub fn make_default_pdf_app() -> String {
 }
 
 /// Sheaf's desktop entry, `exec` its program: opens PDFs, its tools as the file manager's actions
-/// (the context menu's Compress with Sheaf…).
+/// (the context menu's Compress with Sheaf…). Linux and other freedesktop systems only.
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn desktop_entry(exec: &str) -> String {
     use sheaf_app::open_with::MENU_TOOLS;
     let mut t = format!(
@@ -1261,6 +1247,15 @@ mod tests {
         let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
         assert_eq!(level, PdfALevel::A3b);
         assert!(!allow_incomplete);
+        o.pdfa_level = 2;
+        let Job::PdfA { level, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+        assert_eq!(level, PdfALevel::A1b);
+        for (index, expected) in [(3, PdfALevel::A2u), (4, PdfALevel::A3u), (5, PdfALevel::A1a), (6, PdfALevel::A2a), (7, PdfALevel::A3a)] {
+            o.pdfa_level = index;
+            let Job::PdfA { level, allow_incomplete, .. } = build_job(ToolId::PdfToPdfA, vec![Input::new("/a/x.pdf")], vec![], &o, Dest::File("/s/p.pdf".into())).unwrap() else { panic!() };
+            assert_eq!(level, expected);
+            assert!(!allow_incomplete);
+        }
     }
 
     #[test]
@@ -1364,7 +1359,12 @@ mod tests {
         let input = || vec![Input::new("/a/page.html")];
         let job = build_job(ToolId::HtmlToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
         let Job::Office { html, .. } = job else { panic!("an HTML conversion job") };
-        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0, long_page: true }));
+        assert_eq!(html, Some(sheaf_core::html::Options { paper: sheaf_core::html::Paper::Letter, landscape: true, margin: 18.0, long_page: true, screen_width: None }));
+        o.html_screen_width = 1280;
+        let Job::Office { html: Some(html), .. } = build_job(ToolId::HtmlToPdf, vec![Input::new("/a/page.html")], vec![], &o, Dest::File("/s/screen.pdf".into())).unwrap() else { panic!("screen HTML job") };
+        assert_eq!(html.screen_width, Some(1280));
+        assert!(html.long_page);
+        o.html_screen_width = 0;
         let job = build_job(ToolId::WordToPdf, input(), vec![], &o, Dest::NextToEach).unwrap();
         assert!(matches!(job, Job::Office { html: None, .. }));
         o.layout = 0;

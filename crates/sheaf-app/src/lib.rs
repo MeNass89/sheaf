@@ -1,19 +1,27 @@
 //! Sheaf desktop app: the Slint UI, the job runner and file helpers.
 
-slint::include_modules!();
+pub use sheaf_ui::*;
 
 mod action_import;
 pub mod actions;
+pub mod ai_store;
+pub mod action_settings;
 pub mod library;
 pub mod javascript_console;
 pub mod watch_folder;
+pub mod display_color;
 pub mod files;
+pub mod file_preview;
 pub mod history;
 pub mod icons;
 pub mod jobs;
 pub mod open_with;
 pub mod platform;
+pub mod settings;
+pub mod i18n;
+pub mod feedback;
 pub mod pool;
+pub mod quick_actions;
 pub mod prefs;
 pub mod print;
 pub mod reader;

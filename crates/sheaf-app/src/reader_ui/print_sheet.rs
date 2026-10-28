@@ -71,7 +71,7 @@ pub fn print(ui: &AppWindow, tab_id: i32, printer: i32, copies: i32, pages: i32,
         if booklet && pages.is_some() {
             return Err("A booklet prints every page: choose All".to_string());
         }
-        let job = sheaf_app::print::Job { printer, copies: copies.clamp(1, 999) as u32, pages, fit, two_sided, media, orientation: orientation.clamp(0, 2) as u8, per_sheet, booklet, gray };
+        let job = sheaf_app::print::Job { printer, copies: copies.clamp(1, 999) as u32, pages, fit, two_sided, media, orientation: orientation.clamp(0, 2) as u8, per_sheet, booklet, gray, quality: crate::home::prefs().settings.print.clamped().quality };
         let title = r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Document".into());
         Ok((job, title, r.snap.bytes.clone(), r.snap.password.clone()))
     }) else {
