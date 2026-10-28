@@ -1079,17 +1079,30 @@ check "343 flattener preview compares original and converted page ($PF; $FP; $FO
 key Escape; quit
 # 350. Stirling Folder Scanning's outputFileName survives import, and Export Stirling retains
 # it in a portable file. Inspection checks both the saved action and the exported pipeline.
+# First-launch rendering can outlast launch()'s initial draw. Wait for the actual Actions
+# header before using its controls; repeating the navigation click is safe and idempotent.
+batch_actions() {
+    local point
+    for _ in $(seq 1 20); do
+        point=$(at Import 140x60+220+180)
+        [ -n "$point" ] && return 0
+        point=$(at Actions 190x80+0+200)
+        [ -n "$point" ] && click $point 0.5
+        sleep 0.3
+    done
+    return 1
+}
 python3 - "$OUT/350-pipeline.json" <<'PY350'
 import json, sys
 json.dump({"name":"Naming review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
            "outputDir":"{outputFolder}", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
 PY350
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/350-pipeline.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM 1
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM 1
 answer "$PWD/$OUT/350-export.json"
-EX=$(at Export 400x60+850+170); [ -n "$EX" ] && click $EX 1
+EX=$(at Export 200x50+1080+230); [ -n "$EX" ] && click $EX 1
 shot 350-stirling-naming
 check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
 quit
