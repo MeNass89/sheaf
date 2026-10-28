@@ -65,10 +65,10 @@ pub fn parse_po(po: &str) -> HashMap<String, String> {
     let mut map = HashMap::new();
     let (mut id, mut text, mut field): (Option<String>, Option<String>, u8) = (None, None, 0);
     let mut flush = |id: &mut Option<String>, text: &mut Option<String>| {
-        if let (Some(i), Some(t)) = (id.take(), text.take()) {
-            if !i.is_empty() {
-                map.insert(i, t);
-            }
+        if let (Some(i), Some(t)) = (id.take(), text.take())
+            && !i.is_empty()
+        {
+            map.insert(i, t);
         }
     };
     for line in po.lines().map(str::trim) {
