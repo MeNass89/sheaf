@@ -50,3 +50,9 @@ jobs:
       - run: sh scripts/package-windows.sh
       - name: Smoke test
         run: sh scripts/smoke.sh target/Sheaf-*-windows-x64/sheaf-cli.exe
+      # The portable zip kept a week, to try a branch on Windows before a release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sheaf-windows-x64
+          path: target/Sheaf-*-windows-x64.zip
+          retention-days: 7
