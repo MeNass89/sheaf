@@ -44,10 +44,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 8,
+   "aesthetics": 8,
+   "performance": 9,
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -74,6 +74,17 @@
      "overall": 7
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: AI panel, provider name, privacy note, chips; round 30 GUI step 360 failing"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 9,
+     "overall": 8
+    },
+    "proof": "Sol rev31ai 27/10: Opening the assistant overlays up to 380 px of the PDF instead of reserving a pane beside it; the page layout reserves width only for OCR review. Smoke 360 checks panel text, not whether the PDF remains visible, crates/sheaf-app/ui/screens/reader.slint:379, crates/sheaf-app/ui/screens/reader.slint:1327."
    }
   ]
  },
@@ -117,9 +128,9 @@
   "ours": [],
   "grade": {
    "function": 8,
-   "aesthetics": 7,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -146,6 +157,17 @@
      "overall": 7
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: ask document/pages/selection with follow-ups (sheaf-core tests/ai.rs, CLI ask test)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev31ai 27/10: Unlike Acrobat's source inspection, cited pages cannot be opened from an answer: replies are plain Text without citation actions. The long-document test supplies its own cited answer, proving transport rather than grounded, navigable references, crates/sheaf-app/ui/screens/ai-panel.slint:195, crates/sheaf-core/tests/ai.rs:171."
    }
   ]
  },
@@ -210,9 +232,9 @@
   "ours": [],
   "grade": {
    "function": 8,
-   "aesthetics": 7,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -239,6 +261,17 @@
      "overall": 7
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: summarize + main points (step 361 PASS)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev31ai 27/10: PDF Expert can highlight the main points in the PDF; Sheaf only asks for a bullet list and displays it, without creating highlights. The named test accepts the literal mock answer \"Done.\" and smoke 361 only finds \"Mockpoint\", crates/sheaf-core/src/ai/tasks.rs:194, crates/sheaf-core/tests/ai.rs:212."
    }
   ]
  },
@@ -285,9 +318,9 @@
   "ours": [],
   "grade": {
    "function": 8,
-   "aesthetics": 7,
+   "aesthetics": 8,
    "performance": 8,
-   "overall": 7
+   "overall": 8
   },
   "status": "open",
   "feature": null,
@@ -314,6 +347,17 @@
      "overall": 7
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: translate selection or PDF (step 361 PASS); PDF output Western scripts only"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev31ai 27/10: An Arabic translation saved as PDF can change a decimal's displayed value: the RTL ordering splits Latin/number runs at punctuation, so 12.50 becomes 50.12. The searchable-PDF test covers Cyrillic, Greek and Japanese extraction, not RTL layout, crates/sheaf-core/src/ai/unicode_pdf.rs:224, crates/sheaf-core/tests/ai.rs:431."
    }
   ]
  },
@@ -349,9 +393,9 @@
   "ours": [],
   "grade": {
    "function": 7,
-   "aesthetics": 6,
+   "aesthetics": 7,
    "performance": 8,
-   "overall": 6
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -378,6 +422,17 @@
      "overall": 6
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: podcast script and slides PDF/PPTX (a_deck_is_written_as_pdf_and_powerpoint); no audio"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 7,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Sol rev31ai 27/10: Japanese, Arabic and other non-Western slide text becomes \"?\" before both PDF and PowerPoint export. The unit test explicitly expects that corruption; the named deck test checks a Western example and PPTX ZIP entries, not intact multilingual slides. Audio generation now exists, crates/sheaf-core/src/ai/deck.rs:49, crates/sheaf-core/src/ai/deck.rs:182."
    }
   ]
  },
@@ -410,10 +465,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
-   "aesthetics": 6,
-   "performance": 7,
-   "overall": 6
+   "function": 7,
+   "aesthetics": 7,
+   "performance": 8,
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -440,6 +495,17 @@
      "overall": 6
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: AI spaces (spaces_are_saved_and_named_once); no GUI proof"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 7,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Sol rev31ai 27/10: Acrobat's shared PDF Spaces support recipients and collaboration; Sheaf stores only a local name and absolute file paths, with no sharing or portable space. The save/name/source/drop tests establish local grouping, not a shared project, crates/sheaf-core/src/ai/spaces.rs:11, crates/sheaf-app/src/ai_ui.rs:672."
    }
   ]
  },
@@ -468,9 +534,9 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 6,
-   "performance": 7,
+   "function": 6,
+   "aesthetics": 7,
+   "performance": 8,
    "overall": 6
   },
   "status": "open",
@@ -498,6 +564,17 @@
      "overall": 6
     },
     "proof": "Author grade, not cross-reviewed (round 30, 27/10): Opus ai: classify into given categories (documents_are_classified_into_the_categories_given)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 6,
+     "aesthetics": 7,
+     "performance": 8,
+     "overall": 6
+    },
+    "proof": "Sol rev31ai 27/10: Stirling persists classification labels in PDF metadata and groups files by them; Sheaf returns only a transient chat sentence listing filenames. Reopening the files loses their classification, and the named tests only assert returned category strings, crates/sheaf-app/src/ai_ui.rs:462, crates/sheaf-core/tests/ai.rs:245."
    }
   ]
  },

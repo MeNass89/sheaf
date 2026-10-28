@@ -50,20 +50,20 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 41 | C-reader-003 | light | Horizontal page scrolling | pdfexpert | 0 · 0 · 0 → **0** | scroll-direction option in the view menu |
 | 42 | C-reader-060 | light | Check spelling | preview | 0 · 0 · 0 → **0** | after core |
 | 43 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 44 | C-ai-005 | light | Generate podcast or presentation | acrobat | 7 · 6 · 8 → **6** | light |
-| 45 | C-ai-006 | light | Group documents in AI spaces | acrobat | 6 · 6 · 7 → **6** | light |
-| 46 | C-ai-007 | light | Classify documents with AI | stirling | 7 · 6 · 7 → **6** | light |
-| 47 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
-| 48 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
-| 49 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
-| 50 | C-ai-001 | light | Open the AI assistant | pdfexpert | 7 · 7 · 8 → **7** | MCP server covers agent access |
-| 51 | C-ai-002 | light | Ask AI about the document | acrobat | 8 · 7 · 8 → **7** | light |
-| 52 | C-ai-003 | light | Summarize with AI | pdfexpert | 8 · 7 · 8 → **7** | light |
-| 53 | C-ai-004 | light | Translate with AI | pdfexpert | 8 · 7 · 8 → **7** | light |
-| 54 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 55 | C-platform-007 | light | OS automation of PDF actions | preview | 7 · 7 · 9 → **7** | CLI and MCP cover scripting |
-| 56 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 57 | C-sign-013 | light | Manage digital IDs | acrobat | 7 · 8 · 9 → **7** | light |
+| 44 | C-ai-007 | light | Classify documents with AI | stirling | 6 · 7 · 8 → **6** | light |
+| 45 | C-convert-020 | light | Choose online or offline conversion | ilovepdf | 6 · 9 · 9 → **6** | — |
+| 46 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
+| 47 | C-platform-002 | light | Onboarding and help guides | ilovepdf | 6 · 9 · 9 → **6** | light |
+| 48 | C-ai-005 | light | Generate podcast or presentation | acrobat | 7 · 7 · 8 → **7** | light |
+| 49 | C-ai-006 | light | Group documents in AI spaces | acrobat | 7 · 7 · 8 → **7** | light |
+| 50 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 51 | C-platform-007 | light | OS automation of PDF actions | preview | 7 · 7 · 9 → **7** | CLI and MCP cover scripting |
+| 52 | C-preferences-012 | light | Startup, updates and network | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 53 | C-sign-013 | light | Manage digital IDs | acrobat | 7 · 8 · 9 → **7** | light |
+| 54 | C-ai-001 | light | Open the AI assistant | pdfexpert | 8 · 8 · 9 → **8** | MCP server covers agent access |
+| 55 | C-ai-002 | light | Ask AI about the document | acrobat | 8 · 8 · 8 → **8** | light |
+| 56 | C-ai-003 | light | Summarize with AI | pdfexpert | 8 · 8 · 8 → **8** | light |
+| 57 | C-ai-004 | light | Translate with AI | pdfexpert | 8 · 8 · 8 → **8** | light |
 | 58 | C-convert-007 | light | Convert other formats to PDF | stirling | 8 · 8 · 9 → **8** | light |
 | 59 | C-edit-009 | light | Align and arrange objects | acrobat | 8 · 9 · 9 → **8** | after core |
 | 60 | C-edit-028 | light | Adjust or invert colours | stirling | 8 · 9 · 9 → **8** | light |
@@ -71,7 +71,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
-| ai | 7 | 6.6 | 0 |
+| ai | 7 | 7.4 | 0 |
 | annotate | 38 | 8.7 | 35 |
 | batch | 9 | 3.0 | 3 |
 | compare | 7 | 9.0 | 7 |
