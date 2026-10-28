@@ -18,11 +18,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif "Translate into" in q:
             a = "Le renard brun rapide (p. 1)"
         elif "main points" in q:
-            a = "- Mockpoint the brown fox (p. 1)"
+            a = "- Mockpoint the brown fox (p. 2) | \"Page 2 the quick brown fox\""
         elif "categor" in q:
             a = "Animals"
         else:
-            a = "Mockanswer the fox jumps (p. 1)"
+            a = "Mockanswer the fox jumps (p. 3)"
         if "Rate me" in q:
             out = b'{"error": {"message": "Rate limit reached"}}'
             self.send_response(429)

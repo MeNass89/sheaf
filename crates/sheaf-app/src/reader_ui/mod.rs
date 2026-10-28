@@ -1366,7 +1366,7 @@ pub(crate) mod javascript;
 mod layers;
 mod look_up;
 mod ai_doc;
-pub use ai_doc::{ai_doc, ai_page_texts};
+pub use ai_doc::{ai_doc, ai_goto, ai_highlight, ai_page_texts};
 mod folder_search;
 mod pages;
 mod tools;

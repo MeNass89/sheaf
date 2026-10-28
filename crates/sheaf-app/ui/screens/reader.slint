@@ -376,7 +376,9 @@ export component ReaderScreen inherits Rectangle {
         // A flexbox so that right to left (Preferences ▸ Interface ▸ Direction) puts the side panel
         // on the right of the pages (Slint's rows have no direction of their own).
         FlexboxLayout {
-            padding-right: root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
+            // The AI panel, like OCR review, gets its own pane beside the pages (PDF Expert's
+            // Copilot never covers the document).
+            padding-right: AiBridge.open && AiBridge.tab == root.tab.id ? min(380px, root.width - 24px) : root.tab.reader.ocr-review-open ? min(360px, root.width - 24px) : 0px;
             vertical-stretch: 1;
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;

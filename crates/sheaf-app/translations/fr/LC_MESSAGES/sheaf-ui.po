@@ -12,7 +12,7 @@ msgstr ""
 msgid "Recents"
 msgstr "Récents"
 
-#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/tools.slint
+#: ui/main.slint ui/screens/ai-panel.slint ui/screens/reader-sheets.slint ui/screens/tools.slint
 msgid "Tools"
 msgstr "Outils"
 
@@ -716,6 +716,10 @@ msgstr "Abandonner les modifications"
 msgid "AI Assistant"
 msgstr "Assistant IA"
 
+#: ui/screens/ai-panel.slint
+msgid "Hide tools"
+msgstr "Masquer les outils"
+
 #: ui/screens/ai-panel.slint ui/screens/history.slint ui/screens/reader-form.slint ui/screens/reader-options.slint ui/screens/reader-sheets.slint ui/screens/sign-panel.slint
 msgid "Clear"
 msgstr "Effacer"
@@ -751,6 +755,14 @@ msgstr "Ajouter des PDF…"
 #: ui/screens/ai-panel.slint
 msgid "Delete space"
 msgstr "Supprimer l’espace"
+
+#: ui/screens/ai-panel.slint
+msgid "Export space…"
+msgstr "Exporter l’espace…"
+
+#: ui/screens/ai-panel.slint
+msgid "Import space…"
+msgstr "Importer un espace…"
 
 #: ui/screens/ai-panel.slint ui/widgets/file-card.slint
 msgid "e.g. 1-3, 5"
@@ -823,6 +835,10 @@ msgstr "IA"
 #: ui/screens/ai-panel.slint
 msgid "Save…"
 msgstr "Enregistrer…"
+
+#: ui/screens/ai-panel.slint
+msgid "Highlight in PDF"
+msgstr "Surligner dans le PDF"
 
 #: ui/screens/ai-panel.slint
 msgid "Ask about the space's PDFs"

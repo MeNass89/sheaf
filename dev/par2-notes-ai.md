@@ -70,6 +70,31 @@ map-reduce, ask, summarize, translate, podcast, slides, classify; `deck.rs` slid
   ToUnicode (searchable, copyable); Arabic and Thai shaped with PdfCraft's shaper, Arabic and Hebrew
   lines right to left (`a_translation_in_any_script_is_saved_as_a_searchable_pdf`, smoke 367).
 
+## Round 33 (Sol's review of round 31, /tmp/f5/v2/rev31ai.txt)
+
+- C-ai-001: the panel has its own pane: the pages are laid out beside it, never under it (PDF
+  Expert's Copilot); its tools fold once a message arrives (Tools unfolds them), so the
+  conversation has the room (smoke 368: the page's last word shows left of the panel).
+- C-ai-002: each page an answer cites is a button that shows it ("p. 3"; in a space,
+  "report.pdf · p. 3" opens that file there), Acrobat's citations (`cited_pages_are_found_in_an_answer`,
+  smoke 368).
+- C-ai-003: Main points come with the sentence that states each one; Highlight in PDF puts a real
+  highlight annotation on each sentence, the point as its note, one Undo for all; PDF Expert's
+  highlight main points (`main_points_carry_their_page_and_sentence`, smoke 369).
+- C-ai-004: a right-to-left line keeps numbers and Latin runs in reading order, the point of 12.50
+  and the colon of 10:30 inside them (`numbers_in_a_right_to_left_line_keep_their_order`,
+  `a_number_in_an_arabic_line_keeps_its_value`).
+- C-ai-005: decks in any script: slide text Helvetica cannot draw is set in an embedded font, in the
+  PDF and so in the PowerPoint made from it (`a_deck_in_any_script_keeps_its_text_in_pdf_and_powerpoint`).
+- C-ai-006: Export space… writes a `.sheafspace` file with paths relative to it; Import space… reads it
+  back wherever the folder went (`a_shared_space_moves_with_its_folder`, smoke 370). Acrobat's shared
+  spaces with recipients and comments need an online service: out of scope for a local app.
+- C-ai-007: Classify writes each PDF's category in the PDF itself (`/Category` and its Keywords, as an
+  incremental update, so signatures stay valid); the space lists its files grouped by category, with
+  a filter (`a_category_is_kept_in_the_pdf_itself`, smoke 363 reads them back with `pdfinfo -custom`).
+- Smoke: step 336's restore line (convert batch) had landed after step 367 in a merge, breaking a run
+  of the AI steps alone ("AF: unbound variable"); moved back to the end of 336.
+
 ## Left, and why
 
 - Right-to-left layout is per line (no full Unicode bidi algorithm for mixed nested runs); Arabic

@@ -940,10 +940,13 @@ quit; ai_stop
 ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
 ai_open; N1=$(ai_requests)
 P1=$(ai_chip "Main points"); ai_wait Mockpoint
+T2M=$(ai_text)
+# The tools fold once the conversation starts: Tools in the panel's header unfolds them.
+read TX TY <<< "$(at Tools 380x60+900+90)"; [ -n "$TY" ] && click $TX $TY 0.6
 P2=$(ai_chip Translate); ai_wait renard; T3=$(ai_text); shot ai-361
 RQ=$(tail -2 "$OUT/ai-requests.jsonl" 2>/dev/null | tr -d "'")
 check "Main points and Translate ask the provider and show the answers (chips $P1 / $P2; requests $N1 → $(ai_requests); $(echo "$T3" | grep -o 'Mockpoint\|renard' | tr '\n' ' '))" \
-    "echo \"$T3\" | grep -q Mockpoint && echo \"$T3\" | grep -q renard && echo '$RQ' | grep -q 'main points' && echo '$RQ' | grep -q 'Translate into English'"
+    "echo \"$T2M\" | grep -q Mockpoint && echo \"$T3\" | grep -q renard && echo '$RQ' | grep -q 'main points' && echo '$RQ' | grep -q 'Translate into English'"
 quit; ai_stop
 
 # 362. Slides (C-ai-005, Acrobat's Generate presentation): Slides (PDF) asks for an outline, saves it as a deck
@@ -966,8 +969,12 @@ ai_open; NS=$(ai_chip New); sleep 0.8; A1=$(ai_chip Add); sleep 1; shot ai-363a
 CF=$(at Categories 380x700+900+100); read CX CY <<< "$CF"; [ -n "$CY" ] && click $CX $CY 0.4; xdotool type --delay 15 "Animals, Invoices"
 N2=$(ai_requests); C1=$(ai_chip Classify); ai_wait 'Animals:'; T4=$(ai_text); shot ai-363
 SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(s[0]["name"], len(s[0]["files"]))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
-check "a space holds two PDFs and Classify sorts them (new $NS, add $A1, classify $C1; requests $N2 → $(ai_requests); space: $SP; $(echo "$T4" | grep -o 'Animals: [a-z.,-]*' | head -1))" \
-    "[ \"$SP\" = 'Space 2' ] && [ \$(( \$(ai_requests) - $N2 )) = 2 ] && echo \"$T4\" | grep -q 'Animals: ai'"
+# Stirling keeps the class in each PDF: both files carry Category Animals (pdfinfo's custom metadata), and the
+# space lists them with it.
+sleep 1.5; T4B=$(ai_text)
+L1=$(pdfinfo -custom "$OUT/ai.pdf" 2>/dev/null | awk -F': *' '/^Category/ { print $2 }'); L2=$(pdfinfo -custom "$OUT/ai-two.pdf" 2>/dev/null | awk -F': *' '/^Category/ { print $2 }')
+check "a space holds two PDFs and Classify sorts them, the class kept in each PDF (new $NS, add $A1, classify $C1; requests $N2 → $(ai_requests); space: $SP; $(echo "$T4" | grep -o 'Animals: [a-z.,-]*' | head -1); labels '$L1' '$L2'; list: $(echo "$T4B" | grep -o 'ai.pdf . Animals' | head -1))" \
+    "[ \"$SP\" = 'Space 2' ] && [ \$(( \$(ai_requests) - $N2 )) = 2 ] && echo \"$T4\" | grep -q 'Animals: ai' && [ \"$L1\" = Animals ] && [ \"$L2\" = Animals ] && echo \"$T4B\" | grep -q 'pdf . Animals'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
 # 300. Right to left on Home's Tools page and the reader's print sheet (C-platform-004, iLovePDF's right-to-left
 # interface): the Tools page's title row reads from the right (the search field left of Custom tools), and the print sheet's
@@ -1436,6 +1443,7 @@ click 1140 755 0.5
 shot 336-pdfa-strict-result; AR=$(ocr 1280x800+0+0)
 check "336 strict PDF/A-2a refuses untagged content without saving a false archive" "[ -n \"$KC\" ] && echo \"\$STRICT\" | grep -qi 'PDF/A-2a' && echo \"\$STRICT\" | grep -qi 'no output' && [ ! -e $OUT/untagged-archive-pdfa.pdf ] && [ \"\$(npages $OUT/untagged-archive.pdf 2>/dev/null)\" = 1 ] && echo \"\$AR\" | grep -qi 'did not pass'"
 quit
+if [ -f "$OUT/pdfa-actions-before.json" ]; then mv "$OUT/pdfa-actions-before.json" "$AF"; else rm -f "$AF"; fi
 
 # 305. Right to left on tick boxes (C-platform-004; iLovePDF's mirrored interface): in Report an Issue, the ticked
 # box of "Include this computer's details" sits right of its label, left of it left to right.
@@ -1510,7 +1518,6 @@ for _ in $(seq 1 20); do [ -s "$OUT/ai-ja.pdf" ] && break; sleep 0.5; done; shot
 JT=$(pdftotext "$OUT/ai-ja.pdf" - 2>/dev/null | tr -d '\n')
 check "a Japanese translation is saved as a searchable PDF (translate $TR, save ${SY:-none}; text: $JT)" "echo \"$JT\" | grep -q '東京の素早い'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
-if [ -f "$OUT/pdfa-actions-before.json" ]; then mv "$OUT/pdfa-actions-before.json" "$AF"; else rm -f "$AF"; fi
 
 # 306. Preferences ▸ Interface ▸ Language (C-preferences-003, iLovePDF's Language): French chosen, Home reads
 # Outils and Préférences in its sidebar and the Tools page Fusionner des PDF (a name made in Rust); Language ▸
@@ -1526,3 +1533,35 @@ SB2=$(ocr 250x300+0+40); shot 306b-english
 LG=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["platform"]["language"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "the interface switches to French and back (sidebar: $(echo $SB | cut -c1-60); Tools page: $(echo "$TP" | grep -o 'Fusionner[^ ]*' | head -1); then $(echo $SB2 | cut -c1-50); language $LG)" "echo \"$SB\" | grep -q 'Outils' && echo \"$SB\" | grep -q 'Préférences' && echo \"$TP\" | grep -q 'Fusionner' && echo \"$SB2\" | grep -q 'Tools' && echo \"$SB2\" | grep -q 'Preferences' && [ \"$LG\" = 1 ]"
 quit; platform_reset
+
+# 368. The AI panel has its own pane (C-ai-001; PDF Expert's Copilot never covers the page): with it open, the
+# page's last word "fox" shows left of the panel. An answer's cited page (C-ai-002, Acrobat's citations) is a button:
+# p. 3 shows page 3 (its text "Page 3" at the top of the pages).
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; sleep 1; read FX _ <<< "$(at fox 650x700+250+90)"
+click 1040 768 0.4; xdotool type --delay 15 "Who jumps?"; key Return; ai_wait Mockanswer; sleep 0.5
+# The cite button sits above the answer's Copy and Save… row, at its left.
+read _ PY <<< "$(ai_last Copy)"; [ -n "$PY" ] && click 946 $(( PY - 36 )) 1.2; shot ai-368
+PF=$(ocr 600x80+260+140 | grep -o 'Page [0-9]' | head -1)
+check "the AI pane leaves the page whole and a cited page opens (fox at x ${FX:-none}; cite ${PY:-none}; shown: $PF)" "[ -n \"$FX\" ] && [ \"$FX\" -lt 900 ] && [ \"$PF\" = 'Page 3' ]"
+quit; ai_stop
+
+# 369. Highlight main points (C-ai-003, PDF Expert's): Main points, then Highlight in PDF: the point's sentence ("Page 2
+# the quick brown fox") gets a real highlight annotation on page 2, the point as its note; saved with ⌘S.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; launch "$OUT/ai.pdf"; sleep 1
+ai_open; ai_chip "Main points" >/dev/null; ai_wait Mockpoint; sleep 0.5
+read HX HY <<< "$(ai_last Highlight)"; [ -n "$HY" ] && click $HX $HY 1; key Escape; key ctrl+s; sleep 1.5; shot ai-369
+HL="$(qpdf --qdf --object-streams=disable "$OUT/ai.pdf" - 2>/dev/null | grep -ac '/Subtype /Highlight') $(qpdf --qdf --object-streams=disable "$OUT/ai.pdf" - 2>/dev/null | python3 -c 'import re, sys; t = sys.stdin.buffer.read().decode("latin-1"); print(",".join(n for n, body in re.findall(r"%% Page (\d+)\n(.*?)(?=%% Contents|%% Page|\Z)", t, re.S) if "/Annots" in body))') $(qpdf --qdf --object-streams=disable "$OUT/ai.pdf" - 2>/dev/null | grep -aq Mockpoint && echo True)"
+check "Highlight in PDF adds a highlight on the point's sentence, the point as its note (highlights, pages, note: $HL)" "[ \"$HL\" = '1 2 True' ]"
+quit; ai_stop
+
+# 370. A space shared as a file (C-ai-006, Acrobat's shared spaces): Export space… writes $OUT/share/ai.sheafspace with
+# the PDF's path relative to it (../ai.pdf); the space deleted, Import space… brings it back with that PDF.
+ai_mock seen; cp "$OUT/text.pdf" "$OUT/ai.pdf"; mkdir -p "$OUT/share"; rm -f "$OUT/share/"*; echo "$PWD/$OUT/share/ai.sheafspace" > "$OUT/dialog-answer"
+launch "$OUT/ai.pdf"; sleep 1
+ai_open; NS=$(ai_chip New); sleep 0.8; EX=$(ai_chip Export); sleep 1
+REL=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["files"])' "$OUT/share/ai.sheafspace" 2>/dev/null)
+DL=$(ai_chip Delete); sleep 0.8; IM=$(ai_chip Import); sleep 1.2; T7=$(ai_text); shot ai-370
+SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(len(s), s[-1]["files"][-1].endswith("/ai.pdf"))' "$PWD/$OUT/profile/data/Sheaf/ai-spaces.json" 2>/dev/null)
+check "a space exported with relative paths is imported back (new $NS, export $EX, delete $DL, import $IM; file lists $REL; spaces $SP; $(echo "$T7" | grep -o 'Space: Space ([0-9] PDF)' | head -1))" "[ \"$REL\" = \"['../ai.pdf']\" ] && [ \"$SP\" = '1 True' ] && echo \"$T7\" | grep -q 'Space: Space (1 PDF)'"
+quit; rm -f "$OUT/dialog-answer"; ai_stop
