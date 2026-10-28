@@ -514,6 +514,9 @@ fn image_bytes(i: &Image) -> usize {
 pub fn redraw_all(ui: &AppWindow) {
     for id in with(|a| a.tabs.iter().filter(|t| t.viewer.is_some()).map(|t| t.id).collect::<Vec<_>>()) {
         update(id, |v| v.all_changed());
+        with(|a| {
+            if let Some(t) = a.tab(id) && let Some(split) = &mut t.split { split.view.all_changed(); }
+        });
         request(ui, id);
     }
 }
@@ -537,7 +540,7 @@ fn request_for(ui: &AppWindow, tab_id: i32, pane: bool) {
             keys.extend(v.wanted_thumbs().map(|p| v.thumb_key(p)).filter(|k| !v.thumbs.contains(k)));
         }
         let rough = crate::home::rough();
-        let look = viewer::PageLook { theme: v.theme, comments: !v.hide_comments, turn: v.viewer.turn(), smooth: [0, 1, 2].map(|k| rough & (1 << k) == 0), grid: crate::home::transparency_grid() };
+        let look = viewer::PageLook { theme: v.theme, comments: !v.hide_comments, turn: v.viewer.turn(), smooth: [0, 1, 2].map(|k| rough & (1 << k) == 0), grid: crate::home::transparency_grid(), display: crate::home::display_transform() };
         Some((v.load_id, keys, v.input.clone(), v.source.clone(), look))
     });
     let Some((load_id, keys, input, source, look)) = todo else { return };
@@ -545,13 +548,14 @@ fn request_for(ui: &AppWindow, tab_id: i32, pane: bool) {
     let q = viewer::renders();
     q.retain(|k| k.doc != load_id || wanted.contains(k));
     for key in keys {
-        let (weak, input, source) = (ui.as_weak(), input.clone(), source.clone());
+        let (weak, input, source, look) = (ui.as_weak(), input.clone(), source.clone(), look.clone());
         q.submit(key, move || {
             let px = match &source {
                 Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, look),
-                None => viewer::render_page(&input, key.page, key.width).map(|mut px| {
+                None => viewer::render_page(&input, key.page, key.width).and_then(|mut px| {
                     sheaf_app::reader::tint(px.make_mut_bytes(), look.theme);
-                    px
+                    if let Some(display) = &look.display { display.apply(px.make_mut_bytes())?; }
+                    Ok(px)
                 }),
             };
             let Ok(px) = px else { return };

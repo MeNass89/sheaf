@@ -311,9 +311,28 @@ fn push(ui: &AppWindow) {
     g.set_hide_unavailable(p.hide_unavailable_tools);
     g.set_direction(i32::from(p.direction));
     g.set_rtl(platform::right_to_left(&p, sys_locale::get_locale().as_deref()));
+    g.set_language(i32::from(p.language));
+    set_language(ui, p.language);
     push_keys(ui);
     push_rows(ui);
 }
+
+/// The interface in the language chosen (Preferences ▸ Interface ▸ Language): the Slint texts
+/// (bundled catalogues) and the ones made in Rust (`sheaf_app::i18n::tr`), which are pushed again.
+fn set_language(ui: &AppWindow, pref: u8) {
+    let lang = sheaf_app::i18n::language_for(pref, sys_locale::get_locale().as_deref());
+    if sheaf_app::i18n::current() == lang && LANGUAGE_SET.load(Ordering::Relaxed) {
+        return;
+    }
+    LANGUAGE_SET.store(true, Ordering::Relaxed);
+    sheaf_app::i18n::set(lang);
+    if let Err(e) = slint::select_bundled_translation(lang) {
+        eprintln!("sheaf: interface language {lang:?}: {e:?}");
+    }
+    crate::home::language_changed(ui);
+}
+
+static LANGUAGE_SET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// The dictionary read in the background as the window starts, so the first check is quick and
 /// Preferences ▸ Spelling says which one is used (or what is missing).
@@ -821,6 +840,7 @@ pub fn install(ui: &AppWindow) {
         crate::install_catalogue(&ui);
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
+    on!(on_set_language, |ui, l| update(&ui, |p| p.language = l.clamp(0, 2) as u8));
     on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
     g.on_shift_held(|| HELD.load(Ordering::Relaxed) & HELD_SHIFT != 0);
     on!(on_check_start, |ui, tab| check_start(&ui, tab));

@@ -62,7 +62,7 @@ component HistoryRowView inherits Rectangle {
         }
         if root.item.can-rerun: Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: "Run again";
+            text: @tr("Run again");
             font-size: Theme.fs-label;
             font-weight: Theme.weight-demibold;
             color: rerun-touch.has-hover ? Theme.accent-hover : Theme.accent;
@@ -87,14 +87,14 @@ export component ClearHistoryDialog inherits Modal {
     callback cancel();
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Clear the whole history?";
+        text: @tr("Clear the whole history?");
         font-size: Theme.fs-body-large;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: "Your files are not deleted.";
+        text: @tr("Your files are not deleted.");
         font-size: Theme.fs-label;
         color: Theme.text-secondary;
     }
@@ -104,11 +104,11 @@ export component ClearHistoryDialog inherits Modal {
         alignment: end;
         spacing: 10px;
         SecondaryButton {
-            text: "Cancel";
+            text: @tr("Cancel");
             clicked => { root.cancel(); }
         }
         PrimaryButton {
-            text: "Clear";
+            text: @tr("Clear");
             clicked => { root.clear(); }
         }
     }
@@ -135,7 +135,7 @@ export component HistoryScreen inherits Rectangle {
             height: 36px;
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: "Tasks History";
+                text: @tr("Tasks History");
                 font-size: Theme.fs-page-title;
                 font-weight: Theme.weight-bold;
                 color: Theme.text;
@@ -144,7 +144,7 @@ export component HistoryScreen inherits Rectangle {
             }
             if root.rows.length > 0: Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: "Clear all";
+                text: @tr("Clear all");
                 font-size: Theme.fs-button;
                 font-weight: Theme.weight-demibold;
                 color: clear-touch.has-hover ? Theme.accent-hover : Theme.accent;
@@ -158,7 +158,7 @@ export component HistoryScreen inherits Rectangle {
         if root.rows.length == 0: Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             x: PlatformBridge.rtl ? parent.width - (Theme.content-padding) - self.width : Theme.content-padding;
-            text: "Finished tasks will appear here";
+            text: @tr("Finished tasks will appear here");
             font-size: Theme.fs-button;
             color: Theme.text-muted;
         }

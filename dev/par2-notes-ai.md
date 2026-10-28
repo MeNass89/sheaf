@@ -41,16 +41,67 @@ map-reduce, ask, summarize, translate, podcast, slides, classify; `deck.rs` slid
   fits, or into categories the model names; results grouped by category; Stirling's Classify
   (`documents_are_classified_into_the_categories_given`, `answers_are_matched_to_the_categories`, smoke 363).
 
+## Round 31
+
+- Answers stream into the panel as the provider writes them (OpenAI-style and xAI/Mistral/compatible
+  server-sent events, Anthropic's content_block_delta events, Gemini's streamGenerateContent?alt=sse,
+  Ollama's JSON lines); a server that ignores `stream` is read whole. Stop keeps what was written.
+  Notes of a long document's parts are not streamed, only the final answer
+  (`answers_are_streamed_in_each_providers_format`, smoke 360 checks `"stream": true`).
+- Error and empty states: no provider → a "No AI provider yet" card with Set up AI…; key missing or
+  refused, AI off → Open AI settings…; network, rate limit, provider error, Stop → Try again; an empty
+  space says how to fill it (smoke 364).
+- Spaces: a space's file opens in its own tab when clicked; steps 360 and 363 recalibrated (the
+  question field and the narrower New space / Add PDFs… buttons).
+
+## Round 32
+
+- C-ai-006: spaces renamed (Rename puts the cursor in the name; unique names kept), and PDFs dropped on
+  the document while the panel shows a space join it (the drop hint says so; other files refused);
+  Acrobat's AI spaces (`drops_go_into_the_space_shown_on_that_tab`, smoke 365). Not automatable: an
+  external file drop — Xvfb has no XDND drag source; the routing is the unit test above.
+- C-ai-005: Save audio… on a podcast script records it with the computer's voices (eSpeak NG's male
+  and female variants of the Read aloud voice on Linux, two installed voices with `say` on macOS and
+  SAPI on Windows), one per host, 0.4 s between turns, into one WAV; Acrobat's Generate podcast
+  (`a_podcast_script_is_spoken_by_two_voices_into_one_wav`, `espeak_speaks_a_podcast_when_installed`,
+  smoke 366). macOS and Windows synthesis is written but untested here (needs those machines).
+- C-ai-004: a translation into any script saved as PDF: each character set in the first face that
+  draws it (bundled craft fonts, then the system's open-licensed fonts), embedded as CID fonts with
+  ToUnicode (searchable, copyable); Arabic and Thai shaped with PdfCraft's shaper, Arabic and Hebrew
+  lines right to left (`a_translation_in_any_script_is_saved_as_a_searchable_pdf`, smoke 367).
+
+## Round 33 (Sol's review of round 31, /tmp/f5/v2/rev31ai.txt)
+
+- C-ai-001: the panel has its own pane: the pages are laid out beside it, never under it (PDF
+  Expert's Copilot); its tools fold once a message arrives (Tools unfolds them), so the
+  conversation has the room (smoke 368: the page's last word shows left of the panel).
+- C-ai-002: each page an answer cites is a button that shows it ("p. 3"; in a space,
+  "report.pdf · p. 3" opens that file there), Acrobat's citations (`cited_pages_are_found_in_an_answer`,
+  smoke 368).
+- C-ai-003: Main points come with the sentence that states each one; Highlight in PDF puts a real
+  highlight annotation on each sentence, the point as its note, one Undo for all; PDF Expert's
+  highlight main points (`main_points_carry_their_page_and_sentence`, smoke 369).
+- C-ai-004: a right-to-left line keeps numbers and Latin runs in reading order, the point of 12.50
+  and the colon of 10:30 inside them (`numbers_in_a_right_to_left_line_keep_their_order`,
+  `a_number_in_an_arabic_line_keeps_its_value`).
+- C-ai-005: decks in any script: slide text Helvetica cannot draw is set in an embedded font, in the
+  PDF and so in the PowerPoint made from it (`a_deck_in_any_script_keeps_its_text_in_pdf_and_powerpoint`).
+- C-ai-006: Export space… writes a `.sheafspace` file with paths relative to it; Import space… reads it
+  back wherever the folder went (`a_shared_space_moves_with_its_folder`, smoke 370). Acrobat's shared
+  spaces with recipients and comments need an online service: out of scope for a local app.
+- C-ai-007: Classify writes each PDF's category in the PDF itself (`/Category` and its Keywords, as an
+  incremental update, so signatures stay valid); the space lists its files grouped by category, with
+  a filter (`a_category_is_kept_in_the_pdf_itself`, smoke 363 reads them back with `pdfinfo -custom`).
+- Smoke: step 336's restore line (convert batch) had landed after step 367 in a merge, breaking a run
+  of the AI steps alone ("AF: unbound variable"); moved back to the end of 336.
+
 ## Left, and why
 
-- Audio for the podcast: Acrobat speaks it; Sheaf writes the script (a text-to-speech voice per host
-  would need a TTS engine or a provider's audio API).
-- PDF output of translations uses Helvetica (Western languages); other scripts are refused with a
-  word to save as .txt, which keeps every language.
+- Right-to-left layout is per line (no full Unicode bidi algorithm for mixed nested runs); Arabic
+  needs the bundled Arabic craft font to be shaped.
+- A character no installed or bundled face draws is still refused, naming it.
 - Default model names (gpt-5-mini, claude-sonnet-4-5, gemini-2.5-flash, mistral-small-latest, grok-4,
   llama3.2) are starting points; any model can be typed in Preferences ▸ AI.
-- Answers are not streamed: each request returns whole (the status line shows the part being read,
-  and Stop cancels between requests).
 
 ## New dependency
 

@@ -125,6 +125,21 @@ pub fn adjust_doc(doc: &mut Document, a: &Adjust) -> usize {
     }
     let ids: Vec<ObjectId> = doc.objects.keys().copied().collect();
     for id in ids {
+        // A palette picture (/Indexed, a black-and-white scan with a two-colour palette included):
+        // its palette changed, written into a colour space of its own (a shared one is left to the
+        // others; Sol, 28/10: palette pictures were skipped without a word).
+        let indexed = doc.get_object(id).ok().and_then(|o| o.as_stream().ok()).filter(|s| s.dict.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == b"Image")).and_then(|s| {
+            let cs = s.dict.get(b"ColorSpace").ok()?;
+            let arr = doc.dereference(cs).ok()?.1.as_array().ok()?;
+            (doc.dereference(arr.first()?).ok()?.1.as_name().ok()? == b"Indexed").then(|| indexed_palette(doc, arr, a))
+        });
+        if let Some(palette) = indexed {
+            match (palette, doc.get_object_mut(id).and_then(Object::as_stream_mut)) {
+                (Some(cs), Ok(s)) => s.dict.set("ColorSpace", cs),
+                _ => kept += 1,
+            }
+            continue;
+        }
         let Some(Ok(n)) = doc.get_object(id).ok().and_then(|o| o.as_stream().ok()).filter(|s| s.dict.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == b"Image")).map(|s| {
             if s.dict.get(b"ImageMask").and_then(Object::as_bool).unwrap_or(false) { return Err(()) }
             s.dict.get(b"ColorSpace").ok().and_then(|c| components(doc, c)).ok_or(())
@@ -137,6 +152,29 @@ pub fn adjust_doc(doc: &mut Document, a: &Adjust) -> usize {
         }
     }
     kept
+}
+
+/// An /Indexed colour space (`[/Indexed base hival lookup]`) with its palette's colours changed:
+/// grey and RGB palettes in their space, CMYK ones written in RGB; `None` for another base.
+fn indexed_palette(doc: &Document, cs: &[Object], a: &Adjust) -> Option<Object> {
+    let [_, base, hival, lookup] = cs else { return None };
+    let n = components(doc, base)? as usize;
+    let entries = usize::try_from(doc.dereference(hival).ok()?.1.as_i64().ok()?).ok()? + 1;
+    let bytes = match doc.dereference(lookup).ok()?.1 {
+        Object::String(b, _) => b.clone(),
+        Object::Stream(st) => st.decompressed_content().ok().unwrap_or_else(|| st.content.clone()),
+        _ => return None,
+    };
+    let table = bytes.get(..entries * n)?;
+    let f = |b: u8| b as f32 / 255.0;
+    let out: Vec<u8> = match n {
+        1 => table.iter().map(|&g| a.gray(f(g))).map(|c| (c * 255.0).round() as u8).collect(),
+        3 => table.chunks(3).flat_map(|p| a.rgb([f(p[0]), f(p[1]), f(p[2])])).map(|c| (c * 255.0).round() as u8).collect(),
+        4 => table.chunks(4).flat_map(|p| a.rgb(cmyk_rgb(f(p[0]), f(p[1]), f(p[2]), f(p[3])))).map(|c| (c * 255.0).round() as u8).collect(),
+        _ => return None,
+    };
+    let base = if n == 4 { Object::Name(b"DeviceRGB".to_vec()) } else { base.clone() };
+    Some(Object::Array(vec![Object::Name(b"Indexed".to_vec()), base, Object::Integer(entries as i64 - 1), Object::String(out, lopdf::StringFormat::Hexadecimal)]))
 }
 
 /// The content's colours changed; whether any were, and how many settings were left.
@@ -208,6 +246,19 @@ fn adjust_ops(doc: &Document, res: Option<&Dictionary>, ops: Vec<Operation>, a: 
 
 /// A grey or RGB picture's pixels changed (stored losslessly); false when it cannot be read.
 fn adjust_image(s: &mut lopdf::Stream, n: u8, a: &Adjust) -> bool {
+    // A 1-bit grey picture (a scan in CCITT or JBIG2, read by no decoder here): its two values are
+    // changed through /Decode, which maps each sample's 0 and 1 to a grey, the data left as it is
+    // (Sol, 28/10: Invert left monochrome scans; Stirling inverts the rendered page).
+    if n == 1 && s.dict.get(b"BitsPerComponent").and_then(Object::as_i64).ok() == Some(1) {
+        let decode = match s.dict.get(b"Decode").and_then(Object::as_array) {
+            Ok(d) if d.len() == 2 => d.iter().map(num).collect::<Option<Vec<f32>>>(),
+            Ok(_) => None,
+            Err(_) => Some(vec![0.0, 1.0]),
+        };
+        let Some(d) = decode else { return false };
+        s.dict.set("Decode", d.iter().map(|&v| Object::Real(a.gray(v))).collect::<Vec<_>>());
+        return true;
+    }
     // CMYK: read as its RGB, written back in RGB (Sol, 26/10: CMYK pictures were left, so an
     // inverted page mixed both; 27/10: CMYK JPEGs too).
     if n == 4 {
@@ -281,6 +332,22 @@ mod tests {
         for want in ["0 1 1 rg", "1 G", "1 1 1 rg", "1 1 0 sc", "/P0 scn"] {
             assert!(text.contains(want), "{want} in {text}");
         }
+    }
+
+    /// A 1-bit scan: its /Decode carries the change (black and white swapped by Invert), the
+    /// CCITT data left as it is.
+    #[test]
+    fn a_one_bit_scan_is_changed_through_its_decode() {
+        let dict = lopdf::dictionary! { "Subtype" => "Image", "Width" => 8, "Height" => 8, "ColorSpace" => "DeviceGray", "BitsPerComponent" => 1, "Filter" => "CCITTFaxDecode" };
+        let mut s = lopdf::Stream::new(dict, vec![1, 2, 3]);
+        assert!(adjust_image(&mut s, 1, &Adjust { invert: true, ..Default::default() }));
+        let d: Vec<f32> = s.dict.get(b"Decode").unwrap().as_array().unwrap().iter().filter_map(num).collect();
+        assert_eq!(d, [1.0, 0.0]);
+        assert_eq!(s.content, [1, 2, 3], "the data is not touched");
+        // Inverted again: back to [0 1].
+        assert!(adjust_image(&mut s, 1, &Adjust { invert: true, ..Default::default() }));
+        let d: Vec<f32> = s.dict.get(b"Decode").unwrap().as_array().unwrap().iter().filter_map(num).collect();
+        assert_eq!(d, [0.0, 1.0]);
     }
 
     /// A CMYK JPEG (ImageMagick's, Adobe's inverted CMYK, with the inverted /Decode PDF producers give

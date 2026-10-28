@@ -66,13 +66,13 @@ export component EditPanel inherits VerticalLayout {
         spacing: 6px;
         Segment {
             horizontal-stretch: 1;
-            text: "Add text";
+            text: @tr("Add text");
             selected: root.tab.edit-mode == 0;
             clicked => { EditBridge.mode(root.tab.id, 0); }
         }
         Segment {
             horizontal-stretch: 1;
-            text: "Add image";
+            text: @tr("Add image");
             selected: root.tab.edit-mode == 1;
             clicked => { EditBridge.mode(root.tab.id, 1); }
         }
@@ -81,11 +81,11 @@ export component EditPanel inherits VerticalLayout {
     if root.tab.edit-mode == 0: VerticalLayout {
         spacing: 10px;
         if root.tab.edit-selected == 1: TextField {
-            label: "Text (page " + root.tab.edit-selected-page + ")";
-            placeholder: "Type your text";
+            label: @tr("Text (page {})", root.tab.edit-selected-page);
+            placeholder: @tr("Type your text");
             text <=> root.text;
         }
-        SectionLabel { text: "Text size"; }
+        SectionLabel { text: @tr("Text size"); }
         HorizontalLayout {
             spacing: 6px;
             Segment {
@@ -95,7 +95,7 @@ export component EditPanel inherits VerticalLayout {
             }
             Text {
                 horizontal-stretch: 1;
-                text: root.tab.edit-size + " pt";
+                text: @tr("{} pt", root.tab.edit-size);
                 font-size: Theme.fs-label;
                 color: Theme.text;
                 horizontal-alignment: center;
@@ -107,7 +107,7 @@ export component EditPanel inherits VerticalLayout {
                 clicked => { EditBridge.size-step(root.tab.id, 1); }
             }
         }
-        SectionLabel { text: "Text color"; }
+        SectionLabel { text: @tr("Text color"); }
         HorizontalLayout {
             spacing: 10px;
             alignment: start;
@@ -119,7 +119,7 @@ export component EditPanel inherits VerticalLayout {
         }
         // Any other colour, typed (Acrobat's Other Color).
         TextField {
-            placeholder: "Custom: RRGGBB";
+            placeholder: @tr("Custom: RRGGBB");
             text: root.tab.edit-hex;
             changed text => { EditBridge.colour-typed(root.tab.id, self.text); }
         }
@@ -128,7 +128,7 @@ export component EditPanel inherits VerticalLayout {
     if root.tab.edit-mode == 1: VerticalLayout {
         spacing: 10px;
         Segment {
-            text: root.tab.edit-image-name == "" ? "Choose an image…" : "Change image…";
+            text: root.tab.edit-image-name == "" ? @tr("Choose an image…") : @tr("Change image…");
             clicked => {
                 if root.enabled {
                     EditBridge.pick-image(root.tab.id);
@@ -136,15 +136,15 @@ export component EditPanel inherits VerticalLayout {
             }
         }
         Text {
-            text: root.tab.edit-image-name == "" ? "PNG or JPEG" : root.tab.edit-image-name;
+            text: root.tab.edit-image-name == "" ? @tr("PNG or JPEG") : root.tab.edit-image-name;
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
             overflow: elide;
         }
-        SectionLabel { text: "Size"; }
+        SectionLabel { text: @tr("Size"); }
         HorizontalLayout {
             spacing: 6px;
-            for s[i] in ["Small", "Medium", "Large"]: Segment {
+            for s[i] in [@tr("Small"), @tr("Medium"), @tr("Large")]: Segment {
                 horizontal-stretch: 1;
                 text: s;
                 selected: root.tab.edit-width == i;
@@ -154,7 +154,7 @@ export component EditPanel inherits VerticalLayout {
     }
 
     if root.tab.edit-selected != 0: Segment {
-        text: root.tab.edit-selected == 1 ? "Remove text" : "Remove image";
+        text: root.tab.edit-selected == 1 ? @tr("Remove text") : @tr("Remove image");
         clicked => { EditBridge.remove(root.tab.id); }
     }
 
@@ -172,5 +172,5 @@ export component EditPanel inherits VerticalLayout {
         wrap: word-wrap;
     }
 
-    InfoBox { text: "Text and images become part of the page: every PDF reader shows them."; }
+    InfoBox { text: @tr("Text and images become part of the page: every PDF reader shows them."); }
 }

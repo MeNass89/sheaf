@@ -27,6 +27,7 @@ struct Home {
     dir: PathBuf,
     store: Store,
     prefs: Prefs,
+    display_transform: Option<std::sync::Arc<sheaf_app::display_color::DisplayTransform>>,
     /// SHEAF_THEME: a debug override that wins over the preference.
     forced_theme: Option<ThemePref>,
     ui: slint::Weak<AppWindow>,
@@ -53,9 +54,14 @@ pub fn install(ui: &AppWindow, forced_theme: Option<ThemePref>) {
     let dir = store_file::data_dir();
     // The certificates trusted for signing live with the rest of Sheaf's data.
     sheaf_core::pdfcraft::set_trust_dir(dir.join("trusted"));
+    let prefs = Prefs::load(&dir);
+    let display_transform = prefs.display_profile.as_deref().and_then(|path| {
+        sheaf_app::display_color::DisplayTransform::load(path).map_err(|e| eprintln!("sheaf: {e}; using sRGB")).ok().map(std::sync::Arc::new)
+    });
     let h = Home {
         store: Store::open(&dir),
-        prefs: Prefs::load(&dir),
+        prefs,
+        display_transform,
         dir,
         forced_theme,
         ui: ui.as_weak(),
@@ -364,6 +370,12 @@ pub fn update_ai(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::ai_store::AiPref
     update_prefs(ui, |p| f(&mut p.ai));
 }
 
+/// The interface's language changed: the texts made in Rust (tool names, sections) built again.
+pub fn language_changed(ui: &AppWindow) {
+    crate::install_catalogue(ui);
+    refresh(ui);
+}
+
 /// Print defaults, Security and Startup changed and saved (src/settings_ui.rs).
 pub fn update_settings(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::settings::SettingsPrefs)) {
     update_prefs(ui, |p| f(&mut p.settings));
@@ -390,6 +402,12 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_metric(p.metric);
     ui.set_guide_colour(i32::from(p.guide_colour));
     ui.set_gpu(!p.no_gpu);
+    let display_name = with(|h| match (&p.display_profile, &h.display_transform) {
+        (Some(path), Some(_)) => path.file_name().unwrap_or_default().to_string_lossy().into_owned(),
+        (Some(_), None) => "sRGB (saved ICC unavailable)".into(),
+        _ => "sRGB".into(),
+    });
+    ui.set_display_profile(display_name.into());
     ui.set_show_boxes(p.show_boxes);
     ui.set_digital_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default())).collect::<Vec<_>>())));
     ui.set_trusted_certs(ModelRc::new(VecModel::from(
@@ -574,6 +592,31 @@ pub fn set_page_display(ui: &AppWindow, what: i32, on: bool) {
 pub fn set_gpu(ui: &AppWindow, on: bool) {
     update_prefs(ui, |p| p.no_gpu = !on);
     crate::flow::toast(ui, "Takes effect when Sheaf starts again");
+}
+
+/// Acrobat's display profile changes all open pages without changing PDF bytes.
+pub fn display_transform() -> Option<std::sync::Arc<sheaf_app::display_color::DisplayTransform>> {
+    with(|h| h.display_transform.clone())
+}
+
+pub fn choose_display_profile(ui: &AppWindow) {
+    let d = crate::dialog::new(ui).set_title("Choose RGB monitor ICC profile").add_filter("ICC profile", &["icc", "icm"]);
+    crate::dialog::pick_file(ui, d, move |ui, path| {
+        match sheaf_app::display_color::DisplayTransform::load(&path) {
+            Ok(transform) => {
+                with(|h| h.display_transform = Some(std::sync::Arc::new(transform)));
+                update_prefs(ui, |p| p.display_profile = Some(path));
+                crate::viewer_ui::redraw_all(ui);
+            }
+            Err(error) => crate::flow::toast(ui, &error),
+        }
+    });
+}
+
+pub fn reset_display_profile(ui: &AppWindow) {
+    with(|h| h.display_transform = None);
+    update_prefs(ui, |p| p.display_profile = None);
+    crate::viewer_ui::redraw_all(ui);
 }
 
 /// Preferences ▸ Guides: their colour, of `reader::GUIDE_COLOURS`.

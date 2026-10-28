@@ -189,7 +189,7 @@ export component PageViewer inherits Rectangle {
                 y: 0;
                 width: parent.width;
                 height: parent.height;
-                text: e.text == "" ? "Your text" : e.text;
+                text: e.text == "" ? @tr("Your text") : e.text;
                 font-family: "Helvetica";
                 font-size: e.font-size;
                 color: e.text == "" ? Theme.text-disabled : e.color;
@@ -274,7 +274,7 @@ export component PageViewer inherits Rectangle {
             ZoomButton { text: "+"; clicked => { root.zoom-step(1); } }
             ZoomButton {
                 width: 36px;
-                text: "Fit";
+                text: @tr("Fit");
                 clicked => { root.zoom-step(0); }
             }
         }

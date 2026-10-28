@@ -535,6 +535,10 @@ export struct ReaderState {
     folder-title: string,
     folder-status: string,
     folder-results: [FolderHit],
+    // PDFs of the folder that could not be read: name, and why (a password, damaged).
+    folder-skipped: [FolderHit],
+    // A text file or picture shown as a preview PDF: its own name ("" a PDF of its own).
+    preview-of: string,
     versions: int,
     undo-label: string,
     redo-label: string,
@@ -977,6 +981,8 @@ export global ReaderBridge {
     // active one; its Sync scroll.
     callback split-view(int, int);
     callback split-focus(int);
+    // A press in another document's pane: that tab laid out as the pane is; returns its id (−1: none).
+    callback split-press-other(int) -> int;
     callback split-sync(int);
     // The divider dragged: the first half's share of the area (0.2 to 0.8).
     callback split-frac(int, float);

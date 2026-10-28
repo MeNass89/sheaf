@@ -105,6 +105,9 @@ export global PlatformBridge {
     in property <bool> rtl;
     in property <int> direction;
     callback set-direction(int);
+    // The interface's language: 0 the system's, 1 English, 2 French.
+    in property <int> language;
+    callback set-language(int);
 
     // The menu bar shown (debug builds driven by the GUI smoke hide it unless asked: their clicks
     // are placed for a window without it).

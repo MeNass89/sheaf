@@ -98,6 +98,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         metric: true,
         guide_colour: 2,
         no_gpu: true,
+        display_profile: Some(PathBuf::from("/profiles/monitor.icc")),
         show_boxes: true,
         physical_numbers: true,
         transparency_grid: true,
@@ -131,6 +132,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             tool_keys: vec![("note".into(), "q".into())],
             launch_keys: vec![("merge".into(), "Control+Alt+M".into())],
             dictionaries: vec!["fr_FR".into(), "en_US".into()],
+            language: 2,
         },
         ai: sheaf_app::ai_store::AiPrefs {
             provider: Some("mistral".into()),
@@ -142,7 +144,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             language: Some("French".into()),
         },
         settings: sheaf_app::settings::SettingsPrefs {
-            print: sheaf_app::settings::PrintDefaults { two_sided: true, paper: 1, gray: true, ..Default::default() },
+            print: sheaf_app::settings::PrintDefaults { two_sided: true, paper: 1, gray: true, quality: 3, ..Default::default() },
             trust: sheaf_app::settings::TrustPrefs { web: 2, locations: vec![PathBuf::from("/docs/trusted")], ..Default::default() },
             open_at_login: true,
             no_quit_warning: true,

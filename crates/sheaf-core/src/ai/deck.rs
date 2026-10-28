@@ -1,6 +1,6 @@
 //! Acrobat's Generate presentation: the outline an AI wrote (`# Title` then `- ` points) set as
 //! 16:9 slides in a PDF, or a PowerPoint file through Sheaf's own PDF to PowerPoint export (one
-//! slide per page). Helvetica in WinAnsi: a character it cannot draw is written as `?`.
+//! slide per page). Western text in Helvetica; any other script in an embedded font that draws it.
 
 use crate::export::{self, ExportOptions, Office};
 use crate::pages::Input;
@@ -83,67 +83,99 @@ fn wrap(text: &str, size: f64, width: f64) -> Vec<String> {
     lines
 }
 
+/// How slide text is drawn: Helvetica for text it can draw (no font embedded), else the
+/// any-script path ([`super::unicode_pdf::Setter`]: Japanese, Arabic… set in a font that has them).
+enum Ink {
+    Helvetica,
+    Any(Box<super::unicode_pdf::Setter>),
+}
+
+impl Ink {
+    /// Draws `text` wrapped to `right - x` from baseline `y` down, at most `max` lines `gap` apart;
+    /// returns the baseline after the last line.
+    #[allow(clippy::too_many_arguments)]
+    fn para(&mut self, c: &mut Vec<u8>, bold: bool, size: f64, x: f64, right: f64, mut y: f64, gap: f64, rgb: &str, text: &str, max: usize, bullet: Option<f64>) -> Result<f64> {
+        match self {
+            Ink::Helvetica => {
+                for (i, l) in wrap(text, size, right - x).iter().take(max).enumerate() {
+                    if i == 0 && let Some(bx) = bullet {
+                        c.extend(format!("0.85 0.2 0.2 rg {bx:.1} {:.1} 7 7 re f\n", y + 4.0).into_bytes());
+                    }
+                    c.extend(format!("BT /{} {size} Tf {rgb} rg {x:.1} {y:.1} Td ", if bold { "F2" } else { "F1" }).into_bytes());
+                    c.extend(literal(&win_ansi(l)));
+                    c.extend_from_slice(b" Tj ET\n");
+                    y -= gap;
+                }
+            }
+            Ink::Any(set) => {
+                for (i, l) in set.lines(text, size, right - x)?.iter().take(max).enumerate() {
+                    if i == 0 && let Some(bx) = bullet {
+                        // A right-to-left point has its bullet on the right.
+                        let bx = if l.rtl { right + (x - bx) - 7.0 } else { bx };
+                        c.extend(format!("0.85 0.2 0.2 rg {bx:.1} {:.1} 7 7 re f\n", y + 4.0).into_bytes());
+                    }
+                    c.extend(format!("BT {rgb} rg\n").into_bytes());
+                    c.extend(set.draw(l, size, x, right, y).into_bytes());
+                    c.extend_from_slice(b"ET\n");
+                    y -= gap;
+                }
+            }
+        }
+        Ok(y)
+    }
+}
+
 /// The slides as a PDF: a title slide (the first) centred large, then a title band and points.
 pub fn pdf(title: &str, slides: &[Slide]) -> Result<Vec<u8>> {
     let mut doc = Document::with_version("1.7");
     let pages_id = doc.new_object_id();
-    let regular = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" });
-    let bold = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding" });
-    let mut kids = Vec::new();
     let fallback = [Slide { title: title.to_string(), points: Vec::new() }];
     let slides = if slides.is_empty() { &fallback[..] } else { slides };
+    let western = slides.iter().flat_map(|s| std::iter::once(&s.title).chain(&s.points)).all(|t| pdfcraft_fonts::first_undrawable(t).is_none());
+    let mut ink = if western { Ink::Helvetica } else { Ink::Any(Box::default()) };
+    let mut pages = Vec::new();
     for (n, s) in slides.iter().enumerate() {
         let mut c: Vec<u8> = Vec::new();
-        let text = |c: &mut Vec<u8>, font: &str, size: f64, x: f64, y: f64, rgb: &str, t: &str| {
-            c.extend(format!("BT /{font} {size} Tf {rgb} rg {x:.1} {y:.1} Td ").into_bytes());
-            c.extend(literal(&win_ansi(t)));
-            c.extend_from_slice(b" Tj ET\n");
-        };
         if n == 0 {
             c.extend_from_slice(b"0.13 0.17 0.29 rg 0 0 960 540 re f\n");
-            let lines = wrap(&s.title, 40.0, W - 160.0);
-            let mut y = H / 2.0 + 20.0 + (lines.len() as f64 - 1.0) * 24.0;
-            for l in &lines {
-                text(&mut c, "F2", 40.0, 80.0, y, "1 1 1", l);
-                y -= 48.0;
-            }
+            let y = ink.para(&mut c, true, 40.0, 80.0, W - 80.0, H / 2.0 + 44.0, 48.0, "1 1 1", &s.title, 3, None)?;
+            let mut y = y - 8.0;
             for p in s.points.iter().take(3) {
-                for l in wrap(p, 20.0, W - 160.0) {
-                    text(&mut c, "F1", 20.0, 80.0, y, "0.8 0.85 0.95", &l);
-                    y -= 28.0;
-                }
+                y = ink.para(&mut c, false, 20.0, 80.0, W - 80.0, y, 28.0, "0.8 0.85 0.95", p, 2, None)?;
             }
         } else {
             c.extend_from_slice(b"0.13 0.17 0.29 rg 0 450 960 90 re f\n");
-            let title = wrap(&s.title, 30.0, W - 120.0);
-            text(&mut c, "F2", 30.0, 60.0, 485.0, "1 1 1", title.first().map_or("", String::as_str));
-            let mut y = 400.0;
+            ink.para(&mut c, true, 30.0, 60.0, W - 60.0, 485.0, 36.0, "1 1 1", &s.title, 1, None)?;
+            let mut y: f64 = 400.0;
             for p in &s.points {
-                let lines = wrap(p, 22.0, W - 160.0);
-                for (i, l) in lines.iter().enumerate() {
-                    if y < 40.0 {
-                        break;
-                    }
-                    if i == 0 {
-                        c.extend(format!("0.85 0.2 0.2 rg 66 {:.1} 7 7 re f\n", y + 4.0).into_bytes());
-                    }
-                    text(&mut c, "F1", 22.0, 90.0, y, "0.15 0.15 0.15", l);
-                    y -= 30.0;
+                if y < 40.0 {
+                    break;
                 }
-                y -= 10.0;
+                let lines = ((y - 40.0) / 30.0).floor().max(1.0) as usize;
+                y = ink.para(&mut c, false, 22.0, 90.0, W - 70.0, y, 30.0, "0.15 0.15 0.15", p, lines, Some(66.0))? - 10.0;
             }
-            text(&mut c, "F1", 11.0, W - 60.0, 20.0, "0.5 0.5 0.5", &format!("{}", n + 1));
+            ink.para(&mut c, false, 11.0, W - 60.0, W - 20.0, 20.0, 12.0, "0.5 0.5 0.5", &format!("{}", n + 1), 1, None)?;
         }
+        pages.push(c);
+    }
+    let fonts = match &ink {
+        Ink::Helvetica => {
+            let regular = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica", "Encoding" => "WinAnsiEncoding" });
+            let bold = doc.add_object(dictionary! { "Type" => "Font", "Subtype" => "Type1", "BaseFont" => "Helvetica-Bold", "Encoding" => "WinAnsiEncoding" });
+            dictionary! { "F1" => regular, "F2" => bold }
+        }
+        Ink::Any(set) => set.fonts(&mut doc)?,
+    };
+    let fonts = doc.add_object(fonts);
+    let mut kids = Vec::new();
+    for c in pages {
         let content = doc.add_object(Stream::new(dictionary! {}, c));
-        let page = doc.add_object(dictionary! {
-            "Type" => "Page", "Parent" => pages_id, "Contents" => content,
-            "Resources" => dictionary! { "Font" => dictionary! { "F1" => regular, "F2" => bold } },
-        });
-        kids.push(Object::from(page));
+        kids.push(Object::from(doc.add_object(dictionary! { "Type" => "Page", "Parent" => pages_id, "Contents" => content, "Resources" => dictionary! { "Font" => fonts } })));
     }
     let count = kids.len() as i64;
     doc.objects.insert(pages_id, dictionary! { "Type" => "Pages", "Kids" => kids, "Count" => count, "MediaBox" => vec![0.into(), 0.into(), W.into(), H.into()] }.into());
-    let info = doc.add_object(dictionary! { "Title" => Object::string_literal(win_ansi(title)), "Producer" => "Sheaf" });
+    let title16: Vec<u8> = [0xFE, 0xFF].into_iter().chain(title.encode_utf16().flat_map(u16::to_be_bytes)).collect();
+    let info = doc.add_object(dictionary! { "Title" => Object::String(title16, lopdf::StringFormat::Hexadecimal), "Producer" => "Sheaf" });
     let root = doc.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages_id });
     doc.trailer.set("Root", root);
     doc.trailer.set("Info", info);
@@ -179,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn unmappable_characters_are_question_marks() {
-        assert_eq!(win_ansi("café 東京 (x)"), b"caf\xe9 ?? (x)".to_vec());
+    fn western_text_is_written_in_win_ansi() {
+        assert_eq!(win_ansi("café (x)"), b"caf\xe9 (x)".to_vec());
     }
 }

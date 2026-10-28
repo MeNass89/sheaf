@@ -37,21 +37,21 @@ export component SecurityPolicySheet inherits Rectangle {
         VerticalLayout {
             padding: 18px;
             spacing: 12px;
-            Text { text: "Security policies"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
-            Text { text: "Reuse security settings. Exported policies contain no passwords."; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
+            Text { text: @tr("Security policies"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Text { text: @tr("Reuse security settings. Exported policies contain no passwords."); font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
             HorizontalLayout {
                 spacing: 8px;
-                PanelButton { text: "New policy"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 1, 0); } }
-                PanelButton { text: "Import…"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 2, 0); } }
-                PanelButton { text: "Export…"; enabled: !root.tab.reader.policy-busy && !root.changed-settings; clicked => { ReaderBridge.policy-action(root.tab.id, 3, 0); } }
+                PanelButton { text: @tr("New policy"); enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 1, 0); } }
+                PanelButton { text: @tr("Import…"); enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 2, 0); } }
+                PanelButton { text: @tr("Export…"); enabled: !root.tab.reader.policy-busy && !root.changed-settings; clicked => { ReaderBridge.policy-action(root.tab.id, 3, 0); } }
             }
             HorizontalLayout {
                 spacing: 16px;
                 VerticalLayout {
                     width: 210px;
                     spacing: 8px;
-                    Text { text: "Saved policies"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                    if root.tab.reader.policy-names.length == 0: Text { text: "Save your first policy here."; wrap: word-wrap; font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: @tr("Saved policies"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    if root.tab.reader.policy-names.length == 0: Text { text: @tr("Save your first policy here."); wrap: word-wrap; font-size: Theme.fs-caption; color: Theme.text-muted; }
                     ScrollView {
                         VerticalLayout {
                             spacing: 8px;
@@ -60,8 +60,8 @@ export component SecurityPolicySheet inherits Rectangle {
                                 Text { text: policy; font-size: Theme.fs-label; color: Theme.text; overflow: elide; }
                                 HorizontalLayout {
                                     spacing: 6px;
-                                    PanelButton { text: "Edit"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 5, k); } }
-                                    PanelButton { text: "Delete"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 4, k); } }
+                                    PanelButton { text: @tr("Edit"); enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 5, k); } }
+                                    PanelButton { text: @tr("Delete"); enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 4, k); } }
                                 }
                             }
                         }
@@ -71,36 +71,36 @@ export component SecurityPolicySheet inherits Rectangle {
                     horizontal-stretch: 1;
                     VerticalLayout {
                         spacing: 10px;
-                        name := TextField { label: "Policy name"; text: root.tab.reader.policy-name; }
-                        Text { text: "Allow these actions"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                        printing := Check { text: "Printing"; checked: root.tab.reader.policy-flags[0]; }
-                        copying := Check { text: "Copying text and images"; checked: root.tab.reader.policy-flags[1]; }
-                        editing := Check { text: "Editing and page assembly"; checked: root.tab.reader.policy-flags[2]; }
-                        commenting := Check { text: "Commenting"; checked: root.tab.reader.policy-flags[3]; }
-                        forms := Check { text: "Filling forms"; checked: root.tab.reader.policy-flags[4]; }
-                        metadata := Check { text: "Encrypt document metadata"; checked: root.tab.reader.policy-flags[5]; }
-                        Text { text: "Print quality (when printing is allowed)"; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                        quality := SortCombo { width: 240px; options: ["High resolution", "Low resolution only"]; current-index: root.tab.reader.policy-choices[0]; chevron: @image-url("../icons/chevron-down.svg"); }
-                        Text { text: "Maximum changes allowed"; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                        changes := SortCombo { width: 240px; options: ["All checked actions", "No changes", "Page assembly only", "Form filling only", "Comments and form filling"]; current-index: root.tab.reader.policy-choices[1]; chevron: @image-url("../icons/chevron-down.svg"); }
-                        Text { text: "Encryption compatibility"; font-size: Theme.fs-label; color: Theme.text-secondary; }
-                        algorithm := SortCombo { width: 240px; options: ["AES-256 (modern readers)", "AES-128 (older readers)"]; current-index: root.tab.reader.policy-choices[2]; chevron: @image-url("../icons/chevron-down.svg"); }
+                        name := TextField { label: @tr("Policy name"); text: root.tab.reader.policy-name; }
+                        Text { text: @tr("Allow these actions"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                        printing := Check { text: @tr("Printing"); checked: root.tab.reader.policy-flags[0]; }
+                        copying := Check { text: @tr("Copying text and images"); checked: root.tab.reader.policy-flags[1]; }
+                        editing := Check { text: @tr("Editing and page assembly"); checked: root.tab.reader.policy-flags[2]; }
+                        commenting := Check { text: @tr("Commenting"); checked: root.tab.reader.policy-flags[3]; }
+                        forms := Check { text: @tr("Filling forms"); checked: root.tab.reader.policy-flags[4]; }
+                        metadata := Check { text: @tr("Encrypt document metadata"); checked: root.tab.reader.policy-flags[5]; }
+                        Text { text: @tr("Print quality (when printing is allowed)"); font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        quality := SortCombo { width: 240px; options: [@tr("High resolution"), @tr("Low resolution only")]; current-index: root.tab.reader.policy-choices[0]; chevron: @image-url("../icons/chevron-down.svg"); }
+                        Text { text: @tr("Maximum changes allowed"); font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        changes := SortCombo { width: 240px; options: [@tr("All checked actions"), @tr("No changes"), @tr("Page assembly only"), @tr("Form filling only"), @tr("Comments and form filling")]; current-index: root.tab.reader.policy-choices[1]; chevron: @image-url("../icons/chevron-down.svg"); }
+                        Text { text: @tr("Encryption compatibility"); font-size: Theme.fs-label; color: Theme.text-secondary; }
+                        algorithm := SortCombo { width: 240px; options: [@tr("AES-256 (modern readers)"), @tr("AES-128 (older readers)")]; current-index: root.tab.reader.policy-choices[2]; chevron: @image-url("../icons/chevron-down.svg"); }
                         PanelButton {
-                            text: "Save policy";
+                            text: @tr("Save policy");
                             enabled: !root.tab.reader.policy-busy;
                             clicked => { ReaderBridge.policy-save(root.tab.id, name.text, printing.checked, copying.checked, editing.checked, commenting.checked, forms.checked, metadata.checked, quality.current-index, changes.current-index, algorithm.current-index); }
                         }
-                        Text { text: "Apply to this PDF"; font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
-                        Text { text: root.changed-settings ? "Save the settings before applying or exporting." : "Protected copy with the saved encryption settings. Restrictions need a separate owner password."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
-                        user := TextField { label: "Open password (optional)"; password: true; allow-reveal: true; }
-                        confirmation := TextField { label: "Confirm open password"; password: true; }
-                        owner := TextField { label: "Owner password"; password: true; allow-reveal: true; }
-                        owner-confirmation := TextField { label: "Confirm owner password"; password: true; }
-                        remember := Check { text: "Save passwords with this policy on this computer"; checked: root.tab.reader.policy-remembered; enabled: !root.tab.reader.policy-busy; }
-                        if root.tab.reader.policy-remembered: Text { text: "Leave password fields empty to reuse saved passwords."; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
-                        if root.tab.reader.policy-remembered: PanelButton { text: "Forget saved passwords"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 6, 0); } }
+                        Text { text: @tr("Apply to this PDF"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                        Text { text: root.changed-settings ? @tr("Save the settings before applying or exporting.") : @tr("Protected copy with the saved encryption settings. Restrictions need a separate owner password."); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        user := TextField { label: @tr("Open password (optional)"); password: true; allow-reveal: true; }
+                        confirmation := TextField { label: @tr("Confirm open password"); password: true; }
+                        owner := TextField { label: @tr("Owner password"); password: true; allow-reveal: true; }
+                        owner-confirmation := TextField { label: @tr("Confirm owner password"); password: true; }
+                        remember := Check { text: @tr("Save passwords with this policy on this computer"); checked: root.tab.reader.policy-remembered; enabled: !root.tab.reader.policy-busy; }
+                        if root.tab.reader.policy-remembered: Text { text: @tr("Leave password fields empty to reuse saved passwords."); font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
+                        if root.tab.reader.policy-remembered: PanelButton { text: @tr("Forget saved passwords"); enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 6, 0); } }
                         PanelButton {
-                            text: "Save protected copy…";
+                            text: @tr("Save protected copy…");
                             primary: true;
                             enabled: !root.tab.reader.policy-busy && !root.changed-settings;
                             clicked => { ReaderBridge.policy-apply(root.tab.id, user.text, confirmation.text, owner.text, owner-confirmation.text, remember.checked); }
@@ -111,7 +111,7 @@ export component SecurityPolicySheet inherits Rectangle {
             Text { text: root.tab.reader.policy-status; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; max-height: 54px; overflow: elide; }
             HorizontalLayout {
                 alignment: end;
-                PanelButton { text: "Close"; enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 0, 0); root.focus-pages(); } }
+                PanelButton { text: @tr("Close"); enabled: !root.tab.reader.policy-busy; clicked => { ReaderBridge.policy-action(root.tab.id, 0, 0); root.focus-pages(); } }
             }
         }
     }

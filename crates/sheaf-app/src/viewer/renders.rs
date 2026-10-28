@@ -285,18 +285,19 @@ pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) ->
 /// anti-aliased (Preferences ▸ Rendering, Acrobat's Smooth text, line art and images); `grid`
 /// the page drawn without its white paper over a grey checkerboard, so what is transparent shows
 /// (Acrobat's Show transparency grid).
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct PageLook {
     pub theme: crate::reader::PageTheme,
     pub comments: bool,
     pub turn: u16,
     pub smooth: [bool; 3],
     pub grid: bool,
+    pub display: Option<Arc<crate::display_color::DisplayTransform>>,
 }
 
 impl Default for PageLook {
     fn default() -> Self {
-        Self { theme: Default::default(), comments: true, turn: 0, smooth: [true; 3], grid: false }
+        Self { theme: Default::default(), comments: true, turn: 0, smooth: [true; 3], grid: false, display: None }
     }
 }
 
@@ -304,7 +305,7 @@ impl Default for PageLook {
 /// wide, as RGBA, drawn as `look` asks: the reader's pages, which show edits not saved yet.
 pub fn render_bytes(bytes: &[u8], password: Option<&str>, page: usize, width: u32, look: PageLook) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
     use pdfium_render::prelude::PdfRenderConfig;
-    let PageLook { theme, comments, turn, smooth: [text, lines, images], grid } = look;
+    let PageLook { theme, comments, turn, smooth: [text, lines, images], grid, display } = look;
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = sheaf_core::engine::open_pdf_bytes(bytes, password).map_err(|e| e.to_string())?;
     let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
@@ -322,10 +323,15 @@ pub fn render_bytes(bytes: &[u8], password: Option<&str>, page: usize, width: u3
     let bmp = p.render_with_config(&config).map_err(|e| e.to_string())?;
     let (w, h) = (bmp.width() as u32, bmp.height() as u32);
     let mut rgba = bmp.as_rgba_bytes();
+    drop(bmp);
+    drop(p);
+    drop(doc);
+    drop(_g);
     if grid {
         over_grid(&mut rgba, w);
     }
     crate::reader::tint(&mut rgba, theme);
+    if let Some(display) = display { display.apply(&mut rgba)?; }
     if turn.is_multiple_of(360) {
         return Ok(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h));
     }
@@ -489,4 +495,23 @@ mod tests {
         assert_eq!(c.put((5, 1000), 6), vec![((5, 1000), 5)]);
         assert_eq!((c.len(), c.get(&(5, 1000)).copied()), (1, Some(6)));
     }
+    #[test]
+    fn monitor_icc_is_applied_to_real_rendered_pages_without_changing_pdf_bytes() {
+        use lopdf::{dictionary, Stream};
+        let mut pdf = lopdf::Document::with_version("1.7");
+        let pages = pdf.new_object_id();
+        let content = pdf.add_object(Stream::new(dictionary! {}, b"1 0 0 rg 0 0 100 100 re f".to_vec()));
+        let page = pdf.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(),0.into(),100.into(),100.into()], "Contents" => content });
+        pdf.objects.insert(pages, dictionary! { "Type" => "Pages", "Count" => 1, "Kids" => vec![page.into()] }.into());
+        let root = pdf.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages }); pdf.trailer.set("Root", root);
+        let mut bytes = Vec::new(); pdf.save_to(&mut bytes).unwrap();
+        let before = bytes.clone();
+        let plain = render_bytes(&bytes, None, 0, 100, PageLook::default()).unwrap();
+        let display = crate::display_color::DisplayTransform::for_profile(&moxcms::ColorProfile::new_display_p3()).unwrap();
+        let managed = render_bytes(&bytes, None, 0, 100, PageLook { display: Some(Arc::new(display)), ..Default::default() }).unwrap();
+        assert_ne!(plain.as_bytes(), managed.as_bytes());
+        assert_eq!(managed.as_bytes()[3], 255);
+        assert_eq!(bytes, before);
+    }
+
 }

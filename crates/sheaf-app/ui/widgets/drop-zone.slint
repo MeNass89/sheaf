@@ -3,14 +3,14 @@ import { PrimaryButton } from "button.slint";
 
 // Empty file area: "Open file" button and the drag-and-drop hint.
 export component DropZone inherits VerticalLayout {
-    in property <string> hint: "or drag & drop anywhere";
+    in property <string> hint: @tr("or drag & drop anywhere");
     callback open-file();
     alignment: center;
     spacing: 10px;
     HorizontalLayout {
         alignment: center;
         PrimaryButton {
-            text: "Open file";
+            text: @tr("Open file");
             width: 120px;
             height: 40px;
             clicked => { root.open-file(); }

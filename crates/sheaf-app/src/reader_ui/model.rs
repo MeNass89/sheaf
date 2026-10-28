@@ -675,6 +675,13 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
                 .map(|f| f.results.iter().map(|(p, page, line)| FolderHit { file: file_name(p).into(), page: format!("p. {}", page + 1).into(), line: line.as_str().into() }).collect::<Vec<_>>())
                 .unwrap_or_default(),
         )),
+        folder_skipped: ModelRc::new(VecModel::from(
+            r.folder_search
+                .as_ref()
+                .map(|f| f.skipped.iter().map(|(p, why)| FolderHit { file: file_name(p).into(), page: "".into(), line: why.as_str().into() }).collect::<Vec<_>>())
+                .unwrap_or_default(),
+        )),
+        preview_of: sheaf_app::file_preview::previewed_name(&r.path).unwrap_or_default().into(),
         versions: r.snap.versions as i32,
         undo_label: r.snap.undo_label.clone().into(),
         redo_label: r.snap.redo_label.clone().into(),

@@ -21,6 +21,13 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
+## Last landing (28/10/2026, round 33)
+
+Verdict: lint and unit GREEN (bash scripts/test.sh, round 33 at 9074a00, 07:00 UTC), GUI GREEN (scripts/test.sh gui,
+round 33 at 0862ff8, 1409 s; only the smoke script changed between the runs). Open: sheaf-core's `pages` tests
+crashed once in PDFium (SIGSEGV) under a loaded machine and passed 8 runs alone; find its cause. Next: Sol's
+remaining gaps (board history), macOS unit failures on the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci).
+
 ## Where things are
 
 | What | Where |
@@ -34,10 +41,11 @@ typing and Edit text).
 
 ## Board status
 
-**331 components, 227 at ≥ 9** jointly (Opus and Sol; 26/10 23:35, after Sol's b28a–d on round 23,
-landed 97b02e2: 11 closed, 33 left open with Sol's gaps in each component's history). Round 24 (fixes
-of those gaps) is in `/tmp/f5/wt-r24`, branch `dev/round24`, not built yet; notes in
-`/tmp/f5/round24-notes.md`.
+**331 components, 249 at ≥ 9** jointly (27/10, after landing rounds 25–27 e83625e and the four joint 9s of the parallel batches (journals F-013 Round 25, F-015
+parallel batches). Joint reviews of their components are running (Sol batches b30a–c on round 25,
+Sol ↔ Opus pair reviews on the batches: /tmp/f5/par/review-*.txt on vpsn). The inspiration archives
+are in the private repo MeNass-Co/sheaf-re. The GUI smoke runs in three shards at once on a machine
+with 4 cores or more (dev/scripts/gui-parallel.sh, displays 140–142; never :99, the class recorder's).
 
 ## What exists now (branch `dev/phase-4-5`, pushed)
 

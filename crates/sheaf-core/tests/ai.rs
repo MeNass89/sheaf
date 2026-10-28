@@ -292,3 +292,211 @@ fn a_space_reads_every_file_with_its_name() {
     assert!(src[1].text.contains("Second file text"));
     assert_eq!(failed.len(), 1);
 }
+
+/// A mock that answers with a raw `content_type` body (a stream), keeping the request.
+fn mock_raw(content_type: &'static str, body: String) -> (String, Arc<Mutex<Vec<Seen>>>) {
+    let l = TcpListener::bind("127.0.0.1:0").unwrap();
+    let base = format!("http://{}", l.local_addr().unwrap());
+    let seen = Arc::new(Mutex::new(Vec::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for s in l.incoming().flatten() {
+            let mut s = s;
+            let mut r = BufReader::new(s.try_clone().unwrap());
+            let mut line = String::new();
+            r.read_line(&mut line).unwrap();
+            let path = line.split_whitespace().nth(1).unwrap_or("").to_string();
+            let mut n = 0usize;
+            loop {
+                let mut h = String::new();
+                r.read_line(&mut h).unwrap();
+                if h.trim().is_empty() {
+                    break;
+                }
+                if let Some((k, v)) = h.split_once(':')
+                    && k.eq_ignore_ascii_case("content-length")
+                {
+                    n = v.trim().parse().unwrap();
+                }
+            }
+            let mut b = vec![0; n];
+            r.read_exact(&mut b).unwrap();
+            log.lock().unwrap().push(Seen { method: "POST".into(), path, headers: HashMap::new(), body: serde_json::from_slice(&b).unwrap() });
+            let _ = s.write_all(format!("HTTP/1.1 200 OK\r\ncontent-type: {content_type}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len()).as_bytes());
+        }
+    });
+    (base, seen)
+}
+
+#[test]
+fn answers_are_streamed_in_each_providers_format() {
+    let cases: [(Provider, &str, String); 4] = [
+        (Provider::OpenAi, "text/event-stream", "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"lo.\"}}]}\n\ndata: [DONE]\n\n".into()),
+        (Provider::Anthropic, "text/event-stream", "event: message_start\ndata: {\"type\":\"message_start\"}\n\nevent: content_block_delta\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"Hel\"}}\n\ndata: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\",\"text\":\"lo.\"}}\n\ndata: {\"type\":\"message_stop\"}\n\n".into()),
+        (Provider::Gemini, "text/event-stream", "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hel\"}]}}]}\n\ndata: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"lo.\"}]}}]}\n\n".into()),
+        (Provider::Ollama, "application/x-ndjson", "{\"message\":{\"content\":\"Hel\"},\"done\":false}\n{\"message\":{\"content\":\"lo.\"},\"done\":true}\n".into()),
+    ];
+    for (p, kind, body) in cases {
+        let (base, seen) = mock_raw(kind, body);
+        let mut pieces = Vec::new();
+        let all = sheaf_core::ai::chat_stream(&cfg(p, &base, Some("k"), "m"), &convo(), &mut |d| { pieces.push(d.to_string()); true }).unwrap();
+        assert_eq!((all.as_str(), pieces.len()), ("Hello.", 2), "{p:?}");
+        let s = seen.lock().unwrap()[0].clone();
+        if p == Provider::Gemini {
+            assert_eq!(s.path, "/v1beta/models/m:streamGenerateContent?alt=sse");
+        } else {
+            assert_eq!(s.body["stream"], true, "{p:?}");
+        }
+    }
+    // A server that ignores streaming answers whole: read whole, handed over once.
+    let (base, _) = mock(ok(json!({"choices": [{"message": {"content": "Whole."}}]})));
+    let mut n = 0;
+    assert_eq!(sheaf_core::ai::chat_stream(&cfg(Provider::Compatible, &base, None, "m"), &convo(), &mut |_| { n += 1; true }).unwrap(), "Whole.");
+    assert_eq!(n, 1);
+    // An error inside the stream is told, and the summary task streams its final answer.
+    let (base, _) = mock_raw("text/event-stream", "data: {\"type\":\"error\",\"error\":{\"message\":\"Overloaded\"}}\n\n".into());
+    assert_eq!(sheaf_core::ai::chat_stream(&cfg(Provider::Anthropic, &base, Some("k"), "m"), &convo(), &mut |_| true).unwrap_err().to_string(), "Anthropic (Claude) answered with an error (200): Overloaded");
+    let (base, _) = mock_raw("text/event-stream", "data: {\"choices\":[{\"delta\":{\"content\":\"A \"}}]}\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"summary.\"}}]}\n\n".into());
+    let got = Arc::new(Mutex::new(String::new()));
+    let g = got.clone();
+    let c = cfg(Provider::Compatible, &base, None, "m");
+    let r = tasks::streaming(move |d| { g.lock().unwrap().push_str(d); true }, || tasks::summarize(&c, &tasks::page_sources(&["Text.".into()]), Summary::Paragraphs, &mut |_, _| true));
+    assert_eq!(r.unwrap(), "A summary.");
+    assert_eq!(*got.lock().unwrap(), "A summary.");
+}
+
+/// A voice that writes `n` samples of the voice's number (1 or 2) per word, 16-bit mono 22050 Hz.
+struct FakeVoice(Mutex<Vec<(String, Option<String>)>>);
+
+impl sheaf_core::ai::audio::Synth for FakeVoice {
+    fn to_wav(&self, text: &str, voice: Option<&str>, out: &std::path::Path) -> sheaf_core::Result<()> {
+        self.0.lock().unwrap().push((text.into(), voice.map(str::to_string)));
+        let v: i16 = if voice == Some("m") { 1 } else { 2 };
+        let data: Vec<u8> = (0..text.split_whitespace().count() * 10).flat_map(|_| v.to_le_bytes()).collect();
+        let fmt: Vec<u8> = [1u16.to_le_bytes(), 1u16.to_le_bytes()].concat().into_iter().chain(22050u32.to_le_bytes()).chain(44100u32.to_le_bytes()).chain(2u16.to_le_bytes()).chain(16u16.to_le_bytes()).collect();
+        let mut b = b"RIFF".to_vec();
+        b.extend(((36 + data.len()) as u32).to_le_bytes());
+        b.extend(b"WAVEfmt ");
+        b.extend(16u32.to_le_bytes());
+        b.extend(&fmt);
+        b.extend(b"LIST\x04\x00\x00\x00INFO");
+        b.extend(b"data");
+        b.extend((data.len() as u32).to_le_bytes());
+        b.extend(data);
+        std::fs::write(out, b).unwrap();
+        Ok(())
+    }
+}
+
+#[test]
+fn a_podcast_script_is_spoken_by_two_voices_into_one_wav() {
+    use sheaf_core::ai::audio;
+    let d = tempfile::tempdir().unwrap();
+    let voice = FakeVoice(Mutex::new(Vec::new()));
+    let out = audio::podcast_wav("Alex: one two\nSam: three\nAlex: four", &voice, &[Some("m".into()), Some("f".into())], &d.path().join("p.wav"), &mut |_, _| true).unwrap();
+    let said = voice.0.lock().unwrap().clone();
+    assert_eq!(said.iter().map(|(t, v)| (t.as_str(), v.as_deref().unwrap())).collect::<Vec<_>>(), [("one two", "m"), ("three", "f"), ("four", "m")]);
+    let b = std::fs::read(out).unwrap();
+    assert_eq!(&b[..4], b"RIFF");
+    assert_eq!(&b[8..16], b"WAVEfmt ");
+    let data_len = u32::from_le_bytes(b[40..44].try_into().unwrap()) as usize;
+    // 20 + 10 + 10 samples of speech and two 0.4 s pauses (8820 samples each), 2 bytes a sample.
+    assert_eq!(data_len, (40 + 2 * 8820) * 2);
+    assert_eq!(b.len(), 44 + data_len);
+    assert_eq!(i16::from_le_bytes([b[44], b[45]]), 1);
+    assert_eq!(i16::from_le_bytes([b[44 + 2 * (20 + 8820)], b[45 + 2 * (20 + 8820)]]), 2);
+    // Stopped: nothing written.
+    assert!(audio::podcast_wav("Alex: hi", &voice, &[None, None], &d.path().join("q.wav"), &mut |_, _| false).is_err());
+    assert!(!d.path().join("q.wav").exists());
+}
+
+/// eSpeak NG, when installed (it is on Sheaf's Linux test machines): real speech, two variants.
+#[test]
+fn espeak_speaks_a_podcast_when_installed() {
+    if cfg!(any(target_os = "macos", windows)) || std::process::Command::new("espeak-ng").arg("--version").output().is_err() {
+        eprintln!("skipped: no espeak-ng");
+        return;
+    }
+    let d = tempfile::tempdir().unwrap();
+    let voices = sheaf_core::ai::audio::host_voices(None, &[]);
+    let out = sheaf_core::ai::audio::podcast_wav("Alex: Hello there.\nSam: Hi Alex.", &sheaf_core::ai::audio::SystemSynth, &voices, &d.path().join("p.wav"), &mut |_, _| true).unwrap();
+    let b = std::fs::read(out).unwrap();
+    assert!(b.len() > 22050, "{} bytes", b.len());
+}
+
+#[test]
+fn a_translation_in_any_script_is_saved_as_a_searchable_pdf() {
+    let d = tempfile::tempdir().unwrap();
+    // Cyrillic, Greek and Japanese: Helvetica draws none of them.
+    let text = "Привет, мир.\nΓειά σου κόσμε.\n東京は日本の首都です。";
+    // A computer with no font for one of these scripts is told so (the test machines have them).
+    let out = match sheaf_core::ai::write_text("Перевод", text, &d.path().join("t.pdf")) {
+        Ok(p) => p,
+        Err(e) if e.to_string().contains("no font on this computer") && std::env::var_os("CI").is_some() => return eprintln!("skipped: {e}"),
+        Err(e) => panic!("{e}"),
+    };
+    let got = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&out), &[]).unwrap().join("\n");
+    for w in ["Привет", "κόσμε", "東京"] {
+        assert!(got.contains(w), "{w} not in {got:?}");
+    }
+    // Western text still goes through Helvetica: no font embedded, so a small file.
+    let p = sheaf_core::ai::write_text("T", "Café crème", &d.path().join("w.pdf")).unwrap();
+    assert!(std::fs::metadata(&p).unwrap().len() < 20_000);
+    assert!(sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&p), &[]).unwrap()[0].contains("Café crème"));
+    // The Unicode one embeds its faces.
+    assert!(std::fs::metadata(&out).unwrap().len() > 20_000);
+}
+
+/// Sol, round 31: a Japanese or Arabic deck had "?" for its text. Both the PDF and the PowerPoint
+/// made from it keep the script.
+#[test]
+fn a_deck_in_any_script_keeps_its_text_in_pdf_and_powerpoint() {
+    let d = tempfile::tempdir().unwrap();
+    let slides = deck::parse("# 年次報告\n- 売上は12%増加\n# Продажи\n- Рост на 12%");
+    let pdf = deck::write("年次報告", &slides, &d.path().join("deck.pdf")).unwrap();
+    let texts = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&pdf), &[]).unwrap();
+    assert!(texts[0].contains("年次報告") && texts[1].contains("Продажи") && texts[1].contains("Рост"), "{texts:?}");
+    assert!(!texts.concat().contains('?'));
+    let pptx = deck::write("年次報告", &slides, &d.path().join("deck.pptx")).unwrap();
+    let mut zip = zip::ZipArchive::new(std::fs::File::open(pptx).unwrap()).unwrap();
+    let mut xml = String::new();
+    for i in 0..zip.len() {
+        let mut f = zip.by_index(i).unwrap();
+        if f.name().starts_with("ppt/slides/slide") {
+            std::io::Read::read_to_string(&mut f, &mut xml).unwrap();
+        }
+    }
+    assert!(xml.contains("年次報告") && xml.contains("Продажи"), "slides: {}", xml.chars().take(400).collect::<String>());
+}
+
+/// Sol, round 31: an Arabic line's "12.50" came out as 50.12. Drawn right to left, the number's
+/// glyphs stay in reading order, left to right (the text read back keeps 12.50).
+#[test]
+fn a_number_in_an_arabic_line_keeps_its_value() {
+    let d = tempfile::tempdir().unwrap();
+    let out = sheaf_core::ai::write_text("t", "السعر 12.50 دولار", &d.path().join("ar.pdf")).unwrap();
+    let got = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&out), &[]).unwrap().concat();
+    assert!(got.contains("12.50"), "{got:?}");
+    assert!(!got.contains("50.12"), "{got:?}");
+}
+
+/// Stirling keeps a document's class in the PDF: written in place as an incremental update (the
+/// original bytes untouched), read back after reopening, replaced rather than stacked.
+#[test]
+fn a_category_is_kept_in_the_pdf_itself() {
+    use sheaf_core::ai::labels;
+    let d = tempfile::tempdir().unwrap();
+    let f = d.path().join("bill.pdf");
+    let original = sheaf_core::pdfcraft::engine::Session::new().create_from_text("Bill", "Invoice no. 12").unwrap();
+    std::fs::write(&f, original.as_slice()).unwrap();
+    assert_eq!(labels::read(&f), None);
+    labels::write(&f, "Invoice").unwrap();
+    let after = std::fs::read(&f).unwrap();
+    assert!(after.starts_with(original.as_slice()) && after.len() > original.len(), "not an incremental update");
+    assert_eq!(labels::read(&f).as_deref(), Some("Invoice"));
+    labels::write(&f, "Reçu").unwrap();
+    assert_eq!(labels::read(&f).as_deref(), Some("Reçu"));
+    let kw = sheaf_core::pdfcraft::Doc::open(&sheaf_core::pages::Input::new(&f)).unwrap().document().info.keywords.clone().unwrap();
+    assert_eq!(kw, "Category: Reçu");
+    assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 1, "no temporary file left");
+}

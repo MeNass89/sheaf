@@ -26,9 +26,9 @@ export component AiSection inherits Rectangle {
     lay := VerticalLayout {
         padding: 18px;
         spacing: 12px;
-        Text { text: "AI"; font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+        Text { text: @tr("AI"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
         Text {
-            text: "The AI Assistant (✦ in a document's toolbar) sends only the document's text, never the file, to the provider below. Automatic uses Ollama or a llama.cpp server on this computer when one is running.";
+            text: @tr("The AI Assistant (✦ in a document's toolbar) sends only the document's text, never the file, to the provider below. Automatic uses Ollama or a llama.cpp server on this computer when one is running.");
             font-size: Theme.fs-caption;
             color: Theme.text-muted;
             wrap: word-wrap;
@@ -36,7 +36,7 @@ export component AiSection inherits Rectangle {
         HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            Text { text: "Provider"; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
+            Text { text: @tr("Provider"); font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
             provider := SortCombo {
                 width: 300px;
                 options: AiBridge.providers;
@@ -48,37 +48,37 @@ export component AiSection inherits Rectangle {
         if AiBridge.pref-provider > 0: HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            Text { text: "Model"; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
+            Text { text: @tr("Model"); font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
             TextField { width: 300px; text <=> root.model-text; placeholder: AiBridge.pref-model-hint; accepted => { AiBridge.pref("model", self.text); } }
         }
         if AiBridge.pref-provider > 0: HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            Text { text: "Address"; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
+            Text { text: @tr("Address"); font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
             TextField { width: 300px; text <=> root.base-text; placeholder: AiBridge.pref-base-hint; accepted => { AiBridge.pref("base", self.text); } }
         }
         if AiBridge.pref-provider > 0: HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            Text { text: "API key"; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
-            TextField { width: 300px; text <=> root.key-text; password: true; allow-reveal: true; placeholder: AiBridge.pref-has-key ? "Saved (encrypted) — type to replace" : AiBridge.pref-needs-key ? "Needed" : "Optional"; accepted => { AiBridge.pref("key", self.text); self.text = ""; } }
-            if AiBridge.pref-has-key: SecondaryButton { text: "Forget key"; clicked => { AiBridge.pref("forget-key", ""); } }
+            Text { text: @tr("API key"); font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; width: 90px; }
+            TextField { width: 300px; text <=> root.key-text; password: true; allow-reveal: true; placeholder: AiBridge.pref-has-key ? @tr("Saved (encrypted) — type to replace") : AiBridge.pref-needs-key ? @tr("Needed") : @tr("Optional"); accepted => { AiBridge.pref("key", self.text); self.text = ""; } }
+            if AiBridge.pref-has-key: SecondaryButton { text: @tr("Forget key"); clicked => { AiBridge.pref("forget-key", ""); } }
         }
         HorizontalLayout {
             spacing: 8px;
             alignment: start;
             if AiBridge.pref-provider > 0: SecondaryButton {
-                text: "Save";
+                text: @tr("Save");
                 clicked => {
                     AiBridge.pref("model", root.model-text);
                     AiBridge.pref("base", root.base-text);
                     if root.key-text != "" { AiBridge.pref("key", root.key-text); root.key-text = ""; }
                 }
             }
-            SecondaryButton { text: "Test connection"; clicked => { AiBridge.pref("test", ""); } }
+            SecondaryButton { text: @tr("Test connection"); clicked => { AiBridge.pref("test", ""); } }
         }
         if AiBridge.pref-status != "": Text { text: AiBridge.pref-status; font-size: Theme.fs-label; color: Theme.text-secondary; wrap: word-wrap; }
-        Check { text: "Open the AI panel with every document"; checked: AiBridge.pref-auto-open; toggled => { AiBridge.pref("auto-open", self.checked ? "1" : "0"); } }
-        Check { text: "Turn AI off (nothing is ever sent)"; checked: AiBridge.off; toggled => { AiBridge.pref("off", self.checked ? "1" : "0"); } }
+        Check { text: @tr("Open the AI panel with every document"); checked: AiBridge.pref-auto-open; toggled => { AiBridge.pref("auto-open", self.checked ? "1" : "0"); } }
+        Check { text: @tr("Turn AI off (nothing is ever sent)"); checked: AiBridge.off; toggled => { AiBridge.pref("off", self.checked ? "1" : "0"); } }
     }
 }

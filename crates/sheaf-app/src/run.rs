@@ -656,7 +656,7 @@ pub fn airdrop(f: &std::path::Path) -> bool {
             "ObjC.import('AppKit'); var s = $.NSSharingService.sharingServiceNamed($.NSSharingServiceNameSendViaAirDrop); var u = $.NSURL.fileURLWithPath('{}'); s.canPerformWithItems([u]) ? (s.performWithItems([u]), 'ok') : 'no'",
             f.display().to_string().replace('\'', "\\'")
         );
-        return std::process::Command::new("osascript").args(["-l", "JavaScript", "-e", &script]).output().is_ok_and(|o| o.stdout.starts_with(b"ok"));
+        std::process::Command::new("osascript").args(["-l", "JavaScript", "-e", &script]).output().is_ok_and(|o| o.stdout.starts_with(b"ok"))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -997,7 +997,8 @@ pub fn make_default_pdf_app() -> String {
 }
 
 /// Sheaf's desktop entry, `exec` its program: opens PDFs, its tools as the file manager's actions
-/// (the context menu's Compress with Sheaf…).
+/// (the context menu's Compress with Sheaf…). Linux and other freedesktop systems only.
+#[cfg(not(any(target_os = "macos", windows)))]
 pub fn desktop_entry(exec: &str) -> String {
     use sheaf_app::open_with::MENU_TOOLS;
     let mut t = format!(
