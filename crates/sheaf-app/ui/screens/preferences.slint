@@ -144,6 +144,9 @@ export component PreferencesScreen inherits Rectangle {
     callback set-open-first-page(bool);
     in property <[bool]> smooth;
     callback set-smoothing(int, bool);
+    in property <string> display-profile;
+    callback choose-display-profile();
+    callback reset-display-profile();
     // Accent colour (Theme.accent-choice) and the window background behind the pages (0 as the
     // theme, then light grey, mid grey, dark, black; Preview's Window background).
     in property <int> backdrop-pref;
@@ -257,6 +260,16 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     Segment { width: 214px; text: "Show transparency grid"; selected: root.transparency-grid; clicked => { root.set-page-display(2, !root.transparency-grid); } }
+                }
+                // Acrobat's Colour Management: the monitor ICC, after PDFium's sRGB rendering.
+                Text { text: "Display colour profile"; font-size: Theme.fs-label; color: Theme.text-secondary; }
+                Text { text: root.display-profile; font-size: Theme.fs-caption; color: Theme.text-muted; overflow: elide; }
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    spacing: 8px;
+                    Segment { width: 214px; text: "Choose monitor ICC…"; clicked => { root.choose-display-profile(); } }
+                    Segment { width: 214px; text: "Use sRGB"; selected: root.display-profile == "sRGB"; clicked => { root.reset-display-profile(); } }
                 }
                 // Acrobat's Use 2D GPU acceleration.
                 FlexboxLayout {

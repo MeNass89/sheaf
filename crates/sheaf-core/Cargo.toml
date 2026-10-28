@@ -42,3 +42,5 @@ lopdf.workspace = true
 image.workspace = true
 dirs.workspace = true
 zip.workspace = true
+# Exercise the actual desktop ICC module without requiring a linked Slint window.
+moxcms.workspace = true

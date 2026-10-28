@@ -98,6 +98,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         metric: true,
         guide_colour: 2,
         no_gpu: true,
+        display_profile: Some(PathBuf::from("/profiles/monitor.icc")),
         show_boxes: true,
         physical_numbers: true,
         transparency_grid: true,

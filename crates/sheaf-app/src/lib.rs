@@ -9,6 +9,7 @@ pub mod action_settings;
 pub mod library;
 pub mod javascript_console;
 pub mod watch_folder;
+pub mod display_color;
 pub mod files;
 pub mod file_preview;
 pub mod history;
