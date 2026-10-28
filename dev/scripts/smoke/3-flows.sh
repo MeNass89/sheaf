@@ -1,10 +1,12 @@
 # Sourced by dev/scripts/gui-smoke.sh, in name order: shares its helpers, profile and variables.
 # Steps 21–78: tool flows (reorder, Merge, Split, Compare, Protect) and the later reader features.
 
-# 21. A tool's files reorder by drag (iLovePDF, Stirling): three images open in JPG to PDF, a.png's card dragged
-# past c.png's (cards at 101/237/373, 130); the dragged card dims, a bar shows where it goes; the order becomes b c a.
+# 21. A tool's files reorder by drag (iLovePDF, Stirling): three images added to JPG to PDF (Tools 67,113 ▸ JPG to PDF
+# 271,517 ▸ Open file 494,405, the dialog answered with the three; images opened from outside go to the reader since
+# C-reader-064), a.png's card dragged past c.png's (cards at 101/237/373, 130); the dragged card dims, a bar shows
+# where it goes; the order becomes b c a.
 mkdir -p "$OUT/reo"; convert -size 300x400 xc:'#3366cc' "$OUT/reo/a.png"; convert -size 300x400 xc:'#cc6633' "$OUT/reo/b.png"; convert -size 300x400 xc:'#33aa55' "$OUT/reo/c.png"
-launch "$OUT/reo/a.png" "$OUT/reo/b.png" "$OUT/reo/c.png"; sleep 1
+jpg_to_pdf "$OUT/reo/a.png" "$OUT/reo/b.png" "$OUT/reo/c.png"
 xdotool mousemove 101 130 mousedown 1; for i in 1 2 3 4 5 6 7 8 9 10; do xdotool mousemove $(( 101 + i * 35 )) 140; sleep 0.08; done; sleep 0.4; shot 21-dragging; xdotool mouseup 1; sleep 1
 # Read by place, not by OCR's word order (it reads a row of names out of order).
 RX=$(for n in a b c; do at "$n.png" 460x30+40+180 | cut -d' ' -f1; done | tr '\n' ' ')
@@ -21,7 +23,7 @@ quit
 # 21b. More files than fit: a card held at the bottom edge scrolls the files and goes past what was in view.
 # 30 images, f01 held at the bottom: the files scroll to the end and it lands in the last row (before f27).
 for i in $(seq 1 30); do convert -size 60x80 xc:"hsl($(( i * 12 )),60%,50%)" "$OUT/reo/f$(printf %02d "$i").png"; done
-launch "$OUT"/reo/f*.png; sleep 1
+jpg_to_pdf "$OUT"/reo/f*.png
 xdotool mousemove 101 130 mousedown 1; for y in 200 300 400 500 600 700 750 765; do xdotool mousemove 300 $y; sleep 0.08; done; sleep 2.5; xdotool mouseup 1; sleep 0.8; shot 21b-edge
 F1=$(at f01 940x30+20+712)
 check "a card held at the bottom edge scrolls the files and lands in the last row (f01 at $F1)" "[ -n \"$F1\" ]"
@@ -100,7 +102,7 @@ launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 click 223 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 110x26+1000+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
+SF=$(ocr 72x26+978+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
 check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
 quit
 
