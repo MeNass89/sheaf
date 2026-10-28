@@ -132,6 +132,9 @@ pub struct CopiedObjects {
     /// Per object, the font of `pdf`'s page its paragraph is pasted in again (its own, embedded),
     /// when it can be; `None`: its nearest standard family.
     pub fonts: Vec<Option<String>>,
+    /// Per object, a paragraph mixing fonts or styles as its runs (in its page's user space), each
+    /// in its own font when it writes the run again: pasted run by run (PDF Expert's).
+    pub runs: Vec<Option<crate::state::TextRuns>>,
     /// The PDF of the objects that are not text, when there are both.
     pub rest: Option<Arc<Vec<u8>>>,
 }
@@ -850,6 +853,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                                 Some(font)
                             })
                             .collect();
+                        let runs = d.objects_text_runs(page, &objects);
                         let made = area_pixels(d, page, rect, None).and_then(|pixels| {
                             let pdf = Arc::new(d.objects_pdf(page, &objects, rect)?);
                             // With paragraphs among them, the rest goes as one item of its own.
@@ -862,7 +866,7 @@ pub fn start(input: Input, reply: impl Fn(Reply) + Send + 'static) -> Sender<Op>
                                     Some(Arc::new(d.objects_pdf(page, &targets, r)?))
                                 }
                             };
-                            Ok(CopiedObjects { pixels, pdf, shown, texts, fonts, rest })
+                            Ok(CopiedObjects { pixels, pdf, shown, texts, fonts, runs, rest })
                         });
                         reply(Reply::ObjectsCopied(made));
                     }
