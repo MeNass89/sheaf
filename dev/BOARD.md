@@ -1,28 +1,22 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 315 · closed 315, open 16
+331 components · at parity (≥9): 315 · closed 315, open 10, out 6
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
 | 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | notarisation out of scope (DECISIONS 28/10); regrade the native builds without it |
-| 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
-| 3 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
-| 4 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
-| 5 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
-| 6 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
-| 7 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
-| 8 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
-| 9 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 10 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 11 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 12 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 13 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
-| 14 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
-| 15 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
-| 16 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
+| 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | onnxruntime for the recognition model (Nassim, DECISIONS 28/10) |
+| 3 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | updates from GitHub releases (Nassim, DECISIONS 28/10) |
+| 4 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
+| 5 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
+| 6 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
+| 7 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 8 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
+| 9 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
+| 10 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |

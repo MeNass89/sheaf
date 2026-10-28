@@ -637,3 +637,11 @@ it.** The UI's generated code split across crates, or a larger VM.
 
 **Decision (Nassim, 28/10).** Notarisation of the macOS build waits; C-platform-012 is not held open for it.
 The macOS app stays signed ad hoc (Gatekeeper asks once). **Would change it.** A public macOS release.
+
+## 2026-10-28 · Cloud features out of scope; updates from GitHub; onnxruntime for OCR
+
+**Decisions (Nassim, 28/10).** (1) Out of scope, Sheaf staying local-first: cloud and shared files
+(C-files-009), requesting signatures from others (C-sign-011), shared review (C-annotate-037), distributing
+forms (C-forms-016), accounts (C-platform-008), shared AI spaces (C-ai-006). (2) Check for updates reads the
+GitHub releases (C-platform-001). (3) onnxruntime is adopted for the OCR recognition model (C-optimize-006),
+reversing 24/10: rten stays 1.45× slower than Tesseract per core. **Would change it.** A Sheaf online service.

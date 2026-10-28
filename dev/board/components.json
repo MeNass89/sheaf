@@ -525,9 +525,9 @@
    "performance": 8,
    "overall": 8
   },
-  "status": "open",
+  "status": "out",
   "feature": null,
-  "next": "light",
+  "next": "out of scope: needs an online service, Sheaf is local-first (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -4574,9 +4574,9 @@
    "performance": 0,
    "overall": 0
   },
-  "status": "open",
+  "status": "out",
   "feature": null,
-  "next": "out of local-first scope; light",
+  "next": "out of scope: needs an online service, Sheaf is local-first (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -12045,9 +12045,9 @@
    "performance": 0,
    "overall": 0
   },
-  "status": "open",
+  "status": "out",
   "feature": null,
-  "next": "out of local-first scope (needs Nassim)",
+  "next": "out of scope: needs an online service, Sheaf is local-first (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -14503,9 +14503,9 @@
    "performance": 0,
    "overall": 0
   },
-  "status": "open",
+  "status": "out",
   "feature": null,
-  "next": "light",
+  "next": "out of scope: needs an online service, Sheaf is local-first (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -15174,7 +15174,7 @@
   },
   "status": "open",
   "feature": null,
-  "next": "speed on big scans; deskew",
+  "next": "onnxruntime for the recognition model (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -20200,7 +20200,7 @@
   },
   "status": "open",
   "feature": null,
-  "next": "light; release channel decision is Nassim's",
+  "next": "updates from GitHub releases (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -20724,9 +20724,9 @@
    "performance": 0,
    "overall": 0
   },
-  "status": "open",
+  "status": "out",
   "feature": null,
-  "next": "Sheaf has no account by design",
+  "next": "out of scope: needs an online service, Sheaf is local-first (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
@@ -31910,9 +31910,9 @@
    "performance": 8,
    "overall": 2
   },
-  "status": "open",
+  "status": "out",
   "feature": null,
-  "next": "out of local-first scope (cloud); light",
+  "next": "out of scope: needs an online service, Sheaf is local-first (Nassim, DECISIONS 28/10)",
   "history": [
    {
     "date": "2026-10-20",
