@@ -406,15 +406,22 @@ fn build_job_full(tool: ToolId, inputs: Vec<Input>, order: Vec<u32>, marks: Vec<
             // Certifying with a digital ID needs no signature on a page (Acrobat's Certify
             // (invisible signature)).
             let digital = crate::sign_ui::digital(opts)?;
+            let tsa = crate::sign_ui::tsa(opts)?;
             if placed.is_none()
                 && let Some(d) = digital.clone().filter(|d| d.certify.is_some())
             {
-                return Ok(Job::Certify { input: one(inputs)?, digital: d, out: single()? });
+                return Ok(Job::Certify { input: one(inputs)?, digital: d, tsa, out: single()? });
+            }
+            // Nothing signed, a time stamp asked for: Acrobat's Time Stamp Document.
+            if placed.is_none()
+                && let Some(tsa) = tsa.clone()
+            {
+                return Ok(Job::Timestamp { input: one(inputs)?, tsa, out: single()? });
             }
             let Some(OnPages::Sign((graphic, page, view_box))) = placed else {
                 return Err(OpdfError::Unsupported("Create your signature and click on a page to place it, or certify with a digital ID".into()));
             };
-            Job::Sign { input: one(inputs)?, page, view_box, graphic, digital, out: single()? }
+            Job::Sign { input: one(inputs)?, page, view_box, graphic, digital, tsa, out: single()? }
         }
         ToolId::Edit => {
             let Some(OnPages::Edit(items)) = placed.filter(|p| !matches!(p, OnPages::Edit(v) if v.is_empty())) else {
@@ -1374,7 +1381,14 @@ mod tests {
         assert_eq!(out_name(ToolId::Sign, Path::new("/a/v.pdf"), &o), "v-signed.pdf");
         // A certificate asked for but not chosen: refused before anything runs.
         let o = ToolOptions { sign_cert: true, ..Default::default() };
-        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed)), &o, dest()).is_err());
+        assert!(build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed.clone())), &o, dest()).is_err());
+        // A time stamp with nothing placed: Acrobat's Time Stamp Document; with a signature, it
+        // goes with the signature.
+        let o = ToolOptions { sign_timestamp: true, sign_tsa: "https://freetsa.org/tsr".into(), ..Default::default() };
+        let Job::Timestamp { tsa, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], None, &o, dest()).unwrap() else { panic!() };
+        assert_eq!(tsa, "https://freetsa.org/tsr");
+        let Job::Sign { tsa, .. } = build_job_full(ToolId::Sign, one(), vec![], vec![], Some(OnPages::Sign(placed)), &o, dest()).unwrap() else { panic!() };
+        assert_eq!(tsa.as_deref(), Some("https://freetsa.org/tsr"));
     }
 
     #[test]

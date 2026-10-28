@@ -397,6 +397,7 @@ pub fn update_settings(ui: &AppWindow, f: impl FnOnce(&mut sheaf_app::settings::
 
 fn push_prefs(ui: &AppWindow) {
     let p = prefs();
+    let tsa_servers = p.tsa_servers();
     ui.set_theme_pref(p.theme.mode());
     ui.set_output_mode(p.output.index());
     ui.set_fixed_folder(p.fixed_folder.map(|f| f.display().to_string()).unwrap_or_default().into());
@@ -432,6 +433,7 @@ fn push_prefs(ui: &AppWindow) {
     let picked = ui.global::<sheaf_app::Picked>();
     picked.set_id_labels(ModelRc::new(VecModel::from(labels)));
     picked.set_ids(ModelRc::new(VecModel::from(p.digital_ids.iter().map(|d| slint::SharedString::from(d.to_string_lossy().as_ref())).collect::<Vec<_>>())));
+    picked.set_tsa_servers(ModelRc::new(VecModel::from(tsa_servers.into_iter().map(slint::SharedString::from).collect::<Vec<_>>())));
     ui.set_trusted_certs(ModelRc::new(VecModel::from(
         sheaf_core::pdfcraft::trusted_certificates().iter().map(|c| slint::SharedString::from(format!("{} (until {}-{:02})", c.display_name(), c.not_after.year, c.not_after.month))).collect::<Vec<_>>(),
     )));
@@ -586,6 +588,37 @@ pub fn signature_prefs(ui: &AppWindow, what: i32, k: i32) {
         4 => add_token_ids(ui),
         _ => {}
     }
+}
+
+/// Preferences ▸ Signatures ▸ Time stamp servers (Acrobat's): `what` 0 `url` added, 1 server `k`
+/// removed, 2 server `k` made the default (first). Nothing is contacted here.
+pub fn tsa_prefs(ui: &AppWindow, what: i32, k: i32, url: &str) {
+    let k = usize::try_from(k).ok();
+    if what == 0
+        && let Err(e) = sheaf_core::timestamp::HttpAuthority::new(url)
+    {
+        return crate::flow::toast(ui, &e.to_string());
+    }
+    update_prefs(ui, |pr| {
+        let mut list = pr.tsa_servers();
+        match (what, k) {
+            (0, _) => {
+                let url = url.trim().to_string();
+                if !list.contains(&url) {
+                    list.push(url);
+                }
+            }
+            (1, Some(i)) if i < list.len() => {
+                list.remove(i);
+            }
+            (2, Some(i)) if i < list.len() => {
+                let s = list.remove(i);
+                list.insert(0, s);
+            }
+            _ => {}
+        }
+        pr.tsa_servers = Some(list);
+    });
 }
 
 /// Preferences ▸ Signatures ▸ Add a smart card or token… (Acrobat's PKCS#11 Modules and Tokens

@@ -7050,3 +7050,38 @@ msgstr "Aucune photo n’a été prise"
 #: src/run.rs
 msgid "The camera panel needs a Mac"
 msgstr "La caméra demande un Mac"
+#: ui/screens/options.slint
+msgid "Add a trusted time stamp"
+msgstr "Ajouter un horodatage de confiance"
+
+#: ui/screens/options.slint
+msgid "The time stamp server below is asked for the time when you sign. A signature with a digital ID carries it; with no signature placed, the document gets a time stamp of its own."
+msgstr "Le serveur d’horodatage ci-dessous donne l’heure au moment de la signature. Une signature avec une identité numérique l’intègre ; sans signature placée, le document reçoit son propre horodatage."
+
+#: ui/screens/options.slint
+msgid "Add a time stamp server in Preferences ▸ Signatures."
+msgstr "Ajoutez un serveur d’horodatage dans Préférences ▸ Signatures."
+
+#: ui/screens/preferences.slint
+msgid "Time stamp servers"
+msgstr "Serveurs d’horodatage"
+
+#: ui/screens/preferences.slint
+msgid "None: add the address of a time stamp server to time stamp documents and signatures."
+msgstr "Aucun : ajoutez l’adresse d’un serveur d’horodatage pour horodater documents et signatures."
+
+#: ui/screens/preferences.slint
+msgid "{} (default)"
+msgstr "{} (par défaut)"
+
+#: ui/screens/preferences.slint
+msgid "Server address"
+msgstr "Adresse du serveur"
+
+#: ui/screens/preferences.slint
+msgid "Add server"
+msgstr "Ajouter le serveur"
+
+#: ui/screens/preferences.slint
+msgid "Free servers: https://freetsa.org/tsr, http://timestamp.digicert.com. A time stamp sends the server only a fingerprint of the document, never the document."
+msgstr "Serveurs gratuits : https://freetsa.org/tsr, http://timestamp.digicert.com. L’horodatage n’envoie au serveur qu’une empreinte du document, jamais le document."

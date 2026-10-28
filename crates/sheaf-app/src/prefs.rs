@@ -136,6 +136,10 @@ pub struct Prefs {
     pub transparency_grid: bool,
     /// The digital IDs (.p12, .pfx files) signed with, newest first (Acrobat's Identities).
     pub digital_ids: Vec<PathBuf>,
+    /// Acrobat's Time Stamp Servers: their addresses, the default first. `None` until the user
+    /// changes the list: the presets (`sheaf_core::timestamp::PRESETS`). None is contacted until
+    /// the user asks for a time stamp.
+    pub tsa_servers: Option<Vec<String>>,
     /// What was typed in form text fields, newest first (Acrobat's Auto-Complete memory; at most
     /// [`ENTRIES`]); offered back while a field is typed in.
     pub form_entries: Vec<String>,
@@ -199,6 +203,11 @@ pub struct Prefs {
 }
 
 impl Prefs {
+    /// The time stamp servers, the default first (the presets until the list is changed).
+    pub fn tsa_servers(&self) -> Vec<String> {
+        self.tsa_servers.clone().unwrap_or_else(|| sheaf_core::timestamp::PRESETS.iter().map(|s| s.to_string()).collect())
+    }
+
     /// Loads `<dir>/prefs.json`; missing or corrupt means the defaults.
     pub fn load(dir: &Path) -> Prefs {
         let mut prefs = store_file::read::<Prefs>(&dir.join("prefs.json")).unwrap_or_default();

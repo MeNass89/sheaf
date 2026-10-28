@@ -104,6 +104,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         physical_numbers: true,
         transparency_grid: true,
         digital_ids: vec![PathBuf::from("/ids/ada.p12")],
+        tsa_servers: Some(vec!["https://freetsa.org/tsr".into()]),
         form_entries: vec!["Ada Lovelace".into()],
         rough: 5,
         default_zoom: 1,

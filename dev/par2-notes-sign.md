@@ -112,3 +112,73 @@
   the Mac (layout checked by Slint compile only; same code path as Upload image after the helper).
 - Self-grade F 9 · A 8 · P 8 (A: IKPictureTaker is ImageKit's generic picture panel, not Preview's dedicated
   signature camera with its guide line).
+# 2026-10-28, C-sign-015 "Time stamp a document" (wip/timestamp, on dev/phase-4-5 40a76a3)
+
+## What Acrobat does
+
+Tools ▸ Certificates ▸ Time Stamp adds an RFC 3161 document time stamp: an invisible signature field whose value
+is a `/DocTimeStamp` dictionary (`/SubFilter /ETSI.RFC3161`), its `/Contents` the TSA's token over the ByteRange,
+saved as an incremental update. Preferences ▸ Signatures ▸ Time Stamp Servers keeps the server list (add, remove,
+set default). A signature made while a default server is set carries a signature time stamp (PAdES B-T). The
+Signatures panel shows "Document is time stamped", the authority and the time.
+
+## What Sheaf does
+
+- Core `sheaf_core::timestamp`: `HttpAuthority` posts a TimeStampReq (SHA-256 imprint, a fresh 63-bit nonce,
+  certReq true) as `application/timestamp-query` (ureq, 10 s connect, 30 s overall, reply capped at 4 MiB) and
+  checks the reply before returning it: HTTP 200, PKIStatus granted (a rejection is reported with its status
+  string and failInfo names), the token's CMS signature and imprint (`parse_response`), and the nonce.
+  `timestamp_document(input, authority, out)` writes the update, reads the file back as the Signatures panel does,
+  and refuses (deleting the file) if the new stamp does not validate. Messages name the server's host:
+  "could not be found: is this computer offline?", "refused the connection.", "did not answer in time.",
+  "answered HTTP 500 instead of a time stamp.", "refused the request (status 2, rejection: …)", "sent a reply
+  that is not a valid time stamp (…)". Signature time stamps go through the existing
+  `sign::sign_with_timestamp` / `certify_with_timestamp` with the same authority.
+- Engine patch `third_party/pdfcraft-engine/src/doc_timestamp.rs`: upstream's `timestamp_document` wrote the
+  `/DocTimeStamp` dictionary with no field, so poppler (and Acrobat, which list from the form's fields) did not
+  see it. It is now the value of an invisible field `TimestampN` (widget on page 1, Rect 0 0 0 0, Print+Locked,
+  AcroForm `/Fields` and `/SigFlags 3`), as Acrobat writes it. PdfCraft's validator already reads field-held
+  document time stamps.
+- App: the Sign tool's options gain "Add a trusted time stamp" with the server list to pick from. Nothing placed
+  and no certification: the job is Time Stamp Document. With a digital ID: the signature's own time stamp
+  (and an invisible certification likewise). A signature without a certificate: signed, then a document time
+  stamp over it. Preferences ▸ Signatures ▸ Time stamp servers: the list (default first, "Make default",
+  "Remove"), an address field and "Add server" (http/https checked), the presets FreeTSA and DigiCert listed
+  until the user changes the list. No server is contacted except when Sign runs with the box ticked.
+  Document properties: a document time stamp reads "Signature N · document time stamp: Time stamp is valid /
+  validity is unknown / invalid. Time … UTC, from the time stamp authority <CN>. <details>"; a signature with
+  its own token adds "Time stamped … UTC". French for every new text.
+
+## Tests
+
+`crates/sheaf-core/tests/timestamp.rs`, no internet: a test CA and a TSA certificate it issued (EKU
+timeStamping critical) made with openssl in the test, `openssl ts -reply` behind a tiny HTTP thread.
+- `a_document_time_stamp_from_a_server_validates_everywhere`: the request carries sha256, a nonce, certReq
+  (`openssl ts -query -text`); the original bytes are kept in front; `qpdf --check` clean; PdfCraft lists one
+  document time stamp, authority "Sheaf Test TSA", its time, "not been modified", Unknown (test CA not trusted);
+  `openssl ts -verify -data <ByteRange bytes> -in <Contents> -token_in -CAfile ca.pem` says "Verification: OK";
+  `pdfsig` lists field Timestamp1 "Total document signed" (poppler 24 cannot validate ETSI.RFC3161:
+  "Unable to validate this type of signature").
+- `a_signed_document_stays_valid_once_time_stamped_and_a_signature_gets_its_own_stamp`: a signature with its
+  token from the same server, then a document time stamp over it: pdfsig still says "Signature is Valid" for
+  the first, the stamp covers the whole file, qpdf clean.
+- `a_refused_or_bad_reply_writes_nothing_and_says_why`: rejection, garbage, HTTP 500, nothing listening: the
+  message says which, no file written.
+- Units: address checks and host names, rejection reasons (`timestamp::tests`); `sign_ui::tests::
+  a_time_stamp_needs_a_server_address`; `run::tests::sign_job_…` builds Job::Timestamp with nothing placed.
+
+## Not done
+
+- No GUI smoke step and the new options and Preferences rows were not rendered and looked at.
+- TSA authentication (user name and password, client certificate) and per-server policy OIDs: not offered.
+- LTV for the time stamp (the TSA's revocation data in the DSS) is not added with it.
+- Acrobat's own Signatures panel (a side pane with a tree) is Sheaf's Document properties list.
+- Trusting the TSA's root is done from Preferences ▸ Signatures ▸ Trust a certificate…, as for signers; until
+  then the stamp reads "validity is unknown" (Acrobat does the same with an untrusted TSA).
+
+## Self-grade
+
+F 8 (document time stamp, signature time stamp, server list, errors all work and are proved by outside
+verifiers; TSA authentication and LTV missing). A 7 (follows the Sign options and Preferences rows' existing
+look, but not rendered and checked by eye). P 9 (one request, bounded timeouts and reply size; the document is
+written once, read back once).

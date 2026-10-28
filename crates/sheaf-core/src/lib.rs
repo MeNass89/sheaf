@@ -51,6 +51,7 @@ pub mod sign;
 pub mod system_fonts;
 pub mod spell;
 pub mod text;
+pub mod timestamp;
 pub mod textdocs;
 pub mod tools;
 pub mod watermark;

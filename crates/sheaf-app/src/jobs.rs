@@ -16,6 +16,7 @@ use sheaf_core::pdfa::{self, PdfALevel};
 use sheaf_core::redact::{self, Mark};
 use sheaf_core::edit::{self, EditSpec, Item};
 use sheaf_core::sign::{self, DigitalSpec, Graphic, SignSpec};
+use sheaf_core::timestamp;
 use sheaf_core::watermark::{self, WatermarkOptions};
 use sheaf_core::{repair, rotate, security, OpdfError, Result};
 use std::path::{Path, PathBuf};
@@ -93,10 +94,13 @@ pub enum Job {
     /// Areas to black out for good (search matches, rectangles, whole pages).
     Redact { input: Input, marks: Vec<Mark>, look: redact::Appearance, out: PathBuf },
     /// A signature in `view_box` (points, y down, on page `page` as displayed), optionally
-    /// signed with a certificate.
-    Sign { input: Input, page: usize, view_box: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>, out: PathBuf },
+    /// signed with a certificate. `tsa`: the time stamp server asked for the signature's time
+    /// stamp (with a certificate) or for a document time stamp after it (without).
+    Sign { input: Input, page: usize, view_box: [f64; 4], graphic: Graphic, digital: Option<DigitalSpec>, tsa: Option<String>, out: PathBuf },
     /// Certified by a digital ID with no signature shown (Acrobat's Certify (invisible signature)).
-    Certify { input: Input, digital: DigitalSpec, out: PathBuf },
+    Certify { input: Input, digital: DigitalSpec, tsa: Option<String>, out: PathBuf },
+    /// Acrobat's Time Stamp Document: a document time stamp from the server at `tsa`.
+    Timestamp { input: Input, tsa: String, out: PathBuf },
     /// Text and images placed on the pages (view space: points, y down, as displayed).
     Edit { input: Input, items: Vec<EditPlaced>, out: PathBuf },
 }
@@ -124,6 +128,7 @@ impl Job {
             | Job::Redact { input, .. }
             | Job::Sign { input, .. }
             | Job::Certify { input, .. }
+            | Job::Timestamp { input, .. }
             | Job::Edit { input, .. } => vec![input.path.as_path()],
             Job::Compare { old, new, .. } => vec![old.path.as_path(), new.path.as_path()],
             Job::Rotate { items, .. }
@@ -248,6 +253,7 @@ fn loses_protection(job: &Job) -> bool {
         | Job::Redact { .. }
         | Job::Sign { .. }
         | Job::Certify { .. }
+        | Job::Timestamp { .. }
         | Job::Edit { .. }
         | Job::Crop { .. } => vec![],
     };
@@ -503,16 +509,46 @@ pub fn run(job: &Job, cancel: &AtomicBool, progress: &dyn Fn(f32)) -> Result<Job
             progress(1.0);
             vec![r.path]
         }
-        Job::Sign { input, page, view_box, graphic, digital, out } => {
+        Job::Sign { input, page, view_box, graphic, digital, tsa, out } => {
             let info = sign::page_info(input, *page)?;
             let spec = SignSpec { page: *page, rect: sign::view_rect_to_user(&info, *view_box), graphic: graphic.clone(), digital: digital.clone() };
-            let r = sign::sign(input, &spec, out)?;
+            let authority = tsa.as_deref().map(timestamp::HttpAuthority::new).transpose()?;
+            let path = match (&authority, digital) {
+                (Some(a), None) => {
+                    // A signature without a certificate proves no time: the document gets a time
+                    // stamp of its own over it (Acrobat's Time Stamp Document after Fill & Sign).
+                    let tmp = tempfile::tempdir()?;
+                    let signed = sign::sign(input, &spec, &tmp.path().join("signed.pdf"))?;
+                    progress(0.4);
+                    let stamped = timestamp::timestamp_document(&Input { path: signed.path.clone(), ..input.clone() }, a, out)?;
+                    summary = format!("{}. {}", signed.summary(), stamped.summary());
+                    stamped.path
+                }
+                (Some(a), Some(_)) => {
+                    let r = sign::sign_with_timestamp(input, &spec, out, a)?;
+                    summary = format!("{}, time stamped by {}", r.summary(), a.host());
+                    r.path
+                }
+                (None, _) => {
+                    let r = sign::sign(input, &spec, out)?;
+                    summary = r.summary();
+                    r.path
+                }
+            };
+            progress(1.0);
+            vec![path]
+        }
+        Job::Certify { input, digital, tsa, out } => {
+            let r = match tsa {
+                Some(t) => sign::certify_with_timestamp(input, digital, out, &timestamp::HttpAuthority::new(t)?)?,
+                None => sign::certify_invisible(input, digital, out)?,
+            };
             summary = r.summary();
             progress(1.0);
             vec![r.path]
         }
-        Job::Certify { input, digital, out } => {
-            let r = sign::certify_invisible(input, digital, out)?;
+        Job::Timestamp { input, tsa, out } => {
+            let r = timestamp::timestamp_document(input, &timestamp::HttpAuthority::new(tsa)?, out)?;
             summary = r.summary();
             progress(1.0);
             vec![r.path]

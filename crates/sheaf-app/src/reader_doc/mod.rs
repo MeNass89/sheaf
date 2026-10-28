@@ -302,10 +302,26 @@ fn props(d: &sheaf_core::pdfcraft::engine::Document) -> Props {
     for (k, s) in d.signatures.iter().filter(|s| s.signed).enumerate() {
         let who = s.signer.clone().unwrap_or_else(|| "unknown signer".into());
         let when = s.date.as_deref().and_then(sheaf_core::facts::pdf_date).unwrap_or_default();
-        let mut line = vec![s.summary().to_string()];
-        line.extend([when, s.reason.clone().unwrap_or_default()].into_iter().filter(|v| !v.is_empty()));
-        line.extend(s.details.iter().map(|x| x.message.clone()));
-        about.push((format!("Signature {} · {who}", k + 1), line.join(". ")));
+        // A time stamp's time is the authority's (its token), in UTC.
+        let stamped = s.timestamp_time.as_ref().map(sheaf_core::timestamp::display_time);
+        if s.doc_timestamp {
+            // Acrobat's "Document is time stamped": the authority, the verdict and the time.
+            let verdict = match s.status {
+                sheaf_core::pdfcraft::engine::SignatureStatus::Valid => "Time stamp is valid",
+                sheaf_core::pdfcraft::engine::SignatureStatus::Unknown => "Time stamp validity is unknown",
+                sheaf_core::pdfcraft::engine::SignatureStatus::Invalid => "Time stamp is invalid",
+            };
+            let mut line = vec![verdict.to_string()];
+            line.extend(stamped.map(|t| format!("Time {t} UTC, from the time stamp authority {who}")));
+            line.extend(s.details.iter().map(|x| x.message.clone()));
+            about.push((format!("Signature {} · document time stamp", k + 1), line.join(". ")));
+        } else {
+            let mut line = vec![s.summary().to_string()];
+            line.extend([when, s.reason.clone().unwrap_or_default()].into_iter().filter(|v| !v.is_empty()));
+            line.extend(stamped.map(|t| format!("Time stamped {t} UTC")));
+            line.extend(s.details.iter().map(|x| x.message.clone()));
+            about.push((format!("Signature {} · {who}", k + 1), line.join(". ")));
+        }
         // Its certificate, as Acrobat's Certificate Viewer summarises it (Sol, 25/10).
         if let Some(c) = &s.certificate {
             about.push((format!("Signature {} · certificate", k + 1), format!("Issued to {} by {}, valid {} to {}", c.subject.display_name(), c.issuer.display_name(), c.not_before, c.not_after)));

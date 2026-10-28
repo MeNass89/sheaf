@@ -34,7 +34,7 @@ export component OptionsPanel inherits VerticalLayout {
         : root.tool == "pdf_to_word" || root.tool == "pdf_to_powerpoint" || root.tool == "pdf_to_excel" || root.tool == "pdf_to_text" ? !root.export-ocr || OcrInfo.available
         : root.tool == "crop" ? (root.crop-mode >= 2 || ((root.crop-mode == 0 || root.pages != "")
             && Parse.mm(root.crop-top) + Parse.mm(root.crop-bottom) + Parse.mm(root.crop-left) + Parse.mm(root.crop-right) > 0))
-        : root.tool == "sign" ? !root.sign-cert || root.sign-p12 != ""
+        : root.tool == "sign" ? (!root.sign-cert || root.sign-p12 != "") && (!root.sign-timestamp || root.sign-tsa != "")
         : root.tool == "merge" ? Parse.file-name-error(root.out-name) == ""
         : root.tool == "compress" ? root.level != 3 || (root.compress-target.is-float() && root.compress-target.to-float() > 0)
         : true);
@@ -151,6 +151,8 @@ export component OptionsPanel inherits VerticalLayout {
         root.sign-reason = o.sign-reason;
         root.sign-location = o.sign-location;
         root.sign-certify = o.sign-certify;
+        root.sign-timestamp = o.sign-timestamp;
+        root.sign-tsa = o.sign-tsa;
         root.redact-fill = o.redact-fill;
         root.compress-ppi = o.compress-ppi;
         root.compress-quality = o.compress-quality;
@@ -199,6 +201,7 @@ export component OptionsPanel inherits VerticalLayout {
         compare-mode: root.compare-mode,
         sign-cert: root.sign-cert, sign-p12: root.sign-p12, sign-p12-password: root.sign-p12-password,
         sign-reason: root.sign-reason, sign-location: root.sign-location, sign-certify: root.sign-certify,
+        sign-timestamp: root.sign-timestamp, sign-tsa: root.sign-tsa,
         compress-ppi: root.compress-ppi, compress-quality: root.compress-quality, discard-thumbs: root.discard-thumbs, discard-tags: root.discard-tags, discard-meta: root.discard-meta, compress-gray: root.compress-gray, unembed-fonts: root.unembed-fonts, flatten-transparency: root.flatten-transparency, linearize: root.linearize,
         adjust-brightness: root.adjust-brightness, adjust-contrast: root.adjust-contrast, adjust-saturation: root.adjust-saturation, adjust-invert: root.adjust-invert,
         redact-fill: root.redact-fill, redact-overlay: root.redact-overlay, redact-margin: root.redact-margin, redact-repeat: root.redact-repeat,
@@ -227,6 +230,8 @@ export component OptionsPanel inherits VerticalLayout {
     in-out property <string> sign-reason;
     in-out property <string> sign-location;
     in-out property <int> sign-certify;
+    in-out property <bool> sign-timestamp;
+    in-out property <string> sign-tsa;
     in-out property <int> redact-fill;
     in-out property <string> compress-ppi;
     in-out property <string> compress-quality;
@@ -1392,6 +1397,40 @@ export component OptionsPanel inherits VerticalLayout {
                     selected: root.sign-certify == i;
                     clicked => { root.sign-certify = i; }
                 }
+            }
+        }
+        // Acrobat's time stamp (Preferences ▸ Signatures ▸ Time Stamp Servers): the signature's own,
+        // or with nothing signed, Time Stamp Document. The server is asked only when Sign runs.
+        Check {
+            text: @tr("Add a trusted time stamp");
+            checked: root.sign-timestamp;
+            toggled => {
+                root.sign-timestamp = !root.sign-timestamp;
+                if root.sign-timestamp && root.sign-tsa == "" && Picked.tsa-servers.length > 0 {
+                    root.sign-tsa = Picked.tsa-servers[0];
+                }
+            }
+        }
+        if root.sign-timestamp: VerticalLayout {
+            spacing: 6px;
+            Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                text: @tr("The time stamp server below is asked for the time when you sign. A signature with a digital ID carries it; with no signature placed, the document gets a time stamp of its own.");
+                font-size: Theme.fs-caption;
+                color: Theme.text-muted;
+                wrap: word-wrap;
+            }
+            for s in Picked.tsa-servers: Segment {
+                text: s;
+                selected: root.sign-tsa == s;
+                clicked => { root.sign-tsa = s; }
+            }
+            if Picked.tsa-servers.length == 0: Text {
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                text: @tr("Add a time stamp server in Preferences ▸ Signatures.");
+                font-size: Theme.fs-caption;
+                color: Theme.warning;
+                wrap: word-wrap;
             }
         }
     }

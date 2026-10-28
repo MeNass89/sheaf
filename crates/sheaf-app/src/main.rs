@@ -765,6 +765,7 @@ fn main() -> Result<(), slint::PlatformError> {
             g.set_watermark_seq(g.get_watermark_seq() + 1);
         });
     });
+    wire_global!(ui, picked, on_tsa_prefs, |ui, what, k, url| home::tsa_prefs(&ui, what, k, &url));
     wire_global!(ui, picked, on_pick_p12, |ui, tab| {
         let d = dialog::new(&ui).set_title(sheaf_app::i18n::tr("Choose your certificate")).add_filter("Digital ID", &["p12", "pfx"]);
         dialog::pick_file(&ui, d, move |ui, p| {

@@ -41,6 +41,7 @@ pub mod underlay;
 pub mod field_copies;
 mod upright;
 pub mod dates;
+pub mod doc_timestamp;
 // Sheaf: document-level attachments added, renamed, removed.
 pub mod doc_attachments;
 pub mod export;
@@ -5126,13 +5127,14 @@ impl Session {
         Ok(Arc::new(pdfcraft_sign::sign_with_timestamp(&editor.cos, id, &opts, tsa)?))
     }
 
-    /// Append a standalone document timestamp (RFC 3161, `/ETSI.RFC3161`) covering the file's
-    /// current state. An empty `date` takes the session clock; the transport is the caller's.
+    /// Append a document timestamp (RFC 3161, `/ETSI.RFC3161`) covering the file's current
+    /// state. An empty `date` takes the session clock; the transport is the caller's. Sheaf: in
+    /// an invisible signature field, as Acrobat writes it (`doc_timestamp.rs`).
     pub fn timestamp_document(&self, doc: DocId, tsa: &dyn pdfcraft_sign::TimestampAuthority, date: String) -> Result<Arc<Vec<u8>>, EditError> {
         let d = self.get(doc).ok_or(EditError::NoDocument)?;
         let editor = d.editor.as_ref().ok_or_else(|| EditError::ReadOnly(d.read_only_reason.clone().unwrap_or_default()))?;
         let date = if date.is_empty() { self.signing_date() } else { date };
-        Ok(Arc::new(pdfcraft_sign::timestamp_document(&editor.cos, tsa, &date)?))
+        Ok(Arc::new(doc_timestamp::timestamp_document(&editor.cos, tsa, &date)?))
     }
 
     /// Embed revocation evidence into the catalog's `/DSS` with `/VRI` entries per signature

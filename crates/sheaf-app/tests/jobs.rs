@@ -461,6 +461,7 @@ fn sign_job_places_the_signature_in_the_box_clicked_on_a_turned_page() {
         view_box,
         graphic: sheaf_core::sign::Graphic::Drawn(vec![vec![[0.0, 0.0], [1.0, 0.0]]]),
         digital: None,
+        tsa: None,
         out: dir.path().join("signed.pdf"),
     };
     let o = run(&job, &no_cancel, &|_| {}).unwrap();
