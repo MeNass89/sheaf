@@ -714,6 +714,28 @@ pub fn install(ui: &AppWindow) {
             }
         });
     }
+    // Checks on a Mac (debug builds): screen capture is refused over ssh, so the window draws itself.
+    // A name written to $SHEAF_TEST_SNAPSHOT/request becomes $SHEAF_TEST_SNAPSHOT/<name>.png.
+    if cfg!(debug_assertions)
+        && let Some(dir) = std::env::var_os("SHEAF_TEST_SNAPSHOT")
+    {
+        let dir = std::path::PathBuf::from(dir);
+        let weak = ui.as_weak();
+        let timer = slint::Timer::default();
+        timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(250), move || {
+            let request = dir.join("request");
+            let Ok(name) = std::fs::read_to_string(&request) else { return };
+            let _ = std::fs::remove_file(&request);
+            if let Some(ui) = weak.upgrade()
+                && let Ok(shot) = ui.window().take_snapshot()
+                && let Some(img) = image::RgbaImage::from_raw(shot.width(), shot.height(), shot.as_bytes().to_vec())
+            {
+                let _ = img.save(dir.join(format!("{}.png", name.trim())));
+            }
+        });
+        // For the app's life.
+        std::mem::forget(timer);
+    }
     // The GUI smoke (debug builds, SHEAF_READER_DEBUG) clicks at places measured without the menu
     // bar: hidden there unless a step asks for it (SHEAF_TEST_MENU_BAR=1). Its shortcuts work.
     if cfg!(debug_assertions) && std::env::var_os("SHEAF_READER_DEBUG").is_some() && std::env::var("SHEAF_TEST_MENU_BAR").as_deref() != Ok("1") {
