@@ -17,8 +17,11 @@ pub fn page_sources(pages: &[String]) -> Vec<Source> {
     pages.iter().enumerate().filter(|(_, t)| !t.trim().is_empty()).map(|(i, t)| Source { label: format!("p. {}", i + 1), text: t.trim().to_string() }).collect()
 }
 
+/// Where a streamed answer goes ([`streaming`]); `false` back stops it.
+type Sink = Box<dyn FnMut(&str) -> bool>;
+
 thread_local! {
-    static SINK: std::cell::RefCell<Option<Box<dyn FnMut(&str) -> bool>>> = const { std::cell::RefCell::new(None) };
+    static SINK: std::cell::RefCell<Option<Sink>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Runs `f` with the text of its final answers handed to `sink` as it is written (the AI panel
