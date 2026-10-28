@@ -741,6 +741,8 @@ export struct ToolOptions {
     sign-reason: string,
     sign-location: string,
     sign-certify: int,       // sign: 0 approve; certify allowing 1 no changes, 2 forms and signing, 3 also comments
+    sign-timestamp: bool,    // sign: a trusted time stamp from sign-tsa (Acrobat's Time Stamp Document when nothing is signed)
+    sign-tsa: string,        // the time stamp server's address
     redact-fill: int,        // redact: the boxes' colour, 0 black, 1 white, 2 grey, 3 red
     redact-overlay: string,  // redact: text over each box ("" none)
     redact-margin: string,   // redact: points added round each mark ("" none)
@@ -1261,6 +1263,10 @@ export global Picked {
     // how they read; the sign panel offers them.
     in property <[string]> ids;
     in property <[string]> id-labels;
+    // Preferences ▸ Signatures's time stamp servers, the default first; 0 add the address,
+    // 1 remove server k, 2 make server k the default.
+    in property <[string]> tsa-servers;
+    callback tsa-prefs(int, int, string);
 }
 
 export global SignBridge {

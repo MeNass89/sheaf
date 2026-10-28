@@ -140,6 +140,19 @@ pub fn digital(opts: &ToolOptions) -> Result<Option<DigitalSpec>> {
     Ok(Some(DigitalSpec { p12: p12.into(), password: opts.sign_p12_password.to_string(), reason: text(&opts.sign_reason), location: text(&opts.sign_location), certify: (opts.sign_certify > 0).then_some(opts.sign_certify.clamp(1, 3) as u8) }))
 }
 
+/// The time stamp server to ask, when the panel asks for a time stamp.
+pub fn tsa(opts: &ToolOptions) -> Result<Option<String>> {
+    if !opts.sign_timestamp {
+        return Ok(None);
+    }
+    let url = opts.sign_tsa.trim();
+    if url.is_empty() {
+        return Err(OpdfError::Unsupported("Add a time stamp server in Preferences ▸ Signatures first".into()));
+    }
+    sheaf_core::timestamp::HttpAuthority::new(url)?;
+    Ok(Some(url.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -174,5 +187,17 @@ mod tests {
         o.sign_location = "Paris".into();
         let d = digital(&o).unwrap().unwrap();
         assert_eq!((d.p12, d.password.as_str(), d.reason, d.location.as_deref()), (PathBuf::from("/ids/me.p12"), "pw", None, Some("Paris")));
+    }
+
+    #[test]
+    fn a_time_stamp_needs_a_server_address() {
+        let mut o = ToolOptions::default();
+        assert_eq!(tsa(&o).unwrap(), None);
+        o.sign_timestamp = true;
+        assert!(tsa(&o).is_err());
+        o.sign_tsa = "ftp://nope".into();
+        assert!(tsa(&o).is_err());
+        o.sign_tsa = " https://freetsa.org/tsr ".into();
+        assert_eq!(tsa(&o).unwrap().as_deref(), Some("https://freetsa.org/tsr"));
     }
 }

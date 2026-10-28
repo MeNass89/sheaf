@@ -46,14 +46,14 @@ kept! {
         allow_printing, allow_copying, allow_editing, allow_commenting, allow_filling_forms, remove_blank,
         protect_sanitize, split_one_file, landscape, one_per_image, png, extract_images, num_double, num_cover,
         num_bold, num_italic, num_underline, wm_image_mode, wm_bold, wm_italic, wm_underline, wm_mosaic, wm_below,
-        wm_replace, wm_remove, ocr_local_engine, ocr_all_pages, ocr_enhance, export_ocr, export_exact, sign_cert;
+        wm_replace, wm_remove, ocr_local_engine, ocr_all_pages, ocr_enhance, export_ocr, export_exact, sign_cert, sign_timestamp;
     strings:
         redact_overlay, redact_margin, compress_ppi, compress_quality,
         organize_order,
         hf_tl, hf_tc, hf_tr, hf_bl, hf_bc, hf_br, bates_prefix, bates_start, compress_target,
         pages, compare_old_pages, compare_new_pages, ranges, split_size, out_name, from_page, to_page, num_start,
         num_custom, num_font_size, num_hex, wm_text, wm_font_size, wm_hex, wm_image, crop_top, crop_bottom,
-        crop_left, crop_right, ocr_languages, sign_p12, sign_reason, sign_location
+        crop_left, crop_right, ocr_languages, sign_p12, sign_reason, sign_location, sign_tsa
 }
 
 #[cfg(test)]

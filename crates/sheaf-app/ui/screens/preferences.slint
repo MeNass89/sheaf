@@ -6,6 +6,7 @@ import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton } from "dialogs.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { Check } from "../widgets/check.slint";
+import { Picked } from "../flow-types.slint";
 import { SpellingSection, KeyboardSection, InterfaceSection } from "preferences-platform.slint";
 import { AiSection } from "preferences-ai.slint";
 import { PrintDefaultsSection, SecuritySection, StartupSection } from "preferences-more.slint";
@@ -502,6 +503,33 @@ export component PreferencesScreen inherits Rectangle {
                     SecondaryButton { text: @tr("Remove"); clicked => { root.signature-prefs(3, k); } }
                 }
                 FlexboxLayout { flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row; flex-wrap: FlexboxLayoutWrap.no-wrap; alignment: start; SecondaryButton { text: @tr("Trust a certificate…"); clicked => { root.signature-prefs(2, 0); } } }
+                // Acrobat's Time Stamp Servers: the default first. None is contacted from here.
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Time stamp servers"); font-size: Theme.fs-label; color: Theme.text-secondary; }
+                if Picked.tsa-servers.length == 0: Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("None: add the address of a time stamp server to time stamp documents and signatures."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
+                for s[k] in Picked.tsa-servers: FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
+                    spacing: 8px;
+                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: k == 0 ? @tr("{} (default)", s) : s; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                    if k > 0: SecondaryButton { text: @tr("Make default"); clicked => { Picked.tsa-prefs(2, k, ""); } }
+                    SecondaryButton { text: @tr("Remove"); clicked => { Picked.tsa-prefs(1, k, ""); } }
+                }
+                FlexboxLayout {
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
+                    alignment: LayoutAlignment.stretch;
+                    spacing: 8px;
+                    tsa-url := TextField { horizontal-stretch: 1; label: @tr("Server address"); placeholder: "https://freetsa.org/tsr"; }
+                    SecondaryButton {
+                        text: @tr("Add server");
+                        clicked => {
+                            Picked.tsa-prefs(0, 0, tsa-url.text);
+                            tsa-url.text = "";
+                        }
+                    }
+                }
+                Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Free servers: https://freetsa.org/tsr, http://timestamp.digicert.com. A time stamp sends the server only a fingerprint of the document, never the document."); font-size: Theme.fs-caption; color: Theme.text-muted; wrap: word-wrap; }
             }
             // Spelling, keyboard shortcuts, tools shown, direction (preferences-platform.slint).
             InterfaceSection {}
