@@ -33,7 +33,7 @@ pub struct PlatformPrefs {
     /// Keys that open a tool of the Tools page (Stirling's tool hotkeys): its `ToolId::as_str` and
     /// the keys as parts ("Control+Alt+M"). None by default.
     pub launch_keys: Vec<(String, String)>,
-    /// The interface's language (iLovePDF's and Acrobat's): 0 the system's, 1 English, 2 French.
+    /// The interface's language (iLovePDF's and Acrobat's): 0 the system's, then `i18n::LANGUAGES` from 1.
     pub language: u8,
 }
 

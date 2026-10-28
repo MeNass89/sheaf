@@ -262,12 +262,16 @@ export component InterfaceSection inherits Card {
     Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: @tr("Language"); font-size: Theme.fs-body; color: Theme.text; }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        flex-wrap: FlexboxLayoutWrap.wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        // Each language named in itself, as iLovePDF lists them.
+        // Each language named in itself, as iLovePDF lists them (src/i18n.rs LANGUAGES' order).
         Segment { width: 190px; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
-        Segment { width: 190px; text: "English"; selected: PlatformBridge.language == 1; clicked => { PlatformBridge.set-language(1); } }
-        Segment { width: 190px; text: "Français"; selected: PlatformBridge.language == 2; clicked => { PlatformBridge.set-language(2); } }
+        for name[i] in ["English", "Français", "Deutsch", "Español", "Italiano", "Português"]: Segment {
+            width: 112px;
+            text: name;
+            selected: PlatformBridge.language == i + 1;
+            clicked => { PlatformBridge.set-language(i + 1); }
+        }
     }
 }

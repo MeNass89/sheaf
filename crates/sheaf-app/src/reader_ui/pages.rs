@@ -147,7 +147,7 @@ pub(super) fn upright(ui: &AppWindow, tab_id: i32, turns: Vec<(usize, i64)>) {
         })
         .collect();
     apply_structure(ui, tab_id, Edit::Batch { label: "Turn pages upright".into(), edits });
-    crate::flow::toast(ui, &sheaf_app::i18n::trf("{} page{} turned upright", &[&n, &if n == 1 { "" } else { "s" }]));
+    crate::flow::toast(ui, &sheaf_app::i18n::trf(if n == 1 { "{} page turned upright" } else { "{} pages turned upright" }, &[&n]));
 }
 
 /// Insert pages from file (Acrobat's): a PDF picked goes after the selected page (or the one
@@ -345,7 +345,7 @@ pub fn copy_pages(ui: &AppWindow, tab_id: i32) {
 pub(super) fn pages_copied(ui: &AppWindow, clip: (String, Arc<Vec<u8>>, Vec<usize>)) {
     let n = clip.2.len();
     with(|a| a.page_clip = Some(clip));
-    crate::flow::toast(ui, &sheaf_app::i18n::trf("{} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page", &[&n, &if n == 1 { "" } else { "s" }, &if n == 1 { sheaf_app::i18n::tr("it") } else { sheaf_app::i18n::tr("them") }]));
+    crate::flow::toast(ui, &sheaf_app::i18n::trf(if n == 1 { "{} page copied: ⌘V in a document's Pages panel puts it after its selected page" } else { "{} pages copied: ⌘V in a document's Pages panel puts them after its selected page" }, &[&n]));
 }
 
 /// ⌘V with the Pages panel shown and pages copied: they go after the selected page (or the one

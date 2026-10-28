@@ -1,0 +1,6993 @@
+# French for Sheaf's interface. Brought up to date by dev/scripts/po-update.py; translate the empty msgstr.
+msgid ""
+msgstr ""
+"Project-Id-Version: Sheaf\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+#: ui/main.slint
+msgid "Recents"
+msgstr "Zuletzt verwendet"
+
+#: ui/main.slint ui/screens/ai-panel.slint ui/screens/reader-sheets.slint ui/screens/tools.slint
+msgid "Tools"
+msgstr "Werkzeuge"
+
+#: ui/main.slint ui/screens/history.slint
+msgid "Tasks History"
+msgstr "Aufgabenverlauf"
+
+#: ui/main.slint ui/screens/library.slint
+msgid "Library"
+msgstr "Bibliothek"
+
+#: ui/main.slint ui/screens/actions.slint
+msgid "Actions"
+msgstr "Aktionen"
+
+#: ui/main.slint ui/screens/preferences.slint
+msgid "Preferences"
+msgstr "Einstellungen"
+
+#: ui/main.slint
+msgid "File"
+msgstr "Ablage"
+
+#: ui/main.slint
+msgid "New Blank PDF…"
+msgstr "Neues leeres PDF…"
+
+#: ui/main.slint
+msgid "Open…"
+msgstr "Öffnen…"
+
+#: ui/main.slint
+msgid "Open Recent"
+msgstr "Zuletzt benutzte Dokumente"
+
+#: ui/main.slint ui/screens/dialogs.slint ui/screens/preferences-ai.slint ui/screens/reader-sheets.slint
+msgid "Save"
+msgstr "Speichern"
+
+#: ui/main.slint
+msgid "Save As…"
+msgstr "Speichern unter…"
+
+#: ui/main.slint ui/screens/reader-toolbar.slint
+msgid "Print…"
+msgstr "Drucken…"
+
+#: ui/main.slint
+msgid "Document Properties…"
+msgstr "Dokumenteigenschaften…"
+
+#: ui/main.slint
+msgid "Close Tab"
+msgstr "Tab schließen"
+
+#: ui/main.slint
+msgid "Quit Sheaf"
+msgstr "Sheaf beenden"
+
+#: ui/main.slint ui/screens/actions.slint ui/screens/certificate-encrypt.slint ui/screens/security-policy.slint ui/screens/signature-manager.slint
+msgid "Edit"
+msgstr "Bearbeiten"
+
+#: ui/main.slint
+msgid "Undo"
+msgstr "Widerrufen"
+
+#: ui/main.slint
+msgid "Redo"
+msgstr "Wiederholen"
+
+#: ui/main.slint
+msgid "Cut"
+msgstr "Ausschneiden"
+
+#: ui/main.slint ui/screens/actions.slint ui/screens/ai-panel.slint ui/screens/certificate-encrypt.slint ui/screens/feedback.slint
+msgid "Copy"
+msgstr "Kopieren"
+
+#: ui/main.slint
+msgid "Paste"
+msgstr "Einsetzen"
+
+#: ui/main.slint
+msgid "Select All"
+msgstr "Alles auswählen"
+
+#: ui/main.slint
+msgid "Find…"
+msgstr "Suchen…"
+
+#: ui/main.slint
+msgid "Find Next"
+msgstr "Weitersuchen"
+
+#: ui/main.slint
+msgid "Find Previous"
+msgstr "Rückwärts suchen"
+
+#: ui/main.slint
+msgid "Check Spelling…"
+msgstr "Rechtschreibung prüfen…"
+
+#: ui/main.slint
+msgid "Stop Checking Grammar With Spelling"
+msgstr "Grammatik nicht mit Rechtschreibung prüfen"
+
+#: ui/main.slint
+msgid "Check Grammar With Spelling"
+msgstr "Grammatik mit Rechtschreibung prüfen"
+
+#: ui/main.slint
+msgid "Stop Checking Spelling While Typing"
+msgstr "Rechtschreibung während der Eingabe nicht prüfen"
+
+#: ui/main.slint
+msgid "Check Spelling While Typing"
+msgstr "Rechtschreibung während der Eingabe prüfen"
+
+#: ui/main.slint
+msgid "Preferences…"
+msgstr "Einstellungen…"
+
+#: ui/main.slint ui/screens/reader-sheets.slint
+msgid "View"
+msgstr "Darstellung"
+
+#: ui/main.slint
+msgid "Zoom In"
+msgstr "Vergrößern"
+
+#: ui/main.slint
+msgid "Zoom Out"
+msgstr "Verkleinern"
+
+#: ui/main.slint
+msgid "Actual Size"
+msgstr "Originalgröße"
+
+#: ui/main.slint
+msgid "Zoom to Fit Page"
+msgstr "Ganze Seite"
+
+#: ui/main.slint
+msgid "Zoom to Fit Width"
+msgstr "Seitenbreite"
+
+#: ui/main.slint
+msgid "Show or Hide Side Panel"
+msgstr "Seitenleiste ein- oder ausblenden"
+
+#: ui/main.slint
+msgid "Next Page Layout"
+msgstr "Nächstes Seitenlayout"
+
+#: ui/main.slint
+msgid "Rotate View Clockwise"
+msgstr "Ansicht im Uhrzeigersinn drehen"
+
+#: ui/main.slint
+msgid "Rotate View Counterclockwise"
+msgstr "Ansicht gegen den Uhrzeigersinn drehen"
+
+#: ui/main.slint
+msgid "Full Screen"
+msgstr "Vollbild"
+
+#: ui/main.slint
+msgid "Present"
+msgstr "Präsentieren"
+
+#: ui/main.slint
+msgid "Go"
+msgstr "Gehe zu"
+
+#: ui/main.slint
+msgid "Previous Page"
+msgstr "Vorherige Seite"
+
+#: ui/main.slint
+msgid "Next Page"
+msgstr "Nächste Seite"
+
+#: ui/main.slint
+msgid "First Page"
+msgstr "Erste Seite"
+
+#: ui/main.slint
+msgid "Last Page"
+msgstr "Letzte Seite"
+
+#: ui/main.slint
+msgid "Go to Page…"
+msgstr "Gehe zu Seite…"
+
+#: ui/main.slint
+msgid "Back"
+msgstr "Zurück"
+
+#: ui/main.slint ui/screens/reader-form.slint
+msgid "Forward"
+msgstr "Vorwärts"
+
+#: ui/main.slint
+msgid "All Tools"
+msgstr "Alle Werkzeuge"
+
+#: ui/main.slint
+msgid "Open Tool"
+msgstr "Werkzeug öffnen"
+
+#: ui/main.slint
+msgid "Annotate"
+msgstr "Kommentieren"
+
+#: ui/main.slint
+msgid "Select Text"
+msgstr "Text auswählen"
+
+#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/reader.slint
+msgid "Highlight"
+msgstr "Hervorheben"
+
+#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/reader.slint
+msgid "Underline"
+msgstr "Unterstreichen"
+
+#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/reader.slint
+msgid "Strikethrough"
+msgstr "Durchstreichen"
+
+#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/reader.slint
+msgid "Note"
+msgstr "Notiz"
+
+#: ui/main.slint ui/screens/reader-sheets.slint
+msgid "Pen"
+msgstr "Stift"
+
+#: ui/main.slint ui/screens/reader-sheets.slint
+msgid "Shapes"
+msgstr "Formen"
+
+#: ui/main.slint ui/screens/reader-sheets.slint
+msgid "Eraser"
+msgstr "Radiergummi"
+
+#: ui/main.slint ui/screens/reader-sheets.slint
+msgid "Stamp"
+msgstr "Stempel"
+
+#: ui/main.slint
+msgid "Text Box"
+msgstr "Textfeld"
+
+#: ../sheaf-core/src/tools.rs ui/main.slint
+msgid "Edit PDF"
+msgstr "PDF bearbeiten"
+
+#: ui/main.slint
+msgid "Edit Text and Images"
+msgstr "Text und Bilder bearbeiten"
+
+#: ui/main.slint
+msgid "Add Image"
+msgstr "Bild hinzufügen"
+
+#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Link"
+msgstr "Link"
+
+#: ui/main.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Sign"
+msgstr "Unterschreiben"
+
+#: ui/main.slint
+msgid "Prepare Form"
+msgstr "Formular vorbereiten"
+
+#: ui/main.slint ui/screens/reader-sheets.slint
+msgid "Window"
+msgstr "Fenster"
+
+#: ui/main.slint
+msgid "Next Tab"
+msgstr "Nächster Tab"
+
+#: ui/main.slint
+msgid "Previous Tab"
+msgstr "Vorheriger Tab"
+
+#: ui/main.slint ui/widgets/tab-bar.slint
+msgid "Home"
+msgstr "Start"
+
+#: ui/main.slint
+msgid "Help"
+msgstr "Hilfe"
+
+#: ui/main.slint
+msgid "Keyboard Shortcuts"
+msgstr "Tastaturkurzbefehle"
+
+#: ui/main.slint
+msgid "Customize Shortcuts…"
+msgstr "Kurzbefehle anpassen…"
+
+#: ui/main.slint
+msgid "Sheaf Guide"
+msgstr "Sheaf-Handbuch"
+
+#: ui/main.slint
+msgid "Report an Issue…"
+msgstr "Problem melden…"
+
+#: ui/screens/actions.slint
+msgid "Header left"
+msgstr "Kopfzeile links"
+
+#: ui/screens/actions.slint
+msgid "Header centre"
+msgstr "Kopfzeile Mitte"
+
+#: ui/screens/actions.slint
+msgid "Header right"
+msgstr "Kopfzeile rechts"
+
+#: ui/screens/actions.slint
+msgid "Footer left"
+msgstr "Fußzeile links"
+
+#: ui/screens/actions.slint
+msgid "Footer centre"
+msgstr "Fußzeile Mitte"
+
+#: ui/screens/actions.slint
+msgid "Footer right"
+msgstr "Fußzeile rechts"
+
+#: ui/screens/actions.slint
+msgid "Starting number"
+msgstr "Startnummer"
+
+#: ui/screens/actions.slint
+msgid "Font size (points, 4–144)"
+msgstr "Schriftgröße (Punkt, 4–144)"
+
+#: ui/screens/actions.slint
+msgid "Format (<<1>> = page, <<n>> = count)"
+msgstr "Format (<<1>> = Seite, <<n>> = Anzahl)"
+
+#: ui/screens/actions.slint
+msgid "Mark text"
+msgstr "Wasserzeichentext"
+
+#: ui/screens/actions.slint ui/screens/options-parts.slint
+msgid "Font"
+msgstr "Schrift"
+
+#: ui/screens/actions.slint
+msgid "Pages (all or 1-3,5)"
+msgstr "Seiten (alle oder 1-3,5)"
+
+#: ui/screens/actions.slint
+msgid "Opacity (0–1)"
+msgstr "Deckkraft (0–1)"
+
+#: ui/screens/actions.slint
+msgid "Rotation (degrees, −360–360)"
+msgstr "Drehung (Grad, −360–360)"
+
+#: ui/screens/actions.slint
+msgid "Horizontal offset (points)"
+msgstr "Horizontaler Versatz (Punkt)"
+
+#: ui/screens/actions.slint
+msgid "Vertical offset (points)"
+msgstr "Vertikaler Versatz (Punkt)"
+
+#: ui/screens/actions.slint
+msgid "AES-256 open-password encryption. Put this last and save as PDF. The password is requested separately for each file and never stored in this action."
+msgstr "AES-256-Verschlüsselung mit Kennwort zum Öffnen. Setzen Sie diesen Schritt ans Ende und speichern Sie als PDF. Das Kennwort wird für jede Datei separat abgefragt und nie in dieser Aktion gespeichert."
+
+#: ui/screens/actions.slint
+msgid "Document language (for example fr-FR)"
+msgstr "Dokumentsprache (zum Beispiel fr-FR)"
+
+#: ui/screens/actions.slint
+msgid "Metadata key | value (blank value clears the field)"
+msgstr "Metadatenschlüssel | Wert (leerer Wert löscht das Feld)"
+
+#: ui/screens/actions.slint
+msgid "Pages: 1-3,5 or all"
+msgstr "Seiten: 1-3,5 oder alle"
+
+#: ui/screens/actions.slint
+msgid "Text or JavaScript for this step"
+msgstr "Text oder JavaScript für diesen Schritt"
+
+#: ui/screens/actions.slint
+msgid "Command label (optional)"
+msgstr "Befehlsbezeichnung (optional)"
+
+#: ui/screens/actions.slint
+msgid "Separator before this command"
+msgstr "Trennlinie vor diesem Befehl"
+
+#: ui/screens/actions.slint
+msgid "Instructions shown before this step"
+msgstr "Vor diesem Schritt angezeigte Anweisungen"
+
+#: ui/screens/actions.slint
+msgid "Pause and ask before running this step"
+msgstr "Vor diesem Schritt anhalten und nachfragen"
+
+#: ui/screens/actions.slint ui/screens/reader-panel.slint
+msgid "Move up"
+msgstr "Nach oben"
+
+#: ui/screens/actions.slint ui/screens/reader-panel.slint
+msgid "Move down"
+msgstr "Nach unten"
+
+#: ui/screens/actions.slint
+msgid "Duplicate step"
+msgstr "Schritt duplizieren"
+
+#: ui/screens/actions.slint
+msgid "Remove step"
+msgstr "Schritt entfernen"
+
+#: ui/screens/actions.slint
+msgid "Save to"
+msgstr "Speichern in"
+
+#: ui/screens/actions.slint
+msgid "Word and text exports retain editable content with approximate layout. Images: all pages at 150 dpi in one ZIP. Uses native Rust; no Office installation needed."
+msgstr "Word- und Textexporte behalten bearbeitbare Inhalte mit ungefährem Layout. Bilder: alle Seiten mit 150 dpi in einer ZIP-Datei. Verwendet natives Rust; keine Office-Installation erforderlich."
+
+#: ui/screens/actions.slint
+msgid "Use each input file's folder"
+msgstr "Ordner der jeweiligen Eingabedatei verwenden"
+
+#: ui/screens/actions.slint
+msgid "Output name prefix"
+msgstr "Präfix für Ausgabenamen"
+
+#: ui/screens/actions.slint
+msgid "Output name suffix"
+msgstr "Suffix für Ausgabenamen"
+
+#: ui/screens/actions.slint
+msgid "Replace matching output names (including originals)"
+msgstr "Gleichnamige Ausgabedateien ersetzen (einschließlich Originale)"
+
+#: ui/screens/actions.slint
+msgid "Password for this run (optional, never saved)"
+msgstr "Kennwort für diesen Durchlauf (optional, wird nie gespeichert)"
+
+#: ui/screens/actions.slint
+msgid "Ask for a separate password for each input"
+msgstr "Für jede Eingabe ein eigenes Kennwort abfragen"
+
+#: ui/screens/actions.slint
+msgid "Name watched outputs from the document title"
+msgstr "Überwachte Ausgaben nach dem Dokumenttitel benennen"
+
+#: ui/screens/actions.slint
+msgid "Include subfolders (folder runs and watches)"
+msgstr "Unterordner einbeziehen (Ordnerdurchläufe und -überwachungen)"
+
+#: ui/screens/actions.slint
+msgid "Move successful inputs to output / Processed inputs"
+msgstr "Erfolgreich verarbeitete Eingaben nach Ausgabe / Verarbeitete Eingaben verschieben"
+
+#: ui/screens/actions.slint
+msgid "{} active watch(es) · automatically resume on launch"
+msgstr "{} aktive Überwachung(en) · beim Start automatisch fortsetzen"
+
+#: ui/screens/actions.slint
+msgid "Stop folder watches"
+msgstr "Ordnerüberwachung beenden"
+
+#: ui/screens/actions.slint
+msgid "Resume saved watches"
+msgstr "Gespeicherte Überwachungen fortsetzen"
+
+#: ui/screens/actions.slint
+msgid "Forget saved watches"
+msgstr "Gespeicherte Überwachungen vergessen"
+
+#: ui/screens/actions.slint
+msgid "Run on open PDFs…"
+msgstr "Auf geöffnete PDFs anwenden…"
+
+#: ui/screens/actions.slint
+msgid "Open PDFs: process their current edits into new copies in a chosen folder."
+msgstr "Geöffnete PDFs: aktuelle Änderungen als neue Kopien in einen gewählten Ordner verarbeiten."
+
+#: ui/screens/actions.slint
+msgid "Run on a folder…"
+msgstr "Auf einen Ordner anwenden…"
+
+#: ui/screens/actions.slint
+msgid "Watch folder…"
+msgstr "Ordner überwachen…"
+
+#: ui/screens/actions.slint
+msgid "Save a sequence, then run it on PDFs. Output settings control names and replacement."
+msgstr "Speichern Sie eine Abfolge und wenden Sie sie dann auf PDFs an. Die Ausgabeeinstellungen steuern Namen und Ersetzung."
+
+#: ui/screens/actions.slint
+msgid "New action"
+msgstr "Neue Aktion"
+
+#: ui/screens/actions.slint
+msgid "New custom tool"
+msgstr "Neues eigenes Werkzeug"
+
+#: ui/screens/actions.slint
+msgid "Run on PDFs…"
+msgstr "Auf PDFs anwenden…"
+
+#: ui/screens/actions.slint ui/screens/certificate-encrypt.slint ui/screens/security-policy.slint
+msgid "Import…"
+msgstr "Importieren…"
+
+#: ui/screens/actions.slint
+msgid "Paste JSON"
+msgstr "JSON einsetzen"
+
+#: ui/screens/actions.slint ui/screens/certificate-encrypt.slint ui/screens/security-policy.slint
+msgid "Export…"
+msgstr "Exportieren…"
+
+#: ui/screens/actions.slint ui/screens/reader-toolbar.slint
+msgid "Create portfolio…"
+msgstr "Portfolio erstellen…"
+
+#: ui/screens/actions.slint
+msgid "Import Sheaf or Stirling JSON: choose, paste or drop a file here."
+msgstr "Sheaf- oder Stirling-JSON importieren: Datei auswählen, einsetzen oder hier ablegen."
+
+#: ui/screens/actions.slint
+msgid "Export Stirling…"
+msgstr "Für Stirling exportieren…"
+
+#: ui/screens/actions.slint
+msgid "Import pasted action"
+msgstr "Eingesetzte Aktion importieren"
+
+#: ui/screens/actions.slint
+msgid "All actions"
+msgstr "Alle Aktionen"
+
+#: ui/screens/actions.slint
+msgid "Suggested"
+msgstr "Vorgeschlagen"
+
+#: ui/screens/actions.slint
+msgid "Saved actions"
+msgstr "Gespeicherte Aktionen"
+
+#: ui/screens/actions.slint ui/screens/reader-toolbar.slint ui/screens/tools.slint
+msgid "Custom tools"
+msgstr "Eigene Werkzeuge"
+
+#: ui/screens/actions.slint
+msgid "Search actions"
+msgstr "Aktionen suchen"
+
+#: ui/screens/actions.slint
+msgid "No actions in this list yet."
+msgstr "Noch keine Aktionen in dieser Liste."
+
+#: ui/screens/actions.slint
+msgid "Suggested · copy to edit"
+msgstr "Vorgeschlagen · zum Bearbeiten kopieren"
+
+#: ui/screens/actions.slint
+msgid "Custom tool"
+msgstr "Eigenes Werkzeug"
+
+#: ui/screens/actions.slint
+msgid "Saved action"
+msgstr "Gespeicherte Aktion"
+
+#: ui/screens/actions.slint
+msgid "Suggested action · save a copy to make it yours."
+msgstr "Vorgeschlagene Aktion · speichern Sie eine Kopie, um sie anzupassen."
+
+#: ui/screens/actions.slint ui/screens/portfolio.slint ui/screens/preferences.slint ui/screens/reader-form.slint ui/screens/recents.slint
+msgid "Name"
+msgstr "Name"
+
+#: ui/screens/actions.slint ui/screens/portfolio.slint
+msgid "Description"
+msgstr "Beschreibung"
+
+#: ui/screens/actions.slint
+msgid "Custom tool set (run commands individually)"
+msgstr "Eigener Werkzeugsatz (Befehle einzeln ausführen)"
+
+#: ui/screens/actions.slint
+msgid "Save a copy"
+msgstr "Kopie speichern"
+
+#: ui/screens/actions.slint
+msgid "Save action"
+msgstr "Aktion speichern"
+
+#: ui/screens/actions.slint ui/screens/reader-form.slint ui/screens/reader-options.slint ui/screens/reader-panel.slint ui/screens/security-policy.slint ui/screens/signature-manager.slint
+msgid "Delete"
+msgstr "Löschen"
+
+#: ui/screens/actions.slint
+msgid "Steps"
+msgstr "Schritte"
+
+#: ui/screens/actions.slint
+msgid "Add step"
+msgstr "Schritt hinzufügen"
+
+#: ui/screens/actions.slint ui/screens/javascript.slint
+msgid "Run"
+msgstr "Ausführen"
+
+#: ui/screens/actions.slint
+msgid "Add the first step above."
+msgstr "Fügen Sie oben den ersten Schritt hinzu."
+
+#: ui/screens/actions.slint ui/screens/ai-panel.slint ui/screens/dialogs.slint ui/screens/library.slint ui/screens/portfolio.slint ui/screens/reader-sheets.slint
+msgid "Open"
+msgstr "Öffnen"
+
+#: ui/screens/actions.slint ui/widgets/recent-card.slint
+msgid "Show in folder"
+msgstr "Im Ordner anzeigen"
+
+#: ui/screens/actions.slint ui/screens/ai-panel.slint ui/screens/spelling-dialog.slint
+msgid "Stop"
+msgstr "Stoppen"
+
+#: ui/screens/actions.slint
+msgid "Password (never saved)"
+msgstr "Kennwort (wird nie gespeichert)"
+
+#: ui/screens/actions.slint
+msgid "Settings for this file only"
+msgstr "Einstellungen nur für diese Datei"
+
+#: ui/screens/actions.slint
+msgid "Cancel action"
+msgstr "Aktion abbrechen"
+
+#: ui/screens/actions.slint
+msgid "Continue"
+msgstr "Fortfahren"
+
+#: ui/screens/actions.slint
+msgid "Apply a command to the open document, or process chosen PDFs. Export and recognition jobs use Run on PDFs."
+msgstr "Wenden Sie einen Befehl auf das geöffnete Dokument an oder verarbeiten Sie ausgewählte PDFs. Export und Texterkennung laufen über „Auf PDFs anwenden“."
+
+#: ui/screens/actions.slint
+msgid "Create a custom tool set in Actions to add commands here."
+msgstr "Erstellen Sie unter „Aktionen“ einen eigenen Werkzeugsatz, um hier Befehle hinzuzufügen."
+
+#: ui/screens/actions.slint
+msgid "Apply to open PDF"
+msgstr "Auf geöffnetes PDF anwenden"
+
+#: ui/screens/actions.slint
+msgid "Open tool…"
+msgstr "Werkzeug öffnen…"
+
+#: ui/screens/actions.slint
+msgid "Manage custom tools"
+msgstr "Eigene Werkzeuge verwalten"
+
+#: ui/screens/actions.slint ui/screens/ai-panel.slint ui/screens/catalog.slint ui/screens/certificate-encrypt.slint ui/screens/dialogs.slint ui/screens/javascript.slint ui/screens/ocr-review.slint ui/screens/portfolio.slint ui/screens/reader-ink-preview.slint ui/screens/reader-prepress.slint ui/screens/reader-production.slint ui/screens/reader-sheets.slint ui/screens/reader.slint ui/screens/security-policy.slint ui/screens/signature-manager.slint
+msgid "Close"
+msgstr "Schließen"
+
+#: ui/screens/actions.slint
+msgid "Keep your action changes?"
+msgstr "Änderungen an der Aktion behalten?"
+
+#: ui/screens/actions.slint
+msgid "This action has unsaved changes. Save it first, or discard the draft before switching."
+msgstr "Diese Aktion enthält ungesicherte Änderungen. Speichern Sie sie zuerst oder verwerfen Sie den Entwurf, bevor Sie wechseln."
+
+#: ui/screens/actions.slint
+msgid "Keep editing"
+msgstr "Weiter bearbeiten"
+
+#: ui/screens/actions.slint
+msgid "Discard changes"
+msgstr "Änderungen verwerfen"
+
+#: ui/screens/ai-panel.slint ui/screens/reader-toolbar.slint
+msgid "AI Assistant"
+msgstr "KI-Assistent"
+
+#: ui/screens/ai-panel.slint
+msgid "Hide tools"
+msgstr "Werkzeuge ausblenden"
+
+#: ui/screens/ai-panel.slint ui/screens/history.slint ui/screens/reader-form.slint ui/screens/reader-options.slint ui/screens/reader-sheets.slint ui/screens/sign-panel.slint
+msgid "Clear"
+msgstr "Löschen"
+
+#: ui/screens/ai-panel.slint
+msgid "OK"
+msgstr "OK"
+
+#: ui/screens/ai-panel.slint
+msgid "Turn off AI"
+msgstr "KI deaktivieren"
+
+#: ui/screens/ai-panel.slint
+msgid "No AI provider yet"
+msgstr "Noch kein KI-Anbieter"
+
+#: ui/screens/ai-panel.slint
+msgid "Add an API key (OpenAI, Claude, Gemini, Mistral, xAI) or start Ollama or a llama.cpp server on this computer."
+msgstr "Fügen Sie einen API-Schlüssel hinzu (OpenAI, Claude, Gemini, Mistral, xAI) oder starten Sie Ollama oder einen llama.cpp-Server auf diesem Computer."
+
+#: ui/screens/ai-panel.slint
+msgid "Set up AI…"
+msgstr "KI einrichten…"
+
+#: ui/screens/ai-panel.slint
+msgid "Sending text to AI is off. Nothing leaves this computer."
+msgstr "Das Senden von Text an die KI ist deaktiviert. Nichts verlässt diesen Computer."
+
+#: ui/screens/ai-panel.slint
+msgid "Turn on"
+msgstr "Aktivieren"
+
+#: ui/screens/ai-panel.slint
+msgid "New space"
+msgstr "Neuer Bereich"
+
+#: ui/screens/ai-panel.slint
+msgid "This space is empty: Add PDFs… puts files in it. Questions and summaries read every file."
+msgstr "Dieser Bereich ist leer: „PDFs hinzufügen…“ legt Dateien hinein. Fragen und Zusammenfassungen lesen jede Datei."
+
+#: ui/screens/ai-panel.slint ui/screens/catalog.slint ui/screens/certificate-encrypt.slint ui/screens/feedback.slint ui/screens/options.slint ui/screens/portfolio.slint ui/screens/preferences-more.slint ui/screens/preferences-plugins.slint ui/screens/preferences.slint ui/screens/reader-sheets.slint
+msgid "Remove"
+msgstr "Entfernen"
+
+#: ui/screens/ai-panel.slint ui/screens/reader-form.slint ui/screens/reader.slint ui/screens/spelling-dialog.slint
+msgid "Done"
+msgstr "Fertig"
+
+#: ui/screens/ai-panel.slint ui/screens/catalog.slint
+msgid "Add PDFs…"
+msgstr "PDFs hinzufügen…"
+
+#: src/reader_ui/saving.rs ui/screens/ai-panel.slint ui/screens/reader-panel.slint
+msgid "Rename"
+msgstr "Umbenennen"
+
+#: ui/screens/ai-panel.slint
+msgid "Delete space"
+msgstr "Bereich löschen"
+
+#: ui/screens/ai-panel.slint
+msgid "Export space…"
+msgstr "Bereich exportieren…"
+
+#: ui/screens/ai-panel.slint
+msgid "Drop PDFs on the document to add them to this space."
+msgstr "Legen Sie PDFs auf dem Dokument ab, um sie diesem Bereich hinzuzufügen."
+
+#: ui/screens/ai-panel.slint
+msgid "Import space…"
+msgstr "Bereich importieren…"
+
+#: ui/screens/ai-panel.slint ui/widgets/file-card.slint
+msgid "e.g. 1-3, 5"
+msgstr "z. B. 1-3, 5"
+
+#: ui/screens/ai-panel.slint
+msgid "Selected: “{}”"
+msgstr "Auswahl: „{}“"
+
+#: ui/screens/ai-panel.slint
+msgid "Explain the selection"
+msgstr "Auswahl erklären"
+
+#: ui/screens/ai-panel.slint
+msgid "Summarize"
+msgstr "Zusammenfassen"
+
+#: ui/screens/ai-panel.slint
+msgid "Main points"
+msgstr "Hauptpunkte"
+
+#: ui/screens/ai-panel.slint
+msgid "What is this about?"
+msgstr "Worum geht es?"
+
+#: ui/screens/ai-panel.slint
+msgid "Podcast script"
+msgstr "Podcast-Skript"
+
+#: ui/screens/ai-panel.slint
+msgid "Slides (PowerPoint)"
+msgstr "Folien (PowerPoint)"
+
+#: ui/screens/ai-panel.slint
+msgid "Slides (PDF)"
+msgstr "Folien (PDF)"
+
+#: ui/screens/ai-panel.slint
+msgid "Translate"
+msgstr "Übersetzen"
+
+#: ui/screens/ai-panel.slint
+msgid "Categories, e.g. Invoice, Contract"
+msgstr "Kategorien, z. B. Rechnung, Vertrag"
+
+#: ui/screens/ai-panel.slint
+msgid "Classify space"
+msgstr "Bereich klassifizieren"
+
+#: ui/screens/ai-panel.slint
+msgid "Classify PDFs…"
+msgstr "PDFs klassifizieren…"
+
+#: ui/screens/ai-panel.slint
+msgid "Ask anything about this document, or pick a suggestion. Answers cite the pages they come from."
+msgstr "Stellen Sie eine beliebige Frage zu diesem Dokument oder wählen Sie einen Vorschlag. Antworten nennen die Seiten, aus denen sie stammen."
+
+#: ui/screens/ai-panel.slint
+msgid "You"
+msgstr "Sie"
+
+#: ui/screens/ai-panel.slint
+msgid "Could not answer"
+msgstr "Keine Antwort möglich"
+
+#: ui/screens/ai-panel.slint ui/screens/preferences-ai.slint
+msgid "AI"
+msgstr "KI"
+
+#: ui/screens/ai-panel.slint
+msgid "Try again"
+msgstr "Erneut versuchen"
+
+#: ui/screens/ai-panel.slint
+msgid "Open AI settings…"
+msgstr "KI-Einstellungen öffnen…"
+
+#: ui/screens/ai-panel.slint
+msgid "Save…"
+msgstr "Speichern…"
+
+#: ui/screens/ai-panel.slint
+msgid "Highlight in PDF"
+msgstr "Im PDF hervorheben"
+
+#: ui/screens/ai-panel.slint
+msgid "Save audio…"
+msgstr "Audio speichern…"
+
+#: ui/screens/ai-panel.slint
+msgid "Ask about the space's PDFs"
+msgstr "Fragen zu den PDFs des Bereichs"
+
+#: ui/screens/ai-panel.slint
+msgid "Ask about the selection"
+msgstr "Fragen zur Auswahl"
+
+#: ui/screens/ai-panel.slint
+msgid "Ask about this document"
+msgstr "Fragen zu diesem Dokument"
+
+#: ui/screens/ai-panel.slint
+msgid "Ask"
+msgstr "Fragen"
+
+#: ui/screens/catalog.slint
+msgid "Search catalog"
+msgstr "Katalog durchsuchen"
+
+#: ui/screens/catalog.slint
+msgid "Index saved PDFs once, then search their text. Protected files are excluded."
+msgstr "Indizieren Sie gespeicherte PDFs einmal und durchsuchen Sie dann ihren Text. Geschützte Dateien sind ausgeschlossen."
+
+#: ui/screens/catalog.slint
+msgid "Add folder…"
+msgstr "Ordner hinzufügen…"
+
+#: ui/screens/catalog.slint
+msgid "Open catalog…"
+msgstr "Katalog öffnen…"
+
+#: ui/screens/catalog.slint
+msgid "Build and save…"
+msgstr "Erstellen und speichern…"
+
+#: ui/screens/catalog.slint
+msgid "Words or phrase"
+msgstr "Wörter oder Ausdruck"
+
+#: ui/screens/catalog.slint ui/screens/reader-toolbar.slint ui/screens/redact-panel.slint
+msgid "Search"
+msgstr "Suchen"
+
+#: ui/screens/catalog.slint
+msgid "Exact phrase"
+msgstr "Genauer Ausdruck"
+
+#: ui/screens/catalog.slint
+msgid "All words"
+msgstr "Alle Wörter"
+
+#: ui/screens/catalog.slint
+msgid "Any words"
+msgstr "Beliebige Wörter"
+
+#: ui/screens/catalog.slint
+msgid "Boolean query"
+msgstr "Boolesche Abfrage"
+
+#: ui/screens/catalog.slint
+msgid "Within 10 words"
+msgstr "Innerhalb von 10 Wörtern"
+
+#: ui/screens/catalog.slint ui/screens/reader-panel.slint ui/screens/redact-panel.slint
+msgid "Whole words"
+msgstr "Ganze Wörter"
+
+#: ui/screens/catalog.slint ui/screens/redact-panel.slint
+msgid "Match case"
+msgstr "Groß-/Kleinschreibung beachten"
+
+#: ui/screens/catalog.slint
+msgid "English word stems (for example, running → run)"
+msgstr "Englische Wortstämme (zum Beispiel running → run)"
+
+#: ui/screens/catalog.slint
+msgid "Use AND, OR, NOT, parentheses and quoted phrases. AND is evaluated before OR."
+msgstr "Verwenden Sie AND, OR, NOT, Klammern und Ausdrücke in Anführungszeichen. AND wird vor OR ausgewertet."
+
+#: ui/screens/catalog.slint
+msgid "Sources · {}"
+msgstr "Quellen · {}"
+
+#: ui/screens/catalog.slint
+msgid "Results"
+msgstr "Ergebnisse"
+
+#: ui/screens/catalog.slint
+msgid "Open page"
+msgstr "Seite öffnen"
+
+#: ui/screens/catalog.slint
+msgid "Cancel operation"
+msgstr "Vorgang abbrechen"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Encrypt with certificates"
+msgstr "Mit Zertifikaten verschlüsseln"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Only the recipients below can open the copy, each with their own digital ID and permissions. Add your own ID to open it again."
+msgstr "Nur die unten aufgeführten Empfänger können die Kopie öffnen, jeweils mit ihrer eigenen digitalen ID und ihren Berechtigungen. Fügen Sie Ihre eigene ID hinzu, um sie wieder öffnen zu können."
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Add certificate…"
+msgstr "Zertifikat hinzufügen…"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Add my digital ID…"
+msgstr "Meine digitale ID hinzufügen…"
+
+#: ui/screens/certificate-encrypt.slint ui/screens/dialogs.slint
+msgid "Digital ID password"
+msgstr "Kennwort der digitalen ID"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Recipients and what each may do"
+msgstr "Empfänger und ihre Berechtigungen"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "No recipient yet. Add their certificate (.cer, .crt, .pem, .der)."
+msgstr "Noch kein Empfänger. Fügen Sie das Zertifikat hinzu (.cer, .crt, .pem, .der)."
+
+#: ui/screens/certificate-encrypt.slint ui/screens/reader-form.slint ui/screens/reader-sheets.slint
+msgid "Print"
+msgstr "Drucken"
+
+#: ui/screens/certificate-encrypt.slint ui/screens/reader.slint
+msgid "Comment"
+msgstr "Kommentieren"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Fill forms"
+msgstr "Formulare ausfüllen"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Change security"
+msgstr "Sicherheit ändern"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Encrypt"
+msgstr "Verschlüsseln"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "All document contents"
+msgstr "Gesamter Dokumentinhalt"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "All contents except metadata"
+msgstr "Gesamter Inhalt außer Metadaten"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Only file attachments"
+msgstr "Nur Dateianhänge"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Certificate security policies"
+msgstr "Zertifikat-Sicherheitsrichtlinien"
+
+#: ui/screens/certificate-encrypt.slint ui/screens/security-policy.slint
+msgid "Policy name"
+msgstr "Richtlinienname"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Save as policy"
+msgstr "Als Richtlinie speichern"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "No saved policy yet."
+msgstr "Noch keine gespeicherte Richtlinie."
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Use {}"
+msgstr "{} verwenden"
+
+#: ui/screens/certificate-encrypt.slint
+msgid "Save encrypted copy…"
+msgstr "Verschlüsselte Kopie speichern…"
+
+#: ui/screens/dialogs.slint
+msgid "{} is encrypted for certificates"
+msgstr "{} ist für Zertifikate verschlüsselt"
+
+#: ui/screens/dialogs.slint
+msgid "{} is password protected"
+msgstr "{} ist kennwortgeschützt"
+
+#: ui/screens/dialogs.slint
+msgid "Choose the digital ID it was sent to"
+msgstr "Wählen Sie die digitale ID, an die es gesendet wurde"
+
+#: ui/screens/dialogs.slint
+msgid "Digital ID: {}"
+msgstr "Digitale ID: {}"
+
+#: ui/screens/dialogs.slint ui/screens/preferences.slint
+msgid "Choose…"
+msgstr "Auswählen…"
+
+#: ui/screens/dialogs.slint ui/screens/options.slint
+msgid "Password"
+msgstr "Kennwort"
+
+#: ui/screens/dialogs.slint
+msgid "Wrong password"
+msgstr "Falsches Kennwort"
+
+#: ui/screens/dialogs.slint
+msgid "Skip"
+msgstr "Überspringen"
+
+#: ui/screens/dialogs.slint
+msgid "Unlock"
+msgstr "Entsperren"
+
+#: ui/screens/dialogs.slint
+msgid "A task is still running"
+msgstr "Eine Aufgabe läuft noch"
+
+#: ui/screens/dialogs.slint
+msgid "Closing this tab cancels it. Files already written are kept."
+msgstr "Wenn Sie diesen Tab schließen, wird sie abgebrochen. Bereits geschriebene Dateien bleiben erhalten."
+
+#: ui/screens/dialogs.slint
+msgid "Keep"
+msgstr "Behalten"
+
+#: ui/screens/dialogs.slint
+msgid "Cancel job"
+msgstr "Auftrag abbrechen"
+
+#: ui/screens/dialogs.slint
+msgid "Open “{}”?"
+msgstr "„{}“ öffnen?"
+
+#: ui/screens/dialogs.slint
+msgid "The document links to this file. It opens in the app your system uses for it; open it only if you trust the document."
+msgstr "Das Dokument verweist auf diese Datei. Sie wird in der App geöffnet, die Ihr System dafür verwendet; öffnen Sie sie nur, wenn Sie dem Dokument vertrauen."
+
+#: ui/screens/dialogs.slint ui/screens/feedback.slint ui/screens/history.slint ui/screens/library.slint ui/screens/processing.slint ui/screens/reader-options.slint ui/screens/reader-panel.slint ui/screens/reader-sheets.slint ui/screens/reader.slint
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: ui/screens/dialogs.slint
+msgid "Close “{}” without redacting?"
+msgstr "„{}“ ohne Schwärzen schließen?"
+
+#: ui/screens/dialogs.slint
+msgid "Save changes to “{}”?"
+msgstr "Änderungen an „{}“ speichern?"
+
+#: ui/screens/dialogs.slint
+msgid "1 mark is not applied: Redact applies it."
+msgstr "1 Markierung ist nicht angewendet: „Schwärzen“ wendet sie an."
+
+#: ui/screens/dialogs.slint
+msgid "{} marks are not applied: Redact applies them."
+msgstr "{} Markierungen sind nicht angewendet: „Schwärzen“ wendet sie an."
+
+#: ui/screens/dialogs.slint
+msgid "Your annotations will be lost if you don’t save them."
+msgstr "Ihre Anmerkungen gehen verloren, wenn Sie sie nicht speichern."
+
+#: ui/screens/dialogs.slint
+msgid "Don’t Save"
+msgstr "Nicht speichern"
+
+#: ui/screens/edit-panel.slint
+msgid "Click on a page to add a text box, then type your text below. Click a box to select it, drag it to move it."
+msgstr "Klicken Sie auf eine Seite, um ein Textfeld hinzuzufügen, und geben Sie dann unten Ihren Text ein. Klicken Sie auf ein Feld, um es auszuwählen, und ziehen Sie es, um es zu verschieben."
+
+#: ui/screens/edit-panel.slint
+msgid "Choose an image, then click on a page to place it. Click an image to select it, drag it to move it."
+msgstr "Wählen Sie ein Bild und klicken Sie dann auf eine Seite, um es zu platzieren. Klicken Sie auf ein Bild, um es auszuwählen, und ziehen Sie es, um es zu verschieben."
+
+#: ui/screens/edit-panel.slint ui/screens/reader.slint
+msgid "Add text"
+msgstr "Text hinzufügen"
+
+#: ui/screens/edit-panel.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Add image"
+msgstr "Bild hinzufügen"
+
+#: ui/screens/edit-panel.slint
+msgid "Text (page {})"
+msgstr "Text (Seite {})"
+
+#: ui/screens/edit-panel.slint
+msgid "Type your text"
+msgstr "Text eingeben"
+
+#: ui/screens/edit-panel.slint
+msgid "Text size"
+msgstr "Textgröße"
+
+#: ui/screens/edit-panel.slint
+msgid "{} pt"
+msgstr "{} pt"
+
+#: ui/screens/edit-panel.slint
+msgid "Text color"
+msgstr "Textfarbe"
+
+#: ui/screens/edit-panel.slint ui/screens/options-parts.slint
+msgid "Custom: RRGGBB"
+msgstr "Eigene: RRGGBB"
+
+#: ui/screens/edit-panel.slint ui/screens/options.slint
+msgid "Choose an image…"
+msgstr "Bild auswählen…"
+
+#: ui/screens/edit-panel.slint ui/screens/options.slint
+msgid "Change image…"
+msgstr "Bild ändern…"
+
+#: ui/screens/edit-panel.slint
+msgid "PNG or JPEG"
+msgstr "PNG oder JPEG"
+
+#: ui/screens/edit-panel.slint ui/screens/options.slint ui/screens/portfolio.slint ui/screens/reader-form.slint ui/screens/recents.slint ui/screens/sign-panel.slint
+msgid "Size"
+msgstr "Größe"
+
+#: ui/screens/edit-panel.slint ui/screens/options.slint ui/screens/sign-panel.slint
+msgid "Small"
+msgstr "Klein"
+
+#: ui/screens/edit-panel.slint ui/screens/sign-panel.slint ui/screens/signature-manager.slint
+msgid "Medium"
+msgstr "Mittel"
+
+#: ui/screens/edit-panel.slint ui/screens/sign-panel.slint
+msgid "Large"
+msgstr "Groß"
+
+#: ui/screens/edit-panel.slint
+msgid "Remove text"
+msgstr "Text entfernen"
+
+#: ui/screens/edit-panel.slint
+msgid "Remove image"
+msgstr "Bild entfernen"
+
+#: ui/screens/edit-panel.slint
+msgid "Nothing added yet."
+msgstr "Noch nichts hinzugefügt."
+
+#: ui/screens/edit-panel.slint
+msgid "1 item added"
+msgstr "1 Element hinzugefügt"
+
+#: ui/screens/edit-panel.slint
+msgid "{} items added"
+msgstr "{} Elemente hinzugefügt"
+
+#: ui/screens/edit-panel.slint
+msgid "Text and images become part of the page: every PDF reader shows them."
+msgstr "Text und Bilder werden Teil der Seite: Jeder PDF-Reader zeigt sie an."
+
+#: ui/screens/feedback.slint
+msgid "Report an issue"
+msgstr "Problem melden"
+
+#: ui/screens/feedback.slint
+msgid "Report a problem"
+msgstr "Ein Problem melden"
+
+#: ui/screens/feedback.slint
+msgid "Suggest a feature"
+msgstr "Funktion vorschlagen"
+
+#: ui/screens/feedback.slint
+msgid "What happened, and what you expected"
+msgstr "Was ist passiert und was haben Sie erwartet?"
+
+#: ui/screens/feedback.slint
+msgid "What you would like Sheaf to do"
+msgstr "Was Sheaf tun soll"
+
+#: ui/screens/feedback.slint
+msgid "Attach files…"
+msgstr "Dateien anhängen…"
+
+#: ui/screens/feedback.slint
+msgid "Include this computer's details"
+msgstr "Angaben zu diesem Computer einschließen"
+
+#: ui/screens/feedback.slint
+msgid "Sheaf sends nothing by itself: save the report to send it, or open the issue page in your browser and attach the files there."
+msgstr "Sheaf sendet nichts von selbst: Speichern Sie den Bericht, um ihn zu senden, oder öffnen Sie die Problemseite im Browser und hängen Sie die Dateien dort an."
+
+#: ui/screens/feedback.slint ui/screens/reader-prepress.slint ui/screens/reader-sheets.slint
+msgid "Save report…"
+msgstr "Bericht speichern…"
+
+#: ui/screens/feedback.slint
+msgid "Open issue page"
+msgstr "Problemseite öffnen"
+
+#: ui/screens/history.slint
+msgid "Run again"
+msgstr "Erneut ausführen"
+
+#: ui/screens/history.slint
+msgid "Clear the whole history?"
+msgstr "Gesamten Verlauf löschen?"
+
+#: ui/screens/history.slint
+msgid "Your files are not deleted."
+msgstr "Ihre Dateien werden nicht gelöscht."
+
+#: ui/screens/history.slint ui/screens/redact-panel.slint
+msgid "Clear all"
+msgstr "Alle löschen"
+
+#: ui/screens/history.slint
+msgid "Finished tasks will appear here"
+msgstr "Abgeschlossene Aufgaben werden hier angezeigt"
+
+#: ui/screens/javascript.slint
+msgid "JavaScript console"
+msgstr "JavaScript-Konsole"
+
+#: ui/screens/javascript.slint
+msgid "JavaScript source. Control Enter runs selected text, or the full script when nothing is selected."
+msgstr "JavaScript-Quelltext. Strg+Eingabe führt den ausgewählten Text aus, oder das ganze Skript, wenn nichts ausgewählt ist."
+
+#: ui/screens/javascript.slint
+msgid "No document, field, page or link scripts. Add a document script below."
+msgstr "Keine Dokument-, Feld-, Seiten- oder Link-Skripte. Fügen Sie unten ein Dokumentskript hinzu."
+
+#: ui/screens/javascript.slint
+msgid "Field script (enter the existing field name below)"
+msgstr "Feldskript (geben Sie unten den Namen des vorhandenen Felds ein)"
+
+#: ui/screens/javascript.slint
+msgid "{} · Edit source or delete this event. New starts a document script."
+msgstr "{} · Quelltext bearbeiten oder dieses Ereignis löschen. „Neu“ beginnt ein Dokumentskript."
+
+#: ui/screens/javascript.slint
+msgid "Field name"
+msgstr "Feldname"
+
+#: ui/screens/javascript.slint
+msgid "Document script name"
+msgstr "Name des Dokumentskripts"
+
+#: ui/screens/javascript.slint
+msgid "New"
+msgstr "Neu"
+
+#: ui/screens/javascript.slint
+msgid "Save script"
+msgstr "Skript speichern"
+
+#: ui/screens/javascript.slint
+msgid "Delete script"
+msgstr "Skript löschen"
+
+#: ui/screens/javascript.slint
+msgid "Running…"
+msgstr "Wird ausgeführt…"
+
+#: ui/screens/javascript.slint
+msgid "Run selection"
+msgstr "Auswahl ausführen"
+
+#: ui/screens/javascript.slint
+msgid "Console"
+msgstr "Konsole"
+
+#: ui/screens/javascript.slint
+msgid "Scripts"
+msgstr "Skripte"
+
+#: ui/screens/javascript.slint
+msgid "Clear output"
+msgstr "Ausgabe löschen"
+
+#: ui/screens/javascript.slint
+msgid "Output"
+msgstr "Ausgabe"
+
+#: ui/screens/javascript.slint
+msgid "Control Enter runs the selection or the full script. Changes can be undone. Save the document to keep them. Page and link action sources are editable in Scripts. Breakpoints and stepping are not available."
+msgstr "Strg+Eingabe führt die Auswahl oder das ganze Skript aus. Änderungen können widerrufen werden. Speichern Sie das Dokument, um sie zu behalten. Quelltexte von Seiten- und Link-Aktionen sind unter „Skripte“ bearbeitbar. Haltepunkte und schrittweise Ausführung sind nicht verfügbar."
+
+#: ui/screens/library.slint
+msgid "Private file copies. Each save in Sheaf keeps a new version."
+msgstr "Private Dateikopien. Jedes Speichern in Sheaf behält eine neue Version."
+
+#: ui/screens/library.slint ui/screens/portfolio.slint
+msgid "Add files…"
+msgstr "Dateien hinzufügen…"
+
+#: ui/screens/library.slint ui/screens/portfolio.slint
+msgid "Name A–Z"
+msgstr "Name A–Z"
+
+#: ui/screens/library.slint ui/screens/portfolio.slint
+msgid "Name Z–A"
+msgstr "Name Z–A"
+
+#: ui/screens/library.slint ui/screens/reader-panel.slint ui/screens/recents.slint
+msgid "Newest"
+msgstr "Neueste"
+
+#: ui/screens/library.slint
+msgid "Oldest"
+msgstr "Älteste"
+
+#: ui/screens/library.slint
+msgid "Largest"
+msgstr "Größte"
+
+#: ui/screens/library.slint
+msgid "Smallest"
+msgstr "Kleinste"
+
+#: ui/screens/library.slint
+msgid "Refresh"
+msgstr "Aktualisieren"
+
+#: ui/screens/library.slint
+msgid "Filter by name or archive folder"
+msgstr "Nach Name oder Archivordner filtern"
+
+#: ui/screens/library.slint
+msgid "Filter files by name or archive folder"
+msgstr "Dateien nach Name oder Archivordner filtern"
+
+#: ui/screens/library.slint
+msgid "Select shown"
+msgstr "Angezeigte auswählen"
+
+#: ui/screens/library.slint
+msgid "Clear selection"
+msgstr "Auswahl aufheben"
+
+#: ui/screens/library.slint
+msgid "{} selected"
+msgstr "{} ausgewählt"
+
+#: ui/screens/library.slint
+msgid "Export selected…"
+msgstr "Auswahl exportieren…"
+
+#: ui/screens/library.slint
+msgid "Delete selected…"
+msgstr "Auswahl löschen…"
+
+#: ui/screens/library.slint
+msgid "Destination folder, blank for root"
+msgstr "Zielordner, leer für Stammordner"
+
+#: ui/screens/library.slint
+msgid "Move selected to folder"
+msgstr "Auswahl in Ordner verschieben"
+
+#: ui/screens/library.slint ui/screens/ocr-review.slint
+msgid "Previous"
+msgstr "Zurück"
+
+#: ui/screens/library.slint ui/screens/options.slint
+msgid "Page {} of {}"
+msgstr "Seite {} von {}"
+
+#: ui/screens/library.slint
+msgid "{} files"
+msgstr "{} Dateien"
+
+#: ui/screens/library.slint ui/screens/spelling-dialog.slint
+msgid "Next"
+msgstr "Weiter"
+
+#: ui/screens/library.slint
+msgid "No files match this folder and filter. Add files or clear the filter."
+msgstr "Keine Dateien entsprechen diesem Ordner und Filter. Fügen Sie Dateien hinzu oder löschen Sie den Filter."
+
+#: ui/screens/library.slint
+msgid "All folders"
+msgstr "Alle Ordner"
+
+#: ui/screens/library.slint
+msgid "Select {}"
+msgstr "{} auswählen"
+
+#: ui/screens/library.slint ui/screens/reader-panel.slint
+msgid "Save a copy…"
+msgstr "Kopie speichern…"
+
+#: ui/screens/library.slint
+msgid "Unzip"
+msgstr "Entpacken"
+
+#: ui/screens/library.slint
+msgid "New version…"
+msgstr "Neue Version…"
+
+#: ui/screens/library.slint
+msgid "Delete file and versions"
+msgstr "Datei und Versionen löschen"
+
+#: ui/screens/library.slint
+msgid "Version history"
+msgstr "Versionsverlauf"
+
+#: ui/screens/library.slint
+msgid "Version {} · "
+msgstr "Version {} · "
+
+#: ui/screens/library.slint ui/screens/portfolio.slint
+msgid "Save copy…"
+msgstr "Kopie speichern…"
+
+#: ui/screens/library.slint
+msgid "Restore"
+msgstr "Wiederherstellen"
+
+#: ui/screens/library.slint
+msgid "Working copies · reopen after an interruption"
+msgstr "Arbeitskopien · nach einer Unterbrechung wieder öffnen"
+
+#: ui/screens/library.slint
+msgid "Open working copy"
+msgstr "Arbeitskopie öffnen"
+
+#: ui/screens/library.slint
+msgid "Delete {}?"
+msgstr "{} löschen?"
+
+#: ui/screens/library.slint
+msgid "This removes the library copy and every stored version. Your original file stays where it is."
+msgstr "Dadurch werden die Bibliothekskopie und alle gespeicherten Versionen entfernt. Ihre Originaldatei bleibt, wo sie ist."
+
+#: ui/screens/library.slint
+msgid "Delete from Library"
+msgstr "Aus Bibliothek löschen"
+
+#: ui/screens/ocr-review.slint
+msgid "Correct recognized text"
+msgstr "Erkannten Text korrigieren"
+
+#: ui/screens/ocr-review.slint
+msgid "Possible OCR error"
+msgstr "Möglicher OCR-Fehler"
+
+#: ui/screens/ocr-review.slint
+msgid "Review this OCR run"
+msgstr "Diesen OCR-Durchlauf prüfen"
+
+#: ui/screens/ocr-review.slint
+msgid "OCR suspects only"
+msgstr "Nur OCR-Verdachtsfälle"
+
+#: ui/screens/ocr-review.slint
+msgid "Correct text"
+msgstr "Text korrigieren"
+
+#: ui/screens/ocr-review.slint
+msgid "Correct and next"
+msgstr "Korrigieren und weiter"
+
+#: ui/screens/ocr-review.slint
+msgid "Accept and next"
+msgstr "Übernehmen und weiter"
+
+#: ui/screens/ocr-review.slint
+msgid "This is not text"
+msgstr "Das ist kein Text"
+
+#: ui/screens/ocr-review.slint
+msgid "Only the hidden text changes. Save the PDF to keep corrections."
+msgstr "Nur der verborgene Text ändert sich. Speichern Sie das PDF, um die Korrekturen zu behalten."
+
+#: ui/screens/options-parts.slint
+msgid "From page"
+msgstr "Von Seite"
+
+#: ui/screens/options-parts.slint
+msgid "To page"
+msgstr "Bis Seite"
+
+#: ui/screens/options-parts.slint
+msgid "Last"
+msgstr "Letzte"
+
+#: ui/screens/options-parts.slint ui/screens/tool-flow.slint
+msgid "Preview…"
+msgstr "Vorschau…"
+
+#: ui/screens/options-parts.slint ui/screens/reader-options.slint
+msgid "Sans"
+msgstr "Sans"
+
+#: ui/screens/options-parts.slint ui/screens/reader-options.slint
+msgid "Serif"
+msgstr "Serif"
+
+#: ui/screens/options-parts.slint ui/screens/reader-options.slint
+msgid "Mono"
+msgstr "Mono"
+
+#: ui/screens/options-parts.slint ui/screens/reader-options.slint
+msgid "B"
+msgstr "F"
+
+#: ui/screens/options-parts.slint ui/screens/reader-options.slint
+msgid "I"
+msgstr "K"
+
+#: ui/screens/options-parts.slint ui/screens/reader-options.slint
+msgid "U"
+msgstr "U"
+
+#: ui/screens/options-parts.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Colour"
+msgstr "Farbe"
+
+#: ui/screens/options-parts.slint ui/screens/options.slint ui/screens/signature-manager.slint
+msgid "Black"
+msgstr "Schwarz"
+
+#: ui/screens/options-parts.slint ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Grey"
+msgstr "Grau"
+
+#: ui/screens/options-parts.slint ui/screens/options.slint
+msgid "Red"
+msgstr "Rot"
+
+#: ui/screens/options-parts.slint ui/screens/signature-manager.slint
+msgid "Blue"
+msgstr "Blau"
+
+#: ui/screens/options.slint
+msgid "Output file name"
+msgstr "Name der Ausgabedatei"
+
+#: ui/screens/options.slint ui/screens/reader-panel.slint
+msgid "Files"
+msgstr "Dateien"
+
+#: ui/screens/options.slint ui/screens/reader-panel.slint ui/screens/reader-sheets.slint
+msgid "Pages"
+msgstr "Seiten"
+
+#: ui/screens/options.slint
+msgid "Every page of every file, in the order they will be merged: hover a page to move it with the arrows or drop it with ×."
+msgstr "Jede Seite jeder Datei in der Reihenfolge der Zusammenführung: Bewegen Sie den Zeiger über eine Seite, um sie mit den Pfeilen zu verschieben oder mit × zu entfernen."
+
+#: ui/screens/options.slint
+msgid "Split by range"
+msgstr "Nach Bereichen teilen"
+
+#: ui/screens/options.slint
+msgid "One file for each range you type"
+msgstr "Eine Datei pro eingegebenem Bereich"
+
+#: ui/screens/options.slint
+msgid "Split every N pages"
+msgstr "Alle N Seiten teilen"
+
+#: ui/screens/options.slint
+msgid "Fixed-size chunks"
+msgstr "Blöcke fester Größe"
+
+#: ui/screens/options.slint
+msgid "Split by bookmarks"
+msgstr "Nach Lesezeichen teilen"
+
+#: ui/screens/options.slint
+msgid "One file per top-level bookmark, named after it"
+msgstr "Eine Datei pro Lesezeichen der obersten Ebene, nach ihm benannt"
+
+#: ui/screens/options.slint
+msgid "Split by file size"
+msgstr "Nach Dateigröße teilen"
+
+#: ui/screens/options.slint
+msgid "Files no larger than the size you type"
+msgstr "Dateien nicht größer als die eingegebene Größe"
+
+#: ui/screens/options.slint
+msgid "Cut each page into parts"
+msgstr "Jede Seite in Teile schneiden"
+
+#: ui/screens/options.slint
+msgid "A spread scanned on one page becomes two pages; a poster, sheets"
+msgstr "Eine auf einer Seite gescannte Doppelseite wird zu zwei Seiten; ein Poster zu Blättern"
+
+#: ui/screens/options.slint
+msgid "Left | right"
+msgstr "Links | rechts"
+
+#: ui/screens/options.slint
+msgid "Top / bottom"
+msgstr "Oben / unten"
+
+#: ui/screens/options.slint ui/screens/reader-options.slint ui/screens/reader-toolbar.slint
+msgid "Grid"
+msgstr "Raster"
+
+#: ui/screens/options.slint
+msgid "Across"
+msgstr "Horizontal"
+
+#: ui/screens/options.slint ui/screens/portfolio.slint ui/screens/preferences-platform.slint ui/screens/signature-manager.slint
+msgid "Down"
+msgstr "Vertikal"
+
+#: ui/screens/options.slint
+msgid "Ranges"
+msgstr "Bereiche"
+
+#: ui/screens/options.slint
+msgid "Merge all ranges into one PDF file"
+msgstr "Alle Bereiche in einer PDF-Datei zusammenführen"
+
+#: ui/screens/options.slint
+msgid "Pages per file"
+msgstr "Seiten pro Datei"
+
+#: ui/screens/options.slint
+msgid "Largest file (MB)"
+msgstr "Größte Datei (MB)"
+
+#: ui/screens/options.slint
+msgid "{} PDFs of {} pages will be created."
+msgstr "{} PDFs mit {} Seiten werden erstellt."
+
+#: ui/screens/options.slint
+msgid "The blank pages (found for you)"
+msgstr "Die leeren Seiten (für Sie gefunden)"
+
+#: ui/screens/options.slint
+msgid "Strict"
+msgstr "Streng"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint
+msgid "Normal"
+msgstr "Normal"
+
+#: ui/screens/options.slint
+msgid "Scans"
+msgstr "Scans"
+
+#: ui/screens/options.slint
+msgid "Pages to remove"
+msgstr "Zu entfernende Seiten"
+
+#: ui/screens/options.slint
+msgid "Pages to extract"
+msgstr "Zu extrahierende Seiten"
+
+#: ui/screens/options.slint
+msgid "Use commas and dashes: 2,4-6 means pages 2, 4, 5 and 6."
+msgstr "Verwenden Sie Kommas und Bindestriche: 2,4-6 bedeutet die Seiten 2, 4, 5 und 6."
+
+#: ui/screens/options.slint
+msgid "Insert blank page"
+msgstr "Leere Seite einfügen"
+
+#: ui/screens/options.slint
+msgid "Hover a page to move it with the arrows or drop it with ×. The blank page is added at the end."
+msgstr "Bewegen Sie den Zeiger über eine Seite, um sie mit den Pfeilen zu verschieben oder mit × zu entfernen. Die leere Seite wird am Ende hinzugefügt."
+
+#: ui/screens/options.slint
+msgid "Or an order"
+msgstr "Oder eine Reihenfolge"
+
+#: ui/screens/options.slint
+msgid "Odd, then even"
+msgstr "Ungerade, dann gerade"
+
+#: ui/screens/options.slint
+msgid "Collate a 2-sided scan"
+msgstr "Beidseitigen Scan zusammentragen"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint
+msgid "Pages per sheet"
+msgstr "Seiten pro Blatt"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Booklet"
+msgstr "Broschüre"
+
+#: ui/screens/options.slint
+msgid "One long page"
+msgstr "Eine lange Seite"
+
+#: ui/screens/options.slint
+msgid "Every page one under the other on a single long page (200 inches at most)."
+msgstr "Alle Seiten untereinander auf einer einzigen langen Seite (höchstens 200 Zoll)."
+
+#: ui/screens/options.slint
+msgid "Two pages to a side, in the order that reads 1, 2, 3… once the sheets are printed on both sides and folded."
+msgstr "Zwei Seiten pro Blattseite, in der Reihenfolge 1, 2, 3…, sobald die Blätter beidseitig gedruckt und gefaltet sind."
+
+#: ui/screens/options.slint
+msgid "Rotation"
+msgstr "Drehung"
+
+#: ui/screens/options.slint
+msgid "Left 90°"
+msgstr "Links 90°"
+
+#: ui/screens/options.slint
+msgid "Right 90°"
+msgstr "Rechts 90°"
+
+#: ui/screens/options.slint
+msgid "Flip ↔"
+msgstr "Spiegeln ↔"
+
+#: ui/screens/options.slint
+msgid "Flip ↕"
+msgstr "Spiegeln ↕"
+
+#: ui/screens/options.slint
+msgid "Pages (optional)"
+msgstr "Seiten (optional)"
+
+#: ui/screens/options.slint ui/screens/reader-options.slint ui/screens/reader-production.slint
+msgid "All pages"
+msgstr "Alle Seiten"
+
+#: ui/screens/options.slint
+msgid "Odd"
+msgstr "Ungerade"
+
+#: ui/screens/options.slint
+msgid "Even"
+msgstr "Gerade"
+
+#: ui/screens/options.slint
+msgid "Any shape"
+msgstr "Beliebige Ausrichtung"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Portrait"
+msgstr "Hochformat"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Landscape"
+msgstr "Querformat"
+
+#: ui/screens/options.slint
+msgid "Extreme compression"
+msgstr "Extreme Komprimierung"
+
+#: ui/screens/options.slint
+msgid "Smallest file, softer images"
+msgstr "Kleinste Datei, weichere Bilder"
+
+#: ui/screens/options.slint
+msgid "Recommended compression"
+msgstr "Empfohlene Komprimierung"
+
+#: ui/screens/options.slint
+msgid "Small file, sharp enough to read"
+msgstr "Kleine Datei, gut lesbar"
+
+#: ui/screens/options.slint
+msgid "Low compression"
+msgstr "Geringe Komprimierung"
+
+#: ui/screens/options.slint
+msgid "Best image quality, modest saving"
+msgstr "Beste Bildqualität, geringe Ersparnis"
+
+#: ui/screens/options.slint
+msgid "To a size"
+msgstr "Auf eine Größe"
+
+#: ui/screens/options.slint
+msgid "The largest file, in MB"
+msgstr "Maximale Dateigröße in MB"
+
+#: ui/screens/options.slint
+msgid "Convert to grayscale"
+msgstr "In Graustufen umwandeln"
+
+#: ui/screens/options.slint
+msgid "Advanced settings"
+msgstr "Erweiterte Einstellungen"
+
+#: ui/screens/options.slint
+msgid "Images at most (ppi)"
+msgstr "Bilder höchstens (ppi)"
+
+#: ui/screens/options.slint
+msgid "JPEG quality (1–100)"
+msgstr "JPEG-Qualität (1–100)"
+
+#: ui/screens/options.slint
+msgid "Remove page thumbnails"
+msgstr "Seitenminiaturen entfernen"
+
+#: ui/screens/options.slint
+msgid "Remove structure tags (accessibility)"
+msgstr "Struktur-Tags entfernen (Barrierefreiheit)"
+
+#: ui/screens/options.slint
+msgid "Remove document information and metadata"
+msgstr "Dokumentinformationen und Metadaten entfernen"
+
+#: ui/screens/options.slint
+msgid "Unembed standard fonts (Arial, Times, Courier…)"
+msgstr "Standardschriften nicht einbetten (Arial, Times, Courier…)"
+
+#: ui/screens/options.slint
+msgid "Flatten transparency (PDF 1.3 copy)"
+msgstr "Transparenz reduzieren (PDF-1.3-Kopie)"
+
+#: ui/screens/options.slint
+msgid "Needs local Ghostscript. Artwork may become images. Use an untagged copy without forms, layers, signatures or attachments."
+msgstr "Erfordert lokales Ghostscript. Grafiken können zu Bildern werden. Verwenden Sie eine Kopie ohne Tags, Formulare, Ebenen, Signaturen oder Anhänge."
+
+#: ui/screens/options.slint
+msgid "Fast Web View (linearize)"
+msgstr "Schnelle Webanzeige (linearisieren)"
+
+#: ui/screens/options.slint
+msgid "Needs local qpdf. The first page loads before the rest of the file. These settings may increase file size."
+msgstr "Erfordert lokales qpdf. Die erste Seite wird vor dem Rest der Datei geladen. Diese Einstellungen können die Dateigröße erhöhen."
+
+#: ui/screens/options.slint
+msgid "Sheaf tries stronger settings in turn until the file is that size or smaller; if none gets there, it keeps the smallest and says so."
+msgstr "Sheaf probiert nacheinander stärkere Einstellungen, bis die Datei diese Größe oder kleiner hat; gelingt das mit keiner, behält Sheaf die kleinste und weist darauf hin."
+
+#: ui/screens/options.slint
+msgid "Recommended and Extreme recompress images; text and vector graphics stay as they are (grey with Convert to grayscale)."
+msgstr "„Empfohlen“ und „Extrem“ komprimieren Bilder neu; Text und Vektorgrafiken bleiben unverändert (grau mit „In Graustufen umwandeln“)."
+
+#: ui/screens/options.slint
+msgid "This PDF already has a password: the new ones replace it."
+msgstr "Dieses PDF hat bereits ein Kennwort: Die neuen ersetzen es."
+
+#: ui/screens/options.slint
+msgid "Require a password to open"
+msgstr "Kennwort zum Öffnen verlangen"
+
+#: ui/screens/options.slint
+msgid "Type a password"
+msgstr "Kennwort eingeben"
+
+#: ui/screens/options.slint
+msgid "Weak"
+msgstr "Schwach"
+
+#: ui/screens/options.slint
+msgid "Fair"
+msgstr "Mittel"
+
+#: ui/screens/options.slint
+msgid "Strong"
+msgstr "Stark"
+
+#: ui/screens/options.slint
+msgid "Repeat password"
+msgstr "Kennwort wiederholen"
+
+#: ui/screens/options.slint
+msgid "Type it again"
+msgstr "Erneut eingeben"
+
+#: ui/screens/options.slint
+msgid "Permissions password (optional)"
+msgstr "Berechtigungskennwort (optional)"
+
+#: ui/screens/options.slint
+msgid "Permissions password"
+msgstr "Berechtigungskennwort"
+
+#: ui/screens/options.slint
+msgid "Needed to lift the restrictions"
+msgstr "Zum Aufheben der Einschränkungen erforderlich"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint
+msgid "Allow"
+msgstr "Erlauben"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/security-policy.slint
+msgid "Printing"
+msgstr "Drucken"
+
+#: ui/screens/options.slint ui/screens/security-policy.slint
+msgid "Copying text and images"
+msgstr "Kopieren von Text und Bildern"
+
+#: ui/screens/options.slint
+msgid "Editing"
+msgstr "Bearbeiten"
+
+#: ui/screens/options.slint ui/screens/security-policy.slint
+msgid "Commenting"
+msgstr "Kommentieren"
+
+#: ui/screens/options.slint ui/screens/security-policy.slint
+msgid "Filling forms"
+msgstr "Formulare ausfüllen"
+
+#: ui/screens/options.slint
+msgid "Hidden information"
+msgstr "Verborgene Informationen"
+
+#: ui/screens/options.slint
+msgid "Remove it first: metadata, scripts, attachments, links, hidden text, layers"
+msgstr "Zuerst entfernen: Metadaten, Skripte, Anhänge, Links, verborgener Text, Ebenen"
+
+#: ui/screens/options.slint
+msgid "Sheaf asks for each file's password when you add it. The copies are saved without one."
+msgstr "Sheaf fragt beim Hinzufügen nach dem Kennwort jeder Datei. Die Kopien werden ohne Kennwort gespeichert."
+
+#: ui/screens/options.slint
+msgid "The file is rebuilt from what can still be read. Keep the original until you have checked the copy."
+msgstr "Die Datei wird aus dem noch Lesbaren neu aufgebaut. Behalten Sie das Original, bis Sie die Kopie geprüft haben."
+
+#: ui/screens/options.slint
+msgid "Spreadsheet layout"
+msgstr "Tabellenlayout"
+
+#: ui/screens/options.slint
+msgid "Saved print layout"
+msgstr "Gespeichertes Drucklayout"
+
+#: ui/screens/options.slint
+msgid "Use the workbook's paper and print areas"
+msgstr "Papier und Druckbereiche der Arbeitsmappe verwenden"
+
+#: ui/screens/options.slint
+msgid "One page per whole sheet"
+msgstr "Eine Seite pro ganzem Blatt"
+
+#: ui/screens/options.slint
+msgid "Page size grows to fit each sheet"
+msgstr "Seitengröße passt sich jedem Blatt an"
+
+#: ui/screens/options.slint
+msgid "Includes hidden sheets. Saved paper sizes and print areas are ignored."
+msgstr "Schließt ausgeblendete Blätter ein. Gespeicherte Papierformate und Druckbereiche werden ignoriert."
+
+#: ui/screens/options.slint
+msgid "Built-in data report"
+msgstr "Integrierter Datenbericht"
+
+#: ui/screens/options.slint
+msgid "Cell addresses and saved values; no LibreOffice"
+msgstr "Zelladressen und gespeicherte Werte; kein LibreOffice"
+
+#: ui/screens/options.slint
+msgid "Sheet numbers (blank = visible sheets)"
+msgstr "Blattnummern (leer = sichtbare Blätter)"
+
+#: ui/screens/options.slint
+msgid "For example, 1,3-5"
+msgstr "Zum Beispiel 1,3-5"
+
+#: ui/screens/options.slint
+msgid "XLS, XLSX, XLSB and ODS; values only.\nNo styles, charts or formula recalculation.\nWestern European text; raw date values.\nHidden sheets need an explicit number."
+msgstr "XLS, XLSX, XLSB und ODS; nur Werte.\nKeine Formatvorlagen, Diagramme oder Neuberechnung von Formeln.\nWesteuropäischer Text; Datumswerte als Rohwerte.\nAusgeblendete Blätter brauchen eine explizite Nummer."
+
+#: ui/screens/options.slint
+msgid "Page size"
+msgstr "Seitengröße"
+
+#: ui/screens/options.slint
+msgid "Original layout"
+msgstr "Originallayout"
+
+#: ui/screens/options.slint ui/screens/reader-sheets.slint ui/widgets/page-viewer.slint
+msgid "Fit"
+msgstr "Einpassen"
+
+#: ui/screens/options.slint
+msgid "Use the file's print settings"
+msgstr "Druckeinstellungen der Datei verwenden"
+
+#: ui/screens/options.slint
+msgid "Same page size as image"
+msgstr "Gleiche Seitengröße wie das Bild"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "A4"
+msgstr "A4"
+
+#: ui/screens/options.slint
+msgid "210 × 297 mm"
+msgstr "210 × 297 mm"
+
+#: ui/screens/options.slint
+msgid "US Letter"
+msgstr "US Letter"
+
+#: ui/screens/options.slint
+msgid "8.5 × 11 in"
+msgstr "8,5 × 11 Zoll"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Orientation"
+msgstr "Ausrichtung"
+
+#: ui/screens/options.slint
+msgid "Margin"
+msgstr "Rand"
+
+#: ui/screens/options.slint ui/screens/preferences-platform.slint ui/screens/reader-form.slint ui/screens/reader-options.slint ui/screens/reader-sheets.slint
+msgid "None"
+msgstr "Keiner"
+
+#: ui/screens/options.slint
+msgid "Big"
+msgstr "Groß"
+
+#: ui/screens/options.slint
+msgid "Merge all images into one PDF file"
+msgstr "Alle Bilder in einer PDF-Datei zusammenführen"
+
+#: ui/screens/options.slint
+msgid "Layout engine and screen width"
+msgstr "Layout-Engine und Bildschirmbreite"
+
+#: ui/screens/options.slint
+msgid "LibreOffice"
+msgstr "LibreOffice"
+
+#: ui/screens/options.slint
+msgid "{} px"
+msgstr "{} px"
+
+#: ui/screens/options.slint
+msgid "One continuous screen page"
+msgstr "Eine durchgehende Bildschirmseite"
+
+#: ui/screens/options.slint
+msgid "Stack printed paper pages"
+msgstr "Gedruckte Papierseiten stapeln"
+
+#: ui/screens/options.slint
+msgid "Uses local Chromium, Chrome or Edge.\nKeeps screen CSS, grid and flex layout.\nLocal images and styles only; scripts off.\nNothing is downloaded or uploaded."
+msgstr "Verwendet lokales Chromium, Chrome oder Edge.\nBehält Bildschirm-CSS, Grid- und Flex-Layout bei.\nNur lokale Bilder und Stile; Skripte aus.\nNichts wird heruntergeladen oder hochgeladen."
+
+#: ui/screens/options.slint
+msgid "Keeps text, pictures and links.\nPaper page breaks and margins remain.\nThis is not a browser screen layout."
+msgstr "Behält Text, Bilder und Links bei.\nSeitenumbrüche und Ränder des Papiers bleiben.\nDies ist kein Bildschirmlayout eines Browsers."
+
+#: ui/screens/options.slint
+msgid "Local HTML, Markdown or email.\nPictures use the source base address.\nNo URL capture.\nScreen mode uses local resources only."
+msgstr "Lokales HTML, Markdown oder E-Mail.\nBilder verwenden die Basisadresse der Quelle.\nKeine URL-Erfassung.\nDer Bildschirmmodus nutzt nur lokale Ressourcen."
+
+#: ui/screens/options.slint
+msgid "Page to image"
+msgstr "Seite als Bild"
+
+#: ui/screens/options.slint
+msgid "Extract images"
+msgstr "Bilder extrahieren"
+
+#: ui/screens/options.slint
+msgid "Every picture placed in the pages is saved as stored, each once."
+msgstr "Jedes in den Seiten platzierte Bild wird wie gespeichert gesichert, jedes nur einmal."
+
+#: ui/screens/options.slint
+msgid "Normal quality"
+msgstr "Normale Qualität"
+
+#: ui/screens/options.slint
+msgid "150 dpi, smaller images"
+msgstr "150 dpi, kleinere Bilder"
+
+#: ui/screens/options.slint
+msgid "High quality"
+msgstr "Hohe Qualität"
+
+#: ui/screens/options.slint
+msgid "300 dpi, for print"
+msgstr "300 dpi, für den Druck"
+
+#: ui/screens/options.slint
+msgid "Very high quality"
+msgstr "Sehr hohe Qualität"
+
+#: ui/screens/options.slint
+msgid "600 dpi, for enlargements"
+msgstr "600 dpi, für Vergrößerungen"
+
+#: ui/screens/options.slint ui/screens/reader-form.slint
+msgid "Format"
+msgstr "Format"
+
+#: ui/screens/options.slint
+msgid "JPG"
+msgstr "JPG"
+
+#: ui/screens/options.slint
+msgid "PNG (lossless)"
+msgstr "PNG (verlustfrei)"
+
+#: ui/screens/options.slint
+msgid "Page mode"
+msgstr "Seitenmodus"
+
+#: ui/screens/options.slint
+msgid "Single page"
+msgstr "Einzelseite"
+
+#: ui/screens/options.slint
+msgid "Double-sided"
+msgstr "Beidseitig"
+
+#: ui/screens/options.slint
+msgid "First page is cover page"
+msgstr "Erste Seite ist Titelseite"
+
+#: ui/screens/options.slint
+msgid "Position"
+msgstr "Position"
+
+#: ui/screens/options.slint
+msgid "Recommended"
+msgstr "Empfohlen"
+
+#: ui/screens/options.slint
+msgid "All pages will be numbered because multiple PDFs have been selected."
+msgstr "Alle Seiten werden nummeriert, da mehrere PDFs ausgewählt sind."
+
+#: ui/screens/options.slint
+msgid "First number"
+msgstr "Erste Nummer"
+
+#: ui/screens/options.slint ui/screens/reader-options.slint
+msgid "Text"
+msgstr "Text"
+
+#: ui/screens/options.slint
+msgid "Insert page number only (recommended)"
+msgstr "Nur Seitenzahl einfügen (empfohlen)"
+
+#: ui/screens/options.slint
+msgid "Custom"
+msgstr "Benutzerdefiniert"
+
+#: ui/screens/options.slint
+msgid "No page number (header and footer text only)"
+msgstr "Keine Seitenzahl (nur Kopf- und Fußzeilentext)"
+
+#: ui/screens/options.slint
+msgid "Remove page numbers, headers and footers"
+msgstr "Seitenzahlen, Kopf- und Fußzeilen entfernen"
+
+#: ui/screens/options.slint
+msgid "Size: 12"
+msgstr "Größe: 12"
+
+#: ui/screens/options.slint
+msgid "Header and footer"
+msgstr "Kopf- und Fußzeile"
+
+#: ui/screens/options.slint ui/screens/reader-form.slint ui/screens/reader-production.slint
+msgid "Top"
+msgstr "Oben"
+
+#: ui/screens/options.slint ui/screens/reader-form.slint ui/screens/reader-production.slint
+msgid "Left"
+msgstr "Links"
+
+#: ui/screens/options.slint ui/screens/reader-form.slint ui/screens/reader-options.slint ui/screens/reader-sheets.slint
+msgid "Centre"
+msgstr "Mitte"
+
+#: ui/screens/options.slint ui/screens/reader-form.slint ui/screens/reader-production.slint
+msgid "Right"
+msgstr "Rechts"
+
+#: ui/screens/options.slint ui/screens/reader-form.slint ui/screens/reader-production.slint
+msgid "Bottom"
+msgstr "Unten"
+
+#: ui/screens/options.slint
+msgid "Bates prefix"
+msgstr "Bates-Präfix"
+
+#: ui/screens/options.slint
+msgid "ACME-"
+msgstr "ACME-"
+
+#: ui/screens/options.slint
+msgid "From"
+msgstr "Ab"
+
+#: ui/screens/options.slint
+msgid "Digits"
+msgstr "Stellen"
+
+#: ui/screens/options.slint
+msgid "Replace existing headers, footers"
+msgstr "Vorhandene Kopf- und Fußzeilen ersetzen"
+
+#: ui/screens/options.slint
+msgid "Place Text"
+msgstr "Text platzieren"
+
+#: ui/screens/options.slint
+msgid "Place Image"
+msgstr "Bild platzieren"
+
+#: ui/screens/options.slint
+msgid "Takes out the watermarks Sheaf, Acrobat and other PDF editors placed. The page's own text and images stay."
+msgstr "Entfernt die Wasserzeichen, die Sheaf, Acrobat und andere PDF-Editoren hinzugefügt haben. Text und Bilder der Seite bleiben erhalten."
+
+#: ui/screens/options.slint
+msgid "CONFIDENTIAL"
+msgstr "VERTRAULICH"
+
+#: ui/screens/options.slint
+msgid "Size: 48"
+msgstr "Größe: 48"
+
+#: ui/screens/options.slint
+msgid "Layer"
+msgstr "Ebene"
+
+#: ui/screens/options.slint
+msgid "Over the content"
+msgstr "Über dem Inhalt"
+
+#: ui/screens/options.slint
+msgid "Below the content"
+msgstr "Unter dem Inhalt"
+
+#: ui/screens/options.slint
+msgid "Mosaic"
+msgstr "Mosaik"
+
+#: ui/screens/options.slint
+msgid "Transparency"
+msgstr "Transparenz"
+
+#: ui/screens/options.slint
+msgid "No"
+msgstr "Nein"
+
+#: ui/screens/options.slint
+msgid "Rotate"
+msgstr "Drehen"
+
+#: ui/screens/options.slint
+msgid "All pages will be stamped because multiple PDFs have been selected."
+msgstr "Alle Seiten werden gestempelt, da mehrere PDFs ausgewählt sind."
+
+#: ui/screens/options.slint
+msgid "Replace the watermarks already there"
+msgstr "Vorhandene Wasserzeichen ersetzen"
+
+#: ui/screens/options.slint
+msgid "Apply to:"
+msgstr "Anwenden auf:"
+
+#: ui/screens/options.slint
+msgid "Apply the same crop to every page"
+msgstr "Denselben Zuschnitt auf jede Seite anwenden"
+
+#: ui/screens/options.slint
+msgid "Selected pages"
+msgstr "Ausgewählte Seiten"
+
+#: ui/screens/options.slint
+msgid "Choose which pages to crop"
+msgstr "Zuzuschneidende Seiten auswählen"
+
+#: ui/screens/options.slint
+msgid "Remove crop"
+msgstr "Zuschnitt entfernen"
+
+#: ui/screens/options.slint
+msgid "Show the full pages again"
+msgstr "Ganze Seiten wieder anzeigen"
+
+#: ui/screens/options.slint
+msgid "Remove white margins"
+msgstr "Weiße Ränder entfernen"
+
+#: ui/screens/options.slint
+msgid "Cut each page to what is drawn on it"
+msgstr "Jede Seite auf ihren Inhalt zuschneiden"
+
+#: ui/screens/options.slint
+msgid "Change page size"
+msgstr "Seitengröße ändern"
+
+#: ui/screens/options.slint
+msgid "Scale every page to a paper size"
+msgstr "Jede Seite auf ein Papierformat skalieren"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Letter"
+msgstr "Letter"
+
+#: ui/screens/options.slint
+msgid "A3"
+msgstr "A3"
+
+#: ui/screens/options.slint
+msgid "A5"
+msgstr "A5"
+
+#: ui/screens/options.slint ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Legal"
+msgstr "Legal"
+
+#: ui/screens/options.slint
+msgid "Margins to cut (mm)"
+msgstr "Abzuschneidende Ränder (mm)"
+
+#: ui/screens/options.slint
+msgid "Document languages"
+msgstr "Dokumentsprachen"
+
+#: ui/screens/options.slint
+msgid "Select every language on the page. Installed Tesseract packs are preferred. Latin text can use built-in recognition."
+msgstr "Wählen Sie jede Sprache auf der Seite aus. Installierte Tesseract-Pakete werden bevorzugt. Lateinischer Text kann die integrierte Erkennung nutzen."
+
+#: ui/screens/options.slint
+msgid "Mixed scripts need a local pack for every selected language. Run horizontal and vertical packs in separate jobs."
+msgstr "Gemischte Schriftsysteme benötigen ein lokales Paket für jede ausgewählte Sprache. Führen Sie horizontale und vertikale Pakete in getrennten Aufträgen aus."
+
+#: ui/screens/options.slint
+msgid "Require installed Tesseract"
+msgstr "Installiertes Tesseract verlangen"
+
+#: ui/screens/options.slint
+msgid "When required, a missing local pack stops the job. Leave this off to allow built-in Latin recognition when local packs are unavailable."
+msgstr "Wenn aktiviert, stoppt ein fehlendes lokales Paket den Auftrag. Lassen Sie dies aus, um die integrierte lateinische Erkennung zu erlauben, wenn keine lokalen Pakete verfügbar sind."
+
+#: ui/screens/options.slint
+msgid "Also read pages with text"
+msgstr "Auch Seiten mit Text lesen"
+
+#: ui/screens/options.slint
+msgid "Straighten and clean scans first"
+msgstr "Scans zuerst begradigen und bereinigen"
+
+#: ui/screens/options.slint
+msgid "The text is added as an invisible layer: the pages look the same, and the words become searchable and selectable. Pages that already contain text are left alone unless you tick the box above; then only words not already there are added. Straightened and cleaned, a scanned page is drawn again level, its paper white and its ink dark."
+msgstr "Der Text wird als unsichtbare Ebene hinzugefügt: Die Seiten sehen gleich aus, und die Wörter werden durchsuchbar und auswählbar. Seiten, die bereits Text enthalten, bleiben unverändert, außer Sie aktivieren das Kästchen oben; dann werden nur noch fehlende Wörter hinzugefügt. Begradigt und bereinigt wird eine gescannte Seite gerade neu gezeichnet, mit weißem Papier und dunkler Tinte."
+
+#: ui/screens/options.slint
+msgid "No OCR models or local language packs were found. Reinstall Sheaf or install Tesseract and language packs locally, then restart Sheaf."
+msgstr "Es wurden keine OCR-Modelle oder lokalen Sprachpakete gefunden. Installieren Sie Sheaf neu oder installieren Sie Tesseract und Sprachpakete lokal, und starten Sie Sheaf dann neu."
+
+#: ui/screens/options.slint
+msgid "No OCR (text PDFs)"
+msgstr "Ohne OCR (Text-PDFs)"
+
+#: ui/screens/options.slint
+msgid "OCR is not required"
+msgstr "OCR ist nicht erforderlich"
+
+#: ui/screens/options.slint
+msgid "OCR (scanned PDFs)"
+msgstr "OCR (gescannte PDFs)"
+
+#: ui/screens/options.slint
+msgid "Reads the text of scanned pages"
+msgstr "Liest den Text gescannter Seiten"
+
+#: ui/screens/options.slint
+msgid "Converts scanned PDFs with non-selectable text to editable {} files."
+msgstr "Wandelt gescannte PDFs mit nicht auswählbarem Text in bearbeitbare {}-Dateien um."
+
+#: ui/screens/options.slint
+msgid "Converts PDFs with selectable text to editable {} files."
+msgstr "Wandelt PDFs mit auswählbarem Text in bearbeitbare {}-Dateien um."
+
+#: ui/screens/options.slint
+msgid "This PDF looks scanned: its text can't be selected. Choose OCR to get editable text."
+msgstr "Dieses PDF scheint gescannt zu sein: Sein Text lässt sich nicht auswählen. Wählen Sie OCR, um bearbeitbaren Text zu erhalten."
+
+#: ui/screens/options.slint
+msgid "The OCR models are missing from this copy of Sheaf. Reinstall Sheaf to enable OCR."
+msgstr "In dieser Kopie von Sheaf fehlen die OCR-Modelle. Installieren Sie Sheaf neu, um OCR zu aktivieren."
+
+#: ui/screens/options.slint
+msgid "Layout:"
+msgstr "Layout:"
+
+#: ui/screens/options.slint
+msgid "Flowing text"
+msgstr "Fließtext"
+
+#: ui/screens/options.slint
+msgid "Page layout"
+msgstr "Seitenlayout"
+
+#: ui/screens/options.slint
+msgid "Each page looks as it does in the PDF, its text in boxes you can edit."
+msgstr "Jede Seite sieht aus wie im PDF, ihr Text in bearbeitbaren Feldern."
+
+#: ui/screens/options.slint
+msgid "One sheet"
+msgstr "Ein Blatt"
+
+#: ui/screens/options.slint
+msgid "Multiple sheets"
+msgstr "Mehrere Blätter"
+
+#: ui/screens/options.slint
+msgid "Choose to place all tables on one sheet or create a new sheet for each table. Pages without a table keep their text in column A."
+msgstr "Wählen Sie, ob alle Tabellen auf einem Blatt platziert oder für jede Tabelle ein neues Blatt erstellt werden soll. Seiten ohne Tabelle behalten ihren Text in Spalte A."
+
+#: ui/screens/options.slint
+msgid "Format:"
+msgstr "Format:"
+
+#: ui/screens/options.slint
+msgid "Web page"
+msgstr "Webseite"
+
+#: ui/screens/options.slint
+msgid "Markdown"
+msgstr "Markdown"
+
+#: ui/screens/options.slint
+msgid "Rich text"
+msgstr "Rich Text"
+
+#: ui/screens/options.slint
+msgid "Plain text"
+msgstr "Nur Text"
+
+#: ui/screens/options.slint
+msgid "XML"
+msgstr "XML"
+
+#: ui/screens/options.slint
+msgid "Ebook"
+msgstr "E-Book"
+
+#: ui/screens/options.slint
+msgid "One .html file that opens in any browser, its pictures inside it."
+msgstr "Eine .html-Datei, die sich in jedem Browser öffnen lässt, mit eingebetteten Bildern."
+
+#: ui/screens/options.slint
+msgid "A .md file: headings, paragraphs and tables in Markdown. Pictures are left out."
+msgstr "Eine .md-Datei: Überschriften, Absätze und Tabellen in Markdown. Bilder werden weggelassen."
+
+#: ui/screens/options.slint
+msgid "An .rtf file that word processors open, with its sizes, bold, italic and colours."
+msgstr "Eine .rtf-Datei für Textverarbeitungen, mit Größen, Fett, Kursiv und Farben."
+
+#: ui/screens/options.slint
+msgid "A .txt file: the text in reading order, a paragraph per line, table cells split by tabs."
+msgstr "Eine .txt-Datei: der Text in Lesereihenfolge, ein Absatz pro Zeile, Tabellenzellen durch Tabulatoren getrennt."
+
+#: ui/screens/options.slint
+msgid "An .xml file: each page's headings, paragraphs, tables and pictures, in reading order."
+msgstr "Eine .xml-Datei: Überschriften, Absätze, Tabellen und Bilder jeder Seite in Lesereihenfolge."
+
+#: ui/screens/options.slint
+msgid "An .epub ebook that reflows on any reader's screen: a chapter per page, its pictures and tables."
+msgstr "Ein .epub-E-Book, das sich an jeden Lesebildschirm anpasst: ein Kapitel pro Seite, mit Bildern und Tabellen."
+
+#: ui/screens/options.slint
+msgid "Layout is approximate: text, paragraphs, tables and images are recovered; exact formatting may differ."
+msgstr "Das Layout ist ungefähr: Text, Absätze, Tabellen und Bilder werden wiederhergestellt; die genaue Formatierung kann abweichen."
+
+#: ui/screens/options.slint
+msgid "Semantic Text"
+msgstr "Semantischer Text"
+
+#: ui/screens/options.slint
+msgid "A report of what changed: the words, then pictures and drawings"
+msgstr "Ein Bericht der Änderungen: die Wörter, dann Bilder und Zeichnungen"
+
+#: ui/screens/options.slint
+msgid "Content Overlay"
+msgstr "Inhaltsüberlagerung"
+
+#: ui/screens/options.slint
+msgid "Marks on the changed PDF"
+msgstr "Markierungen im geänderten PDF"
+
+#: ui/screens/options.slint
+msgid "Side by side"
+msgstr "Nebeneinander"
+
+#: ui/screens/options.slint
+msgid "The original beside the marked copy"
+msgstr "Das Original neben der markierten Kopie"
+
+#: ui/screens/options.slint
+msgid "Original's pages (optional)"
+msgstr "Seiten des Originals (optional)"
+
+#: ui/screens/options.slint
+msgid "Changed document's pages (optional)"
+msgstr "Seiten des geänderten Dokuments (optional)"
+
+#: ui/screens/options.slint
+msgid "Set the PDF/A conformance level"
+msgstr "PDF/A-Konformitätsstufe festlegen"
+
+#: ui/screens/options.slint
+msgid "PDF/A-1b"
+msgstr "PDF/A-1b"
+
+#: ui/screens/options.slint
+msgid "PDF/A-1a"
+msgstr "PDF/A-1a"
+
+#: ui/screens/options.slint
+msgid "PDF/A-2b (recommended)"
+msgstr "PDF/A-2b (empfohlen)"
+
+#: ui/screens/options.slint
+msgid "PDF/A-2u"
+msgstr "PDF/A-2u"
+
+#: ui/screens/options.slint
+msgid "PDF/A-2a"
+msgstr "PDF/A-2a"
+
+#: ui/screens/options.slint
+msgid "PDF/A-3b"
+msgstr "PDF/A-3b"
+
+#: ui/screens/options.slint
+msgid "PDF/A-3u"
+msgstr "PDF/A-3u"
+
+#: ui/screens/options.slint
+msgid "PDF/A-3a"
+msgstr "PDF/A-3a"
+
+#: ui/screens/options.slint
+msgid "PDF 1.4, without layers or transparency.\nThose features are reported.\nChoose 2b to preserve them."
+msgstr "PDF 1.4, ohne Ebenen oder Transparenz.\nDiese Elemente werden gemeldet.\nWählen Sie 2b, um sie zu erhalten."
+
+#: ui/screens/options.slint
+msgid "Checks Unicode for every text code.\nLevel a requires existing tags.\nReview reading order before archiving."
+msgstr "Prüft Unicode für jeden Textcode.\nStufe a erfordert vorhandene Tags.\nPrüfen Sie vor der Archivierung die Lesereihenfolge."
+
+#: ui/screens/options.slint
+msgid "Keep a copy even if checks fail"
+msgstr "Kopie auch bei fehlgeschlagener Prüfung behalten"
+
+#: ui/screens/options.slint
+msgid "The written PDF is checked before saving.\nUnfixed issues appear in the results.\nChecks cover structure, not full ISO validation."
+msgstr "Das geschriebene PDF wird vor dem Speichern geprüft.\nNicht behobene Probleme erscheinen in den Ergebnissen.\nGeprüft wird die Struktur, keine vollständige ISO-Validierung."
+
+#: ui/screens/options.slint
+msgid "If a check fails, no output is saved.\nThe source file is kept."
+msgstr "Schlägt eine Prüfung fehl, wird nichts gespeichert.\nDie Quelldatei bleibt erhalten."
+
+#: ui/screens/options.slint
+msgid "Brightness"
+msgstr "Helligkeit"
+
+#: ui/screens/options.slint
+msgid "Contrast"
+msgstr "Kontrast"
+
+#: ui/screens/options.slint
+msgid "Saturation"
+msgstr "Sättigung"
+
+#: ui/screens/options.slint
+msgid "Invert the colours (light on dark)"
+msgstr "Farben umkehren (hell auf dunkel)"
+
+#: ui/screens/options.slint
+msgid "Text and drawings stay sharp and selectable: their colours change, and the pictures'. Gradients and spot colours are left as they are."
+msgstr "Text und Zeichnungen bleiben scharf und auswählbar: Ihre Farben ändern sich, ebenso die der Bilder. Verläufe und Volltonfarben bleiben unverändert."
+
+#: ui/screens/options.slint
+msgid "Boxes"
+msgstr "Rahmen"
+
+#: ui/screens/options.slint
+msgid "White"
+msgstr "Weiß"
+
+#: ui/screens/options.slint
+msgid "Text over each box (optional)"
+msgstr "Text über jedem Rahmen (optional)"
+
+#: ui/screens/options.slint
+msgid "Redacted"
+msgstr "Geschwärzt"
+
+#: ui/screens/options.slint
+msgid "Margin round each mark (points, optional)"
+msgstr "Rand um jede Markierung (Punkt, optional)"
+
+#: ui/screens/options.slint
+msgid "Repeat it to fill the box"
+msgstr "Wiederholen, um den Rahmen zu füllen"
+
+#: ui/screens/options.slint
+msgid "Use a digital ID (.p12 or smart card)"
+msgstr "Digitale ID verwenden (.p12 oder Smartcard)"
+
+#: ui/screens/options.slint
+msgid "Signs the document digitally with your digital ID, so changes made after signing can be detected."
+msgstr "Signiert das Dokument digital mit Ihrer digitalen ID, sodass Änderungen nach dem Signieren erkannt werden können."
+
+#: ui/screens/options.slint
+msgid "Choose certificate file"
+msgstr "Zertifikatsdatei auswählen"
+
+#: ui/screens/options.slint
+msgid "Change certificate file"
+msgstr "Zertifikatsdatei ändern"
+
+#: ui/screens/options.slint
+msgid "PIN of the smart card or token"
+msgstr "PIN der Smartcard oder des Tokens"
+
+#: ui/screens/options.slint
+msgid "Certificate password"
+msgstr "Zertifikatskennwort"
+
+#: ui/screens/options.slint
+msgid "Its PIN"
+msgstr "Ihre PIN"
+
+#: ui/screens/options.slint
+msgid "Password of the .p12 file"
+msgstr "Kennwort der .p12-Datei"
+
+#: ui/screens/options.slint
+msgid "Reason (optional)"
+msgstr "Grund (optional)"
+
+#: ui/screens/options.slint
+msgid "I approve this document"
+msgstr "Ich genehmige dieses Dokument"
+
+#: ui/screens/options.slint
+msgid "Location (optional)"
+msgstr "Ort (optional)"
+
+#: ui/screens/options.slint
+msgid "City"
+msgstr "Stadt"
+
+#: ui/screens/options.slint
+msgid "Certify the document, allowing"
+msgstr "Dokument zertifizieren und erlauben"
+
+#: ui/screens/options.slint
+msgid "Not certified"
+msgstr "Nicht zertifiziert"
+
+#: ui/screens/options.slint ui/screens/security-policy.slint
+msgid "No changes"
+msgstr "Keine Änderungen"
+
+#: ui/screens/options.slint
+msgid "Forms, signing"
+msgstr "Formulare, Signieren"
+
+#: ui/screens/options.slint
+msgid "And comments"
+msgstr "Und Kommentare"
+
+#: ui/screens/options.slint
+msgid "Converted with LibreOffice on this computer. Nothing is uploaded."
+msgstr "Mit LibreOffice auf diesem Computer konvertiert. Nichts wird hochgeladen."
+
+#: ui/screens/options.slint
+msgid "Runs on this computer. Nothing is uploaded."
+msgstr "Läuft auf diesem Computer. Nichts wird hochgeladen."
+
+#: ui/screens/options.slint
+msgid "Created in Sheaf. Nothing is uploaded."
+msgstr "In Sheaf erstellt. Nichts wird hochgeladen."
+
+#: ui/screens/options.slint
+msgid "Choose Built-in data report, or install LibreOffice for the workbook’s print layout."
+msgstr "Wählen Sie „Integrierter Datenbericht“ oder installieren Sie LibreOffice für das Drucklayout der Arbeitsmappe."
+
+#: ui/screens/options.slint
+msgid "Install LibreOffice to enable this tool. Sheaf uses it to read Office and HTML files."
+msgstr "Installieren Sie LibreOffice, um dieses Werkzeug zu aktivieren. Sheaf verwendet es zum Lesen von Office- und HTML-Dateien."
+
+#: ui/screens/options.slint
+msgid "Get LibreOffice"
+msgstr "LibreOffice herunterladen"
+
+#: ui/screens/portfolio.slint
+msgid "PDF Portfolio"
+msgstr "PDF-Portfolio"
+
+#: ui/screens/portfolio.slint
+msgid "Portfolio files"
+msgstr "Portfolio-Dateien"
+
+#: ui/screens/portfolio.slint
+msgid "Create PDF Portfolio"
+msgstr "PDF-Portfolio erstellen"
+
+#: ui/screens/portfolio.slint
+msgid "Cover title"
+msgstr "Titel des Deckblatts"
+
+#: ui/screens/portfolio.slint
+msgid "Open an original file or save a separate copy."
+msgstr "Öffnen Sie eine Originaldatei oder speichern Sie eine separate Kopie."
+
+#: ui/screens/portfolio.slint
+msgid "Bundle original files without merging their pages."
+msgstr "Originaldateien bündeln, ohne ihre Seiten zusammenzuführen."
+
+#: ui/screens/portfolio.slint
+msgid "Add files to start your portfolio."
+msgstr "Fügen Sie Dateien hinzu, um Ihr Portfolio zu beginnen."
+
+#: ui/screens/portfolio.slint ui/screens/preferences-platform.slint ui/screens/signature-manager.slint
+msgid "Up"
+msgstr "Nach oben"
+
+#: ui/screens/portfolio.slint
+msgid "Creating…"
+msgstr "Wird erstellt…"
+
+#: ui/screens/portfolio.slint
+msgid "Save portfolio…"
+msgstr "Portfolio speichern…"
+
+#: ui/screens/portfolio.slint
+msgid "View cover"
+msgstr "Deckblatt anzeigen"
+
+#: ui/screens/portfolio.slint
+msgid "All files"
+msgstr "Alle Dateien"
+
+#: ui/screens/portfolio.slint ui/screens/sign-panel.slint
+msgid "Preview"
+msgstr "Vorschau"
+
+#: ui/screens/portfolio.slint
+msgid "Loading preview…"
+msgstr "Vorschau wird geladen…"
+
+#: ui/screens/portfolio.slint
+msgid "Previous page"
+msgstr "Vorherige Seite"
+
+#: ui/screens/portfolio.slint
+msgid "Next page"
+msgstr "Nächste Seite"
+
+#: ui/screens/preferences-ai.slint
+msgid "The AI Assistant (✦ in a document's toolbar) sends only the document's text, never the file, to the provider below. Automatic uses Ollama or a llama.cpp server on this computer when one is running."
+msgstr "Der KI-Assistent (✦ in der Symbolleiste eines Dokuments) sendet nur den Text des Dokuments, nie die Datei, an den unten genannten Anbieter. „Automatisch“ verwendet Ollama oder einen llama.cpp-Server auf diesem Computer, wenn einer läuft."
+
+#: ui/screens/preferences-ai.slint
+msgid "Provider"
+msgstr "Anbieter"
+
+#: ui/screens/preferences-ai.slint
+msgid "Model"
+msgstr "Modell"
+
+#: ui/screens/preferences-ai.slint
+msgid "Address"
+msgstr "Adresse"
+
+#: ui/screens/preferences-ai.slint
+msgid "API key"
+msgstr "API-Schlüssel"
+
+#: ui/screens/preferences-ai.slint
+msgid "Saved (encrypted) — type to replace"
+msgstr "Gespeichert (verschlüsselt) – zum Ersetzen eingeben"
+
+#: ui/screens/preferences-ai.slint
+msgid "Needed"
+msgstr "Erforderlich"
+
+#: ui/screens/preferences-ai.slint
+msgid "Optional"
+msgstr "Optional"
+
+#: ui/screens/preferences-ai.slint
+msgid "Forget key"
+msgstr "Schlüssel vergessen"
+
+#: ui/screens/preferences-ai.slint
+msgid "Test connection"
+msgstr "Verbindung testen"
+
+#: ui/screens/preferences-ai.slint
+msgid "Open the AI panel with every document"
+msgstr "KI-Bereich mit jedem Dokument öffnen"
+
+#: ui/screens/preferences-ai.slint
+msgid "Turn AI off (nothing is ever sent)"
+msgstr "KI ausschalten (es wird nie etwas gesendet)"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Paper"
+msgstr "Papier"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Printer's default"
+msgstr "Druckerstandard"
+
+#: ui/screens/preferences-more.slint
+msgid "Sides and colour"
+msgstr "Seiten und Farbe"
+
+#: ui/screens/preferences-more.slint
+msgid "One-sided"
+msgstr "Einseitig"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Two-sided"
+msgstr "Beidseitig"
+
+#: ui/screens/preferences-more.slint
+msgid "Scale and comments"
+msgstr "Skalierung und Kommentare"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Fit to paper"
+msgstr "An Papier anpassen"
+
+#: ui/screens/preferences-more.slint ui/screens/preferences.slint ui/screens/reader-sheets.slint
+msgid "Actual size"
+msgstr "Originalgröße"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "With comments"
+msgstr "Mit Kommentaren"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-sheets.slint
+msgid "Without comments"
+msgstr "Ohne Kommentare"
+
+#: ui/screens/preferences-more.slint ui/screens/reader-form.slint ui/screens/reader-sheets.slint
+msgid "Auto"
+msgstr "Auto"
+
+#: ui/screens/preferences-more.slint
+msgid "Quality"
+msgstr "Qualität"
+
+#: ui/screens/preferences-more.slint
+msgid "Printer's own"
+msgstr "Druckereinstellung"
+
+#: ui/screens/preferences-more.slint
+msgid "Draft"
+msgstr "Entwurf"
+
+#: ui/screens/preferences-more.slint
+msgid "High"
+msgstr "Hoch"
+
+#: ui/screens/preferences-more.slint
+msgid "Security"
+msgstr "Sicherheit"
+
+#: ui/screens/preferences-more.slint
+msgid "Enhanced security"
+msgstr "Erweiterte Sicherheit"
+
+#: ui/screens/preferences-more.slint ui/screens/preferences-plugins.slint ui/screens/reader-sheets.slint
+msgid "On"
+msgstr "Ein"
+
+#: ui/screens/preferences-more.slint ui/screens/preferences-plugins.slint ui/screens/reader-sheets.slint
+msgid "Off"
+msgstr "Aus"
+
+#: ui/screens/preferences-more.slint
+msgid "Documents outside the trusted locations ask before opening a web page, and never open a site you blocked."
+msgstr "Dokumente außerhalb der vertrauenswürdigen Orte fragen nach, bevor sie eine Webseite öffnen, und öffnen nie eine von Ihnen blockierte Website."
+
+#: ui/screens/preferences-more.slint
+msgid "Documents open their web links without asking (sites you blocked stay blocked)."
+msgstr "Dokumente öffnen ihre Weblinks ohne Nachfrage (blockierte Websites bleiben blockiert)."
+
+#: ui/screens/preferences-more.slint
+msgid "Web links in documents"
+msgstr "Weblinks in Dokumenten"
+
+#: ui/screens/preferences-more.slint
+msgid "Ask for each site"
+msgstr "Für jede Website fragen"
+
+#: ui/screens/preferences-more.slint
+msgid "Allow every site"
+msgstr "Alle Websites erlauben"
+
+#: ui/screens/preferences-more.slint
+msgid "Block every site"
+msgstr "Alle Websites blockieren"
+
+#: ui/screens/preferences-more.slint
+msgid "Linked and attached files that are not PDFs"
+msgstr "Verknüpfte und angehängte Dateien, die keine PDFs sind"
+
+#: ui/screens/preferences-more.slint
+msgid "Open in their app, after asking"
+msgstr "Nach Rückfrage in ihrer App öffnen"
+
+#: ui/screens/preferences-more.slint
+msgid "Never open them"
+msgstr "Nie öffnen"
+
+#: ui/screens/preferences-more.slint
+msgid "Trusted locations"
+msgstr "Vertrauenswürdige Orte"
+
+#: ui/screens/preferences-more.slint
+msgid "None: documents in a folder or file added here open their links without asking."
+msgstr "Keine: Dokumente in einem hier hinzugefügten Ordner oder einer hier hinzugefügten Datei öffnen ihre Links ohne Nachfrage."
+
+#: ui/screens/preferences-more.slint
+msgid "Add a folder…"
+msgstr "Ordner hinzufügen…"
+
+#: ui/screens/preferences-more.slint
+msgid "Add a file…"
+msgstr "Datei hinzufügen…"
+
+#: ui/screens/preferences-more.slint
+msgid "Sites remembered"
+msgstr "Gemerkte Websites"
+
+#: ui/screens/preferences-more.slint
+msgid "Forget"
+msgstr "Vergessen"
+
+#: ui/screens/preferences-more.slint
+msgid "Startup"
+msgstr "Start"
+
+#: ui/screens/preferences-more.slint
+msgid "When I log into the computer"
+msgstr "Wenn ich mich am Computer anmelde"
+
+#: ui/screens/preferences-more.slint
+msgid "Open Sheaf"
+msgstr "Sheaf öffnen"
+
+#: ui/screens/preferences-more.slint
+msgid "Don't open it"
+msgstr "Nicht öffnen"
+
+#: ui/screens/preferences-more.slint
+msgid "Quitting while a task runs"
+msgstr "Beenden während einer laufenden Aufgabe"
+
+#: ui/screens/preferences-more.slint
+msgid "Ask first"
+msgstr "Zuerst fragen"
+
+#: ui/screens/preferences-more.slint
+msgid "Quit at once"
+msgstr "Sofort beenden"
+
+#: ui/screens/preferences-more.slint
+msgid "Sheaf works offline: it never checks for updates or goes through a proxy."
+msgstr "Sheaf arbeitet offline: Es sucht nie nach Updates und nutzt keinen Proxy."
+
+#: ui/screens/preferences-more.slint
+msgid "Open a page of “{}”?"
+msgstr "Eine Seite von „{}“ öffnen?"
+
+#: ui/screens/preferences-more.slint
+msgid "The document links to {}. It opens in your web browser; allow it only if you trust the document."
+msgstr "Das Dokument verweist auf {}. Es wird in Ihrem Webbrowser geöffnet; erlauben Sie dies nur, wenn Sie dem Dokument vertrauen."
+
+#: ui/screens/preferences-more.slint
+msgid "Remember for this site"
+msgstr "Für diese Website merken"
+
+#: ui/screens/preferences-more.slint
+msgid "Block"
+msgstr "Blockieren"
+
+#: ui/screens/preferences-platform.slint
+msgid "Spelling"
+msgstr "Rechtschreibung"
+
+#: ui/screens/preferences-platform.slint
+msgid "Check spelling while typing"
+msgstr "Rechtschreibung während der Eingabe prüfen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Don't check spelling"
+msgstr "Rechtschreibung nicht prüfen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Check grammar too"
+msgstr "Auch Grammatik prüfen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Spelling only"
+msgstr "Nur Rechtschreibung"
+
+#: ui/screens/preferences-platform.slint
+msgid "Grammar, every language: a word written twice, two spaces, a space before a comma or full stop, none after a comma. English also: agreement (“she go”), word choice (“their is”), a capital after a full stop, “a” or “an”, a space before ; : ! ?, “i” for “I”, “could of”. Not checked: style."
+msgstr "Grammatik, alle Sprachen: ein doppelt geschriebenes Wort, zwei Leerzeichen, ein Leerzeichen vor einem Komma oder Punkt, keines nach einem Komma. Im Englischen außerdem: Kongruenz („she go“), Wortwahl („their is“), Großbuchstabe nach einem Punkt, „a“ oder „an“, ein Leerzeichen vor ; : ! ?, „i“ statt „I“, „could of“. Nicht geprüft: Stil."
+
+#: ui/screens/preferences-platform.slint
+msgid "Looking for a dictionary…"
+msgstr "Wörterbuch wird gesucht…"
+
+#: ui/screens/preferences-platform.slint
+msgid "Dictionaries (ticked ones are used, in this order; none: your system's language)"
+msgstr "Wörterbücher (die angehakten werden in dieser Reihenfolge verwendet; keines: die Sprache Ihres Systems)"
+
+#: ui/screens/preferences-platform.slint
+msgid "1 word learned (Learn in the spelling card)"
+msgstr "1 Wort gelernt („Lernen“ in der Rechtschreibkarte)"
+
+#: ui/screens/preferences-platform.slint
+msgid "{} words learned (Learn in the spelling card)"
+msgstr "{} Wörter gelernt („Lernen“ in der Rechtschreibkarte)"
+
+#: ui/screens/preferences-platform.slint
+msgid "Forget them"
+msgstr "Vergessen"
+
+#: ui/screens/preferences-platform.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Keyboard shortcuts"
+msgstr "Tastaturkurzbefehle"
+
+#: ui/screens/preferences-platform.slint
+msgid "Search commands or keys"
+msgstr "Befehle oder Tasten suchen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Show all {} shortcuts"
+msgstr "Alle {} Kurzbefehle anzeigen"
+
+#: ui/screens/preferences-platform.slint
+msgid "No command or keys match."
+msgstr "Kein Befehl und keine Taste stimmt überein."
+
+#: ui/screens/preferences-platform.slint
+msgid "Press the keys…"
+msgstr "Drücken Sie die Tasten…"
+
+#: ui/screens/preferences-platform.slint ui/screens/reader-panel.slint
+msgid "Reset"
+msgstr "Zurücksetzen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Reset all"
+msgstr "Alle zurücksetzen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Click a shortcut, then press the new keys. Esc cancels, Backspace removes it."
+msgstr "Klicken Sie auf einen Kurzbefehl und drücken Sie dann die neuen Tasten. Esc bricht ab, Rücktaste entfernt ihn."
+
+#: ui/screens/preferences-platform.slint
+msgid "Interface"
+msgstr "Oberfläche"
+
+#: ui/screens/preferences-platform.slint
+msgid "Tools page"
+msgstr "Werkzeugseite"
+
+#: ui/screens/preferences-platform.slint
+msgid "Show every tool"
+msgstr "Alle Werkzeuge anzeigen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Hide tools that can't run here"
+msgstr "Werkzeuge ausblenden, die hier nicht laufen"
+
+#: ui/screens/preferences-platform.slint
+msgid "Every tool can run on this computer."
+msgstr "Alle Werkzeuge laufen auf diesem Computer."
+
+#: ui/screens/preferences-platform.slint
+msgid "Can't run here: {}."
+msgstr "Hier nicht verfügbar: {}."
+
+#: ui/screens/preferences-platform.slint
+msgid "Direction"
+msgstr "Richtung"
+
+#: ui/screens/preferences-platform.slint
+msgid "As the system's language"
+msgstr "Wie die Systemsprache"
+
+#: ui/screens/preferences-platform.slint
+msgid "Left to right"
+msgstr "Von links nach rechts"
+
+#: ui/screens/preferences-platform.slint ui/screens/reader-toolbar.slint
+msgid "Right to left"
+msgstr "Von rechts nach links"
+
+#: ui/screens/preferences-platform.slint
+msgid "Language"
+msgstr "Sprache"
+
+#: src/main.rs ui/screens/preferences-plugins.slint
+msgid "Plugins"
+msgstr "Plug-ins"
+
+#: ui/screens/preferences-plugins.slint
+msgid "A plugin adds tools to the Tools page and to actions. Each runs as a separate program on a copy of the PDF; Sheaf asks before a plugin runs for the first time."
+msgstr "Ein Plug-in fügt der Werkzeugseite und den Aktionen Werkzeuge hinzu. Jedes läuft als separates Programm auf einer Kopie des PDFs; Sheaf fragt nach, bevor ein Plug-in zum ersten Mal ausgeführt wird."
+
+#: ui/screens/preferences-plugins.slint
+msgid "No plugin installed."
+msgstr "Kein Plug-in installiert."
+
+#: ui/screens/preferences-plugins.slint
+msgid "Tools: {}"
+msgstr "Werkzeuge: {}"
+
+#: ui/screens/preferences-plugins.slint
+msgid " · not run yet"
+msgstr " · noch nicht ausgeführt"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Click again to remove"
+msgstr "Zum Entfernen erneut klicken"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Add a plugin…"
+msgstr "Plug-in hinzufügen…"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Open the plugins folder"
+msgstr "Plug-in-Ordner öffnen"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Run the plugin “{}”?"
+msgstr "Plug-in „{}“ ausführen?"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Its author is not named."
+msgstr "Sein Autor ist nicht angegeben."
+
+#: ui/screens/preferences-plugins.slint
+msgid "By {}."
+msgstr "Von {}."
+
+#: ui/screens/preferences-plugins.slint
+msgid "It runs this program on a copy of your PDF, with your account's rights: it can read and change your files. Allow it only if you trust where the plugin comes from."
+msgstr "Es führt dieses Programm auf einer Kopie Ihres PDFs mit den Rechten Ihres Kontos aus: Es kann Ihre Dateien lesen und ändern. Erlauben Sie es nur, wenn Sie der Herkunft des Plug-ins vertrauen."
+
+#: ui/screens/preferences-plugins.slint
+msgid "Don’t run"
+msgstr "Nicht ausführen"
+
+#: ui/screens/preferences-plugins.slint
+msgid "Allow and run"
+msgstr "Erlauben und ausführen"
+
+#: ui/screens/preferences.slint
+msgid "Appearance"
+msgstr "Erscheinungsbild"
+
+#: ui/screens/preferences.slint
+msgid "System"
+msgstr "System"
+
+#: ui/screens/preferences.slint
+msgid "Light"
+msgstr "Hell"
+
+#: ui/screens/preferences.slint
+msgid "Dark"
+msgstr "Dunkel"
+
+#: ui/screens/preferences.slint
+msgid "Accent colour"
+msgstr "Akzentfarbe"
+
+#: ui/screens/preferences.slint
+msgid "Background behind pages"
+msgstr "Hintergrund hinter den Seiten"
+
+#: ui/screens/preferences.slint
+msgid "Rendering"
+msgstr "Darstellung"
+
+#: ui/screens/preferences.slint
+msgid "Smooth text"
+msgstr "Text glätten"
+
+#: ui/screens/preferences.slint
+msgid "Smooth line art"
+msgstr "Strichgrafiken glätten"
+
+#: ui/screens/preferences.slint
+msgid "Smooth images"
+msgstr "Bilder glätten"
+
+#: ui/screens/preferences.slint
+msgid "Show art, trim and bleed boxes"
+msgstr "Objekt-, Endformat- und Anschnittrahmen anzeigen"
+
+#: ui/screens/preferences.slint
+msgid "Page numbers as printed (iv)"
+msgstr "Seitenzahlen wie gedruckt (iv)"
+
+#: ui/screens/preferences.slint
+msgid "Show transparency grid"
+msgstr "Transparenzraster anzeigen"
+
+#: ui/screens/preferences.slint
+msgid "Display colour profile"
+msgstr "Farbprofil des Bildschirms"
+
+#: ui/screens/preferences.slint
+msgid "Choose monitor ICC…"
+msgstr "Monitor-ICC auswählen…"
+
+#: ui/screens/preferences.slint
+msgid "Use sRGB"
+msgstr "sRGB verwenden"
+
+#: ui/screens/preferences.slint
+msgid "Use the system's profile"
+msgstr "Systemprofil verwenden"
+
+#: ui/screens/preferences.slint
+msgid "Use the graphics card"
+msgstr "Grafikkarte verwenden"
+
+#: ui/screens/preferences.slint
+msgid "Draw with the processor"
+msgstr "Mit dem Prozessor zeichnen"
+
+#: ui/screens/preferences.slint
+msgid "Identity"
+msgstr "Identität"
+
+#: ui/screens/preferences.slint ui/screens/reader-sheets.slint ui/screens/sign-panel.slint
+msgid "Your name"
+msgstr "Ihr Name"
+
+#: ui/screens/preferences.slint
+msgid "Signs your comments, and is the author of the PDFs Sheaf makes from images and documents."
+msgstr "Signiert Ihre Kommentare und ist der Autor der PDFs, die Sheaf aus Bildern und Dokumenten erstellt."
+
+#: ui/screens/preferences.slint
+msgid "Output location"
+msgstr "Speicherort der Ausgabe"
+
+#: ui/screens/preferences.slint
+msgid "Ask every time"
+msgstr "Jedes Mal fragen"
+
+#: ui/screens/preferences.slint
+msgid "Save next to the original file"
+msgstr "Neben der Originaldatei speichern"
+
+#: ui/screens/preferences.slint
+msgid "Always save to a folder"
+msgstr "Immer in einem Ordner speichern"
+
+#: ui/screens/preferences.slint
+msgid "Always save to: {}"
+msgstr "Immer speichern in: {}"
+
+#: ui/screens/preferences.slint
+msgid "After processing"
+msgstr "Nach der Verarbeitung"
+
+#: ui/screens/preferences.slint
+msgid "Open the output folder when done"
+msgstr "Ausgabeordner nach Abschluss öffnen"
+
+#: ui/screens/preferences.slint
+msgid "Documents"
+msgstr "Dokumente"
+
+#: ui/screens/preferences.slint
+msgid "Open PDFs with Sheaf by default"
+msgstr "PDFs standardmäßig mit Sheaf öffnen"
+
+#: ui/screens/preferences.slint
+msgid "Open new documents at"
+msgstr "Neue Dokumente öffnen mit"
+
+#: ui/screens/preferences.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Fit width"
+msgstr "Breite anpassen"
+
+#: ui/screens/preferences.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Fit page"
+msgstr "Seite anpassen"
+
+#: ui/screens/preferences.slint ui/screens/reader-sheets.slint
+msgid "One page"
+msgstr "Eine Seite"
+
+#: ui/screens/preferences.slint ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Two pages"
+msgstr "Zwei Seiten"
+
+#: ui/screens/preferences.slint
+msgid "Two, cover alone"
+msgstr "Zwei, Deckblatt einzeln"
+
+#: ui/screens/preferences.slint
+msgid "Reopen documents"
+msgstr "Dokumente erneut öffnen"
+
+#: ui/screens/preferences.slint
+msgid "Where I left off"
+msgstr "Wo ich aufgehört habe"
+
+#: ui/screens/preferences.slint
+msgid "On the first page"
+msgstr "Auf der ersten Seite"
+
+#: ui/screens/preferences.slint
+msgid "Dated stamps write the time as"
+msgstr "Datumsstempel schreiben die Uhrzeit als"
+
+#: ui/screens/preferences.slint
+msgid "2:05 pm, Oct 25, 2026"
+msgstr "2:05 pm, Oct 25, 2026"
+
+#: ui/screens/preferences.slint
+msgid "Rulers measure in"
+msgstr "Lineale messen in"
+
+#: ui/screens/preferences.slint
+msgid "Inches"
+msgstr "Zoll"
+
+#: ui/screens/preferences.slint
+msgid "Centimetres"
+msgstr "Zentimeter"
+
+#: ui/screens/preferences.slint
+msgid "Guides in"
+msgstr "Hilfslinien in"
+
+#: ui/screens/preferences.slint
+msgid "Cyan"
+msgstr "Cyan"
+
+#: ui/screens/preferences.slint
+msgid "Magenta"
+msgstr "Magenta"
+
+#: ui/screens/preferences.slint
+msgid "Green"
+msgstr "Grün"
+
+#: ui/screens/preferences.slint
+msgid "Orange"
+msgstr "Orange"
+
+#: ui/screens/preferences.slint
+msgid "Signatures"
+msgstr "Signaturen"
+
+#: ui/screens/preferences.slint
+msgid "Digital IDs signed with"
+msgstr "Zum Signieren verwendete digitale IDs"
+
+#: ui/screens/preferences.slint
+msgid "None yet: one picked to sign is kept here."
+msgstr "Noch keine: Eine zum Signieren gewählte wird hier gespeichert."
+
+#: ui/screens/preferences.slint
+msgid "Add a digital ID…"
+msgstr "Digitale ID hinzufügen…"
+
+#: ui/screens/preferences.slint
+msgid "Add a smart card or token…"
+msgstr "Smartcard oder Token hinzufügen…"
+
+#: ui/screens/preferences.slint
+msgid "Create a digital ID…"
+msgstr "Digitale ID erstellen…"
+
+#: ui/screens/preferences.slint
+msgid "A self-signed digital ID saved in a password-protected file (.p12), valid five years. Send its certificate to people who encrypt for you."
+msgstr "Eine selbstsignierte digitale ID in einer kennwortgeschützten Datei (.p12), fünf Jahre gültig. Senden Sie ihr Zertifikat an Personen, die für Sie verschlüsseln."
+
+#: ui/screens/preferences.slint
+msgid "Organizational unit (optional)"
+msgstr "Organisationseinheit (optional)"
+
+#: ui/screens/preferences.slint
+msgid "Organization (optional)"
+msgstr "Organisation (optional)"
+
+#: ui/screens/preferences.slint
+msgid "Email (optional)"
+msgstr "E-Mail (optional)"
+
+#: ui/screens/preferences.slint
+msgid "Country code (optional, such as BE)"
+msgstr "Ländercode (optional, z. B. BE)"
+
+#: ui/screens/preferences.slint
+msgid "Password (6 characters or more)"
+msgstr "Kennwort (mindestens 6 Zeichen)"
+
+#: ui/screens/preferences.slint
+msgid "Confirm password"
+msgstr "Kennwort bestätigen"
+
+#: ui/screens/preferences.slint
+msgid "Use it for certificate encryption too"
+msgstr "Auch für die Zertifikatsverschlüsselung verwenden"
+
+#: ui/screens/preferences.slint
+msgid "Create and save…"
+msgstr "Erstellen und speichern…"
+
+#: ui/screens/preferences.slint
+msgid "Certificates trusted"
+msgstr "Vertrauenswürdige Zertifikate"
+
+#: ui/screens/preferences.slint
+msgid "None: a signature's certificate is trusted from Document properties, or added here."
+msgstr "Keine: Einem Signaturzertifikat wird über die Dokumenteigenschaften vertraut oder es wird hier hinzugefügt."
+
+#: ui/screens/preferences.slint
+msgid "Trust a certificate…"
+msgstr "Zertifikat vertrauen…"
+
+#: ui/screens/processing.slint
+msgid "Cancelling…"
+msgstr "Wird abgebrochen…"
+
+#: ui/screens/processing.slint
+msgid "Processing…"
+msgstr "Wird verarbeitet…"
+
+#: ui/screens/reader-form.slint
+msgid "Text field"
+msgstr "Textfeld"
+
+#: ui/screens/reader-form.slint ui/screens/reader-options.slint
+msgid "Check box"
+msgstr "Kontrollkästchen"
+
+#: ui/screens/reader-form.slint
+msgid "Radio button"
+msgstr "Optionsfeld"
+
+#: ui/screens/reader-form.slint ui/screens/reader-options.slint
+msgid "Dropdown"
+msgstr "Dropdown-Liste"
+
+#: ui/screens/reader-form.slint
+msgid "List box"
+msgstr "Listenfeld"
+
+#: ui/screens/reader-form.slint ui/screens/reader-options.slint
+msgid "Button"
+msgstr "Schaltfläche"
+
+#: ui/screens/reader-form.slint
+msgid "Signature field"
+msgstr "Signaturfeld"
+
+#: ui/screens/reader-form.slint
+msgid "Tooltip (what to fill in)"
+msgstr "QuickInfo (was einzugeben ist)"
+
+#: ui/screens/reader-form.slint
+msgid "Items, one per line"
+msgstr "Einträge, einer pro Zeile"
+
+#: ui/screens/reader-form.slint
+msgid "When clicked"
+msgstr "Beim Klicken"
+
+#: ui/screens/reader-form.slint
+msgid "Nothing"
+msgstr "Nichts"
+
+#: ui/screens/reader-form.slint
+msgid "Open address"
+msgstr "Adresse öffnen"
+
+#: ui/screens/reader-form.slint
+msgid "Submit"
+msgstr "Senden"
+
+#: ui/screens/reader-form.slint
+msgid "The address the form is sent to"
+msgstr "Die Adresse, an die das Formular gesendet wird"
+
+#: ui/screens/reader-form.slint ui/screens/reader-panel.slint
+msgid "Number"
+msgstr "Zahl"
+
+#: ui/screens/reader-form.slint ui/screens/reader-options.slint ui/screens/redact-panel.slint
+msgid "Date"
+msgstr "Datum"
+
+#: ui/screens/reader-form.slint
+msgid "Phone"
+msgstr "Telefon"
+
+#: ui/screens/reader-form.slint
+msgid "Zip"
+msgstr "PLZ"
+
+#: ui/screens/reader-form.slint
+msgid "Between"
+msgstr "Zwischen"
+
+#: ui/screens/reader-form.slint
+msgid "Calculated: Price * Quantity"
+msgstr "Berechnet: Preis * Menge"
+
+#: ui/screens/reader-form.slint
+msgid "Required"
+msgstr "Erforderlich"
+
+#: ui/screens/reader-form.slint
+msgid "Read-only"
+msgstr "Schreibgeschützt"
+
+#: ui/screens/reader-form.slint
+msgid "Several lines"
+msgstr "Mehrzeilig"
+
+#: ui/screens/reader-form.slint ui/screens/reader-sheets.slint
+msgid "Copies"
+msgstr "Kopien"
+
+#: ui/screens/reader-form.slint
+msgid "down ×"
+msgstr "nach unten ×"
+
+#: ui/screens/reader-form.slint
+msgid "Make"
+msgstr "Erstellen"
+
+#: ui/screens/reader-form.slint
+msgid "On every page"
+msgstr "Auf jeder Seite"
+
+#: ui/screens/reader-form.slint
+msgid "{} fields selected"
+msgstr "{} Felder ausgewählt"
+
+#: ui/screens/reader-form.slint
+msgid "Arranged after the first one picked; the arrow keys move them."
+msgstr "Am zuerst ausgewählten ausgerichtet; die Pfeiltasten verschieben sie."
+
+#: ui/screens/reader-form.slint
+msgid "Align"
+msgstr "Ausrichten"
+
+#: ui/screens/reader-form.slint
+msgid "Middle"
+msgstr "Mitte"
+
+#: ui/screens/reader-form.slint
+msgid "Same width"
+msgstr "Gleiche Breite"
+
+#: ui/screens/reader-form.slint
+msgid "Same height"
+msgstr "Gleiche Höhe"
+
+#: ui/screens/reader-form.slint
+msgid "Both"
+msgstr "Beide"
+
+#: ui/screens/reader-form.slint
+msgid "Space"
+msgstr "Verteilen"
+
+#: ui/screens/reader-form.slint
+msgid "Evenly across"
+msgstr "Horizontal"
+
+#: ui/screens/reader-form.slint
+msgid "Evenly down"
+msgstr "Vertikal"
+
+#: ui/screens/reader-form.slint
+msgid " comments selected"
+msgstr " Kommentare ausgewählt"
+
+#: ui/screens/reader-form.slint
+msgid " object selected"
+msgstr " Objekt ausgewählt"
+
+#: ui/screens/reader-form.slint
+msgid " objects selected"
+msgstr " Objekte ausgewählt"
+
+#: ui/screens/reader-form.slint
+msgid "Order"
+msgstr "Reihenfolge"
+
+#: ui/screens/reader-form.slint
+msgid "To front"
+msgstr "In den Vordergrund"
+
+#: ui/screens/reader-form.slint
+msgid "Backward"
+msgstr "Eine Ebene nach hinten"
+
+#: ui/screens/reader-form.slint
+msgid "To back"
+msgstr "In den Hintergrund"
+
+#: ui/screens/reader-ink-preview.slint
+msgid "{} · page {}"
+msgstr "{} · Seite {}"
+
+#: ui/screens/reader-ink-preview.slint
+msgid "Rendering preview…"
+msgstr "Vorschau wird gerendert…"
+
+#: ui/screens/reader-options.slint
+msgid "Rectangle"
+msgstr "Rechteck"
+
+#: ui/screens/reader-options.slint
+msgid "Oval"
+msgstr "Oval"
+
+#: ui/screens/reader-options.slint
+msgid "Line"
+msgstr "Linie"
+
+#: ui/screens/reader-options.slint
+msgid "Arrow"
+msgstr "Pfeil"
+
+#: ui/screens/reader-options.slint
+msgid "Fill"
+msgstr "Füllung"
+
+#: ui/screens/reader-options.slint
+msgid "Both ends"
+msgstr "Beide Enden"
+
+#: ui/screens/reader-options.slint ui/screens/reader-toolbar.slint
+msgid "Loupe"
+msgstr "Lupe"
+
+#: ui/screens/reader-options.slint
+msgid "Mask"
+msgstr "Maske"
+
+#: ui/screens/reader-options.slint
+msgid "Article"
+msgstr "Artikel"
+
+#: ui/screens/reader-options.slint
+msgid "End article"
+msgstr "Artikel beenden"
+
+#: ui/screens/reader-options.slint
+msgid "Delete article"
+msgstr "Artikel löschen"
+
+#: ui/screens/reader-options.slint
+msgid "Radio"
+msgstr "Optionsfeld"
+
+#: ui/screens/reader-options.slint
+msgid "List"
+msgstr "Liste"
+
+#: ui/screens/reader-options.slint
+msgid "Signature"
+msgstr "Signatur"
+
+#: ui/screens/reader-options.slint
+msgid "Image"
+msgstr "Bild"
+
+#: ui/screens/reader-options.slint
+msgid "Barcode"
+msgstr "Barcode"
+
+#: ui/screens/reader-options.slint
+msgid "Error correction: {}"
+msgstr "Fehlerkorrektur: {}"
+
+#: ui/screens/reader-options.slint
+msgid "Detect fields"
+msgstr "Felder erkennen"
+
+#: ui/screens/reader-options.slint
+msgid "By rows"
+msgstr "Nach Zeilen"
+
+#: ui/screens/reader-options.slint
+msgid "By columns"
+msgstr "Nach Spalten"
+
+#: ui/screens/reader-options.slint
+msgid "By structure"
+msgstr "Nach Struktur"
+
+#: ui/screens/reader-options.slint
+msgid "Tab order"
+msgstr "Tab-Reihenfolge"
+
+#: ui/screens/reader-options.slint
+msgid "Link web addresses"
+msgstr "Webadressen verknüpfen"
+
+#: ui/screens/reader-options.slint
+msgid "Border"
+msgstr "Rahmen"
+
+#: ui/screens/reader-options.slint
+msgid "Dashed"
+msgstr "Gestrichelt"
+
+#: ui/screens/reader-options.slint ui/screens/reader-panel.slint
+msgid "Rotate left"
+msgstr "Nach links drehen"
+
+#: ui/screens/reader-options.slint ui/screens/reader-panel.slint
+msgid "Rotate right"
+msgstr "Nach rechts drehen"
+
+#: ui/screens/reader-options.slint
+msgid "Flip"
+msgstr "Spiegeln"
+
+#: ui/screens/reader-options.slint ui/screens/tool-flow.slint
+msgid "Replace…"
+msgstr "Ersetzen…"
+
+#: ui/screens/reader-options.slint
+msgid "Save image as…"
+msgstr "Bild speichern unter…"
+
+#: ui/screens/reader-options.slint
+msgid "Align left"
+msgstr "Linksbündig"
+
+#: ui/screens/reader-options.slint
+msgid "Align right"
+msgstr "Rechtsbündig"
+
+#: ui/screens/reader-options.slint
+msgid "More fonts…"
+msgstr "Weitere Schriften…"
+
+#: ui/screens/reader-options.slint
+msgid "Finding the computer's fonts…"
+msgstr "Schriften des Computers werden gesucht…"
+
+#: ui/screens/reader-options.slint
+msgid "{} — not embeddable"
+msgstr "{} — nicht einbettbar"
+
+#: ui/screens/reader-options.slint
+msgid "Callout"
+msgstr "Legende"
+
+#: ui/screens/reader-options.slint ui/screens/signature-manager.slint
+msgid "New signature"
+msgstr "Neue Signatur"
+
+#: ui/screens/reader-options.slint
+msgid "Initials"
+msgstr "Initialen"
+
+#: ui/screens/reader-options.slint
+msgid "New initials"
+msgstr "Neue Initialen"
+
+#: ui/screens/reader-options.slint
+msgid "Turn ↻"
+msgstr "Drehen ↻"
+
+#: ui/screens/reader-options.slint
+msgid "Every page"
+msgstr "Jede Seite"
+
+#: ui/screens/reader-options.slint
+msgid "Image…"
+msgstr "Bild…"
+
+#: ui/screens/reader-options.slint
+msgid "Clear form"
+msgstr "Formular leeren"
+
+#: ui/screens/reader-options.slint
+msgid "Clear every field?"
+msgstr "Alle Felder leeren?"
+
+#: ui/screens/reader-options.slint
+msgid "Flatten"
+msgstr "Reduzieren"
+
+#: ui/screens/reader-options.slint
+msgid "Export data…"
+msgstr "Daten exportieren…"
+
+#: ui/screens/reader-options.slint
+msgid "Import data…"
+msgstr "Daten importieren…"
+
+#: ui/screens/reader-options.slint
+msgid "Polygon"
+msgstr "Polygon"
+
+#: ui/screens/reader-options.slint
+msgid "Cloud"
+msgstr "Wolke"
+
+#: ui/screens/reader-options.slint
+msgid "Polyline"
+msgstr "Polylinie"
+
+#: ui/screens/reader-options.slint
+msgid "Distance"
+msgstr "Abstand"
+
+#: ui/screens/reader-options.slint
+msgid "Perimeter"
+msgstr "Umfang"
+
+#: ui/screens/reader-options.slint
+msgid "Area"
+msgstr "Fläche"
+
+#: ui/screens/reader-options.slint
+msgid "Calibrate"
+msgstr "Kalibrieren"
+
+#: ui/screens/reader-panel.slint
+msgid "Outline"
+msgstr "Gliederung"
+
+#: ui/screens/reader-panel.slint
+msgid "Notes"
+msgstr "Notizen"
+
+#: ui/screens/reader-panel.slint
+msgid "Layers"
+msgstr "Ebenen"
+
+#: ui/screens/reader-panel.slint
+msgid "Aa"
+msgstr "Aa"
+
+#: ui/screens/reader-panel.slint
+msgid "Recent searches"
+msgstr "Letzte Suchen"
+
+#: ui/screens/reader-panel.slint
+msgid "In a folder…"
+msgstr "In einem Ordner…"
+
+#: ui/screens/reader-panel.slint
+msgid "Replace with"
+msgstr "Ersetzen durch"
+
+#: ui/screens/reader-panel.slint
+msgid "Replace"
+msgstr "Ersetzen"
+
+#: ui/screens/reader-panel.slint
+msgid "Replace all"
+msgstr "Alle ersetzen"
+
+#: ui/screens/reader-panel.slint
+msgid "No bookmarks yet: + Bookmark adds the page in view."
+msgstr "Noch keine Lesezeichen: + Lesezeichen fügt die angezeigte Seite hinzu."
+
+#: ui/screens/reader-panel.slint
+msgid "+ Bookmark"
+msgstr "+ Lesezeichen"
+
+#: ui/screens/reader-panel.slint
+msgid "Delete bookmark"
+msgstr "Lesezeichen löschen"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-toolbar.slint
+msgid "More"
+msgstr "Mehr"
+
+#: ui/screens/reader-panel.slint
+msgid "Show all"
+msgstr "Alle einblenden"
+
+#: ui/screens/reader-panel.slint
+msgid "Hide all"
+msgstr "Alle ausblenden"
+
+#: ui/screens/reader-panel.slint
+msgid "No layers."
+msgstr "Keine Ebenen."
+
+#: ui/screens/reader-panel.slint
+msgid "Attach…"
+msgstr "Anhängen…"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-sheets.slint
+msgid "Find"
+msgstr "Suchen"
+
+#: ui/screens/reader-panel.slint
+msgid "No attached files."
+msgstr "Keine angehängten Dateien."
+
+#: ui/screens/reader-panel.slint
+msgid "Delete attachment"
+msgstr "Anhang löschen"
+
+#: ui/screens/reader-panel.slint
+msgid "No annotations yet. Select text and pick Highlight, or choose a tool above."
+msgstr "Noch keine Anmerkungen. Wählen Sie Text aus und dann Hervorheben, oder wählen Sie oben ein Werkzeug."
+
+#: ui/screens/reader-panel.slint
+msgid "Summary of comments…"
+msgstr "Zusammenfassung der Kommentare…"
+
+#: ui/screens/reader-panel.slint
+msgid "Export comments (XFDF, FDF)…"
+msgstr "Kommentare exportieren (XFDF, FDF)…"
+
+#: ui/screens/reader-panel.slint
+msgid "Import comments…"
+msgstr "Kommentare importieren…"
+
+#: ui/screens/reader-panel.slint
+msgid "Remove all comments"
+msgstr "Alle Kommentare entfernen"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-production.slint ui/screens/reader-sheets.slint ui/screens/tools.slint
+msgid "All"
+msgstr "Alle"
+
+#: ui/screens/reader-panel.slint
+msgid "Markup"
+msgstr "Markierungen"
+
+#: ui/screens/reader-panel.slint
+msgid "Drawings"
+msgstr "Zeichnungen"
+
+#: ui/screens/reader-panel.slint
+msgid "Stamps"
+msgstr "Stempel"
+
+#: ui/screens/reader-panel.slint
+msgid "Accepted"
+msgstr "Angenommen"
+
+#: ui/screens/reader-panel.slint
+msgid "Rejected"
+msgstr "Abgelehnt"
+
+#: src/run.rs ui/screens/reader-panel.slint
+msgid "Cancelled"
+msgstr "Abgebrochen"
+
+#: ui/screens/reader-panel.slint
+msgid "Completed"
+msgstr "Abgeschlossen"
+
+#: ui/screens/reader-panel.slint
+msgid "No status"
+msgstr "Kein Status"
+
+#: ui/screens/reader-panel.slint
+msgid "Checked"
+msgstr "Abgehakt"
+
+#: ui/screens/reader-panel.slint
+msgid "By page"
+msgstr "Nach Seite"
+
+#: ui/screens/reader-panel.slint
+msgid "By author"
+msgstr "Nach Autor"
+
+#: ui/screens/reader-panel.slint
+msgid "By type"
+msgstr "Nach Typ"
+
+#: ui/screens/reader-panel.slint
+msgid "Reply"
+msgstr "Antworten"
+
+#: ui/screens/reader-panel.slint
+msgid "Insert blank page after"
+msgstr "Leere Seite einfügen nach"
+
+#: ui/screens/reader-panel.slint
+msgid "Duplicate"
+msgstr "Duplizieren"
+
+#: ui/screens/reader-panel.slint
+msgid "Insert pages from file…"
+msgstr "Seiten aus Datei einfügen…"
+
+#: ui/screens/reader-panel.slint
+msgid "Insert a file's pages before…"
+msgstr "Seiten einer Datei einfügen vor…"
+
+#: ui/screens/reader-panel.slint
+msgid "Insert from clipboard"
+msgstr "Aus Zwischenablage einfügen"
+
+#: ui/screens/reader-panel.slint
+msgid "Insert from scanner…"
+msgstr "Vom Scanner einfügen…"
+
+#: ui/screens/reader-panel.slint
+msgid "Replace with a file's pages…"
+msgstr "Durch Seiten einer Datei ersetzen…"
+
+#: ui/screens/reader-panel.slint
+msgid "Reverse page order"
+msgstr "Seitenreihenfolge umkehren"
+
+#: ui/screens/reader-panel.slint
+msgid "Transitions…"
+msgstr "Übergänge…"
+
+#: ui/screens/reader-panel.slint
+msgid "1 page"
+msgstr "1 Seite"
+
+#: src/reader_ui/folder_search.rs ui/screens/reader-panel.slint
+msgid "{} pages"
+msgstr "{} Seiten"
+
+#: ui/screens/reader-panel.slint
+msgid "Extract…"
+msgstr "Extrahieren…"
+
+#: ui/screens/reader-panel.slint
+msgid "Number pages…"
+msgstr "Seiten nummerieren…"
+
+#: ui/screens/reader-panel.slint
+msgid "Number "
+msgstr "Nummerieren "
+
+#: ui/screens/reader-panel.slint
+msgid "this page"
+msgstr "diese Seite"
+
+#: ui/screens/reader-panel.slint
+msgid "the {} pages"
+msgstr "die {} Seiten"
+
+#: ui/screens/reader-panel.slint
+msgid " through page {}"
+msgstr " bis Seite {}"
+
+#: ui/screens/reader-panel.slint
+msgid " and the next ones"
+msgstr " und die folgenden"
+
+#: ui/screens/reader-panel.slint
+msgid "i, ii, iii"
+msgstr "i, ii, iii"
+
+#: ui/screens/reader-panel.slint
+msgid "I, II, III"
+msgstr "I, II, III"
+
+#: ui/screens/reader-panel.slint
+msgid "a, b, c"
+msgstr "a, b, c"
+
+#: ui/screens/reader-panel.slint
+msgid "A, B, C"
+msgstr "A, B, C"
+
+#: ui/screens/reader-panel.slint
+msgid "No number"
+msgstr "Keine Nummer"
+
+#: ui/screens/reader-panel.slint
+msgid "Prefix"
+msgstr "Präfix"
+
+#: ui/screens/reader-panel.slint
+msgid "Start: 1"
+msgstr "Beginn: 1"
+
+#: ui/screens/reader-panel.slint
+msgid "Through: end"
+msgstr "Bis: Ende"
+
+#: ui/screens/reader-panel.slint
+msgid "In full screen, "
+msgstr "Im Vollbildmodus "
+
+#: ui/screens/reader-panel.slint
+msgid "this page comes"
+msgstr "erscheint diese Seite"
+
+#: ui/screens/reader-panel.slint
+msgid "the {} pages come"
+msgstr "erscheinen die {} Seiten"
+
+#: ui/screens/reader-panel.slint
+msgid " in with"
+msgstr " mit"
+
+#: ui/screens/reader-panel.slint
+msgid "No effect"
+msgstr "Kein Effekt"
+
+#: ui/screens/reader-panel.slint
+msgid "Fade"
+msgstr "Überblenden"
+
+#: ui/screens/reader-panel.slint
+msgid "Dissolve"
+msgstr "Auflösen"
+
+#: ui/screens/reader-panel.slint
+msgid "Wipe"
+msgstr "Wischen"
+
+#: ui/screens/reader-panel.slint
+msgid "Push"
+msgstr "Schieben"
+
+#: ui/screens/reader-panel.slint
+msgid "Cover"
+msgstr "Überdecken"
+
+#: ui/screens/reader-panel.slint
+msgid "Uncover"
+msgstr "Aufdecken"
+
+#: ui/screens/reader-panel.slint
+msgid "Split"
+msgstr "Teilen"
+
+#: ui/screens/reader-panel.slint
+msgid "Blinds"
+msgstr "Jalousie"
+
+#: ui/screens/reader-panel.slint
+msgid "Box"
+msgstr "Rechteck"
+
+#: ui/screens/reader-panel.slint
+msgid "Glitter"
+msgstr "Glitzern"
+
+#: ui/screens/reader-panel.slint
+msgid "Fly"
+msgstr "Fliegen"
+
+#: ui/screens/reader-panel.slint
+msgid "Next page after (seconds): when turned"
+msgstr "Nächste Seite nach (Sekunden): beim Umblättern"
+
+#: ui/screens/reader-panel.slint
+msgid "Set"
+msgstr "Festlegen"
+
+#: ui/screens/reader-panel.slint
+msgid "One file per page"
+msgstr "Eine Datei pro Seite"
+
+#: ui/screens/reader-panel.slint
+msgid "Delete pages after extracting"
+msgstr "Seiten nach dem Extrahieren löschen"
+
+#: ui/screens/reader-panel.slint
+msgid "Extract"
+msgstr "Extrahieren"
+
+#: ui/screens/reader-panel.slint
+msgid "Indent"
+msgstr "Einzug vergrößern"
+
+#: ui/screens/reader-panel.slint
+msgid "Outdent"
+msgstr "Einzug verkleinern"
+
+#: ui/screens/reader-panel.slint
+msgid "Set destination to this view"
+msgstr "Ziel auf diese Ansicht setzen"
+
+#: ui/screens/reader-panel.slint ui/screens/signature-manager.slint
+msgid "Bold"
+msgstr "Fett"
+
+#: ui/screens/reader-panel.slint
+msgid "Italic"
+msgstr "Kursiv"
+
+#: ui/screens/reader-panel.slint
+msgid "In the pen's colour"
+msgstr "In der Stiftfarbe"
+
+#: ui/screens/reader-panel.slint
+msgid "In the usual colour"
+msgstr "In der üblichen Farbe"
+
+#: ui/screens/reader-prepress.slint
+msgid "Print preflight"
+msgstr "Druckvorstufenprüfung"
+
+#: ui/screens/reader-prepress.slint
+msgid "Inspect the current document"
+msgstr "Aktuelles Dokument prüfen"
+
+#: ui/screens/reader-prepress.slint
+msgid "Close-up print"
+msgstr "Druck für Nahbetrachtung"
+
+#: ui/screens/reader-prepress.slint
+msgid "Large format"
+msgstr "Großformat"
+
+#: ui/screens/reader-prepress.slint
+msgid "Digital press"
+msgstr "Digitaldruck"
+
+#: ui/screens/reader-prepress.slint
+msgid "PDF/X-1a"
+msgstr "PDF/X-1a"
+
+#: ui/screens/reader-prepress.slint
+msgid "PDF/X-4"
+msgstr "PDF/X-4"
+
+#: ui/screens/reader-prepress.slint
+msgid "Also checks fonts, trim and press ICC.\nX-1a flags transparency and colour spaces.\nThreshold changes keep these target rules."
+msgstr "Prüft auch Schriften, Endformat und Druck-ICC.\nX-1a meldet Transparenz und Farbräume.\nGeänderte Schwellenwerte behalten diese Zielregeln."
+
+#: ui/screens/reader-prepress.slint
+msgid "Fail below (ppi)"
+msgstr "Fehler unter (ppi)"
+
+#: ui/screens/reader-prepress.slint
+msgid "Target (ppi)"
+msgstr "Ziel (ppi)"
+
+#: ui/screens/reader-prepress.slint
+msgid "Minimum bleed (mm)"
+msgstr "Minimaler Anschnitt (mm)"
+
+#: ui/screens/reader-prepress.slint ui/screens/reader-sheets.slint
+msgid "Checking…"
+msgstr "Wird geprüft…"
+
+#: ui/screens/reader-prepress.slint
+msgid "Run preflight"
+msgstr "Prüfung starten"
+
+#: ui/screens/reader-prepress.slint
+msgid "Results keep the thresholds checked"
+msgstr "Ergebnisse behalten die geprüften Schwellenwerte"
+
+#: src/reader_ui/model.rs ui/screens/reader-prepress.slint ui/widgets/file-card.slint
+msgid "Page {}"
+msgstr "Seite {}"
+
+#: ui/screens/reader-prepress.slint
+msgid "Ink plates…"
+msgstr "Farbauszüge…"
+
+#: ui/screens/reader-prepress.slint
+msgid "Fix hairlines / boxes…"
+msgstr "Haarlinien / Seitenrahmen korrigieren…"
+
+#: ui/screens/reader-production.slint
+msgid "Print production"
+msgstr "Druckproduktion"
+
+#: ui/screens/reader-production.slint
+msgid "Selected / current page"
+msgstr "Ausgewählte / aktuelle Seite"
+
+#: ui/screens/reader-production.slint
+msgid "Fix page hairlines"
+msgstr "Haarlinien der Seite korrigieren"
+
+#: ui/screens/reader-production.slint
+msgid "Raises page, Form and pattern strokes.\nType 3 glyph strokes are included.\nOther font outlines and comments stay."
+msgstr "Verstärkt Seiten-, Form- und Musterkonturen.\nKonturen von Type-3-Glyphen sind eingeschlossen.\nAndere Schriftkonturen und Kommentare bleiben."
+
+#: ui/screens/reader-production.slint
+msgid "Minimum stroke (points)"
+msgstr "Minimale Linienstärke (Punkt)"
+
+#: ui/screens/reader-production.slint
+msgid "Fix hairlines"
+msgstr "Haarlinien korrigieren"
+
+#: ui/screens/reader-production.slint
+msgid "Set page boxes"
+msgstr "Seitenrahmen festlegen"
+
+#: ui/screens/reader-production.slint
+msgid "Margins inward from each media box.\nPDF units, before rotation. Artwork stays put.\nSet boxes before adding crop marks."
+msgstr "Ränder nach innen ab jedem Medienrahmen.\nPDF-Einheiten, vor der Drehung. Der Inhalt bleibt an seinem Platz.\nLegen Sie Rahmen vor dem Hinzufügen von Schnittmarken fest."
+
+#: ui/screens/reader-production.slint
+msgid "Crop"
+msgstr "Maskenrahmen"
+
+#: ui/screens/reader-production.slint
+msgid "Trim"
+msgstr "Endformat"
+
+#: ui/screens/reader-production.slint
+msgid "Bleed"
+msgstr "Anschnitt"
+
+#: ui/screens/reader-production.slint
+msgid "Art"
+msgstr "Objektrahmen"
+
+#: ui/screens/reader-production.slint
+msgid "Set box"
+msgstr "Rahmen festlegen"
+
+#: ui/screens/reader-production.slint
+msgid "Reset box"
+msgstr "Rahmen zurücksetzen"
+
+#: ui/screens/reader-production.slint
+msgid "Printer marks"
+msgstr "Druckermarken"
+
+#: ui/screens/reader-production.slint
+msgid "Marks stay outside the existing bleed.\nThe sheet grows; hidden art stays clipped.\nRegistration targets print on every plate."
+msgstr "Marken bleiben außerhalb des vorhandenen Anschnitts.\nDer Bogen wird größer; ausgeblendeter Inhalt bleibt beschnitten.\nPasserkreuze werden auf jeder Druckplatte gedruckt."
+
+#: ui/screens/reader-production.slint
+msgid "Register"
+msgstr "Passermarken"
+
+#: ui/screens/reader-production.slint
+msgid "Bars"
+msgstr "Farbkontrollstreifen"
+
+#: ui/screens/reader-production.slint
+msgid "Page info"
+msgstr "Seiteninformationen"
+
+#: ui/screens/reader-production.slint
+msgid "Mark width (points)"
+msgstr "Markenstärke (Punkt)"
+
+#: ui/screens/reader-production.slint
+msgid "Add printer marks"
+msgstr "Druckermarken hinzufügen"
+
+#: ui/screens/reader-production.slint
+msgid "Flattener preview…"
+msgstr "Reduzierungsvorschau…"
+
+#: ui/screens/reader-production.slint
+msgid "Preview compares the current page with PDF 1.3.\nThe working document stays unchanged."
+msgstr "Die Vorschau vergleicht die aktuelle Seite mit PDF 1.3.\nDas Arbeitsdokument bleibt unverändert."
+
+#: ui/screens/reader-production.slint
+msgid "Save as PDF/X"
+msgstr "Als PDF/X speichern"
+
+#: ui/screens/reader-production.slint
+msgid "Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."
+msgstr "Ganzes Dokument; kein Kennwortschutz.\nErfordert eine lokale Ghostscript-Installation.\nVerwenden Sie das CMYK- oder Graustufen-ICC-Profil der Druckerei."
+
+#: ui/screens/reader-production.slint
+msgid "X-3:2002"
+msgstr "X-3:2002"
+
+#: ui/screens/reader-production.slint
+msgid "X-1a:2001"
+msgstr "X-1a:2001"
+
+#: ui/screens/reader-production.slint
+msgid "X-4"
+msgstr "X-4"
+
+#: ui/screens/reader-production.slint
+msgid "Installed press profiles"
+msgstr "Installierte Druckprofile"
+
+#: ui/screens/reader-production.slint
+msgid "FOGRA39"
+msgstr "FOGRA39"
+
+#: ui/screens/reader-production.slint
+msgid "GRACoL"
+msgstr "GRACoL"
+
+#: ui/screens/reader-production.slint
+msgid "SWOP"
+msgstr "SWOP"
+
+#: ui/screens/reader-production.slint
+msgid "Choose ICC profile…"
+msgstr "ICC-Profil auswählen…"
+
+#: ui/screens/reader-production.slint
+msgid "Change ICC profile…"
+msgstr "ICC-Profil ändern…"
+
+#: ui/screens/reader-production.slint
+msgid "Output condition"
+msgstr "Ausgabebedingung"
+
+#: ui/screens/reader-production.slint
+msgid "Preset condition, or enter the press name"
+msgstr "Vordefinierte Bedingung oder Namen der Druckmaschine eingeben"
+
+#: ui/screens/reader-production.slint
+msgid "Checks ICC, fonts and level restrictions.\nX-4 needs a recent Ghostscript.\nFull ISO validation is not included."
+msgstr "Prüft ICC, Schriften und Einschränkungen der Stufe.\nX-4 erfordert ein aktuelles Ghostscript.\nEine vollständige ISO-Validierung ist nicht enthalten."
+
+#: ui/screens/reader-production.slint
+msgid "Converting…"
+msgstr "Wird konvertiert…"
+
+#: ui/screens/reader-production.slint
+msgid "Save PDF/X copy…"
+msgstr "PDF/X-Kopie speichern…"
+
+#: ui/screens/reader-production.slint
+msgid "Page edits can be undone"
+msgstr "Seitenänderungen können widerrufen werden"
+
+#: ui/screens/reader-sheets.slint
+msgid "Create your initials"
+msgstr "Initialen erstellen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Create your signature"
+msgstr "Signatur erstellen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Draw your initials here"
+msgstr "Zeichnen Sie Ihre Initialen hier"
+
+#: ui/screens/reader-sheets.slint ui/screens/sign-panel.slint
+msgid "Draw your signature here"
+msgstr "Zeichnen Sie Ihre Signatur hier"
+
+#: ui/screens/reader-sheets.slint
+msgid "or type them"
+msgstr "oder tippen Sie sie ein"
+
+#: ui/screens/reader-sheets.slint
+msgid "or type your name"
+msgstr "oder tippen Sie Ihren Namen ein"
+
+#: ui/screens/reader-sheets.slint
+msgid "Your initials"
+msgstr "Ihre Initialen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Keep for next time"
+msgstr "Für das nächste Mal behalten"
+
+#: ui/screens/reader-sheets.slint ui/screens/signature-manager.slint
+msgid "Use"
+msgstr "Verwenden"
+
+#: ui/screens/reader-sheets.slint
+msgid "Printer"
+msgstr "Drucker"
+
+#: ui/screens/reader-sheets.slint
+msgid "No printer is set up"
+msgstr "Kein Drucker eingerichtet"
+
+#: ui/screens/reader-sheets.slint
+msgid "Current"
+msgstr "Aktuelle Seite"
+
+#: ui/screens/reader-sheets.slint
+msgid "Range"
+msgstr "Bereich"
+
+#: ui/screens/reader-sheets.slint
+msgid "Scale"
+msgstr "Skalierung"
+
+#: ui/screens/reader-sheets.slint
+msgid "Layout"
+msgstr "Layout"
+
+#: ui/screens/reader-sheets.slint
+msgid "1 page per sheet"
+msgstr "1 Seite pro Blatt"
+
+#: ui/screens/reader-sheets.slint
+msgid "2 per sheet"
+msgstr "2 pro Blatt"
+
+#: ui/screens/reader-sheets.slint
+msgid "4 per sheet"
+msgstr "4 pro Blatt"
+
+#: ui/screens/reader-sheets.slint
+msgid "6 per sheet"
+msgstr "6 pro Blatt"
+
+#: ui/screens/reader-sheets.slint
+msgid "9 per sheet"
+msgstr "9 pro Blatt"
+
+#: ui/screens/reader-sheets.slint
+msgid "16 per sheet"
+msgstr "16 pro Blatt"
+
+#: ui/screens/reader-sheets.slint
+msgid "Make default"
+msgstr "Als Standard festlegen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Preparing the preview…"
+msgstr "Vorschau wird vorbereitet…"
+
+#: ui/screens/reader-sheets.slint
+msgid "Document properties"
+msgstr "Dokumenteigenschaften"
+
+#: ui/screens/reader-sheets.slint
+msgid "Title"
+msgstr "Titel"
+
+#: ui/screens/reader-sheets.slint
+msgid "Author"
+msgstr "Autor"
+
+#: ui/screens/reader-sheets.slint
+msgid "Subject"
+msgstr "Thema"
+
+#: ui/screens/reader-sheets.slint
+msgid "Keywords"
+msgstr "Stichwörter"
+
+#: ui/screens/reader-sheets.slint
+msgid "Custom properties"
+msgstr "Eigene Eigenschaften"
+
+#: ui/screens/reader-sheets.slint
+msgid "Name: value; another: value"
+msgstr "Name: Wert; weiterer: Wert"
+
+#: ui/screens/reader-sheets.slint
+msgid "When opened"
+msgstr "Beim Öffnen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Page"
+msgstr "Seite"
+
+#: ui/screens/reader-sheets.slint
+msgid "Any"
+msgstr "Beliebig"
+
+#: ui/screens/reader-sheets.slint
+msgid "Cover first"
+msgstr "Titelseite zuerst"
+
+#: ui/screens/reader-sheets.slint
+msgid "Zoom"
+msgstr "Zoom"
+
+#: ui/screens/reader-sheets.slint
+msgid "Panel"
+msgstr "Seitenleiste"
+
+#: ui/screens/reader-sheets.slint
+msgid "Bookmarks"
+msgstr "Lesezeichen"
+
+#: ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Full screen"
+msgstr "Vollbild"
+
+#: ui/screens/reader-sheets.slint
+msgid "No bar"
+msgstr "Ohne Leiste"
+
+#: ui/screens/reader-sheets.slint
+msgid "Clear signature"
+msgstr "Signatur löschen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Copy report"
+msgstr "Bericht kopieren"
+
+#: ui/screens/reader-sheets.slint
+msgid "Page background"
+msgstr "Seitenhintergrund"
+
+#: ui/screens/reader-sheets.slint
+msgid "Behind the content of every page. ⌘Z undoes it."
+msgstr "Hinter dem Inhalt jeder Seite. ⌘Z widerruft es."
+
+#: ui/screens/reader-sheets.slint
+msgid "Opacity"
+msgstr "Deckkraft"
+
+#: ui/screens/reader-sheets.slint
+msgid "Picture…"
+msgstr "Bild…"
+
+#: ui/screens/reader-sheets.slint
+msgid "Apply"
+msgstr "Anwenden"
+
+#: ui/screens/reader-sheets.slint
+msgid "Versions"
+msgstr "Versionen"
+
+#: ui/screens/reader-sheets.slint
+msgid "The file holds one version: each save that adds to it keeps the one before."
+msgstr "Die Datei enthält eine Version: Jedes Speichern, das sie ergänzt, behält die vorherige."
+
+#: ui/screens/reader-sheets.slint
+msgid "The file holds {} versions, the oldest first."
+msgstr "Die Datei enthält {} Versionen, die älteste zuerst."
+
+#: ui/screens/reader-sheets.slint
+msgid "Version {}"
+msgstr "Version {}"
+
+#: ui/screens/reader-sheets.slint
+msgid " (as last saved)"
+msgstr " (zuletzt gespeichert)"
+
+#: ui/screens/reader-sheets.slint
+msgid "Revert to saved"
+msgstr "Auf gespeicherte Version zurücksetzen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Unsaved changes are lost"
+msgstr "Nicht gespeicherte Änderungen gehen verloren"
+
+#: ui/screens/reader-sheets.slint
+msgid "Not searched"
+msgstr "Nicht durchsucht"
+
+#: ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Accessibility check"
+msgstr "Barrierefreiheitsprüfung"
+
+#: ui/screens/reader-sheets.slint
+msgid " (check by hand)"
+msgstr " (manuell prüfen)"
+
+#: ui/screens/reader-sheets.slint
+msgid "Fix"
+msgstr "Korrigieren"
+
+#: ui/screens/reader-sheets.slint
+msgid "Voice"
+msgstr "Stimme"
+
+#: ui/screens/reader-sheets.slint
+msgid "No voice was found on this computer."
+msgstr "Auf diesem Computer wurde keine Stimme gefunden."
+
+#: ui/screens/reader-sheets.slint
+msgid "The system's default"
+msgstr "Systemstandard"
+
+#: ui/screens/reader-sheets.slint
+msgid "Select text"
+msgstr "Text auswählen"
+
+#: ui/screens/reader-sheets.slint ui/screens/reader.slint
+msgid "Text box"
+msgstr "Textfeld"
+
+#: ui/screens/reader-sheets.slint
+msgid "Edit text and objects"
+msgstr "Text und Objekte bearbeiten"
+
+#: ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Prepare form"
+msgstr "Formular vorbereiten"
+
+#: ui/screens/reader-sheets.slint
+msgid "Zoom in, out"
+msgstr "Vergrößern, verkleinern"
+
+#: ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Rotate view"
+msgstr "Ansicht drehen"
+
+#: ui/screens/reader-sheets.slint
+msgid "One page, two, cover alone"
+msgstr "Eine Seite, zwei, Titelseite allein"
+
+#: ui/screens/reader-sheets.slint ui/screens/reader-toolbar.slint
+msgid "Side panel"
+msgstr "Seitenleiste"
+
+#: ui/screens/reader-sheets.slint
+msgid "Move the pages"
+msgstr "Seiten verschieben"
+
+#: ui/screens/reader-sheets.slint
+msgid "Previous, next page"
+msgstr "Vorherige, nächste Seite"
+
+#: ui/screens/reader-sheets.slint
+msgid "First, last page"
+msgstr "Erste, letzte Seite"
+
+#: ui/screens/reader-sheets.slint
+msgid "Go to page"
+msgstr "Gehe zu Seite"
+
+#: ui/screens/reader-sheets.slint
+msgid "Document"
+msgstr "Dokument"
+
+#: ui/screens/reader-sheets.slint
+msgid "Next, previous result"
+msgstr "Nächstes, vorheriges Ergebnis"
+
+#: ui/screens/reader-sheets.slint
+msgid "Save as"
+msgstr "Speichern unter"
+
+#: ui/screens/reader-sheets.slint
+msgid "Undo, redo"
+msgstr "Widerrufen, wiederholen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Copy, cut, paste"
+msgstr "Kopieren, ausschneiden, einsetzen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Link the selected text"
+msgstr "Ausgewählten Text verknüpfen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Delete the selection"
+msgstr "Auswahl löschen"
+
+#: ui/screens/reader-sheets.slint
+msgid "Previous, next tab"
+msgstr "Vorheriger, nächster Tab"
+
+#: ui/screens/reader-sheets.slint
+msgid "Close the tab"
+msgstr "Tab schließen"
+
+#: ui/screens/reader-sheets.slint
+msgid "These shortcuts"
+msgstr "Diese Tastaturkurzbefehle"
+
+#: ui/screens/reader-sheets.slint
+msgid "⌘ is Ctrl on Linux and Windows."
+msgstr "⌘ entspricht Strg unter Linux und Windows."
+
+#: ui/screens/reader-toolbar.slint
+msgid "Select text{}"
+msgstr "Text auswählen{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Highlight{}"
+msgstr "Hervorheben{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Underline{}"
+msgstr "Unterstreichen{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Strikethrough{}"
+msgstr "Durchstreichen{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Note{}"
+msgstr "Notiz{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Pen{}"
+msgstr "Stift{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Shapes{}"
+msgstr "Formen{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Eraser{}"
+msgstr "Radierer{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Stamp{}"
+msgstr "Stempel{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Text box{}"
+msgstr "Textfeld{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Edit text{}"
+msgstr "Text bearbeiten{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Add image{}"
+msgstr "Bild hinzufügen{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Link{}"
+msgstr "Link{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Redact…"
+msgstr "Schwärzen…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Sign{}"
+msgstr "Signieren{}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Edit, link, redact, sign"
+msgstr "Bearbeiten, verknüpfen, schwärzen, signieren"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Edit text"
+msgstr "Text bearbeiten"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Zoom out (⌘−)"
+msgstr "Verkleinern (⌘−)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Zoom in (⌘+)"
+msgstr "Vergrößern (⌘+)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Two pages, cover alone"
+msgstr "Zwei Seiten, Titelseite allein"
+
+#: ui/screens/reader-toolbar.slint
+msgid "One page wide"
+msgstr "Eine Seite breit"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Fit width (⌘9)"
+msgstr "An Breite anpassen (⌘9)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Fit page (⌘8)"
+msgstr "Ganze Seite (⌘8)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Day"
+msgstr "Tag"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Sepia"
+msgstr "Sepia"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Night"
+msgstr "Nacht"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page theme"
+msgstr "Seitendesign"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Overlay a PDF…"
+msgstr "PDF überlagern…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Read aloud"
+msgstr "Vorlesen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Reading speed"
+msgstr "Lesegeschwindigkeit"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Save a flattened copy…"
+msgstr "Reduzierte Kopie speichern…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Email a flattened copy"
+msgstr "Reduzierte Kopie per E-Mail senden"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Turn pages upright"
+msgstr "Seiten aufrichten"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Remove all images"
+msgstr "Alle Bilder entfernen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Reflow"
+msgstr "Umfließen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Underlay a PDF…"
+msgstr "PDF unterlegen…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Read this page"
+msgstr "Diese Seite vorlesen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Read the selection"
+msgstr "Auswahl vorlesen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Pause or resume reading"
+msgstr "Vorlesen anhalten oder fortsetzen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Voice…"
+msgstr "Stimme…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Rulers"
+msgstr "Lineale"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Copy the file"
+msgstr "Datei kopieren"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Share with AirDrop"
+msgstr "Mit AirDrop teilen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Scrolling, split view, hand ›"
+msgstr "Scrollen, geteilte Ansicht, Hand ›"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Print preflight…"
+msgstr "Druckvorstufenprüfung…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Fix hairlines / page boxes…"
+msgstr "Haarlinien / Seitenrahmen korrigieren…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Add printer marks…"
+msgstr "Druckermarken hinzufügen…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Correct recognized text…"
+msgstr "Erkannten Text korrigieren…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Search catalog…"
+msgstr "Suchkatalog…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Security policies…"
+msgstr "Sicherheitsrichtlinien…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Manage signatures…"
+msgstr "Signaturen verwalten…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "JavaScript console…"
+msgstr "JavaScript-Konsole…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Guided actions…"
+msgstr "Geführte Aktionen…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Library…"
+msgstr "Bibliothek…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Browse embedded files…"
+msgstr "Eingebettete Dateien durchsuchen…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Encrypt with certificates…"
+msgstr "Mit Zertifikaten verschlüsseln…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Scroll pages across"
+msgstr "Seiten horizontal scrollen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Split view side by side"
+msgstr "Geteilte Ansicht nebeneinander"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Split view one above the other"
+msgstr "Geteilte Ansicht übereinander"
+
+#: ui/screens/reader-toolbar.slint ui/screens/reader.slint
+msgid "Sync scroll and zoom"
+msgstr "Scrollen und Zoom synchronisieren"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Hand tool (⌥ drag zooms)"
+msgstr "Hand-Werkzeug (⌥ ziehen zoomt)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Split with {}"
+msgstr "Teilen mit {}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Presentation"
+msgstr "Präsentation"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Hide toolbar"
+msgstr "Symbolleiste ausblenden"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Highlight links"
+msgstr "Links hervorheben"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Highlight form fields"
+msgstr "Formularfelder hervorheben"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page grid"
+msgstr "Seitenraster"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Document properties…"
+msgstr "Dokumenteigenschaften…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Sanitize document"
+msgstr "Dokument bereinigen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page background…"
+msgstr "Seitenhintergrund…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Versions…"
+msgstr "Versionen…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Zoom to area"
+msgstr "Auf Bereich zoomen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Copy an area as a picture"
+msgstr "Bereich als Bild kopieren"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Scroll automatically"
+msgstr "Automatisch scrollen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "One page at a time"
+msgstr "Eine Seite nach der anderen"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Email…"
+msgstr "E-Mail…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "More tools…"
+msgstr "Weitere Werkzeuge…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Undo {} (⌘Z)"
+msgstr "{} widerrufen (⌘Z)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Undo (⌘Z)"
+msgstr "Widerrufen (⌘Z)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Redo {} (⇧⌘Z)"
+msgstr "{} wiederholen (⇧⌘Z)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Redo (⇧⌘Z)"
+msgstr "Wiederholen (⇧⌘Z)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Use a tool on this PDF"
+msgstr "Werkzeug auf dieses PDF anwenden"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Save (⌘S)"
+msgstr "Speichern (⌘S)"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Saved"
+msgstr "Gespeichert"
+
+#: ui/screens/reader.slint
+msgid "Copy (⌘C)"
+msgstr "Kopieren (⌘C)"
+
+#: ui/screens/reader.slint
+msgid "Search for this (⇧⌘E)"
+msgstr "Danach suchen (⇧⌘E)"
+
+#: ui/screens/reader.slint
+msgid "Link… (⌘K)"
+msgstr "Link… (⌘K)"
+
+#: ui/screens/reader.slint
+msgid "Replace text…"
+msgstr "Text ersetzen…"
+
+#: ui/screens/reader.slint
+msgid "Insert text after…"
+msgstr "Text einfügen nach…"
+
+#: ui/screens/reader.slint
+msgid "Look up"
+msgstr "Nachschlagen"
+
+#: ui/screens/reader.slint
+msgid "Edit text — ⌘↩ to apply"
+msgstr "Text bearbeiten — ⌘↩ zum Anwenden"
+
+#: ui/screens/reader.slint
+msgid "↩ done · Tab next field"
+msgstr "↩ fertig · Tab nächstes Feld"
+
+#: ui/screens/reader.slint
+msgid "Choose"
+msgstr "Auswählen"
+
+#: ui/screens/reader.slint
+msgid "Reply — ↩ to send"
+msgstr "Antworten — ↩ zum Senden"
+
+#: ui/screens/reader.slint
+msgid "Link to — a page number or a web address"
+msgstr "Link zu — eine Seitenzahl oder eine Webadresse"
+
+#: ui/screens/reader.slint
+msgid "Link — change where it goes, or remove it"
+msgstr "Link — Ziel ändern oder entfernen"
+
+#: ui/screens/reader.slint
+msgid "Replace with — ↩ to propose"
+msgstr "Ersetzen durch — ↩ zum Vorschlagen"
+
+#: ui/screens/reader.slint
+msgid "Insert after — ↩ to propose"
+msgstr "Einfügen nach — ↩ zum Vorschlagen"
+
+#: ui/screens/reader.slint
+msgid "Its real length — such as 4.5 m"
+msgstr "Ihre tatsächliche Länge — z. B. 4,5 m"
+
+#: ui/screens/reader.slint
+msgid "Remove link"
+msgstr "Link entfernen"
+
+#: ui/screens/reader.slint
+msgid "Preview of {}: a PDF made to read it. Save As keeps it as a PDF."
+msgstr "Vorschau von {}: ein PDF zum Lesen. „Sichern unter“ behält es als PDF."
+
+#: ui/screens/reader.slint
+msgid "✓ Sync scroll and zoom"
+msgstr "✓ Scrollen und Zoom synchronisieren"
+
+#: ui/screens/reader.slint
+msgid "Hand tool: drag to move, ⌥ drag to zoom · ⇧H or Escape to leave"
+msgstr "Hand-Werkzeug: ziehen zum Verschieben, ⌥ ziehen zum Zoomen · ⇧H oder Esc zum Beenden"
+
+#: ui/screens/reader.slint
+msgid "Reflow · page {}"
+msgstr "Umbruch · Seite {}"
+
+#: ui/screens/reader.slint
+msgid "A−"
+msgstr "A−"
+
+#: ui/screens/reader.slint
+msgid "A+"
+msgstr "A+"
+
+#: ui/screens/reader.slint
+msgid "No text on this page (a scan: OCR reads it)."
+msgstr "Kein Text auf dieser Seite (ein Scan: OCR liest ihn)."
+
+#: ui/screens/recents.slint ui/screens/tool-flow.slint ui/widgets/drop-zone.slint
+msgid "Open file"
+msgstr "Datei öffnen"
+
+#: ui/screens/recents.slint
+msgid "New blank PDF"
+msgstr "Neues leeres PDF"
+
+#: ui/screens/recents.slint
+msgid "From clipboard"
+msgstr "Aus Zwischenablage"
+
+#: ui/screens/recents.slint
+msgid "From screenshot"
+msgstr "Aus Bildschirmfoto"
+
+#: ui/screens/recents.slint
+msgid "From scanner"
+msgstr "Vom Scanner"
+
+#: ui/screens/recents.slint
+msgid "PDFs, images or documents, or drag & drop anywhere"
+msgstr "PDFs, Bilder oder Dokumente, oder überall per Drag & Drop"
+
+#: ui/screens/recents.slint
+msgid "Recent tools"
+msgstr "Zuletzt verwendete Werkzeuge"
+
+#: ui/screens/recents.slint
+msgid "Recent files"
+msgstr "Zuletzt verwendete Dateien"
+
+#: ui/screens/recents.slint
+msgid "Search recent files"
+msgstr "Zuletzt verwendete Dateien durchsuchen"
+
+#: ui/screens/recents.slint
+msgid "Clear recents"
+msgstr "Liste löschen"
+
+#: ui/screens/recents.slint
+msgid "Your recent files will appear here"
+msgstr "Ihre zuletzt verwendeten Dateien erscheinen hier"
+
+#: ui/screens/redact-panel.slint
+msgid "Select text or pages to mark for redaction. Use search to quickly find sensitive content."
+msgstr "Wählen Sie Text oder Seiten aus, um sie zum Schwärzen zu markieren. Nutzen Sie die Suche, um sensible Inhalte schnell zu finden."
+
+#: ui/screens/redact-panel.slint
+msgid "Text to find"
+msgstr "Zu suchender Text"
+
+#: ui/screens/redact-panel.slint
+msgid "Patterns"
+msgstr "Muster"
+
+#: ui/screens/redact-panel.slint
+msgid "Email"
+msgstr "E-Mail"
+
+#: ui/screens/redact-panel.slint
+msgid "Phone number"
+msgstr "Telefonnummer"
+
+#: ui/screens/redact-panel.slint
+msgid "Credit card"
+msgstr "Kreditkarte"
+
+#: ui/screens/redact-panel.slint
+msgid "SSN"
+msgstr "Sozialversicherungsnummer"
+
+#: ui/screens/redact-panel.slint
+msgid "Searching…"
+msgstr "Suchen…"
+
+#: ui/screens/redact-panel.slint
+msgid "Drag over text to mark it, or elsewhere on a page to mark an area."
+msgstr "Ziehen Sie über Text, um ihn zu markieren, oder an anderer Stelle einer Seite, um einen Bereich zu markieren."
+
+#: ui/screens/redact-panel.slint
+msgid "Mark whole page {}"
+msgstr "Ganze Seite {} markieren"
+
+#: ui/screens/redact-panel.slint
+msgid "Mark pages"
+msgstr "Seiten markieren"
+
+#: ui/screens/redact-panel.slint
+msgid "Pages: 2-4, 7"
+msgstr "Seiten: 2-4, 7"
+
+#: ui/screens/redact-panel.slint
+msgid "Marked for redaction"
+msgstr "Zum Schwärzen markiert"
+
+#: ui/screens/redact-panel.slint
+msgid "Nothing marked yet"
+msgstr "Noch nichts markiert"
+
+#: ui/screens/redact-panel.slint
+msgid "Remember to review the results of your document before sending private information."
+msgstr "Prüfen Sie das Ergebnis Ihres Dokuments, bevor Sie private Informationen versenden."
+
+#: ui/screens/result.slint
+msgid "Continue to…"
+msgstr "Weiter zu…"
+
+#: ui/screens/result.slint
+msgid "Open folder"
+msgstr "Ordner öffnen"
+
+#: ui/screens/security-policy.slint
+msgid "Security policies"
+msgstr "Sicherheitsrichtlinien"
+
+#: ui/screens/security-policy.slint
+msgid "Reuse security settings. Exported policies contain no passwords."
+msgstr "Sicherheitseinstellungen wiederverwenden. Exportierte Richtlinien enthalten keine Passwörter."
+
+#: ui/screens/security-policy.slint
+msgid "New policy"
+msgstr "Neue Richtlinie"
+
+#: ui/screens/security-policy.slint
+msgid "Saved policies"
+msgstr "Gespeicherte Richtlinien"
+
+#: ui/screens/security-policy.slint
+msgid "Save your first policy here."
+msgstr "Speichern Sie hier Ihre erste Richtlinie."
+
+#: ui/screens/security-policy.slint
+msgid "Allow these actions"
+msgstr "Diese Aktionen erlauben"
+
+#: ui/screens/security-policy.slint
+msgid "Editing and page assembly"
+msgstr "Bearbeiten und Seiten zusammenstellen"
+
+#: ui/screens/security-policy.slint
+msgid "Encrypt document metadata"
+msgstr "Dokument-Metadaten verschlüsseln"
+
+#: ui/screens/security-policy.slint
+msgid "Print quality (when printing is allowed)"
+msgstr "Druckqualität (wenn Drucken erlaubt ist)"
+
+#: ui/screens/security-policy.slint
+msgid "High resolution"
+msgstr "Hohe Auflösung"
+
+#: ui/screens/security-policy.slint
+msgid "Low resolution only"
+msgstr "Nur niedrige Auflösung"
+
+#: ui/screens/security-policy.slint
+msgid "Maximum changes allowed"
+msgstr "Maximal erlaubte Änderungen"
+
+#: ui/screens/security-policy.slint
+msgid "All checked actions"
+msgstr "Alle ausgewählten Aktionen"
+
+#: ui/screens/security-policy.slint
+msgid "Page assembly only"
+msgstr "Nur Seiten zusammenstellen"
+
+#: ui/screens/security-policy.slint
+msgid "Form filling only"
+msgstr "Nur Formulare ausfüllen"
+
+#: ui/screens/security-policy.slint
+msgid "Comments and form filling"
+msgstr "Kommentare und Formulare ausfüllen"
+
+#: ui/screens/security-policy.slint
+msgid "Encryption compatibility"
+msgstr "Verschlüsselungskompatibilität"
+
+#: ui/screens/security-policy.slint
+msgid "AES-256 (modern readers)"
+msgstr "AES-256 (moderne Reader)"
+
+#: ui/screens/security-policy.slint
+msgid "AES-128 (older readers)"
+msgstr "AES-128 (ältere Reader)"
+
+#: ui/screens/security-policy.slint
+msgid "Save policy"
+msgstr "Richtlinie speichern"
+
+#: ui/screens/security-policy.slint
+msgid "Apply to this PDF"
+msgstr "Auf dieses PDF anwenden"
+
+#: ui/screens/security-policy.slint
+msgid "Save the settings before applying or exporting."
+msgstr "Speichern Sie die Einstellungen vor dem Anwenden oder Exportieren."
+
+#: ui/screens/security-policy.slint
+msgid "Protected copy with the saved encryption settings. Restrictions need a separate owner password."
+msgstr "Geschützte Kopie mit den gespeicherten Verschlüsselungseinstellungen. Einschränkungen erfordern ein separates Eigentümerpasswort."
+
+#: ui/screens/security-policy.slint
+msgid "Open password (optional)"
+msgstr "Kennwort zum Öffnen (optional)"
+
+#: ui/screens/security-policy.slint
+msgid "Confirm open password"
+msgstr "Kennwort zum Öffnen bestätigen"
+
+#: ui/screens/security-policy.slint
+msgid "Owner password"
+msgstr "Eigentümerpasswort"
+
+#: ui/screens/security-policy.slint
+msgid "Confirm owner password"
+msgstr "Eigentümerpasswort bestätigen"
+
+#: ui/screens/security-policy.slint
+msgid "Save passwords with this policy on this computer"
+msgstr "Passwörter mit dieser Richtlinie auf diesem Computer speichern"
+
+#: ui/screens/security-policy.slint
+msgid "Leave password fields empty to reuse saved passwords."
+msgstr "Lassen Sie die Passwortfelder leer, um gespeicherte Passwörter wiederzuverwenden."
+
+#: ui/screens/security-policy.slint
+msgid "Forget saved passwords"
+msgstr "Gespeicherte Passwörter vergessen"
+
+#: ui/screens/security-policy.slint
+msgid "Save protected copy…"
+msgstr "Geschützte Kopie speichern…"
+
+#: ui/screens/sign-panel.slint
+msgid "Create your signature, then click on a page to place it. Click elsewhere or drag it to move it."
+msgstr "Erstellen Sie Ihre Unterschrift und klicken Sie dann auf eine Seite, um sie zu platzieren. Klicken Sie woanders hin oder ziehen Sie sie, um sie zu verschieben."
+
+#: ui/screens/sign-panel.slint
+msgid "Customize your signature"
+msgstr "Unterschrift anpassen"
+
+#: ui/screens/sign-panel.slint
+msgid "Type"
+msgstr "Tippen"
+
+#: ui/screens/sign-panel.slint
+msgid "Draw"
+msgstr "Zeichnen"
+
+#: ui/screens/sign-panel.slint
+msgid "Upload"
+msgstr "Hochladen"
+
+#: ui/screens/sign-panel.slint
+msgid "Full name"
+msgstr "Vollständiger Name"
+
+#: ui/screens/sign-panel.slint ui/screens/signature-manager.slint
+msgid "Dancing Script"
+msgstr "Dancing Script"
+
+#: ui/screens/sign-panel.slint ui/screens/signature-manager.slint
+msgid "Great Vibes"
+msgstr "Great Vibes"
+
+#: ui/screens/sign-panel.slint ui/screens/signature-manager.slint
+msgid "Satisfy"
+msgstr "Satisfy"
+
+#: ui/screens/sign-panel.slint ui/screens/signature-manager.slint
+msgid "Caveat"
+msgstr "Caveat"
+
+#: ui/screens/sign-panel.slint
+msgid "Upload image"
+msgstr "Bild hochladen"
+
+#: ui/screens/sign-panel.slint
+msgid "Change image"
+msgstr "Bild ändern"
+
+#: ui/screens/sign-panel.slint
+msgid "PNG or JPEG, on a white or transparent background"
+msgstr "PNG oder JPEG, auf weißem oder transparentem Hintergrund"
+
+#: ui/screens/sign-panel.slint
+msgid "Placed on page {}"
+msgstr "Auf Seite {} platziert"
+
+#: ui/screens/sign-panel.slint
+msgid "Click on a page to place your signature."
+msgstr "Klicken Sie auf eine Seite, um Ihre Unterschrift zu platzieren."
+
+#: ui/screens/signature-manager.slint
+msgid "Manage signatures"
+msgstr "Unterschriften verwalten"
+
+#: ui/screens/signature-manager.slint
+msgid "No saved signatures. Draw or type one."
+msgstr "Keine gespeicherten Unterschriften. Zeichnen oder tippen Sie eine."
+
+#: ui/screens/signature-manager.slint
+msgid "Active signature"
+msgstr "Aktive Unterschrift"
+
+#: ui/screens/signature-manager.slint
+msgid "Saved signature {}"
+msgstr "Gespeicherte Unterschrift {}"
+
+#: ui/screens/signature-manager.slint
+msgid "Typed signature"
+msgstr "Getippte Unterschrift"
+
+#: ui/screens/signature-manager.slint
+msgid "Drawing (clear it to use the typed name)"
+msgstr "Zeichnung (löschen, um den getippten Namen zu verwenden)"
+
+#: ui/screens/signature-manager.slint
+msgid "Clear drawing"
+msgstr "Zeichnung löschen"
+
+#: ui/screens/signature-manager.slint
+msgid "Navy"
+msgstr "Marineblau"
+
+#: ui/screens/signature-manager.slint
+msgid "Fine"
+msgstr "Fein"
+
+#: ui/screens/signature-manager.slint
+msgid "Save signature"
+msgstr "Unterschrift speichern"
+
+#: ui/screens/signature-manager.slint
+msgid "For one-time use, create a signature in Fill & Sign and turn off Keep for next time."
+msgstr "Für eine einmalige Verwendung erstellen Sie eine Unterschrift in „Ausfüllen und unterschreiben“ und deaktivieren „Für nächstes Mal behalten“."
+
+#: ui/screens/spelling-dialog.slint
+msgid "Check spelling"
+msgstr "Rechtschreibung prüfen"
+
+#: ui/screens/spelling-dialog.slint
+msgid ": “{}”"
+msgstr ": „{}“"
+
+#: ui/screens/spelling-dialog.slint
+msgid "Change to"
+msgstr "Ändern in"
+
+#: ui/screens/spelling-dialog.slint ui/widgets/spell-strip.slint
+msgid "One space"
+msgstr "Ein Leerzeichen"
+
+#: ui/screens/spelling-dialog.slint
+msgid "No suggestions: type the word as it should be."
+msgstr "Keine Vorschläge: Geben Sie das Wort so ein, wie es lauten sollte."
+
+#: ui/screens/spelling-dialog.slint ui/widgets/spell-strip.slint
+msgid "Learn"
+msgstr "Lernen"
+
+#: ui/screens/spelling-dialog.slint ui/widgets/spell-strip.slint
+msgid "Ignore"
+msgstr "Ignorieren"
+
+#: ui/screens/spelling-dialog.slint
+msgid "Change All"
+msgstr "Alle ändern"
+
+#: ui/screens/spelling-dialog.slint
+msgid "Change"
+msgstr "Ändern"
+
+#: ui/screens/tool-flow.slint
+msgid "or drop it here"
+msgstr "oder hier ablegen"
+
+#: ui/screens/tool-flow.slint
+msgid "From your computer…"
+msgstr "Von Ihrem Computer…"
+
+#: ui/screens/tool-flow.slint
+msgid "Original"
+msgstr "Original"
+
+#: ui/screens/tool-flow.slint
+msgid "Swap"
+msgstr "Tauschen"
+
+#: ui/screens/tool-flow.slint
+msgid "Changed"
+msgstr "Geändert"
+
+#: ui/screens/tool-flow.slint
+msgid "⚠ Page previews unavailable"
+msgstr "⚠ Seitenvorschau nicht verfügbar"
+
+#: ui/screens/tool-flow.slint
+msgid "Add a file to see the watermark"
+msgstr "Fügen Sie eine Datei hinzu, um das Wasserzeichen zu sehen"
+
+#: ui/screens/tools.slint
+msgid "Search tools"
+msgstr "Werkzeuge durchsuchen"
+
+#: ui/screens/tools.slint
+msgid "Sort"
+msgstr "Sortieren"
+
+#: ui/screens/tools.slint
+msgid "Categories"
+msgstr "Kategorien"
+
+#: ui/screens/tools.slint
+msgid "No tool matches \"{}\"."
+msgstr "Kein Werkzeug entspricht \"{}\"."
+
+#: ui/screens/tools.slint
+msgid "Favourites"
+msgstr "Favoriten"
+
+#: ui/widgets/drop-zone.slint
+msgid "or drag & drop anywhere"
+msgstr "oder überall per Drag & Drop"
+
+#: ui/widgets/file-card.slint
+msgid "⚠ preview unavailable"
+msgstr "⚠ Vorschau nicht verfügbar"
+
+#: ui/widgets/file-card.slint
+msgid "Blank"
+msgstr "Leer"
+
+#: ui/widgets/page-viewer.slint
+msgid "Your text"
+msgstr "Ihr Text"
+
+#: ui/widgets/recent-card.slint
+msgid "Unstar"
+msgstr "Aus Favoriten entfernen"
+
+#: ui/widgets/recent-card.slint
+msgid "Star"
+msgstr "Zu Favoriten hinzufügen"
+
+#: ui/widgets/recent-card.slint
+msgid "Remove from recents"
+msgstr "Aus „Zuletzt verwendet“ entfernen"
+
+#: ui/widgets/spell-strip.slint
+msgid "No suggestions"
+msgstr "Keine Vorschläge"
+
+#: ui/widgets/tab-bar.slint
+msgid "Close Other Tabs"
+msgstr "Andere Tabs schließen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Close Tabs to the Left"
+msgstr "Tabs links schließen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Close Tabs to the Right"
+msgstr "Tabs rechts schließen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Close All Tabs"
+msgstr "Alle Tabs schließen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Rename…"
+msgstr "Umbenennen…"
+
+#: ui/widgets/tab-bar.slint
+msgid "Show in Folder"
+msgstr "Im Ordner anzeigen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Move to Trash"
+msgstr "In den Papierkorb legen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Move to New Window"
+msgstr "In neues Fenster bewegen"
+
+#: ui/widgets/tab-bar.slint
+msgid "Merge All Windows"
+msgstr "Alle Fenster zusammenführen"
+
+#: ui/widgets/text-field.slint
+msgid "Hide password"
+msgstr "Passwort ausblenden"
+
+#: ui/widgets/text-field.slint
+msgid "Show password"
+msgstr "Passwort einblenden"
+
+#: ui/widgets/tool-card.slint
+msgid "Soon"
+msgstr "Demnächst"
+
+#: src/actions_ui.rs
+msgid "Save action results from open PDFs"
+msgstr "Aktionsergebnisse aus geöffneten PDFs speichern"
+
+#: src/actions_ui.rs
+msgid "Choose the input PDF folder"
+msgstr "Ordner mit den Eingabe-PDFs wählen"
+
+#: src/actions_ui.rs
+msgid "Choose the output folder"
+msgstr "Ausgabeordner wählen"
+
+#: src/actions_ui.rs
+msgid "Choose the folder to watch"
+msgstr "Zu überwachenden Ordner wählen"
+
+#: src/actions_ui.rs
+msgid "Choose a separate output folder"
+msgstr "Separaten Ausgabeordner wählen"
+
+#: src/ai_ui.rs
+msgid "PDFs to classify"
+msgstr "Zu klassifizierende PDFs"
+
+#: src/ai_ui.rs
+msgid "Save the slides"
+msgstr "Folien speichern"
+
+#: src/ai_ui.rs
+msgid "{} is not in this space"
+msgstr "{} gehört nicht zu diesem Bereich"
+
+#: src/ai_ui.rs
+msgid "Save the podcast audio"
+msgstr "Podcast-Audio speichern"
+
+#: src/ai_ui.rs
+msgid "Copied"
+msgstr "Kopiert"
+
+#: src/ai_ui.rs
+msgid "The clipboard is not available"
+msgstr "Die Zwischenablage ist nicht verfügbar"
+
+#: src/ai_ui.rs
+msgid "Save the answer"
+msgstr "Antwort speichern"
+
+#: src/ai_ui.rs
+msgid "Saved {}"
+msgstr "{} gespeichert"
+
+#: src/ai_ui.rs
+msgid "Only PDFs go in an AI space"
+msgstr "In einen KI-Bereich gehören nur PDFs"
+
+#: src/ai_ui.rs
+msgid "Added to the space “{}”"
+msgstr "Zum Bereich „{}“ hinzugefügt"
+
+#: src/ai_ui.rs
+msgid "Spaces not saved: {}"
+msgstr "Bereiche nicht gespeichert: {}"
+
+#: src/ai_ui.rs
+msgid "Export the space"
+msgstr "Bereich exportieren"
+
+#: src/ai_ui.rs
+msgid "Exported {}: keep it with the PDFs, paths are relative to it"
+msgstr "{} exportiert: bei den PDFs aufbewahren, die Pfade sind relativ dazu"
+
+#: src/ai_ui.rs
+msgid "The space could not be exported: {}"
+msgstr "Der Bereich konnte nicht exportiert werden: {}"
+
+#: src/ai_ui.rs
+msgid "Import a space"
+msgstr "Bereich importieren"
+
+#: src/ai_ui.rs
+msgid "Not found next to the space file: {}"
+msgstr "Nicht neben der Bereichsdatei gefunden: {}"
+
+#: src/ai_ui.rs
+msgid "Add PDFs to the space"
+msgstr "PDFs zum Bereich hinzufügen"
+
+#: src/dest.rs
+msgid "Choose a folder for the files"
+msgstr "Ordner für die Dateien wählen"
+
+#: src/edit_ui.rs src/reader_ui/pointer.rs
+msgid "Choose an image"
+msgstr "Bild wählen"
+
+#: src/feedback_ui.rs
+msgid "Files to attach"
+msgstr "Anzuhängende Dateien"
+
+#: src/feedback_ui.rs
+msgid "Save the report"
+msgstr "Bericht speichern"
+
+#: src/feedback_ui.rs
+msgid "Report saved"
+msgstr "Bericht gespeichert"
+
+#: src/feedback_ui.rs src/reader_ui/properties.rs
+msgid "Report copied"
+msgstr "Bericht kopiert"
+
+#: src/feedback_ui.rs src/reader_ui/properties.rs
+msgid "The clipboard could not be reached"
+msgstr "Kein Zugriff auf die Zwischenablage"
+
+#: src/feedback_ui.rs
+msgid "Attach your files on the issue page"
+msgstr "Hängen Sie Ihre Dateien auf der Issue-Seite an"
+
+#: src/flow.rs
+msgid "{} has unsaved changes: its saved version was added"
+msgstr "{} hat ungesicherte Änderungen: die gespeicherte Version wurde hinzugefügt"
+
+#: src/flow.rs
+msgid "{} documents have unsaved changes: their saved versions were added"
+msgstr "{} Dokumente haben ungesicherte Änderungen: ihre gespeicherten Versionen wurden hinzugefügt"
+
+#: src/flow.rs
+msgid "The pages are merged as arranged in Pages; moving a file here merges the files whole"
+msgstr "Die Seiten werden wie in „Seiten“ angeordnet zusammengeführt; wird eine Datei hierher verschoben, werden die Dateien vollständig zusammengeführt"
+
+#: src/flow.rs
+msgid "The library working copy was kept: {}"
+msgstr "Die Arbeitskopie der Bibliothek wurde behalten: {}"
+
+#: src/flow.rs
+msgid "Choose a tool for {}"
+msgstr "Werkzeug für {} wählen"
+
+#: src/home.rs
+msgid "The system's display profile"
+msgstr "Das Anzeigeprofil des Systems"
+
+#: src/home.rs
+msgid "sRGB (the system sets no display profile)"
+msgstr "sRGB (das System legt kein Anzeigeprofil fest)"
+
+#: src/home.rs
+msgid "Always save to"
+msgstr "Immer speichern in"
+
+#: src/home.rs
+msgid "The two passwords differ"
+msgstr "Die beiden Passwörter stimmen nicht überein"
+
+#: src/home.rs
+msgid "Type the name the digital ID is issued to"
+msgstr "Geben Sie den Namen ein, auf den die digitale ID ausgestellt ist"
+
+#: src/home.rs
+msgid "Save the new digital ID"
+msgstr "Neue digitale ID speichern"
+
+#: src/home.rs
+msgid "Creating the digital ID…"
+msgstr "Digitale ID wird erstellt…"
+
+#: src/home.rs
+msgid "Digital ID created: {} (certificate to share: {})"
+msgstr "Digitale ID erstellt: {} (Zertifikat zum Weitergeben: {})"
+
+#: src/home.rs
+msgid "Digital ID not created: {}"
+msgstr "Digitale ID nicht erstellt: {}"
+
+#: src/home.rs
+msgid "A digital ID"
+msgstr "Eine digitale ID"
+
+#: src/home.rs
+msgid "A certificate to trust"
+msgstr "Ein vertrauenswürdiges Zertifikat"
+
+#: src/home.rs
+msgid "Takes effect when Sheaf starts again"
+msgstr "Wirksam beim nächsten Start von Sheaf"
+
+#: src/home.rs
+msgid "Choose RGB monitor ICC profile"
+msgstr "RGB-Monitor-ICC-Profil wählen"
+
+#: src/home.rs
+msgid "No display profile from the system ({}): pages stay in sRGB"
+msgstr "Kein Anzeigeprofil vom System ({}): Seiten bleiben in sRGB"
+
+#: src/home.rs
+msgid "The guide could not be opened ({})"
+msgstr "Die Anleitung konnte nicht geöffnet werden ({})"
+
+#: src/home.rs
+msgid "Could not remove the recent file. Please try again."
+msgstr "Die zuletzt verwendete Datei konnte nicht entfernt werden. Bitte versuchen Sie es erneut."
+
+#: src/home.rs
+msgid "Could not clear recent files. Please try again."
+msgstr "Die zuletzt verwendeten Dateien konnten nicht gelöscht werden. Bitte versuchen Sie es erneut."
+
+#: src/home.rs
+msgid "These files are no longer where they were."
+msgstr "Diese Dateien befinden sich nicht mehr an ihrem Ort."
+
+#: src/library_ui.rs
+msgid "Export selected library files"
+msgstr "Ausgewählte Bibliotheksdateien exportieren"
+
+#: src/library_ui.rs
+msgid "Add private copies to Library"
+msgstr "Private Kopien zur Bibliothek hinzufügen"
+
+#: src/library_ui.rs
+msgid "Choose the new file version"
+msgstr "Neue Dateiversion wählen"
+
+#: src/main.rs
+msgid "Preview of {}: Save As keeps it as a PDF"
+msgstr "Vorschau von {}: „Sichern unter“ behält es als PDF"
+
+#: src/main.rs
+msgid "Can't preview {}: {}"
+msgstr "Vorschau von {} nicht möglich: {}"
+
+#: src/main.rs src/reader_ui/pages.rs
+msgid "The clipboard holds no PDF, picture or text"
+msgstr "Die Zwischenablage enthält kein PDF, Bild oder Text"
+
+#: src/main.rs
+msgid "No screenshot was taken"
+msgstr "Es wurde kein Bildschirmfoto aufgenommen"
+
+#: src/main.rs src/reader_ui/pages.rs
+msgid "Scanning…"
+msgstr "Scannen…"
+
+#: src/main.rs
+msgid "Choose the watermark image"
+msgstr "Wasserzeichenbild wählen"
+
+#: src/main.rs
+msgid "Choose your certificate"
+msgstr "Ihr Zertifikat wählen"
+
+#: src/main.rs
+msgid "Not found: {}"
+msgstr "Nicht gefunden: {}"
+
+#: src/plugins_ui.rs
+msgid "{} · by {}"
+msgstr "{} · von {}"
+
+#: src/plugins_ui.rs
+msgid "{}: {}"
+msgstr "{}: {}"
+
+#: src/plugins_ui.rs
+msgid "Plugin ▸ {} ▸ {}"
+msgstr "Plug-in ▸ {} ▸ {}"
+
+#: src/plugins_ui.rs
+msgid " (in {})"
+msgstr " (in {})"
+
+#: src/plugins_ui.rs
+msgid "That plugin is missing or turned off (Preferences ▸ Plugins)"
+msgstr "Dieses Plug-in fehlt oder ist deaktiviert (Einstellungen ▸ Plug-ins)"
+
+#: src/plugins_ui.rs
+msgid "PDFs for {}"
+msgstr "PDFs für {}"
+
+#: src/plugins_ui.rs
+msgid "{} is running…"
+msgstr "{} läuft…"
+
+#: src/plugins_ui.rs
+msgid "{}: {} written"
+msgstr "{}: {} geschrieben"
+
+#: src/plugins_ui.rs
+msgid "{} removed"
+msgstr "{} entfernt"
+
+#: src/plugins_ui.rs
+msgid "A plugin folder (holding plugin.json)"
+msgstr "Ein Plug-in-Ordner (mit plugin.json)"
+
+#: src/plugins_ui.rs
+msgid "{} {} added"
+msgstr "{} {} hinzugefügt"
+
+#: src/portfolio_ui.rs
+msgid "Add original files to the portfolio"
+msgstr "Originaldateien zum Portfolio hinzufügen"
+
+#: src/reader_ui/accessibility.rs src/reader_ui/prepress.rs src/reader_ui/properties.rs
+msgid "Report saved as {}"
+msgstr "Bericht gespeichert als {}"
+
+#: src/reader_ui/accessibility.rs src/reader_ui/prepress.rs src/reader_ui/properties.rs
+msgid "The report was not saved: {}"
+msgstr "Der Bericht wurde nicht gespeichert: {}"
+
+#: src/reader_ui/ai_doc.rs
+msgid "This document has no page {}"
+msgstr "Dieses Dokument hat keine Seite {}"
+
+#: src/reader_ui/catalog.rs
+msgid "Add PDFs to the catalog"
+msgstr "PDFs zum Katalog hinzufügen"
+
+#: src/reader_ui/catalog.rs
+msgid "Add a folder of PDFs (including subfolders)"
+msgstr "Ordner mit PDFs hinzufügen (einschließlich Unterordnern)"
+
+#: src/reader_ui/catalog.rs
+msgid "Add at least one PDF first"
+msgstr "Fügen Sie zuerst mindestens ein PDF hinzu"
+
+#: src/reader_ui/catalog.rs
+msgid "Build search catalog"
+msgstr "Suchkatalog erstellen"
+
+#: src/reader_ui/catalog.rs
+msgid "Indexing PDF {} of {}…"
+msgstr "PDF {} von {} wird indiziert…"
+
+#: src/reader_ui/catalog.rs
+msgid "Saved {} · {} PDFs"
+msgstr "{} gespeichert · {} PDFs"
+
+#: src/reader_ui/catalog.rs
+msgid "Catalog not built: {}"
+msgstr "Katalog nicht erstellt: {}"
+
+#: src/reader_ui/catalog.rs
+msgid "Open search catalog"
+msgstr "Suchkatalog öffnen"
+
+#: src/reader_ui/catalog.rs
+msgid "Opened {} · {} PDFs"
+msgstr "{} geöffnet · {} PDFs"
+
+#: src/reader_ui/catalog.rs
+msgid "Cannot open catalog: {}"
+msgstr "Katalog kann nicht geöffnet werden: {}"
+
+#: src/reader_ui/catalog.rs src/reader_ui/folder_search.rs src/reader_ui/search.rs
+msgid "Type the words to find first"
+msgstr "Geben Sie zuerst die zu suchenden Wörter ein"
+
+#: src/reader_ui/catalog.rs
+msgid "Build or open a catalog first"
+msgstr "Erstellen oder öffnen Sie zuerst einen Katalog"
+
+#: src/reader_ui/catalog.rs
+msgid "{} pages found · first 500 shown"
+msgstr "{} Seiten gefunden · die ersten 500 angezeigt"
+
+#: src/reader_ui/catalog.rs
+msgid "{} pages found"
+msgstr "{} Seiten gefunden"
+
+#: src/reader_ui/catalog.rs
+msgid " · {} changed/missing PDFs excluded; update the catalog"
+msgstr " · {} geänderte/fehlende PDFs ausgeschlossen; Katalog aktualisieren"
+
+#: src/reader_ui/catalog.rs
+msgid "Search unavailable: {}. Rebuild if a source changed or moved."
+msgstr "Suche nicht verfügbar: {}. Neu erstellen, wenn eine Quelle geändert oder verschoben wurde."
+
+#: src/reader_ui/certificate.rs
+msgid "Recipient certificate"
+msgstr "Empfängerzertifikat"
+
+#: src/reader_ui/certificate.rs
+msgid "Your digital ID"
+msgstr "Ihre digitale ID"
+
+#: src/reader_ui/certificate.rs
+msgid "Export certificate policy"
+msgstr "Zertifikatrichtlinie exportieren"
+
+#: src/reader_ui/certificate.rs
+msgid "Import certificate policy"
+msgstr "Zertifikatrichtlinie importieren"
+
+#: src/reader_ui/certificate.rs
+msgid "Save encrypted copy"
+msgstr "Verschlüsselte Kopie speichern"
+
+#: src/reader_ui/certificate.rs
+msgid "Encrypted copy saved as {}"
+msgstr "Verschlüsselte Kopie gespeichert als {}"
+
+#: src/reader_ui/certificate.rs
+msgid "Opened with your digital ID. Not allowed: {}"
+msgstr "Mit Ihrer digitalen ID geöffnet. Nicht erlaubt: {}"
+
+#: src/reader_ui/edits.rs
+msgid "Choose a picture for the stamp"
+msgstr "Bild für den Stempel wählen"
+
+#: src/reader_ui/edits.rs
+msgid "That picture could not be read (PNG or JPEG)"
+msgstr "Dieses Bild konnte nicht gelesen werden (PNG oder JPEG)"
+
+#: src/reader_ui/edits.rs src/reader_ui/forms.rs src/reader_ui/saving.rs
+msgid "That file could not be read"
+msgstr "Diese Datei konnte nicht gelesen werden"
+
+#: src/reader_ui/edits.rs
+msgid "Deleted from the {} pages it was placed on (⌘Z brings them back)"
+msgstr "Von den {} Seiten gelöscht, auf denen es platziert war (⌘Z stellt sie wieder her)"
+
+#: src/reader_ui/edits.rs
+msgid "Replace the image"
+msgstr "Bild ersetzen"
+
+#: src/reader_ui/folder_search.rs
+msgid "{} PDFs"
+msgstr "{} PDFs"
+
+#: src/reader_ui/folder_search.rs
+msgid "Not found in the folder's {} read."
+msgstr "Nicht gefunden in den {} gelesenen Dateien des Ordners."
+
+#: src/reader_ui/folder_search.rs
+msgid "Stopped at the first {} found, after {} — type more words to narrow it."
+msgstr "Bei den ersten {} Treffern angehalten, nach {} — geben Sie mehr Wörter ein, um die Suche einzugrenzen."
+
+#: src/reader_ui/folder_search.rs
+msgid "{} found in {}"
+msgstr "{} gefunden in {}"
+
+#: src/reader_ui/folder_search.rs
+msgid "{}{} {} could not be searched (listed below)."
+msgstr "{}{} {} konnten nicht durchsucht werden (unten aufgeführt)."
+
+#: src/reader_ui/folder_search.rs
+msgid "Search the PDFs of a folder"
+msgstr "PDFs eines Ordners durchsuchen"
+
+#: src/reader_ui/javascript.rs
+msgid "JavaScript: beep"
+msgstr "JavaScript: Signalton"
+
+#: src/reader_ui/layers.rs
+msgid "The layers could not be hidden: they are shown as the file sets them"
+msgstr "Die Ebenen konnten nicht ausgeblendet werden: sie werden so angezeigt, wie die Datei es festlegt"
+
+#: src/reader_ui/look_up.rs
+msgid "Looked up in Wiktionary, in your browser"
+msgstr "In Wiktionary nachgeschlagen, in Ihrem Browser"
+
+#: src/reader_ui/loupe.rs
+msgid "Loupe: point at the page to magnify it"
+msgstr "Lupe: auf die Seite zeigen, um sie zu vergrößern"
+
+#: src/reader_ui/mod.rs
+msgid "{} Repair PDF can try to rebuild it."
+msgstr "{} „PDF reparieren“ kann versuchen, es neu aufzubauen."
+
+#: src/reader_ui/mod.rs
+msgid "Saved {}{}"
+msgstr "{}{} gespeichert"
+
+#: src/reader_ui/mod.rs
+msgid "Not saved: {}"
+msgstr "Nicht gespeichert: {}"
+
+#: src/reader_ui/mod.rs
+msgid "The flattened copy was not made: {}"
+msgstr "Die reduzierte Kopie wurde nicht erstellt: {}"
+
+#: src/reader_ui/mod.rs src/reader_ui/saving.rs
+msgid "{} attached to a new mail"
+msgstr "{} an eine neue E-Mail angehängt"
+
+#: src/reader_ui/mod.rs src/reader_ui/saving.rs
+msgid "No mail app to send it with: attach the file from your mail"
+msgstr "Keine Mail-App zum Senden: hängen Sie die Datei in Ihrem Mailprogramm an"
+
+#: src/reader_ui/mod.rs
+msgid "Flattened copy saved as {}"
+msgstr "Reduzierte Kopie gespeichert als {}"
+
+#: src/reader_ui/mod.rs
+msgid "Picture copied: ⌘V pastes it on a page, or in another app"
+msgstr "Bild kopiert: ⌘V fügt es auf einer Seite oder in einer anderen App ein"
+
+#: src/reader_ui/mod.rs
+msgid "The picture was not copied: {}"
+msgstr "Das Bild wurde nicht kopiert: {}"
+
+#: src/reader_ui/mod.rs
+msgid "Objects copied: ⌘V pastes them on a page, or as a picture in another app"
+msgstr "Objekte kopiert: ⌘V fügt sie auf einer Seite ein, oder als Bild in einer anderen App"
+
+#: src/reader_ui/mod.rs
+msgid "The objects were not copied: {}"
+msgstr "Die Objekte wurden nicht kopiert: {}"
+
+#: src/reader_ui/mod.rs
+msgid "Pages not copied: {}"
+msgstr "Seiten nicht kopiert: {}"
+
+#: src/reader_ui/mod.rs
+msgid "This comment could not be copied"
+msgstr "Dieser Kommentar konnte nicht kopiert werden"
+
+#: src/reader_ui/mod.rs
+msgid "{}: ⌘V pastes on the page shown"
+msgstr "{}: ⌘V fügt auf der angezeigten Seite ein"
+
+#: src/reader_ui/mod.rs
+msgid "Exported to {}"
+msgstr "Exportiert nach {}"
+
+#: src/reader_ui/mod.rs
+msgid "Not exported: {}"
+msgstr "Nicht exportiert: {}"
+
+#: src/reader_ui/mod.rs
+msgid "{} opened: the file as it was saved then"
+msgstr "{} geöffnet: die Datei, wie sie damals gespeichert war"
+
+#: src/reader_ui/mod.rs src/reader_ui/saving.rs
+msgid "Version not opened: {}"
+msgstr "Version nicht geöffnet: {}"
+
+#: src/reader_ui/mod.rs
+msgid "Extracted one file per page to {}"
+msgstr "Eine Datei pro Seite extrahiert nach {}"
+
+#: src/reader_ui/mod.rs
+msgid "Extracted to {}"
+msgstr "Extrahiert nach {}"
+
+#: src/reader_ui/mod.rs
+msgid "Not extracted: {}"
+msgstr "Nicht extrahiert: {}"
+
+#: src/reader_ui/model.rs
+msgid "Page {} · {} results"
+msgstr "Seite {} · {} Ergebnisse"
+
+#: src/reader_ui/model.rs
+msgid "Calibrated · {}"
+msgstr "Kalibriert · {}"
+
+#: src/reader_ui/model.rs
+msgid "True size · {}"
+msgstr "Originalgröße · {}"
+
+#: src/reader_ui/model.rs
+msgid "{} · DATED"
+msgstr "{} · DATIERT"
+
+#: src/reader_ui/model.rs
+msgid "Picture · {}"
+msgstr "Bild · {}"
+
+#: src/reader_ui/model.rs
+msgid "{} failed · {} to check by hand · {} passed"
+msgstr "{} fehlgeschlagen · {} manuell zu prüfen · {} bestanden"
+
+#: src/reader_ui/model.rs
+msgid "Open the version signed by {}"
+msgstr "Von {} signierte Version öffnen"
+
+#: src/reader_ui/model.rs
+msgid "Trust {}'s certificate"
+msgstr "Dem Zertifikat von {} vertrauen"
+
+#: src/reader_ui/nav.rs
+msgid "Drag over the part of the page to zoom to"
+msgstr "Ziehen Sie über den Seitenbereich, auf den gezoomt werden soll"
+
+#: src/reader_ui/nav.rs
+msgid "Drag over the part of the page to copy as a picture"
+msgstr "Ziehen Sie über den Seitenbereich, der als Bild kopiert werden soll"
+
+#: src/reader_ui/output_preview.rs
+msgid "Wait for the document's edits to finish before previewing ink plates"
+msgstr "Warten Sie, bis die Bearbeitungen des Dokuments abgeschlossen sind, bevor Sie die Farbauszüge in der Vorschau anzeigen"
+
+#: src/reader_ui/pages.rs
+msgid "Those pages could not be made"
+msgstr "Diese Seiten konnten nicht erstellt werden"
+
+#: src/reader_ui/pages.rs
+msgid "Every page reads upright"
+msgstr "Alle Seiten sind richtig ausgerichtet"
+
+#: src/reader_ui/pages.rs src/reader_ui/saving.rs
+msgid "{} could not be read: {}"
+msgstr "{} konnte nicht gelesen werden: {}"
+
+#: src/reader_ui/pages.rs
+msgid "A PDF needs at least one page: extract without deleting them"
+msgstr "Ein PDF braucht mindestens eine Seite: extrahieren Sie, ohne sie zu löschen"
+
+#: src/reader_ui/pages.rs
+msgid "Next page after: \"{}\" is not a number of seconds"
+msgstr "Nächste Seite nach: \"{}\" ist keine Anzahl Sekunden"
+
+#: src/reader_ui/pages.rs
+msgid "Start: \"{}\" is not a page number (1 or more)"
+msgstr "Anfang: \"{}\" ist keine Seitennummer (1 oder mehr)"
+
+#: src/reader_ui/pages.rs
+msgid "Through: \"{}\" is not a page number (1 or more)"
+msgstr "Bis: \"{}\" ist keine Seitennummer (1 oder mehr)"
+
+#: src/reader_ui/pointer.rs
+msgid "The clipboard holds no image to paste"
+msgstr "Die Zwischenablage enthält kein Bild zum Einfügen"
+
+#: src/reader_ui/pointer.rs
+msgid "The image on the clipboard could not be read"
+msgstr "Das Bild in der Zwischenablage konnte nicht gelesen werden"
+
+#: src/reader_ui/pointer.rs
+msgid "The linked file was not found"
+msgstr "Die verknüpfte Datei wurde nicht gefunden"
+
+#: src/reader_ui/prepare.rs
+msgid "Tab order set for every page"
+msgstr "Tabulatorreihenfolge für alle Seiten festgelegt"
+
+#: src/reader_ui/prepare.rs
+msgid "Ask for two copies or more"
+msgstr "Fordern Sie zwei oder mehr Kopien an"
+
+#: src/reader_ui/prepare.rs
+msgid "The copies would run off the page: fewer, or start higher up"
+msgstr "Die Kopien würden über die Seite hinausragen: weniger, oder weiter oben beginnen"
+
+#: src/reader_ui/prepress.rs
+msgid "Use image thresholds from 1 to 9600 ppi (fail ≤ target), and bleed from 0 to 50 mm"
+msgstr "Verwenden Sie Bildschwellen von 1 bis 9600 ppi (Fehler ≤ Ziel) und Anschnitt von 0 bis 50 mm"
+
+#: src/reader_ui/prepress.rs
+msgid "Preflight could not finish: {}"
+msgstr "Preflight konnte nicht abgeschlossen werden: {}"
+
+#: src/reader_ui/prepress.rs
+msgid "Save print preflight report"
+msgstr "Druck-Preflight-Bericht speichern"
+
+#: src/reader_ui/prepress.rs
+msgid "Use a minimum stroke from 0.01 to 10 points"
+msgstr "Verwenden Sie eine Mindestlinienstärke von 0,01 bis 10 Punkt"
+
+#: src/reader_ui/prepress.rs
+msgid "Use a mark width from 0.1 to 2 points"
+msgstr "Verwenden Sie eine Markenbreite von 0,1 bis 2 Punkt"
+
+#: src/reader_ui/prepress.rs
+msgid "Choose press ICC profile"
+msgstr "ICC-Profil der Druckmaschine wählen"
+
+#: src/reader_ui/prepress.rs
+msgid "{} is not installed. Install its ICC locally, or choose the press's ICC file"
+msgstr "{} ist nicht installiert. Installieren Sie das ICC lokal oder wählen Sie die ICC-Datei der Druckmaschine"
+
+#: src/reader_ui/prepress.rs
+msgid "Choose the press's CMYK or Gray ICC profile first"
+msgstr "Wählen Sie zuerst das CMYK- oder Graustufen-ICC-Profil der Druckmaschine"
+
+#: src/reader_ui/prepress.rs
+msgid "Name the press output condition"
+msgstr "Benennen Sie die Ausgabebedingung der Druckmaschine"
+
+#: src/reader_ui/prepress.rs
+msgid "Exporting a PDF/X snapshot in the background; you can keep editing"
+msgstr "PDF/X-Momentaufnahme wird im Hintergrund exportiert; Sie können weiter bearbeiten"
+
+#: src/reader_ui/prepress.rs
+msgid "PDF/X copy saved as {}; full ISO validation was not performed"
+msgstr "PDF/X-Kopie gespeichert als {}; vollständige ISO-Validierung wurde nicht durchgeführt"
+
+#: src/reader_ui/prepress.rs
+msgid "PDF/X copy was not saved: {}"
+msgstr "PDF/X-Kopie wurde nicht gespeichert: {}"
+
+#: src/reader_ui/properties.rs
+msgid "The signed version could not be opened: {}"
+msgstr "Die signierte Version konnte nicht geöffnet werden: {}"
+
+#: src/reader_ui/saving.rs
+msgid "That file is open in another tab: close it first"
+msgstr "Diese Datei ist in einem anderen Tab geöffnet: schließen Sie sie zuerst"
+
+#: src/reader_ui/saving.rs
+msgid "It could not be renamed: {}"
+msgstr "Umbenennen nicht möglich: {}"
+
+#: src/reader_ui/saving.rs
+msgid "Renamed {}"
+msgstr "{} umbenannt"
+
+#: src/reader_ui/saving.rs
+msgid "Save {} first: a new window opens the file as saved"
+msgstr "Speichern Sie {} zuerst: ein neues Fenster öffnet die Datei wie gespeichert"
+
+#: src/reader_ui/saving.rs
+msgid "A new window could not be opened"
+msgstr "Ein neues Fenster konnte nicht geöffnet werden"
+
+#: src/reader_ui/saving.rs
+msgid "{} has unsaved edits: save them or close it first"
+msgstr "{} hat ungesicherte Änderungen: speichern Sie sie oder schließen Sie es zuerst"
+
+#: src/reader_ui/saving.rs
+msgid "{} moved to the Trash"
+msgstr "{} in den Papierkorb gelegt"
+
+#: src/reader_ui/saving.rs
+msgid "It could not be moved to the Trash: {}"
+msgstr "Konnte nicht in den Papierkorb gelegt werden: {}"
+
+#: src/reader_ui/saving.rs
+msgid "Choose a tool for your file"
+msgstr "Werkzeug für Ihre Datei wählen"
+
+#: src/reader_ui/saving.rs
+msgid "Not opened: {}"
+msgstr "Nicht geöffnet: {}"
+
+#: src/reader_ui/saving.rs
+msgid "A picture behind the pages"
+msgstr "Ein Bild hinter den Seiten"
+
+#: src/reader_ui/saving.rs
+msgid "Not attached: {}"
+msgstr "Nicht angehängt: {}"
+
+#: src/reader_ui/saving.rs
+msgid "A file attached to a page keeps its name"
+msgstr "Eine an eine Seite angehängte Datei behält ihren Namen"
+
+#: src/reader_ui/security_policy.rs
+msgid "Import security policy"
+msgstr "Sicherheitsrichtlinie importieren"
+
+#: src/reader_ui/security_policy.rs
+msgid "Export security policy"
+msgstr "Sicherheitsrichtlinie exportieren"
+
+#: src/reader_ui/security_policy.rs
+msgid "Save protected copy"
+msgstr "Geschützte Kopie speichern"
+
+#: src/reader_ui/security_policy.rs
+msgid "Protected copy saved as {}"
+msgstr "Geschützte Kopie gespeichert als {}"
+
+#: src/reader_ui/speech.rs
+msgid "Reading stopped"
+msgstr "Vorlesen beendet"
+
+#: src/reader_ui/speech.rs
+msgid "Select some text to read first"
+msgstr "Wählen Sie zuerst den vorzulesenden Text aus"
+
+#: src/reader_ui/speech.rs
+msgid "Reading the selection"
+msgstr "Auswahl wird vorgelesen"
+
+#: src/reader_ui/speech.rs
+msgid "Reading page {}"
+msgstr "Seite {} wird vorgelesen"
+
+#: src/reader_ui/speech.rs
+msgid "Reading from page {}: More ▸ Read aloud again stops"
+msgstr "Vorlesen ab Seite {}: Mehr ▸ Vorlesen beendet es"
+
+#: src/reader_ui/speech.rs
+msgid "Nothing is being read"
+msgstr "Es wird nichts vorgelesen"
+
+#: src/reader_ui/speech.rs
+msgid "Reading paused: Pause reading again resumes"
+msgstr "Vorlesen pausiert: „Vorlesen pausieren“ erneut setzt fort"
+
+#: src/reader_ui/speech.rs
+msgid "Reading resumed"
+msgstr "Vorlesen fortgesetzt"
+
+#: src/reader_ui/speech.rs
+msgid "Voice: {}"
+msgstr "Stimme: {}"
+
+#: src/reader_ui/speech.rs
+msgid "Reading speed: {}"
+msgstr "Vorlesegeschwindigkeit: {}"
+
+#: src/reader_ui/tools.rs
+msgid "No {} face of {} is installed on this computer"
+msgstr "Kein {}-Schnitt von {} ist auf diesem Computer installiert"
+
+#: src/reader_ui/tools.rs
+msgid "{} can't be read: {}"
+msgstr "{} kann nicht gelesen werden: {}"
+
+#: src/reader_ui/tools.rs
+msgid "{} has no {} face installed on this computer"
+msgstr "{} hat keinen {}-Schnitt auf diesem Computer installiert"
+
+#: src/reader_ui/tools.rs
+msgid "{} can't be used: {}"
+msgstr "{} kann nicht verwendet werden: {}"
+
+#: src/reader_ui/tools.rs
+msgid "A bookmark cannot go inside its own children"
+msgstr "Ein Lesezeichen kann nicht in seine eigenen Unterelemente verschoben werden"
+
+#: src/run.rs
+msgid "Output folder not found"
+msgstr "Ausgabeordner nicht gefunden"
+
+#: src/run.rs
+msgid "{} failed: {}"
+msgstr "{} fehlgeschlagen: {}"
+
+#: src/run.rs
+msgid "{} finished: {}"
+msgstr "{} abgeschlossen: {}"
+
+#: src/settings_ui.rs
+msgid "Blocked by Preferences ▸ Security: the link was not opened"
+msgstr "Blockiert durch Einstellungen ▸ Sicherheit: der Link wurde nicht geöffnet"
+
+#: src/settings_ui.rs
+msgid "Preferences ▸ Security keeps files that are not PDFs from opening in other apps"
+msgstr "Einstellungen ▸ Sicherheit verhindert, dass Dateien, die keine PDFs sind, in anderen Apps geöffnet werden"
+
+#: src/settings_ui.rs
+msgid "A trusted folder"
+msgstr "Ein vertrauenswürdiger Ordner"
+
+#: src/settings_ui.rs
+msgid "A trusted file"
+msgstr "Eine vertrauenswürdige Datei"
+
+#: src/sign_ui.rs
+msgid "Choose your signature image"
+msgstr "Bild Ihrer Unterschrift wählen"
+
+#: src/viewer_ui.rs
+msgid "Search failed: {}"
+msgstr "Suche fehlgeschlagen: {}"
+
+#: src/viewer_ui.rs
+msgid "Pages: {}"
+msgstr "Seiten: {}"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Organize PDF"
+msgstr "PDF organisieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Optimize PDF"
+msgstr "PDF optimieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Convert to PDF"
+msgstr "In PDF konvertieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Convert from PDF"
+msgstr "Aus PDF konvertieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF security"
+msgstr "PDF-Sicherheit"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Merge PDF"
+msgstr "PDF zusammenführen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Split PDF"
+msgstr "PDF teilen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Remove pages"
+msgstr "Seiten entfernen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Extract pages"
+msgstr "Seiten extrahieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Rotate PDF"
+msgstr "PDF drehen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Compress PDF"
+msgstr "PDF komprimieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Repair PDF"
+msgstr "PDF reparieren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "OCR PDF"
+msgstr "OCR für PDF"
+
+#: ../sheaf-core/src/tools.rs
+msgid "JPG to PDF"
+msgstr "JPG in PDF"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Word to PDF"
+msgstr "Word in PDF"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PowerPoint to PDF"
+msgstr "PowerPoint in PDF"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Excel to PDF"
+msgstr "Excel in PDF"
+
+#: ../sheaf-core/src/tools.rs
+msgid "HTML to PDF"
+msgstr "HTML in PDF"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF to JPG"
+msgstr "PDF in JPG"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF to Word"
+msgstr "PDF in Word"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF to PowerPoint"
+msgstr "PDF in PowerPoint"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF to Excel"
+msgstr "PDF in Excel"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF to HTML or text"
+msgstr "PDF in HTML oder Text"
+
+#: ../sheaf-core/src/tools.rs
+msgid "PDF to PDF/A"
+msgstr "PDF in PDF/A"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Page numbers"
+msgstr "Seitenzahlen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Add watermark"
+msgstr "Wasserzeichen hinzufügen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Adjust colours"
+msgstr "Farben anpassen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Crop PDF"
+msgstr "PDF zuschneiden"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Sign PDF"
+msgstr "PDF unterschreiben"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Protect PDF"
+msgstr "PDF schützen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Unlock PDF"
+msgstr "PDF entsperren"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Redact PDF"
+msgstr "PDF schwärzen"
+
+#: ../sheaf-core/src/tools.rs
+msgid "Compare PDF"
+msgstr "PDF vergleichen"
+
+#: ui/screens/reader-production.slint
+msgid "Save as PDF/E"
+msgstr "Als PDF/E speichern"
+
+#: ui/screens/reader-production.slint
+msgid "PDF/E-1 for engineering drawings: PDF 1.6, fonts embedded,\nno encryption or JavaScript; layers and 3D kept."
+msgstr "PDF/E-1 für technische Zeichnungen: PDF 1.6, Schriften eingebettet,\nkeine Verschlüsselung oder JavaScript; Ebenen und 3D bleiben erhalten."
+
+#: ui/screens/reader-production.slint
+msgid "Save PDF/E copy…"
+msgstr "PDF/E-Kopie speichern…"
+
+#: ui/screens/reader-ink-preview.slint
+msgid "The ticked inks together"
+msgstr "Die ausgewählten Farben zusammen"
+
+#: ui/screens/reader-ink-preview.slint
+msgid "All ticked inks"
+msgstr "Alle ausgewählten Farben"
+
+#: ui/screens/reader-production.slint
+msgid "Trapping"
+msgstr "Überfüllung"
+
+#: ui/screens/reader-production.slint
+msgid "Lighter inks spread under darker ones on the plates,\nso misregistration shows no paper. The PDF is unchanged;\ntrapped plates are saved as one TIFF per ink."
+msgstr "Hellere Farben werden auf den Druckplatten unter dunklere ausgedehnt,\nsodass bei Passerfehlern kein Papier sichtbar wird. Das PDF bleibt unverändert;\nüberfüllte Platten werden als ein TIFF pro Farbe gespeichert."
+
+#: ui/screens/reader-production.slint
+msgid "Preset name"
+msgstr "Name der Vorgabe"
+
+#: ui/screens/reader-production.slint
+msgid "Trap width (pt)"
+msgstr "Überfüllungsbreite (pt)"
+
+#: ui/screens/reader-production.slint
+msgid "Black width (pt)"
+msgstr "Breite bei Schwarz (pt)"
+
+#: ui/screens/reader-production.slint
+msgid "Step limit (%)"
+msgstr "Stufengrenze (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Sliding trap (%)"
+msgstr "Gleitende Überfüllung (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Trap colour reduction (%)"
+msgstr "Farbreduzierung der Überfüllung (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Black ink limit (%)"
+msgstr "Schwarzgrenze (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Black density"
+msgstr "Schwarzdichte"
+
+#: ui/screens/reader-production.slint
+msgid "Plate resolution (dpi)"
+msgstr "Plattenauflösung (dpi)"
+
+#: ui/screens/reader-production.slint
+msgid "Preview traps"
+msgstr "Überfüllungsvorschau"
+
+#: ui/screens/reader-production.slint
+msgid "Save trapped plates…"
+msgstr "Überfüllte Platten speichern…"
+
+#: ui/screens/reader-production.slint
+msgid "Keep preset"
+msgstr "Vorgabe behalten"
+
+#: ui/screens/reader-production.slint
+msgid "Delete preset"
+msgstr "Vorgabe löschen"
+
+#: src/reader_ui/prepress.rs
+msgid "Type the trap settings as numbers"
+msgstr "Geben Sie die Überfüllungseinstellungen als Zahlen ein"
+
+#: src/reader_ui/prepress.rs
+msgid "Name the preset; Default stays as it is"
+msgstr "Benennen Sie die Vorgabe; Default bleibt unverändert"
+
+#: src/reader_ui/prepress.rs
+msgid "Use a plate resolution from 72 to 2400 dpi"
+msgstr "Verwenden Sie eine Plattenauflösung von 72 bis 2400 dpi"
+
+#: src/reader_ui/prepress.rs
+msgid "Trapping {} pages in the background; you can keep editing"
+msgstr "{} Seiten werden im Hintergrund überfüllt; Sie können weiter bearbeiten"
+
+#: src/reader_ui/prepress.rs
+msgid "{} trapped plates saved in {}"
+msgstr "{} überfüllte Platten gespeichert in {}"
+
+#: src/reader_ui/prepress.rs
+msgid "Trapped plates were not saved: {}"
+msgstr "Überfüllte Platten wurden nicht gespeichert: {}"
+
+#: src/reader_ui/prepress.rs
+msgid "Trap preset {} kept"
+msgstr "Überfüllungsvorgabe {} behalten"
+
+#: src/reader_ui/prepress.rs
+msgid "Trap preset {} deleted"
+msgstr "Überfüllungsvorgabe {} gelöscht"
+
+#: src/reader_ui/output_preview.rs
+msgid "Traps ({})"
+msgstr "Überfüllungen ({})"
+
+#: src/reader_ui/output_preview.rs
+msgid "Flattener preview"
+msgstr "Reduzierungsvorschau"
+
+#: src/reader_ui/output_preview.rs
+msgid "Output preview"
+msgstr "Ausgabevorschau"
+
+#: src/reader_ui/output_preview.rs
+msgid "Compare the captured page with PDF 1.3.\nThe working document stays unchanged.\nTransparent artwork may become images."
+msgstr "Vergleichen Sie die erfasste Seite mit PDF 1.3.\nDas Arbeitsdokument bleibt unverändert.\nTransparente Grafiken können zu Bildern werden."
+
+#: src/reader_ui/output_preview.rs
+msgid "The plates with their traps, at their true width.\nLighter inks spread under darker ones.\nThe working document stays unchanged."
+msgstr "Die Platten mit ihren Überfüllungen, in tatsächlicher Breite.\nHellere Farben werden unter dunklere ausgedehnt.\nDas Arbeitsdokument bleibt unverändert."
+
+#: src/reader_ui/output_preview.rs
+msgid "Black shows ink; white shows no ink.\nProcess and spot plates of the captured page.\nThis is not a calibrated press soft proof."
+msgstr "Schwarz zeigt Farbe, Weiß zeigt keine Farbe.\nProzess- und Volltonplatten der erfassten Seite.\nDies ist kein kalibrierter Softproof der Druckmaschine."
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use trap widths from 0 to 8 points"
+msgstr "Verwenden Sie Überfüllungsbreiten von 0 bis 8 Punkt"
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use a step limit from 1 to 100%"
+msgstr "Verwenden Sie eine Stufengrenze von 1 bis 100%"
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use black limit, sliding trap and colour reduction from 0 to 100%"
+msgstr "Verwenden Sie Schwarzgrenze, gleitende Überfüllung und Farbreduzierung von 0 bis 100%"
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use a black density from 0.001 to 10"
+msgstr "Verwenden Sie eine Schwarzdichte von 0,001 bis 10"
+
+#: src/run.rs
+msgid "Import from Scanner"
+msgstr "Vom Scanner importieren"
+
+#: src/run.rs
+msgid "Scan cancelled"
+msgstr "Scan abgebrochen"
+
+#: src/run.rs
+msgid "No scanner yet: turn on a scanner connected to this Mac or on its network."
+msgstr "Noch kein Scanner: schalten Sie einen Scanner ein, der mit diesem Mac oder seinem Netzwerk verbunden ist."
+
+#: src/platform_ui.rs
+msgid "Settings…"
+msgstr "Einstellungen…"
+
+#: ui/main.slint
+msgid "Minimize"
+msgstr "Im Dock ablegen"
+
+#: src/reader_ui/pages.rs
+msgid "{} tab with a running task stayed open"
+msgstr "{} Tab bleibt wegen einer laufenden Aufgabe geöffnet"
+
+#: src/reader_ui/pages.rs
+msgid "{} tabs with a running task stayed open"
+msgstr "{} Tabs bleiben wegen laufender Aufgaben geöffnet"
+
+#: src/reader_ui/pages.rs
+msgid "Replace the {} page with pages of {} ({}) from page"
+msgstr "Die {} Seite ersetzen durch Seiten aus {} ({}) ab Seite"
+
+#: src/reader_ui/pages.rs
+msgid "Replace the {} pages with pages of {} ({}) from page"
+msgstr "Die {} Seiten ersetzen durch Seiten aus {} ({}) ab Seite"
+
+#: src/reader_ui/pages.rs
+msgid "{} page turned upright"
+msgstr "{} Seite aufgerichtet"
+
+#: src/reader_ui/pages.rs
+msgid "{} pages turned upright"
+msgstr "{} Seiten aufgerichtet"
+
+#: src/reader_ui/pages.rs
+msgid "{} page copied: ⌘V in a document's Pages panel puts it after its selected page"
+msgstr "{} Seite kopiert: ⌘V im Seitenbereich eines Dokuments fügt sie nach der ausgewählten Seite ein"
+
+#: src/reader_ui/pages.rs
+msgid "{} pages copied: ⌘V in a document's Pages panel puts them after its selected page"
+msgstr "{} Seiten kopiert: ⌘V im Seitenbereich eines Dokuments fügt sie nach der ausgewählten Seite ein"

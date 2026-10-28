@@ -880,7 +880,7 @@ pub fn install(ui: &AppWindow) {
         crate::install_catalogue(&ui);
     });
     on!(on_set_direction, |ui, d| update(&ui, |p| p.direction = d.clamp(0, 2) as u8));
-    on!(on_set_language, |ui, l| update(&ui, |p| p.language = l.clamp(0, 2) as u8));
+    on!(on_set_language, |ui, l| update(&ui, |p| p.language = l.clamp(0, sheaf_app::i18n::LANGUAGES.len() as i32) as u8));
     on!(on_edit_key, |ui, key, shift| edit_key(&ui, &key, shift));
     g.on_shift_held(|| HELD.load(Ordering::Relaxed) & HELD_SHIFT != 0);
     on!(on_check_start, |ui, tab| check_start(&ui, tab));

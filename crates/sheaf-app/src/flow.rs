@@ -657,7 +657,7 @@ pub fn close_tabs_around(ui: &AppWindow, id: i32, which: i32) {
         }
     }
     if kept > 0 {
-        toast(ui, &sheaf_app::i18n::trf("{} tab{} with a running task stayed open", &[&kept, &if kept == 1 { "" } else { "s" }]));
+        toast(ui, &sheaf_app::i18n::trf(if kept == 1 { "{} tab with a running task stayed open" } else { "{} tabs with a running task stayed open" }, &[&kept]));
     }
     // Documents with unsaved edits are asked about one by one (Save / Don't Save / Cancel), as
     // closing each would; so are Redact tabs with marks not applied.

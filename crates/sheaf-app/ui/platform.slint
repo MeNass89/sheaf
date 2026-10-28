@@ -115,7 +115,7 @@ export global PlatformBridge {
     in property <bool> rtl;
     in property <int> direction;
     callback set-direction(int);
-    // The interface's language: 0 the system's, 1 English, 2 French.
+    // The interface's language: 0 the system's, then src/i18n.rs LANGUAGES from 1 (English, French…).
     in property <int> language;
     callback set-language(int);
 

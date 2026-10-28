@@ -147,3 +147,16 @@ main.slint then shows Preferences); Zoom takes the window from 1280 × 832 to 18
 1280 × 832 window off the screen and a 120 × 118 tile shows at the Dock's edge (AXMinimized reads another of the
 app's windows, the menu bar's, hence false). Preferences itself is not seen (Slint's text is not in the AX tree and
 screen capture is refused over ssh).
+
+## C-preferences-003 six interface languages (28/10, Opus)
+
+Gap (Sol rev36a): only English and French. Now English, French, German, Spanish, Italian, Portuguese
+(Preferences ▸ Interface ▸ Language, each named in itself; "As the system's language" picks any of them from the
+locale, else English). Catalogues translations/{de,es,it,pt}/LC_MESSAGES/sheaf-ui.po: 1,746 texts each, translated
+from the English msgids by four parallel translators (Opus), assembled and checked by a script (same msgids and
+order, none empty, every {} / %n kept; one quote style per language: „…“ de, «…» es/it, “…” pt; Portuguese of
+Portugal, understood in Brazil); `msgfmt --check` clean. Four messages built plurals with an "s" ("page{}"): now a
+singular and a plural text each (Seites otherwise). i18n.rs reads every catalogue (`CATALOGUES`); the test
+`every_interface_text_has_its_translation_in_every_language` fails on any text missing in any language; search by
+name folds accents of all five (ä ö ü ß ñ ã õ…). Not done: right-to-left languages beyond the existing RTL layout
+switch; plural rules beyond singular/plural.

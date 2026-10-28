@@ -1,17 +1,24 @@
 //! The interface's language (Preferences ▸ Interface ▸ Language; iLovePDF's ~30 languages,
 //! Acrobat's "Same as the operating system"). The Slint texts are wrapped in `@tr` and their
-//! French is bundled at build time from `translations/fr/LC_MESSAGES/sheaf-ui.po`; the texts made
-//! in Rust (tool names, descriptions) go through [`tr`], which reads the same catalogue, compiled
-//! into the binary: nothing is read from disk and no gettext library is needed.
+//! translations are bundled at build time from `translations/<code>/LC_MESSAGES/sheaf-ui.po`; the
+//! texts made in Rust (tool names, descriptions) go through [`tr`], which reads the same catalogues,
+//! compiled into the binary: nothing is read from disk and no gettext library is needed.
 
 use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
-/// The catalogue, as gettext writes it.
-const FR_PO: &str = include_str!("../translations/fr/LC_MESSAGES/sheaf-ui.po");
+/// The catalogues, as gettext writes them: language code and text.
+const CATALOGUES: [(&str, &str); 5] = [
+    ("fr", include_str!("../translations/fr/LC_MESSAGES/sheaf-ui.po")),
+    ("de", include_str!("../translations/de/LC_MESSAGES/sheaf-ui.po")),
+    ("es", include_str!("../translations/es/LC_MESSAGES/sheaf-ui.po")),
+    ("it", include_str!("../translations/it/LC_MESSAGES/sheaf-ui.po")),
+    ("pt", include_str!("../translations/pt/LC_MESSAGES/sheaf-ui.po")),
+];
 
-/// The languages offered besides the system's: code ("" English, the source) and name.
-pub const LANGUAGES: [(&str, &str); 2] = [("", "English"), ("fr", "Français")];
+/// The languages offered besides the system's, in the preference's order (1 is English): code ("",
+/// English, the source) and name, each in itself.
+pub const LANGUAGES: [(&str, &str); 6] = [("", "English"), ("fr", "Français"), ("de", "Deutsch"), ("es", "Español"), ("it", "Italiano"), ("pt", "Português")];
 
 #[cfg(not(test))]
 static CURRENT: RwLock<&'static str> = RwLock::new("");
@@ -21,15 +28,14 @@ thread_local! {
     static CURRENT: RwLock<&'static str> = const { RwLock::new("") };
 }
 
-/// The language a preference means: 0 the system's (French for a French locale, else English),
-/// 1 English, 2 French.
+/// The language a preference means: 0 the system's (one of [`LANGUAGES`] when the locale is, else
+/// English), then 1 English, 2 French and on in [`LANGUAGES`]' order.
 pub fn language_for(pref: u8, system: Option<&str>) -> &'static str {
-    match pref {
-        1 => "",
-        2 => "fr",
-        _ if system.is_some_and(|l| l.to_ascii_lowercase().starts_with("fr")) => "fr",
-        _ => "",
+    if pref == 0 {
+        let system = system.unwrap_or_default().to_ascii_lowercase();
+        return LANGUAGES.iter().skip(1).find(|(code, _)| system.starts_with(code)).map_or("", |(code, _)| code);
     }
+    LANGUAGES.get(pref as usize - 1).map_or("", |(code, _)| code)
 }
 
 pub fn set(lang: &'static str) {
@@ -48,23 +54,42 @@ pub fn current() -> &'static str {
     CURRENT.with(|c| c.read().map(|c| *c).unwrap_or(""))
 }
 
+/// The catalogue of `lang`, read once; None for English (the source) or a language without one.
+fn catalogue(lang: &str) -> Option<&'static HashMap<String, String>> {
+    static READ: OnceLock<Vec<(&str, HashMap<String, String>)>> = OnceLock::new();
+    READ.get_or_init(|| CATALOGUES.iter().map(|(code, po)| (*code, parse_po(po))).collect()).iter().find(|(code, _)| *code == lang).map(|(_, m)| m)
+}
+
+#[cfg(test)]
 fn french() -> &'static HashMap<String, String> {
-    static FR: OnceLock<HashMap<String, String>> = OnceLock::new();
-    FR.get_or_init(|| parse_po(FR_PO))
+    catalogue("fr").expect("the French catalogue")
 }
 
 /// `s` in the interface's language (itself when English, or when the catalogue lacks it).
 pub fn tr(s: &str) -> String {
-    match current() {
-        "fr" => french().get(s).filter(|t| !t.is_empty()).cloned().unwrap_or_else(|| s.to_string()),
-        _ => s.to_string(),
-    }
+    catalogue(current()).and_then(|m| m.get(s)).filter(|t| !t.is_empty()).cloned().unwrap_or_else(|| s.to_string())
 }
 
 /// The items whose name, as shown in the interface's language, holds every word of `query` (any
 /// case and accents); none in English, where the names are the source.
 pub fn matching<'a, T>(items: &'a [T], query: &str, name: impl Fn(&T) -> &str) -> Vec<&'a T> {
-    let fold = |s: &str| s.to_lowercase().chars().map(|c| match c { 'à' | 'â' => 'a', 'é' | 'è' | 'ê' | 'ë' => 'e', 'î' | 'ï' => 'i', 'ô' => 'o', 'ù' | 'û' => 'u', 'ç' => 'c', o => o }).collect::<String>();
+    let fold = |s: &str| {
+        let mut out = String::with_capacity(s.len());
+        for c in s.to_lowercase().chars() {
+            match c {
+                'à' | 'á' | 'â' | 'ã' | 'ä' => out.push('a'),
+                'é' | 'è' | 'ê' | 'ë' => out.push('e'),
+                'í' | 'ì' | 'î' | 'ï' => out.push('i'),
+                'ó' | 'ò' | 'ô' | 'õ' | 'ö' => out.push('o'),
+                'ú' | 'ù' | 'û' | 'ü' => out.push('u'),
+                'ç' => out.push('c'),
+                'ñ' => out.push('n'),
+                'ß' => out.push_str("ss"),
+                o => out.push(o),
+            }
+        }
+        out
+    };
     let words: Vec<String> = fold(query).split_whitespace().map(String::from).collect();
     if current().is_empty() || words.is_empty() {
         return Vec::new();
@@ -177,21 +202,16 @@ mod tests {
     }
 
     #[test]
-    fn every_interface_text_has_its_french() {
-        let fr = parse_po(FR_PO);
+    fn every_interface_text_has_its_translation_in_every_language() {
+        // The texts to translate: every `@tr` of the interface, every `tr("…")` literal of the app's
+        // sources, the Tools page's names and sections (made in Rust from the catalogue).
+        let mut texts: Vec<(String, String)> = Vec::new();
         let mut files = Vec::new();
         slint_files(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ui"), &mut files);
-        let mut missing = Vec::new();
-        let mut count = 0;
         for f in &files {
-            for m in slint_messages(&std::fs::read_to_string(f).unwrap()) {
-                count += 1;
-                if fr.get(&m).is_none_or(|t| t.is_empty()) {
-                    missing.push(format!("{}: {m:?}", f.file_name().unwrap().to_string_lossy()));
-                }
-            }
+            let name = f.file_name().unwrap().to_string_lossy().into_owned();
+            texts.extend(slint_messages(&std::fs::read_to_string(f).unwrap()).into_iter().map(|m| (name.clone(), m)));
         }
-        // The texts made in Rust: every `tr("…")` literal of the app's sources.
         let mut rs = Vec::new();
         fn rs_files(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
             for e in std::fs::read_dir(dir).unwrap().flatten() {
@@ -202,37 +222,31 @@ mod tests {
         rs_files(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut rs);
         for f in rs.iter().filter(|f| !f.ends_with("i18n.rs")) {
             let src = std::fs::read_to_string(f).unwrap();
-            for m in slint_messages(&src.replace("i18n::tr(\"", "@tr(\"").replace("i18n::trf(\"", "@tr(\"")) {
-                count += 1;
-                if fr.get(&m).is_none_or(|t| t.is_empty()) {
-                    missing.push(format!("{}: {m:?}", f.file_name().unwrap().to_string_lossy()));
-                }
-            }
+            let name = f.file_name().unwrap().to_string_lossy().into_owned();
+            texts.extend(slint_messages(&src.replace("i18n::tr(\"", "@tr(\"").replace("i18n::trf(\"", "@tr(\"")).into_iter().map(|m| (name.clone(), m)));
         }
-        // The Tools page's names and sections, made in Rust from the catalogue.
-        for t in sheaf_core::tools::catalogue() {
-            count += 1;
-            if fr.get(t.name).is_none_or(|x| x.is_empty()) {
-                missing.push(format!("tool: {:?}", t.name));
+        texts.extend(sheaf_core::tools::catalogue().iter().map(|t| ("tool".to_string(), t.name.to_string())));
+        texts.extend(sheaf_core::tools::Category::ALL.iter().map(|c| ("section".to_string(), c.label().to_string())));
+        assert!(texts.len() > 300, "only {} texts are translatable", texts.len());
+        for (code, _) in CATALOGUES {
+            let m = catalogue(code).unwrap();
+            let missing: Vec<String> = texts.iter().filter(|(_, t)| m.get(t).is_none_or(|x| x.is_empty())).map(|(f, t)| format!("{f}: {t:?}")).collect();
+            assert!(missing.is_empty(), "{} texts without {code}:\n{}", missing.len(), missing.join("\n"));
+            // Placeholders kept: as many {} in the translation as in the English.
+            for (k, v) in m {
+                assert_eq!(k.matches("{}").count(), v.matches("{}").count(), "{code}: {k:?} → {v:?}");
             }
-        }
-        for c in sheaf_core::tools::Category::ALL {
-            if fr.get(c.label()).is_none_or(|x| x.is_empty()) {
-                missing.push(format!("section: {:?}", c.label()));
-            }
-        }
-        assert!(count > 300, "only {count} texts are translatable");
-        assert!(missing.is_empty(), "{} texts without French:\n{}", missing.len(), missing.join("\n"));
-        // Placeholders kept: as many {} in the French as in the English.
-        for (k, v) in &fr {
-            assert_eq!(k.matches("{}").count(), v.matches("{}").count(), "{k:?} → {v:?}");
         }
     }
 
     #[test]
     fn languages_follow_the_choice_or_the_system_and_texts_fall_back_to_english() {
         assert_eq!(language_for(0, Some("fr-BE")), "fr");
-        assert_eq!(language_for(0, Some("de_DE.UTF-8")), "");
+        assert_eq!(language_for(0, Some("de_DE.UTF-8")), "de");
+        assert_eq!(language_for(0, Some("pt-BR")), "pt");
+        assert_eq!(language_for(0, Some("ja_JP")), "", "a language without a catalogue: English");
+        assert_eq!(language_for(4, None), "es");
+        assert_eq!(language_for(9, Some("fr_FR")), "", "an unknown choice: English");
         assert_eq!(language_for(0, None), "");
         assert_eq!(language_for(1, Some("fr_FR")), "");
         assert_eq!(language_for(2, Some("en_US")), "fr");

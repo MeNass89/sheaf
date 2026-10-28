@@ -524,7 +524,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         loupe_image: r.loupe_image.clone().unwrap_or_default(),
         dashed: r.dashed,
         replace_ask: r.replace_pending.as_ref().map_or_else(Default::default, |(name, _, count, pages)| {
-            sheaf_app::i18n::trf("Replace the {} page{} with pages of {} ({}) from page", &[&pages.len(), &if pages.len() == 1 { "" } else { "s" }, &name, &count]).into()
+            sheaf_app::i18n::trf(if pages.len() == 1 { "Replace the {} page with pages of {} ({}) from page" } else { "Replace the {} pages with pages of {} ({}) from page" }, &[&pages.len(), &name, &count]).into()
         }),
         page_at_a_time: r.page_at_a_time,
         page_top: v.viewer.page_rect(v.current())[1] as f32,

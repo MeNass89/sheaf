@@ -5925,10 +5925,6 @@ msgid "The library working copy was kept: {}"
 msgstr "La copie de travail de la bibliothèque a été conservée : {}"
 
 #: src/flow.rs
-msgid "{} tab{} with a running task stayed open"
-msgstr "Restés ouverts car une tâche y est en cours : {} onglet{}"
-
-#: src/flow.rs
 msgid "Choose a tool for {}"
 msgstr "Choisissez un outil pour {}"
 
@@ -6357,10 +6353,6 @@ msgid "True size · {}"
 msgstr "Taille réelle · {}"
 
 #: src/reader_ui/model.rs
-msgid "Replace the {} page{} with pages of {} ({}) from page"
-msgstr "Remplacer {} page{} par des pages de {} ({}) à partir de la page"
-
-#: src/reader_ui/model.rs
 msgid "{} · DATED"
 msgstr "{} · DATÉ"
 
@@ -6400,10 +6392,6 @@ msgstr "Impossible de créer ces pages"
 msgid "Every page reads upright"
 msgstr "Toutes les pages sont à l’endroit"
 
-#: src/reader_ui/pages.rs
-msgid "{} page{} turned upright"
-msgstr "Redressement effectué : {} page{}"
-
 #: src/reader_ui/pages.rs src/reader_ui/saving.rs
 msgid "{} could not be read: {}"
 msgstr "Impossible de lire {} : {}"
@@ -6423,18 +6411,6 @@ msgstr "Début : « {} » n’est pas un numéro de page (1 ou plus)"
 #: src/reader_ui/pages.rs
 msgid "Through: \"{}\" is not a page number (1 or more)"
 msgstr "Jusqu’à : « {} » n’est pas un numéro de page (1 ou plus)"
-
-#: src/reader_ui/pages.rs
-msgid "{} page{} copied: ⌘V in a document's Pages panel puts {} after its selected page"
-msgstr "{} page{} dans le presse-papiers : ⌘V dans le panneau Pages d’un document {} place après sa page sélectionnée"
-
-#: src/reader_ui/pages.rs
-msgid "it"
-msgstr "la"
-
-#: src/reader_ui/pages.rs
-msgid "them"
-msgstr "les"
 
 #: src/reader_ui/pointer.rs
 msgid "The clipboard holds no image to paste"
@@ -6983,3 +6959,35 @@ msgstr "Réglages…"
 #: ui/main.slint
 msgid "Minimize"
 msgstr "Réduire"
+
+#: src/reader_ui/pages.rs
+msgid "{} tab with a running task stayed open"
+msgstr "{} onglet est resté ouvert car une tâche y est en cours"
+
+#: src/reader_ui/pages.rs
+msgid "{} tabs with a running task stayed open"
+msgstr "{} onglets sont restés ouverts car une tâche y est en cours"
+
+#: src/reader_ui/pages.rs
+msgid "Replace the {} page with pages of {} ({}) from page"
+msgstr "Remplacer {} page par des pages de {} ({}) à partir de la page"
+
+#: src/reader_ui/pages.rs
+msgid "Replace the {} pages with pages of {} ({}) from page"
+msgstr "Remplacer {} pages par des pages de {} ({}) à partir de la page"
+
+#: src/reader_ui/pages.rs
+msgid "{} page turned upright"
+msgstr "{} page redressée"
+
+#: src/reader_ui/pages.rs
+msgid "{} pages turned upright"
+msgstr "{} pages redressées"
+
+#: src/reader_ui/pages.rs
+msgid "{} page copied: ⌘V in a document's Pages panel puts it after its selected page"
+msgstr "{} page copiée : ⌘V dans le panneau Pages d’un document la place après sa page sélectionnée"
+
+#: src/reader_ui/pages.rs
+msgid "{} pages copied: ⌘V in a document's Pages panel puts them after its selected page"
+msgstr "{} pages copiées : ⌘V dans le panneau Pages d’un document les place après sa page sélectionnée"
