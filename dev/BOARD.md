@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 303 · closed 303, open 28
+331 components · at parity (≥9): 309 · closed 309, open 22
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -19,22 +19,16 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | 10 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
 | 11 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
 | 12 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 13 | C-platform-006 | light | Manage plugins | acrobat | 0 · 0 · 0 → **0** | light |
-| 14 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 15 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 16 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 5 · 8 · 8 → **5** | light |
-| 17 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
-| 18 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 19 | C-optimize-012 | light | Run preflight and output preview | acrobat | 7 · 8 · 8 → **7** | light |
-| 20 | C-optimize-014 | light | Prepare for print production | acrobat | 7 · 8 · 8 → **7** | light |
-| 21 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
-| 22 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
-| 23 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
-| 24 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
-| 25 | C-preferences-005 | light | Tune rendering quality | acrobat | 8 · 9 · 9 → **8** | light |
-| 26 | C-reader-060 | light | Check spelling | preview | 8 · 8 · 8 → **8** | after core |
-| 27 | C-security-007 | light | Encrypt with certificates | acrobat | 8 · 8 · 8 → **8** | light |
-| 28 | C-sign-013 | light | Manage digital IDs | acrobat | 8 · 8 · 8 → **8** | light |
+| 13 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
+| 14 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
+| 15 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
+| 16 | C-convert-019 | light | Save as PDF/X or PDF/E | acrobat | 7 · 8 · 8 → **7** | light |
+| 17 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 18 | C-optimize-014 | light | Prepare for print production | acrobat | 7 · 8 · 8 → **7** | light |
+| 19 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
+| 20 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
+| 21 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
+| 22 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -43,18 +37,18 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | annotate | 38 | 8.8 | 37 |
 | batch | 9 | 9.0 | 9 |
 | compare | 7 | 9.0 | 7 |
-| convert | 20 | 8.7 | 18 |
+| convert | 20 | 8.8 | 18 |
 | edit | 29 | 9.0 | 29 |
 | files | 19 | 8.4 | 17 |
 | forms | 17 | 8.5 | 16 |
-| optimize | 15 | 8.7 | 12 |
+| optimize | 15 | 8.8 | 13 |
 | organize | 27 | 8.9 | 26 |
 | output | 15 | 9.0 | 15 |
-| platform | 14 | 6.3 | 8 |
-| preferences | 14 | 8.9 | 12 |
-| reader | 64 | 9.0 | 62 |
-| security | 18 | 8.9 | 17 |
-| sign | 18 | 8.0 | 14 |
+| platform | 14 | 6.9 | 9 |
+| preferences | 14 | 8.9 | 13 |
+| reader | 64 | 9.0 | 63 |
+| security | 18 | 9.0 | 18 |
+| sign | 18 | 8.1 | 15 |
 
 ## Closed
 | id | component | overall | last proof |
@@ -143,7 +137,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-edit-007 | Move, resize and select page objects | 9 | reviewer 25/10 on 07c9d1c: multi-pick (⇧-click, marquee), drawings (PdfCraft patch) found by hover and picked by press, drag together, nudge, paragraph resize with matching box; gui-smoke 20/20b/20c |
 | C-edit-008 | Replace, rotate or edit an image | 9 | Joint 9: Opus (round 8, 17ac802) and Sol AGREE 9 (re-review b14-round8, 25/10) |
 | C-edit-009 | Align and arrange objects | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
-| C-edit-010 | Cut, copy, paste and delete objects | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10) |
+| C-edit-010 | Cut, copy, paste and delete objects | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-edit-011 | Undo and redo edits | 9 | Undo/redo ⌘Z ⇧⌘Z: 0.19 s on the 1,982-page book (was 2.0 s); gui-smoke: undo then redo restores a note, undo brings a deleted page back |
 | C-edit-012 | Find and replace text | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b23-round20a, 26/10) |
 | C-edit-013 | Spell check | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
@@ -161,7 +155,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-edit-025 | Edit page labels | 9 | Joint 9: Opus (Sol b16c-round13 25/10) and Sol AGREE 9 (re-review b16c-round13, 25/10) |
 | C-edit-026 | Insert a blank page while editing | 9 | Pages panel: Insert blank page after the selection; gui-smoke checks an empty page 2 in the saved file and that ⌘Z removes it |
 | C-edit-027 | Restrict editing | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
-| C-edit-028 | Adjust or invert colours | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10) |
+| C-edit-028 | Adjust or invert colours | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-edit-029 | Remove images or image background | 9 | Joint 9: Opus (round 25) and Sol AGREE 9 (re-review b30a-round25, 27/10) |
 | C-files-001 | Open a PDF from a file picker | 9 | Home ▸ Open file: system dialog (GTK portal on Linux) → the PDF opens in a reader tab (dev/re/evidence/F-002/29, dev/re/evidence/F-002/30) |
 | C-files-002 | Drag and drop files to open | 9 | Joint 9: Opus (round 6, eca24df) and Sol AGREE 9 (re-review b13a-round6, 25/10) |
@@ -206,6 +200,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-optimize-009 | Correct recognized text | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-optimize-010 | Enhance scanned pages | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27b-round22, 26/10) |
 | C-optimize-011 | Repair a damaged PDF | 9 | Joint 9: Opus (round 11, 8d1346d) and Sol AGREE 9 (re-review b15c-round11, 25/10) |
+| C-optimize-012 | Run preflight and output preview | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-optimize-013 | Convert colours or grayscale | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
 | C-optimize-015 | Create a full-text index | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
 | C-organize-001 | Open page organizer grid | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29a-round24, 27/10) |
@@ -253,6 +248,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-platform-003 | Send feedback or report issue | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
 | C-platform-004 | Accessibility check and RTL | 9 | Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10) |
 | C-platform-005 | Run JavaScript | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
+| C-platform-006 | Manage plugins | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-platform-009 | Command-line interface | 9 | Help on every option and value (args::help_tests every_option_and_value_has_help, page_number_help_reads_as_written); {page}/{pages} placeholders; joint review |
 | C-platform-010 | MCP server for AI agents | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
 | C-platform-011 | Open files from the system | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27c-round22, 26/10) |
@@ -260,6 +256,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-preferences-001 | Open preferences | 9 | ⌘, from anywhere (Home, tool tabs, documents, their fields) opens Preferences, leaving full screen and a presentation; Home sidebar entry. gui-smoke: from a tool tab and a document. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3 |
 | C-preferences-002 | Choose theme and colours | 9 | Joint 9: Opus (round 6, eca24df) and Sol AGREE 9 (re-review b13a-round6, 25/10) |
 | C-preferences-004 | Set default view on open | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
+| C-preferences-005 | Tune rendering quality | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-preferences-006 | Set page display options | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
 | C-preferences-007 | Set units and measuring | 9 | Joint 9: Opus (round 25) and Sol AGREE 9 (re-review b30b-round25, 27/10) |
 | C-preferences-008 | Set author name | 9 | Joint 9: Opus (round 6–7, eca24df/70417de) and Sol AGREE 9 (re-review b13b-round6, 25/10) |
@@ -327,6 +324,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-057 | Follow links | 9 | Internal and web links followed, ⌘[ ⌘] history; hovering shows where a link goes, cleared on scroll and kept in view. Joint 9/10: Sol agreed in its third review round (gui-smoke: tooltip shown, then gone after scrolling) |
 | C-reader-058 | Highlight links and form fields | 9 | More ▸ Highlight links (⇧⌘L) tints every link; fillable fields tinted in Select mode, as PDF Expert. Joint 9/10: Sol agreed (round 4); gui-smoke samples the tint |
 | C-reader-059 | Look up a word | 9 | Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10) |
+| C-reader-060 | Check spelling | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-reader-061 | Page labels | 9 | Joint 9: Opus (round 6, eca24df) and Sol AGREE 9 (re-review b13a-round6, 25/10) |
 | C-reader-062 | Select and save images in a PDF | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27d-round22, 26/10) |
 | C-reader-063 | Unlock a protected PDF to view | 9 | 4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4 |
@@ -337,6 +335,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-security-004 | Set permissions restrictions | 9 | 4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4 |
 | C-security-005 | Open a password-protected PDF | 9 | A protected PDF asks for its password in the reader; a wrong one says so, the right one opens it (dev/re/evidence/F-002/35) |
 | C-security-006 | Remove a password | 9 | Unlock: password field with reveal, wrong-password feedback, batch; Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed |
+| C-security-007 | Encrypt with certificates | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-security-008 | Security policies and settings exchange | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10) |
 | C-security-009 | Open the redact tool | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
 | C-security-010 | Mark an area or text for redaction | 9 | reviewer 24/10 on 42fcabb: live selection, caret ends, word/line clicks, result counts text passages; output scrubbed (fiche); gui-smoke 18 |
@@ -358,6 +357,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-sign-009 | Save and manage signatures | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-sign-010 | Add marks to fill a form | 9 | 41b1756: Sol AGREE 9 (round 3 25/10); F-013 round 3 |
 | C-sign-012 | Sign with a digital certificate | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
+| C-sign-013 | Manage digital IDs | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-sign-014 | Certify a document | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
 | C-sign-016 | Validate signatures | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10) |
 | C-sign-017 | Inspect signature and certificate details | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b24-round20b, 26/10) |

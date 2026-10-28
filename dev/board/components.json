@@ -8105,10 +8105,10 @@
   ],
   "ours": [],
   "grade": {
-   "function": 5,
+   "function": 7,
    "aesthetics": 8,
    "performance": 8,
-   "overall": 5
+   "overall": 7
   },
   "status": "open",
   "feature": null,
@@ -8135,6 +8135,17 @@
      "overall": 5
     },
     "proof": "Sol rev35B 27/10: Export PDF/X présent, mais aucune conversion PDF/E ; seuls X1a/X3/X4 sont implémentés : crates/sheaf-core/src/press.rs:12 ; absence confirmée dans l’interface : crates/sheaf-app/ui/screens/reader-production.slint:101."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 7,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 7
+    },
+    "proof": "Sol rev36a 28/10: PDF/E export now exists, but its PDF/A-2b conversion removes 3D annotations from engineering documents despite promising to keep them; crates/sheaf-core/src/pdfe.rs:29, third_party/pdfcraft-preflight/src/lib.rs:157, third_party/pdfcraft-preflight/src/lib.rs:648; the PDF/E test covers pictures only (crates/sheaf-core/tests/pdfa.rs:249)."
    }
   ]
  },
@@ -9434,6 +9445,17 @@
      "overall": 9
     },
     "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -11117,6 +11139,17 @@
      "overall": 9
     },
     "proof": "Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10)"
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -15615,14 +15648,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -15645,6 +15678,17 @@
      "overall": 7
     },
     "proof": "Sol rev35B 27/10: Préflight et plaques CMJN/tons directs présents, mais l’aperçu ne montre qu’un masque isolé : impossible de combiner ou masquer plusieurs encres pour examiner leur rendu ensemble comme dans Output Preview ; crates/sheaf-app/ui/screens/reader-ink-preview.slint:74, crates/sheaf-app/ui/screens/reader-ink-preview.slint:81 ; test limité aux plaques isolées : crates/sheaf-core/src/separations.rs:73."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -20469,14 +20513,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20499,6 +20543,17 @@
      "overall": 0
     },
     "proof": "Sol rev35A 27/10: Aucun gestionnaire, inventaire ou chargeur de plugins dans le code actuel ; crates/sheaf-app/ui/main.slint:380, crates/sheaf-app/src/lib.rs:5 ; absence également déclarée dans dev/par2-notes-ui.md:88 ; aucun test de gestion des plugins trouvé."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -21308,6 +21363,17 @@
      "overall": 8
     },
     "proof": "Sol rev35A 27/10: Le choix Français laisse des messages courants en anglais : notification de prévisualisation et libellés de résultats de recherche sans traduction ; crates/sheaf-app/src/main.rs:74, crates/sheaf-app/src/flow.rs:33, crates/sheaf-app/src/reader_ui/model.rs:335 ; seuls anglais et français sont proposés (crates/sheaf-app/src/i18n.rs:16)."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 8,
+     "aesthetics": 8,
+     "performance": 8,
+     "overall": 8
+    },
+    "proof": "Sol rev36a 28/10: The cited French preview/search messages are translated now, but the previously named language-choice limit remains: only English and French are available, with other system languages falling back to English; crates/sheaf-app/src/i18n.rs:14, crates/sheaf-app/src/i18n.rs:26; test languages_follow_the_choice_or_the_system_and_texts_fall_back_to_english explicitly checks German falling back (crates/sheaf-app/src/i18n.rs:235)."
    }
   ]
  },
@@ -21519,14 +21585,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21560,6 +21626,17 @@
      "overall": 8
     },
     "proof": "Sol b30b-round25 27/10: Le choix GPU est ajouté, mais aucun réglage de gestion des couleurs ou de profil d’affichage n’existe : crates/sheaf-app/ui/screens/preferences.slint:246."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -28587,14 +28664,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "after core",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -28617,6 +28694,17 @@
      "overall": 8
     },
     "proof": "Sol rev35A 27/10: La grammaire reste une liste de règles simples : aucun contrôle des accords, des temps ou de l’ordre des mots, lacune visible dans un texte courant ; crates/sheaf-core/src/spell.rs:377 ; test the_light_grammar_pass limité aux règles présentes."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -29575,14 +29663,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -29616,6 +29704,17 @@
      "overall": 8
     },
     "proof": "Sol rev35C 27/10: the previously noted RSA-only limit remains: an EC recipient certificate is rejected, so a recipient using an ECC digital ID cannot be included, unlike Acrobat; crates/sheaf-core/src/certificate_security.rs:86, crates/sheaf-app/src/reader_ui/certificate.rs:55; [Adobe certificate-security algorithms](https://www.adobe.com/devnet-docs/acrobatetk/tools/QuickKeys/Acrobat_DocumentSecurityAlgoAll.pdf)."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
@@ -31914,14 +32013,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -31966,6 +32065,17 @@
      "overall": 8
     },
     "proof": "Sol rev35C 27/10: self-signed ID creation now exists, but the explicitly named smart-card/token gap remains: the manager imports only .p12/.pfx and the signing path reads and unlocks a PKCS#12 file, with no hardware-ID selection; crates/sheaf-app/src/home.rs:505, crates/sheaf-app/src/home.rs:534, crates/sheaf-core/src/sign.rs:348."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10)"
    }
   ]
  },
