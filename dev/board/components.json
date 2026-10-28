@@ -6610,14 +6610,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -6651,6 +6651,17 @@
      "overall": 7
     },
     "proof": "Sol b27a-round22 26/10: La numérisation depuis un scanner reste systématiquement refusée sous macOS : crates/sheaf-app/src/run.rs:794."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 36, fc38c5d: macOS ImageKit scanner panel) and Sol AGREE 9 (rev38a, 28/10)"
    }
   ]
  },
@@ -17034,14 +17045,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 6,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 6
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -17064,6 +17075,17 @@
      "overall": 6
     },
     "proof": "Sol b27b-round22 26/10: L’insertion directe depuis un scanner est explicitement refusée sur macOS ; le smoke substitue une image et ne vérifie pas cette intégration : crates/sheaf-app/src/run.rs:791."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 36, fc38c5d: Insert from scanner on macOS through ImageKit) and Sol AGREE 9 (rev38a, 28/10)"
    }
   ]
  },
@@ -23389,14 +23411,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "pinch zoom and drag-pan (hand tool / space-drag)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -23452,6 +23474,17 @@
      "overall": 8
     },
     "proof": "Sol rev32 27/10: La parité du pincement natif macOS reste non établie : le maintien du point sous les doigts dans un long PDF et le défilement lent/rapide ne sont pas vérifiés. Code du gestionnaire et tests/pinch.rs inspectés ; ces tests remplacent le zoom réel et le changement de panneau par des callbacks, sans trackpad ni rendu : crates/sheaf-app/tests/pinch.rs:36 ; dev/HANDOFF.md:107."
+   },
+   {
+    "date": "2026-10-28",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (round 37, dbb5316: pinch on the MBP with real magnify events, anchor held on page 80) and Sol AGREE 9 (rev38a, 28/10)"
    }
   ]
  },

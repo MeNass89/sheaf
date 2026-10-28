@@ -1,7 +1,7 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 311 · closed 311, open 20
+331 components · at parity (≥9): 314 · closed 314, open 17
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
@@ -9,24 +9,21 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 |---|---|---|---|---|---|---|
 | 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | notarisation out of scope (DECISIONS 28/10); regrade the native builds without it |
 | 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | speed on big scans; deskew |
-| 3 | C-reader-010 | strong | Gesture zoom and pan | pdfexpert | 8 · 9 · 9 → **8** | pinch zoom and drag-pan (hand tool / space-drag) |
-| 4 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
-| 5 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
-| 6 | C-platform-014 | normal | Native menu bar and shortcuts | ours | 2 · 4 · 9 → **2** | menu bar and shortcuts (File/Edit/View/Go/Tools) |
-| 7 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
-| 8 | C-convert-006 | normal | Create PDF from scanner or screenshot | acrobat | 7 · 9 · 9 → **7** | light |
-| 9 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
-| 10 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
-| 11 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
-| 12 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
-| 13 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
-| 14 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 15 | C-organize-011 | light | Insert pages from clipboard or scanner | preview | 6 · 9 · 9 → **6** | light |
-| 16 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 17 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
-| 18 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
-| 19 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
-| 20 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
+| 3 | C-files-009 | normal | Cloud, network and shared files | acrobat | 0 · 0 · 0 → **0** | out of local-first scope (needs Nassim) |
+| 4 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | light; release channel decision is Nassim's |
+| 5 | C-platform-014 | normal | Native menu bar and shortcuts | ours | 2 · 4 · 9 → **2** | menu bar and shortcuts (File/Edit/View/Go/Tools) |
+| 6 | C-sign-011 | normal | Request signatures from others | acrobat | 2 · 4 · 8 → **2** | out of local-first scope (cloud); light |
+| 7 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
+| 8 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
+| 9 | C-annotate-037 | light | Send for shared review | acrobat | 0 · 0 · 0 → **0** | out of local-first scope; light |
+| 10 | C-forms-016 | light | Distribute and submit forms | acrobat | 0 · 0 · 0 → **0** | light |
+| 11 | C-platform-008 | light | Sign in with an account | ilovepdf | 0 · 0 · 0 → **0** | Sheaf has no account by design |
+| 12 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
+| 13 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
+| 14 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
+| 15 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
+| 16 | C-ai-006 | light | Group documents in AI spaces | acrobat | 8 · 8 · 8 → **8** | light |
+| 17 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -35,16 +32,16 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | annotate | 38 | 8.8 | 37 |
 | batch | 9 | 9.0 | 9 |
 | compare | 7 | 9.0 | 7 |
-| convert | 20 | 8.9 | 19 |
+| convert | 20 | 9.0 | 20 |
 | edit | 29 | 9.0 | 29 |
 | files | 19 | 8.4 | 17 |
 | forms | 17 | 8.5 | 16 |
 | optimize | 15 | 8.9 | 14 |
-| organize | 27 | 8.9 | 26 |
+| organize | 27 | 9.0 | 27 |
 | output | 15 | 9.0 | 15 |
 | platform | 14 | 6.9 | 9 |
 | preferences | 14 | 8.9 | 13 |
-| reader | 64 | 9.0 | 63 |
+| reader | 64 | 9.0 | 64 |
 | security | 18 | 9.0 | 18 |
 | sign | 18 | 8.1 | 15 |
 
@@ -113,6 +110,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-convert-003 | Convert images to PDF | 9 | iLovePDF's options: Fit / A4 / US Letter, orientation and margin for paper, Merge all images into one PDF (off: a PDF next to each image); PNG JPEG WebP TIF/TIFF BMP GIF; images opened from outside open the tool; JPEGs embedded as they are, EXIF rotation applied. Tests: images (Letter landscape, tif+gif), run, dest, open_with, route_drop; gui-smoke 16. Reviewer (Opus) agreed 9/9/9. |
 | C-convert-004 | Create PDF from clipboard | 9 | Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28a-round23, 26/10) |
 | C-convert-005 | Convert a web page or HTML to PDF | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
+| C-convert-006 | Create PDF from scanner or screenshot | 9 | Joint 9: Opus (round 36, fc38c5d: macOS ImageKit scanner panel) and Sol AGREE 9 (rev38a, 28/10) |
 | C-convert-007 | Convert other formats to PDF | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
 | C-convert-008 | Create an empty document | 9 | Joint 9: Opus (rounds 9–10, 8d1346d) and Sol AGREE 9 (re-review b15a-round9-10, 25/10) |
 | C-convert-009 | Convert PDF to Word | 9 | Joint 9: Opus (round 6–7, eca24df/70417de) and Sol AGREE 9 (re-review b13b-round6, 25/10) |
@@ -213,6 +211,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-organize-008 | Remove blank pages automatically | 9 | Joint 9: Opus (round 11, 8d1346d) and Sol AGREE 9 (re-review b15c-round11, 25/10) |
 | C-organize-009 | Insert a blank page | 9 | Insert a blank page of the same size after the selection; 4 → 5 pages checked with qpdf |
 | C-organize-010 | Insert pages from another file | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b23-round20a, 26/10) |
+| C-organize-011 | Insert pages from clipboard or scanner | 9 | Joint 9: Opus (round 36, fc38c5d: Insert from scanner on macOS through ImageKit) and Sol AGREE 9 (rev38a, 28/10) |
 | C-organize-012 | Replace pages from another PDF | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27b-round22, 26/10) |
 | C-organize-013 | Copy or duplicate pages | 9 | Joint 9: Opus (round 10, 8d1346d) and Sol AGREE 9 (re-review b15b-fixes, 25/10) |
 | C-organize-014 | Extract pages to a new PDF | 9 | Joint 9: Opus (round 10, 8d1346d) and Sol AGREE 9 (re-review b15b-fixes, 25/10) |
@@ -275,6 +274,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-reader-007 | Fit whole page to window | 9 | 6edfb12: Sol AGREE 9 (round 2 25/10); F-013 round 2 |
 | C-reader-008 | Fit page width | 9 | ⌘9 / toolbar fit width (168 %), kept when the window or panel changes size (dev/re/evidence/F-002/26, dev/re/evidence/F-002/28) |
 | C-reader-009 | Zoom to actual size | 9 | ⌘0 zoom to 100 % actual size, PDF Expert's shortcut (dev/re/evidence/F-002/26) |
+| C-reader-010 | Gesture zoom and pan | 9 | Joint 9: Opus (round 37, dbb5316: pinch on the MBP with real magnify events, anchor held on page 80) and Sol AGREE 9 (rev38a, 28/10) |
 | C-reader-011 | Zoom to a selected area | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b24-round20b, 26/10) |
 | C-reader-012 | Magnifier loupe | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
 | C-reader-013 | Default zoom and remembered position | 9 | Joint 9: Opus (rounds 9–10, 8d1346d) and Sol AGREE 9 (re-review b15a-round9-10, 25/10) |
