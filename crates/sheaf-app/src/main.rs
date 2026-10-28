@@ -238,6 +238,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_press_profile, |ui, id| reader_ui::press_profile(&ui, id));
     wire_global!(ui, rb, on_press_export, |ui, id, condition, level| reader_ui::press_export(&ui, id, &condition, level));
     wire_global!(ui, rb, on_pdfe_export, |ui, id| reader_ui::pdfe_export(&ui, id));
+    wire_global!(ui, rb, on_trap, |ui, id, action, row, dpi, all| reader_ui::trap(&ui, id, action, row, &dpi, all));
     wire_global!(ui, rb, on_press_preset, |ui, id, preset| reader_ui::press_preset(&ui, id, preset));
     rb.on_production_close(reader_ui::production_close);
     wire_global!(ui, rb, on_production_hairlines, |ui, id, minimum, all| reader_ui::production_hairlines(&ui, id, &minimum, all));

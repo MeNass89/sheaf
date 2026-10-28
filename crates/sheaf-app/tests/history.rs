@@ -150,6 +150,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             open_at_login: true,
             no_quit_warning: true,
         },
+        trap_presets: vec![sheaf_core::trap::TrapPreset { name: "Coated sheetfed".into(), width_pt: 0.2, step: 0.15, ..Default::default() }],
     };
     p.save(dir.path()).unwrap();
     assert_eq!(Prefs::load(dir.path()), p);

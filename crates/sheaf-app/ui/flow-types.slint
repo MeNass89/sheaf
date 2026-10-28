@@ -1,5 +1,8 @@
 // Data the Rust side pushes into the tool flow screens.
 
+// Print Production ▸ Trap Presets: one preset's settings as typed (widths in points, the rest in %).
+export struct TrapPresetRow { name: string, width: string, black-width: string, step: string, sliding: string, reduction: string, black-limit: string, black-density: string }
+
 export struct FileItem {
     uid: int,
     name: string,
@@ -1096,6 +1099,11 @@ export global ReaderBridge {
     callback press-profile(int);
     callback press-export(int, string, int);
     callback pdfe-export(int);
+    // Trap Presets: the saved ones (Default first), and an action on the typed settings: 0 preview
+    // the traps, 1 save trapped plates (at the dpi, all pages or the current one), 2 keep the preset,
+    // 3 delete it.
+    in-out property <[TrapPresetRow]> trap-presets;
+    callback trap(int, int, TrapPresetRow, string, bool);
     callback press-preset(int, int);
     callback production-close(int);
     callback production-hairlines(int, string, bool);

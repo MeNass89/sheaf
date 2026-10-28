@@ -194,6 +194,8 @@ pub struct Prefs {
     pub ai: crate::ai_store::AiPrefs,
     /// Print defaults, Security (enhanced security, trusted locations) and Startup.
     pub settings: crate::settings::SettingsPrefs,
+    /// Print Production ▸ Trap Presets kept by the user (Default is built in).
+    pub trap_presets: Vec<sheaf_core::trap::TrapPreset>,
 }
 
 impl Prefs {

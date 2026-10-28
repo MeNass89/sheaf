@@ -112,3 +112,26 @@ PASS 344 automatic OCR writes searchable text (1053 579; Sheaf OCR test 2026  )
 PASS the real user profile was not touched
 ALL PASS
 ```
+
+## C-optimize-014 Trap Presets (28/10, Opus)
+
+Gap (Sol rev35B): no trap setting or calculation; the sheet said "Trapping is unavailable".
+Acrobat's Trap Presets only store settings; the traps come from an Adobe In-RIP Trapping device at print time.
+Sheaf draws them itself on the separated plates (`crates/sheaf-core/src/trap.rs`): where two abutting colours
+each have an ink the other lacks by more than the step limit, the lighter colour (neutral density, Adobe's
+process values) spreads under the darker by the trap width; the black width into black or rich black; close
+densities straddle the edge (sliding trap); colour reduction lightens what spreads. Ghostscript's own
+`-dTrapX` was tried first and rejected: on 10.02 it corrupts tiffsep and psdcmyk plates (values like 21 15 76
+on flat colour).
+- Function: presets with Acrobat's settings and defaults (0.25 pt, black 0.5 pt, step 10 %, black limit 100 %,
+  black density 1.6, sliding 70 %, reduction 100 %), kept and deleted in the preferences; Preview traps (Output
+  Preview of the trapped plates, at true width); Save trapped plates… (one 8-bit TIFF per page and ink, 72–2400
+  dpi, current page or all). Tests: `trap::tests::*` (6, one on a real Ghostscript page), history.rs round trip,
+  smoke 346 (yellow 1 px under the cyan edge at 300 dpi, the preview titled with the preset).
+- Not done: image trap placement options (images trap like flat colour), trap join and end styles (a raster
+  trap has none), assignment of presets to page ranges stored in the PDF (the sheet's current/all pages scope
+  is used instead).
+- Performance (release, 8 cores): a Letter page at 300 dpi with an edge every 60 px traps in 0.78 s at Default,
+  2.4 s at 1 pt / 2 pt; only pixels near an edge are scanned (chamfer distance), rows in parallel.
+- Aesthetics: the Trapping section matches the sheet's other sections (two- and three-up fields, preset buttons
+  as the press presets); screenshots dev/.tmp only (smoke 346-trap-sheet, 346-traps).

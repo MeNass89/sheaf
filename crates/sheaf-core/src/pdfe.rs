@@ -14,6 +14,10 @@ use std::path::{Path, PathBuf};
 /// The XMP namespace ISO 24517-1 names for the identification.
 const PDFE_NS: &str = "http://www.aiim.org/pdfe/ns/id/";
 
+/// The subtype 3D annotations carry through the PDF/A-2b step, which removes 3D (PDF/A forbids it,
+/// PDF/E keeps it); [`identify`] gives them back their own.
+const HELD_3D: &[u8] = b"SheafHeld3D";
+
 /// What [`to_pdfe`] wrote.
 #[derive(Debug, Clone)]
 pub struct PdfEReport {
@@ -26,7 +30,9 @@ pub struct PdfEReport {
 /// before it gets its final name; with `allow_incomplete` false an unresolved check saves nothing.
 pub fn to_pdfe(input: &Input, allow_incomplete: bool, out: &Path) -> Result<PdfEReport> {
     let tmp = tempfile::tempdir()?;
-    let archived = crate::pdfa::to_pdfa_with_policy(input, PdfALevel::A2b, true, &tmp.path().join("a.pdf"))?;
+    let held = tmp.path().join("held.pdf");
+    std::fs::write(&held, hold_3d(&crate::pdfcraft::Doc::open(input)?.unprotected_bytes()?.0)?)?;
+    let archived = crate::pdfa::to_pdfa_with_policy(&Input::new(&held), PdfALevel::A2b, true, &tmp.path().join("a.pdf"))?;
     let bytes = identify(&std::fs::read(&archived.path)?)?;
     let mut issues = Vec::new();
     let path = atomic_write(out, |part| {
@@ -41,9 +47,34 @@ pub fn to_pdfe(input: &Input, allow_incomplete: bool, out: &Path) -> Result<PdfE
     Ok(PdfEReport { path, issues })
 }
 
-/// `bytes` (a PDF/A-2b file) declared PDF/E-1: the identification added to its XMP, PDF 1.6.
+/// `bytes` with its 3D annotations given [`HELD_3D`] as their subtype (unchanged when it has none).
+fn hold_3d(bytes: &[u8]) -> Result<Vec<u8>> {
+    let mut pdf = Document::load_mem(bytes)?;
+    if !set_subtype(&mut pdf, b"3D", HELD_3D) { return Ok(bytes.to_vec()); }
+    let mut out = Vec::new();
+    pdf.save_to(&mut out)?;
+    Ok(out)
+}
+
+/// Gives every annotation of subtype `from` the subtype `to`; true when there was one.
+fn set_subtype(pdf: &mut Document, from: &[u8], to: &[u8]) -> bool {
+    let mut found = false;
+    for object in pdf.objects.values_mut() {
+        let dict = match object { Object::Dictionary(d) => d, Object::Stream(s) => &mut s.dict, _ => continue };
+        let annot = dict.get(b"Type").and_then(Object::as_name).is_ok_and(|n| n == b"Annot") || dict.has(b"Rect");
+        if annot && dict.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == from) {
+            dict.set("Subtype", Object::Name(to.to_vec()));
+            found = true;
+        }
+    }
+    found
+}
+
+/// `bytes` (a PDF/A-2b file) declared PDF/E-1: the identification added to its XMP, the 3D annotations
+/// given back their subtype, PDF 1.6.
 fn identify(bytes: &[u8]) -> Result<Vec<u8>> {
     let mut pdf = Document::load_mem(bytes)?;
+    set_subtype(&mut pdf, HELD_3D, b"3D");
     let id = pdf.catalog()?.get(b"Metadata")?.as_reference()?;
     let stream = pdf.get_object(id)?.as_stream()?;
     let xmp = String::from_utf8(stream.get_plain_content()?).map_err(|_| OpdfError::Conversion("The metadata is not UTF-8".into()))?;
@@ -69,7 +100,8 @@ pub fn verify(input: &Input) -> Result<Vec<PdfAIssue>> {
     let issue = |clause: &str, message: &str| PdfAIssue { clause: clause.into(), message: message.into() };
     let mut issues: Vec<PdfAIssue> = crate::pdfa::verify(input, PdfALevel::A2b)?
         .into_iter()
-        .filter(|i| !i.message.contains("PDF/A"))
+        // PDF/A's own identification, and its ban on 3D: PDF/E keeps 3D for engineering models.
+        .filter(|i| !i.message.contains("PDF/A") && i.message != "3D annotations aren't allowed")
         .collect();
     let bytes = std::fs::read(&input.path)?;
     let pdf = Document::load_mem(&bytes)?;

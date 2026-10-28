@@ -4,7 +4,7 @@ import { PrintPreviewBridge } from "reader-ink-preview.slint";
 import { Theme } from "../theme.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SmallButton } from "reader-parts.slint";
-import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { ToolTab, ReaderBridge, TrapPresetRow } from "../flow-types.slint";
 
 export component ProductionSheet inherits Rectangle {
     in property <ToolTab> tab;
@@ -14,6 +14,14 @@ export component ProductionSheet inherits Rectangle {
     property <int> box: 0;
     property <int> press-level: 0;
     property <int> mark-style: 0;
+    function typed-trap() -> TrapPresetRow {
+        { name: trap-name.text, width: trap-width.text, black-width: trap-black.text, step: trap-step.text, sliding: trap-sliding.text,
+          reduction: trap-reduction.text, black-limit: trap-black-limit.text, black-density: trap-density.text }
+    }
+    function fill-trap(p: TrapPresetRow) {
+        trap-name.text = p.name; trap-width.text = p.width; trap-black.text = p.black-width; trap-step.text = p.step;
+        trap-sliding.text = p.sliding; trap-reduction.text = p.reduction; trap-black-limit.text = p.black-limit; trap-density.text = p.black-density;
+    }
     background: #00000044;
     TouchArea { }
     FocusScope {
@@ -80,7 +88,46 @@ export component ProductionSheet inherits Rectangle {
                         SmallButton { text: @tr("Add printer marks"); clicked => { ReaderBridge.production-marks(root.id, root.all, root.mark-style, mark-width.text); root.focus-pages(); } }
                     }
                     HorizontalLayout { SmallButton { text: @tr("Flattener preview…"); clicked => { PrintPreviewBridge.open(root.id, 1); } } }
-                    Text { text: @tr("Preview compares the current page with PDF 1.3.\nThe working document stays unchanged.\nTrapping is unavailable."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Text { text: @tr("Preview compares the current page with PDF 1.3.\nThe working document stays unchanged."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    Rectangle { height: 1px; background: Theme.separator; }
+                    // Acrobat's Trap Presets; Sheaf draws the traps on the plates itself (no in-RIP device needed).
+                    Text { text: @tr("Trapping"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
+                    Text { text: @tr("Lighter inks spread under darker ones on the plates,\nso misregistration shows no paper. The PDF is unchanged;\ntrapped plates are saved as one TIFF per ink."); font-size: Theme.fs-caption; color: Theme.text-muted; }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        for p in ReaderBridge.trap-presets: SmallButton {
+                            text: p.name;
+                            primary: trap-name.text == p.name;
+                            clicked => { root.fill-trap(p); }
+                        }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
+                    trap-name := TextField { label: @tr("Preset name"); text: "Default"; }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        trap-width := TextField { label: @tr("Trap width (pt)"); text: "0.25"; }
+                        trap-black := TextField { label: @tr("Black width (pt)"); text: "0.5"; }
+                    }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        trap-step := TextField { label: @tr("Step limit (%)"); text: "10"; }
+                        trap-sliding := TextField { label: @tr("Sliding trap (%)"); text: "70"; }
+                        trap-reduction := TextField { label: @tr("Trap colour reduction (%)"); text: "100"; }
+                    }
+                    HorizontalLayout {
+                        spacing: 10px;
+                        trap-black-limit := TextField { label: @tr("Black ink limit (%)"); text: "100"; }
+                        trap-density := TextField { label: @tr("Black density"); text: "1.6"; }
+                        trap-dpi := TextField { label: @tr("Plate resolution (dpi)"); text: "300"; }
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        SmallButton { text: @tr("Preview traps"); clicked => { ReaderBridge.trap(root.id, 0, root.typed-trap(), trap-dpi.text, root.all); } }
+                        SmallButton { text: @tr("Save trapped plates…"); clicked => { ReaderBridge.trap(root.id, 1, root.typed-trap(), trap-dpi.text, root.all); } }
+                        SmallButton { text: @tr("Keep preset"); clicked => { ReaderBridge.trap(root.id, 2, root.typed-trap(), trap-dpi.text, root.all); } }
+                        if trap-name.text != "Default": SmallButton { text: @tr("Delete preset"); clicked => { ReaderBridge.trap(root.id, 3, root.typed-trap(), trap-dpi.text, root.all); trap-name.text = "Default"; } }
+                        Rectangle { horizontal-stretch: 1; }
+                    }
                     Rectangle { height: 1px; background: Theme.separator; }
                     Text { text: @tr("Save as PDF/X"); font-size: Theme.fs-label; font-weight: Theme.weight-demibold; color: Theme.text; }
                     Text { text: @tr("Whole document; no password protection.\nNeeds a local Ghostscript installation.\nUse the press's CMYK or Gray ICC profile."); font-size: Theme.fs-caption; color: Theme.text-muted; }

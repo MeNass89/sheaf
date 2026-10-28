@@ -109,8 +109,89 @@ pub(super) fn rows(report: &str) -> Vec<ReaderPrintCheck> {
 }
 
 /// Both print commands open the same settings sheet before changing the document.
-pub fn fix_page_hairlines(_ui: &AppWindow, tab_id: i32) {
+pub fn fix_page_hairlines(ui: &AppWindow, tab_id: i32) {
+    show_trap_presets(ui);
     update(tab_id, |r, _| r.prepress.production_open = true);
+}
+
+/// Default, then the presets kept, as the sheet's buttons.
+fn show_trap_presets(ui: &AppWindow) {
+    use sheaf_core::trap::TrapPreset;
+    let pct = |v: f32| format!("{}", (v * 1000.0).round() / 10.0);
+    let row = |p: &TrapPreset| sheaf_app::TrapPresetRow {
+        name: p.name.as_str().into(), width: p.width_pt.to_string().into(), black_width: p.black_width_pt.to_string().into(),
+        step: pct(p.step).into(), sliding: pct(p.sliding).into(), reduction: pct(p.reduction).into(),
+        black_limit: pct(p.black_limit).into(), black_density: p.black_density.to_string().into(),
+    };
+    let rows: Vec<_> = std::iter::once(TrapPreset::default()).chain(crate::home::prefs().trap_presets).map(|p| row(&p)).collect();
+    ui.global::<sheaf_app::ReaderBridge>().set_trap_presets(ModelRc::new(VecModel::from(rows)));
+}
+
+/// The preset as typed in the sheet; None (with a message) when a value is not a number or is out of range.
+fn typed_trap(ui: &AppWindow, row: &sheaf_app::TrapPresetRow) -> Option<sheaf_core::trap::TrapPreset> {
+    let num = |s: &slint::SharedString| s.trim().replace(',', ".").parse::<f32>().ok().filter(|v| v.is_finite());
+    let preset = (|| Some(sheaf_core::trap::TrapPreset {
+        name: row.name.trim().to_string(), width_pt: num(&row.width)?, black_width_pt: num(&row.black_width)?, step: num(&row.step)? / 100.0,
+        sliding: num(&row.sliding)? / 100.0, reduction: num(&row.reduction)? / 100.0, black_limit: num(&row.black_limit)? / 100.0, black_density: num(&row.black_density)?,
+    }))();
+    match preset {
+        None => { crate::flow::toast(ui, &sheaf_app::i18n::tr("Type the trap settings as numbers")); None }
+        Some(p) => match p.problem() {
+            Some(problem) => { crate::flow::toast(ui, &sheaf_app::i18n::tr(problem)); None }
+            None => Some(p),
+        },
+    }
+}
+
+/// Print Production ▸ Trapping: 0 previews the traps on the current page, 1 saves the trapped plates of
+/// the chosen pages at `dpi`, 2 keeps the preset, 3 deletes it.
+pub fn trap(ui: &AppWindow, tab_id: i32, action: i32, row: sheaf_app::TrapPresetRow, dpi: &str, all: bool) {
+    let Some(preset) = typed_trap(ui, &row) else { return };
+    match action {
+        0 => {
+            super::output_preview::set_trap(preset);
+            ui.global::<sheaf_app::PrintPreviewBridge>().invoke_open(tab_id, 2);
+        }
+        1 => save_trapped_plates(ui, tab_id, preset, dpi, all),
+        2 | 3 => {
+            if preset.name.is_empty() || preset.name == "Default" {
+                crate::flow::toast(ui, &sheaf_app::i18n::tr("Name the preset; Default stays as it is"));
+                return;
+            }
+            let mut kept = crate::home::prefs().trap_presets;
+            kept.retain(|p| p.name != preset.name);
+            let name = preset.name.clone();
+            if action == 2 { kept.push(preset); }
+            crate::home::set_trap_presets(kept);
+            show_trap_presets(ui);
+            crate::flow::toast(ui, &sheaf_app::i18n::trf(if action == 2 { "Trap preset {} kept" } else { "Trap preset {} deleted" }, &[&name]));
+        }
+        _ => {}
+    }
+}
+
+fn save_trapped_plates(ui: &AppWindow, tab_id: i32, preset: sheaf_core::trap::TrapPreset, dpi: &str, all: bool) {
+    let Some(dpi) = dpi.trim().parse::<u32>().ok().filter(|d| (72..=2400).contains(d)) else {
+        crate::flow::toast(ui, &sheaf_app::i18n::tr("Use a plate resolution from 72 to 2400 dpi"));
+        return;
+    };
+    let Some(pages) = production_pages(tab_id, all) else { return };
+    let Some((dir, stem, bytes, password)) = update(tab_id, |r, _| {
+        (crate::dest::parent_dir(&r.path), r.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default(), r.snap.bytes.clone(), r.snap.password.clone())
+    }) else { return };
+    let d = crate::dialog::new(ui).set_title("Save trapped plates in").set_directory(&dir);
+    crate::dialog::pick_folder(ui, d, move |ui, folder| {
+        update(tab_id, |r, _| r.prepress.production_open = false);
+        crate::flow::toast(ui, &sheaf_app::i18n::trf("Trapping {} pages in the background; you can keep editing", &[&pages.len().to_string()]));
+        let weak = ui.as_weak();
+        std::thread::spawn(move || {
+            let result = sheaf_core::trap::save_trapped_plates(&bytes, password.as_deref(), &pages, dpi, &preset, &folder.join(&stem), &mut || true);
+            let _ = weak.upgrade_in_event_loop(move |ui| match result {
+                Ok(files) => crate::flow::toast(&ui, &sheaf_app::i18n::trf("{} trapped plates saved in {}", &[&files.len().to_string(), &file_name(&folder)])),
+                Err(error) => crate::flow::toast(&ui, &sheaf_app::i18n::trf("Trapped plates were not saved: {}", &[&error.to_string()])),
+            });
+        });
+    });
 }
 
 pub fn add_crop_marks(ui: &AppWindow, tab_id: i32) {

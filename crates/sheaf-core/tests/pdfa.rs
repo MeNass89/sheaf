@@ -262,3 +262,29 @@ fn pdfe_writes_pdf16_identified_as_pdfe1_and_verifies_clean() {
     let refused = to_pdfe(&Input::new(&text), false, &t.path().join("text-e.pdf")).unwrap_err();
     assert!(refused.to_string().contains("Helvetica") && !t.path().join("text-e.pdf").exists(), "{refused}");
 }
+
+/// PDF/E keeps what engineering documents need (Sol rev36: the PDF/A-2b step removed 3D annotations): a page's
+/// 3D model annotation and its U3D stream come through with their subtype, and the file still checks clean.
+#[test]
+fn pdfe_keeps_a_3d_annotation_and_its_model() {
+    use lopdf::{dictionary, Object, Stream};
+    let t = tempfile::tempdir().unwrap();
+    let source = picture_pdf(t.path());
+    let mut pdf = lopdf::Document::load(&source).unwrap();
+    let model = pdf.add_object(Stream::new(dictionary! { "Type" => "3D", "Subtype" => "U3D" }, b"U3D\0 not a real model".to_vec()));
+    let poster = pdf.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 100.into(), 100.into()] }, b"0 0 1 rg 0 0 100 100 re f".to_vec()));
+    let page = *pdf.get_pages().get(&1).unwrap();
+    let annot = pdf.add_object(dictionary! { "Type" => "Annot", "Subtype" => "3D", "Rect" => vec![0.into(), 0.into(), 100.into(), 100.into()], "F" => 4,
+        "3DD" => model, "AP" => dictionary! { "N" => poster }, "P" => page });
+    pdf.get_object_mut(page).unwrap().as_dict_mut().unwrap().set("Annots", vec![Object::Reference(annot)]);
+    let with_3d = t.path().join("model.pdf");
+    pdf.save(&with_3d).unwrap();
+    let report = sheaf_core::pdfe::to_pdfe(&Input::new(&with_3d), false, &t.path().join("model-e.pdf")).unwrap();
+    assert!(report.issues.is_empty(), "{:?}", report.issues);
+    let out = lopdf::Document::load(&report.path).unwrap();
+    let kept = out.get_page_annotations(*out.get_pages().get(&1).unwrap()).unwrap().into_iter()
+        .find(|a| a.get(b"Subtype").and_then(Object::as_name).is_ok_and(|n| n == b"3D")).expect("the 3D annotation is kept");
+    let stream = out.dereference(kept.get(b"3DD").unwrap()).unwrap().1.as_stream().unwrap().clone();
+    assert!(stream.get_plain_content().unwrap().starts_with(b"U3D"));
+    assert!(!String::from_utf8_lossy(&std::fs::read(&report.path).unwrap()).contains("SheafHeld3D"));
+}

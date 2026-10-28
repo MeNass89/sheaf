@@ -127,3 +127,10 @@ PASS 336 strict PDF/A-2a refuses untagged content without saving a false archive
 PASS the real user profile was not touched
 ALL PASS
 ```
+
+## C-convert-019 PDF/E keeps 3D (28/10, Opus)
+
+Gap (Sol rev36a): the PDF/A-2b step under PDF/E removed 3D annotations, which PDF/E-1 exists to keep. `pdfe.rs`
+now gives 3D annotations a held subtype before that step and their own back after it; PDF/E's check no longer
+counts PDF/A's ban on 3D. Test `pdfe_keeps_a_3d_annotation_and_its_model` (tests/pdfa.rs): a page's 3D
+annotation and its U3D stream come through, the file checks clean, no held subtype is left.

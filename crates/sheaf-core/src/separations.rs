@@ -64,6 +64,18 @@ fn ink_cmyk(name: &str, bytes: &[u8]) -> [f32; 4] {
 /// Capture bytes on the UI thread only after pending edits have completed, then run off-thread.
 /// A bounded single-page square contains the complete crop at its original aspect ratio.
 pub fn preview(bytes: &[u8], password: Option<&str>, page: usize, progress: &mut dyn FnMut() -> bool) -> Result<Vec<Plate>> {
+    render(bytes, password, page, None, progress)
+}
+
+/// The resolution in dots per inch of a page `width` × `height` points fitted into the preview's
+/// 1,200-pixel square, for traps drawn on the preview at their true width.
+pub fn preview_dpi(width_pt: f32, height_pt: f32) -> f32 {
+    1200.0 * 72.0 / width_pt.max(height_pt).max(1.0)
+}
+
+/// The plates of `page`: fitted into the preview's 1,200-pixel square (`dpi` None), or at `dpi`
+/// for output (at most 40 million pixels a plate).
+pub fn render(bytes: &[u8], password: Option<&str>, page: usize, dpi: Option<u32>, progress: &mut dyn FnMut() -> bool) -> Result<Vec<Plate>> {
     let dir = tempfile::tempdir()?;
     let source = dir.path().join("snapshot.pdf");
     std::fs::write(&source, bytes)?;
@@ -73,16 +85,21 @@ pub fn preview(bytes: &[u8], password: Option<&str>, page: usize, progress: &mut
     drop(doc);
     let gs = crate::press::find_ghostscript().ok_or_else(|| OpdfError::Unsupported("Ink plate preview needs a local Ghostscript installation".into()))?;
     let output = dir.path().join("plate.tif");
-    let mut child = Command::new(gs).args(["-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=tiffsep", "-dUseCropBox", "-dFIXEDMEDIA", "-dPDFFitPage", "-g1200x1200", "-r144"])
+    let size: Vec<String> = match dpi {
+        None => ["-dFIXEDMEDIA", "-dPDFFitPage", "-g1200x1200", "-r144"].map(String::from).to_vec(),
+        Some(dpi) => vec![format!("-r{dpi}")],
+    };
+    let mut child = Command::new(gs).args(["-q", "-dSAFER", "-dBATCH", "-dNOPAUSE", "-sDEVICE=tiffsep", "-dUseCropBox"]).args(&size)
         .arg(format!("-dFirstPage={}", page + 1)).arg(format!("-dLastPage={}", page + 1))
         .arg(format!("-sOutputFile={}", output.display())).arg(source)
         .stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
     let start = Instant::now();
     loop {
         let cancelled = !progress();
-        if cancelled || start.elapsed() > Duration::from_secs(60) {
+        let limit = if dpi.is_some() { 600 } else { 60 };
+        if cancelled || start.elapsed() > Duration::from_secs(limit) {
             let _ = child.kill(); let _ = child.wait();
-            return Err(if cancelled { OpdfError::Cancelled } else { OpdfError::Conversion("Ink plate preview timed out after 60 seconds".into()) });
+            return Err(if cancelled { OpdfError::Cancelled } else { OpdfError::Conversion(format!("Ink plates timed out after {limit} seconds")) });
         }
         match child.try_wait() {
             Ok(Some(status)) if status.success() => break,
@@ -105,7 +122,8 @@ pub fn preview(bytes: &[u8], password: Option<&str>, page: usize, progress: &mut
     for (name, path) in files {
         let reader = image::ImageReader::open(&path)?.with_guessed_format()?;
         let (width, height) = reader.into_dimensions()?;
-        if width == 0 || height == 0 || width > 1200 || height > 1200 { return Err(OpdfError::Conversion("The ink plate renderer returned an oversized preview".into())); }
+        let oversized = match dpi { None => width > 1200 || height > 1200, Some(_) => u64::from(width) * u64::from(height) > 40_000_000 };
+        if width == 0 || height == 0 || oversized { return Err(OpdfError::Conversion("The plates are too large; use a lower resolution".into())); }
         let pixels = image::open(path)?.to_rgba8();
         let cmyk = ink_cmyk(&name, bytes);
         plates.push(Plate { name, width, height, rgba: pixels.into_raw(), cmyk });

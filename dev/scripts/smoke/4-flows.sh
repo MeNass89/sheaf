@@ -1172,6 +1172,26 @@ PV=$(python3 -c 'import sys; d=open(sys.argv[1],"rb").read(); print(d[:8].decode
 check "345 Save PDF/E copy writes PDF/E-1 beside the document ($PF; ${PE:-no PDF/E}; button ${SY:-none}; $PV)" "echo \"$PV\" | grep -q '%PDF-1.6 True'"
 key Escape; quit
 
+# 346. Acrobat's Trap Presets (C-optimize-014, Sol: no trap setting or calculation): the Production sheet's Save
+# trapped plates… writes one TIFF per ink where the yellow page runs under the cyan box's edge (1 px at 300 dpi,
+# Default's 0.25 pt), and Preview traps opens the plates titled with the preset.
+printf '%s\n' '<< /PageSize [72 72] >> setpagedevice' '0 0 1 0 setcmykcolor 0 0 72 72 rectfill' '1 0 0 0 setcmykcolor 18 18 36 36 rectfill' showpage > "$OUT/trap-src.ps"
+gs -q -dSAFER -dBATCH -dNOPAUSE -sDEVICE=pdfwrite -o "$OUT/trap-src.pdf" "$OUT/trap-src.ps"
+rm -rf "$OUT/traps"; mkdir -p "$OUT/traps"
+trap_sheet() { PF=$(optimize_print_tool hairlines); TP=; for _ in $(seq 1 16); do TP=$(at traps 700x660+0+80); [ -n "$TP" ] && break; xdotool mousemove 400 500 click 5; sleep 0.3; done; }
+launch "$OUT/trap-src.pdf"; trap_sheet
+read TX TY <<< "$(import -window root -crop 700x660+0+80 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="plates…" || $12=="plates..." {print int(($7+$9/2)/2), int(80+($8+$10/2)/2)}' | tail -1)"
+answer "$PWD/$OUT/traps"; [ -n "$TY" ] && click $(( TX - 40 )) $TY 1
+for _ in $(seq 1 40); do [ -s "$OUT/traps/trap-src p1 Black.tif" ] && break; sleep 0.5; done; answer ""
+TRAP_Y=$(convert "$OUT/traps/trap-src p1 Yellow.tif" -crop 1x1+75+150 -depth 8 gray:- 2>/dev/null | od -An -tu1 | tr -d ' ')
+TRAP_IN=$(convert "$OUT/traps/trap-src p1 Yellow.tif" -crop 1x1+150+150 -depth 8 gray:- 2>/dev/null | od -An -tu1 | tr -d ' ')
+trap_sheet; shot 346-trap-sheet; [ -n "$TP" ] && click $TP 1
+TT=; for _ in $(seq 1 30); do TT=$(ocr 900x80+180+40 | grep -o 'Traps (Default)'); [ -n "$TT" ] && break; sleep 0.5; done
+for _ in $(seq 1 40); do [ -n "$(at Cyan 180x180+195+175)" ] && break; sleep 0.5; done
+shot 346-traps
+check "346 trapped plates saved, yellow 1 px under the cyan edge; Preview traps opens ($PF; ${TP:-no button}; ${TY:-no save}; yellow at edge ${TRAP_Y:-none}, inside ${TRAP_IN:-none}; $(ls "$OUT/traps" | wc -l) files; ${TT:-no title})" "[ \"$(ls "$OUT/traps" | wc -l)\" = 4 ] && [ \"${TRAP_Y:-255}\" -lt 64 ] && [ \"${TRAP_IN:-0}\" -gt 192 ] && [ -n \"$TT\" ]"
+key Escape; quit
+
 # 344. iLovePDF's searchable OCR: automatic backend from the real options panel, with local packs.
 convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
 convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"

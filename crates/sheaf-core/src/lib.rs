@@ -26,6 +26,7 @@ pub mod ocr_review;
 pub mod pages;
 pub mod pdfa;
 pub mod pdfe;
+pub mod trap;
 pub mod pdfcraft;
 pub mod preflight;
 pub mod flattener_preview;

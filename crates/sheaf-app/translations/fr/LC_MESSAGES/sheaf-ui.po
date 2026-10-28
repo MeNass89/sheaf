@@ -4453,8 +4453,8 @@ msgid "Flattener preview…"
 msgstr "Aperçu de l’aplatissement…"
 
 #: ui/screens/reader-production.slint
-msgid "Preview compares the current page with PDF 1.3.\nThe working document stays unchanged.\nTrapping is unavailable."
-msgstr "L’aperçu compare la page active avec PDF 1.3.\nLe document de travail reste inchangé.\nLe recouvrement n’est pas disponible."
+msgid "Preview compares the current page with PDF 1.3.\nThe working document stays unchanged."
+msgstr "L’aperçu compare la page active avec PDF 1.3.\nLe document de travail reste inchangé."
 
 #: ui/screens/reader-production.slint
 msgid "Save as PDF/X"
@@ -6831,3 +6831,135 @@ msgstr "Les encres cochées ensemble"
 #: ui/screens/reader-ink-preview.slint
 msgid "All ticked inks"
 msgstr "Toutes les encres cochées"
+
+#: ui/screens/reader-production.slint
+msgid "Trapping"
+msgstr "Recouvrement"
+
+#: ui/screens/reader-production.slint
+msgid "Lighter inks spread under darker ones on the plates,\nso misregistration shows no paper. The PDF is unchanged;\ntrapped plates are saved as one TIFF per ink."
+msgstr "Les encres claires débordent sous les foncées sur les plaques :\nun défaut de repérage ne laisse pas voir le papier. Le PDF reste\ninchangé ; les plaques recouvertes sont un TIFF par encre."
+
+#: ui/screens/reader-production.slint
+msgid "Preset name"
+msgstr "Nom du paramètre prédéfini"
+
+#: ui/screens/reader-production.slint
+msgid "Trap width (pt)"
+msgstr "Largeur de recouvrement (pt)"
+
+#: ui/screens/reader-production.slint
+msgid "Black width (pt)"
+msgstr "Largeur sur le noir (pt)"
+
+#: ui/screens/reader-production.slint
+msgid "Step limit (%)"
+msgstr "Seuil de variation (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Sliding trap (%)"
+msgstr "Recouvrement glissant (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Trap colour reduction (%)"
+msgstr "Réduction de couleur (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Black ink limit (%)"
+msgstr "Limite d’encre noire (%)"
+
+#: ui/screens/reader-production.slint
+msgid "Black density"
+msgstr "Densité du noir"
+
+#: ui/screens/reader-production.slint
+msgid "Plate resolution (dpi)"
+msgstr "Résolution des plaques (ppp)"
+
+#: ui/screens/reader-production.slint
+msgid "Preview traps"
+msgstr "Aperçu du recouvrement"
+
+#: ui/screens/reader-production.slint
+msgid "Save trapped plates…"
+msgstr "Enregistrer les plaques recouvertes…"
+
+#: ui/screens/reader-production.slint
+msgid "Keep preset"
+msgstr "Garder le paramètre"
+
+#: ui/screens/reader-production.slint
+msgid "Delete preset"
+msgstr "Supprimer le paramètre"
+
+#: src/reader_ui/prepress.rs
+msgid "Type the trap settings as numbers"
+msgstr "Saisissez les réglages de recouvrement en chiffres"
+
+#: src/reader_ui/prepress.rs
+msgid "Name the preset; Default stays as it is"
+msgstr "Nommez le paramètre ; Default reste tel quel"
+
+#: src/reader_ui/prepress.rs
+msgid "Use a plate resolution from 72 to 2400 dpi"
+msgstr "Choisissez une résolution de plaque entre 72 et 2400 ppp"
+
+#: src/reader_ui/prepress.rs
+msgid "Trapping {} pages in the background; you can keep editing"
+msgstr "Recouvrement de {} pages en arrière-plan ; vous pouvez continuer à modifier"
+
+#: src/reader_ui/prepress.rs
+msgid "{} trapped plates saved in {}"
+msgstr "{} plaques recouvertes enregistrées dans {}"
+
+#: src/reader_ui/prepress.rs
+msgid "Trapped plates were not saved: {}"
+msgstr "Les plaques recouvertes n’ont pas été enregistrées : {}"
+
+#: src/reader_ui/prepress.rs
+msgid "Trap preset {} kept"
+msgstr "Paramètre de recouvrement {} gardé"
+
+#: src/reader_ui/prepress.rs
+msgid "Trap preset {} deleted"
+msgstr "Paramètre de recouvrement {} supprimé"
+
+#: src/reader_ui/output_preview.rs
+msgid "Traps ({})"
+msgstr "Recouvrement ({})"
+
+#: src/reader_ui/output_preview.rs
+msgid "Flattener preview"
+msgstr "Aperçu de l’aplatissement"
+
+#: src/reader_ui/output_preview.rs
+msgid "Output preview"
+msgstr "Aperçu de la sortie"
+
+#: src/reader_ui/output_preview.rs
+msgid "Compare the captured page with PDF 1.3.\nThe working document stays unchanged.\nTransparent artwork may become images."
+msgstr "Comparez la page capturée avec PDF 1.3.\nLe document de travail reste inchangé.\nLes éléments transparents peuvent devenir des images."
+
+#: src/reader_ui/output_preview.rs
+msgid "The plates with their traps, at their true width.\nLighter inks spread under darker ones.\nThe working document stays unchanged."
+msgstr "Les plaques avec leur recouvrement, à sa vraie largeur.\nLes encres claires débordent sous les foncées.\nLe document de travail reste inchangé."
+
+#: src/reader_ui/output_preview.rs
+msgid "Black shows ink; white shows no ink.\nProcess and spot plates of the captured page.\nThis is not a calibrated press soft proof."
+msgstr "Le noir montre l’encre, le blanc son absence.\nPlaques quadri et tons directs de la page capturée.\nCe n’est pas une épreuve écran étalonnée."
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use trap widths from 0 to 8 points"
+msgstr "Choisissez des largeurs de recouvrement entre 0 et 8 points"
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use a step limit from 1 to 100%"
+msgstr "Choisissez un seuil de variation entre 1 et 100 %"
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use black limit, sliding trap and colour reduction from 0 to 100%"
+msgstr "Choisissez limite du noir, recouvrement glissant et réduction entre 0 et 100 %"
+
+#: ../sheaf-core/src/trap.rs
+msgid "Use a black density from 0.001 to 10"
+msgstr "Choisissez une densité du noir entre 0,001 et 10"

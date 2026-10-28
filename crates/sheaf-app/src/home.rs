@@ -84,6 +84,16 @@ pub fn prefs() -> Prefs {
     with(|h| h.prefs.clone())
 }
 
+/// Keeps the trap presets the user saved (Print Production ▸ Trapping).
+pub fn set_trap_presets(presets: Vec<sheaf_core::trap::TrapPreset>) {
+    with(|h| {
+        h.prefs.trap_presets = presets;
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// The reader's page theme, remembered for the next document opened.
 pub fn set_reader_theme(theme: i32) {
     with(|h| {

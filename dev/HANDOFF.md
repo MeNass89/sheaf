@@ -21,12 +21,12 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
-## Last landing (28/10/2026, round 34)
+## Last landing (28/10/2026, round 35)
 
-Verdict: ALL GREEN (bash scripts/test.sh, full run, round 34 at 7790870, 1126 s). Open: sheaf-core's `pages`
-tests crashed once in PDFium (SIGSEGV) under a loaded machine and never in 50 idle runs; find its cause. Next: Sol
-reviews round 34's components (convert-019, reader-060, optimize-012, security-007, sign-013, preferences-003/005,
-platform-006); macOS unit failures on the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci).
+Verdict: ALL GREEN (bash scripts/test.sh, full run, round 35, 1137 s). Trap Presets with Sheaf's own raster
+trapping (trap.rs; Output Preview of the traps, trapped plates as TIFF; smoke 346) and PDF/E keeping 3D
+annotations. Open: sheaf-core's `pages` tests crashed once in PDFium (SIGSEGV) under load, never in 50 idle runs.
+Next: Sol reviews C-optimize-014 and C-convert-019; macOS unit failures on the MBP (ssh nassimlecornet@mbpn).
 
 ## Where things are
 
