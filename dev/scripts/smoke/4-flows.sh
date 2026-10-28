@@ -1119,17 +1119,30 @@ quit
 
 # 350. Stirling Folder Scanning's outputFileName survives import, and Export Stirling retains
 # it in a portable file. Inspection checks both the saved action and the exported pipeline.
+# First-launch rendering can outlast launch()'s initial draw. Wait for the actual Actions
+# header before using its controls; repeating the navigation click is safe and idempotent.
+batch_actions() {
+    local point
+    for _ in $(seq 1 20); do
+        point=$(at Import 140x60+220+180)
+        [ -n "$point" ] && return 0
+        point=$(at Actions 190x80+0+200)
+        [ -n "$point" ] && click $point 0.5
+        sleep 0.3
+    done
+    return 1
+}
 python3 - "$OUT/350-pipeline.json" <<'PY350'
 import json, sys
 json.dump({"name":"Naming review", "pipeline":[{"operation":"rotate","parameters":{"angle":90}}],
            "outputDir":"{outputFolder}", "outputFileName":"ready-{filename}-{pipelineName}"}, open(sys.argv[1], "w"))
 PY350
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/350-pipeline.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM 1
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM 1
 answer "$PWD/$OUT/350-export.json"
-EX=$(at Export 400x60+850+170); [ -n "$EX" ] && click $EX 1
+EX=$(at Export 200x50+1080+230); [ -n "$EX" ] && click $EX 1
 shot 350-stirling-naming
 check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
 quit
@@ -1137,27 +1150,29 @@ quit
 # 351. Acrobat's suggested action becomes an independent saved copy; the Suggested filter
 # keeps the original and Saved actions contains the copy after reopening the app.
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
-SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+batch_actions
+# The placeholder is deliberately pale; target the calibrated field after the header is ready.
+SH="330 345"; click $SH 0.3
 xdotool type --clearmodifiers --delay 10 "confidential watermark"; sleep 0.5
-QS=$(ocr 220x400+240+320)
+QS=$(ocr 220x370+220+370)
 check "351 suggested-action search matches words in its name and description (${SH:-no Search})" "echo \"$QS\" | grep -q 'Confidential' && ! echo \"$QS\" | grep -q 'Distribution'"
-CA=$(at Confidential 230x600+235+150); [ -n "$CA" ] && click $CA
-SA=$(at Save 600x160+485+400); [ -n "$SA" ] && click $SA 1
+CA=$(at Mark 220x370+220+370); [ -n "$CA" ] && click $CA
+SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
 shot 351-suggested-copy
 check "351 Save a copy keeps the suggested watermark configuration (${CA:-no suggestion}; ${SA:-no Save})" "python3 -c 'import json; a=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert any(x[\"name\"] == \"Mark as Confidential (2)\" and x[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\" for x in a)'"
+# A populated search field no longer shows its placeholder; reuse its observed position.
 # A suggestion's full limitations stay readable, rather than hidden in a one-line description.
-SH=$(at Search 220x200+235+240); [ -n "$SH" ] && click $SH 0.3
+[ -n "$SH" ] && click $SH 0.3
 key ctrl+a; xdotool type --clearmodifiers --delay 10 "accessibility"; sleep 0.5
-AS=$(at Accessibility 230x500+235+300); [ -n "$AS" ] && click $AS 0.8
-DS=$(ocr 740x200+500+300); shot 351-suggestion-description
+AS=$(at Accessibility 220x370+220+370); [ -n "$AS" ] && click $AS 0.8
+DS=$(ocr 790x100+460+375); shot 351-suggestion-description
 check "351 suggestion description shows its refusal and certification limits (${AS:-no suggestion})" "echo \"$DS\" | grep -q 'Refuses' && echo \"$DS\" | grep -q 'certification'"
 quit
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 # The list filter is the first combobox in the left column; Home then Down twice selects Saved.
-click 340 273; key Home; key Down; key Down; key Return
-LS=$(ocr 220x450+240+300); shot 351-saved-filter
+click 340 305; key Home; key Down; key Down; key Return
+LS=$(ocr 220x370+220+370); shot 351-saved-filter
 check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
 quit
 
@@ -1173,13 +1188,14 @@ PY352
 cp "$OUT/text.pdf" "$OUT/352-custom.pdf"
 launch "$OUT/352-custom.pdf"
 click 24 62 0.8
-AP=$(at Apply 620x440+330+180); [ -n "$AP" ] && click $AP 1.5
+AP=$(at Apply 220x55+345+380); [ -n "$AP" ] && click $AP 1.5
 shot 352-custom-pages
 key ctrl+s; sleep 1.5
 P2=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
 T2=$(first_text "$OUT/352-custom.pdf" 1); T3=$(first_text "$OUT/352-custom.pdf" 2)
 key ctrl+z; sleep 1; key ctrl+s; sleep 1.5
 P4=$(qpdf --show-npages "$OUT/352-custom.pdf" 2>/dev/null)
+shot 352-custom-undone
 check "352 custom page-range command applies to the open PDF and undoes (${AP:-no Apply}; pages ${P2:-?} then ${P4:-?})" "[ \"$P2\" = 2 ] && [ \"$P4\" = 4 ] && [ \"$T2\" = \"Page 2\" ] && [ \"$T3\" = \"Page 3\" ]"
 quit
 
@@ -1193,15 +1209,15 @@ json.dump({"version":1,"name":"Wizard settings","steps":[
 PY353
 cp "$OUT/text.pdf" "$OUT/353-source.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/353-wizard.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 ED=$(at Edit 200x250+1040+450); [ -n "$ED" ] && click $ED
 # Labelled fields can be below the editor's fold; scroll only that editor until the label is visible.
 batch_label() {
     local point
     for _ in $(seq 1 30); do
-        point=$(at "$1" 740x440+500+290)
+        point=$(at "$1" 790x360+460+290)
         if [ -n "$point" ]; then echo "$point"; return; fi
         xdotool mousemove 1245 650 click 5; sleep 0.15
     done
@@ -1209,8 +1225,9 @@ batch_label() {
 batch_field() {
     local bx by
     read bx by <<< "$(batch_label "$1")"
-    [ -n "$by" ] && click "$bx" $(( by + 32 )) 0.2
-    key ctrl+a; xdotool type --clearmodifiers --delay 5 "$2"; sleep 0.3
+    [ -n "$by" ] || return 1
+    click "$bx" $(( by + 32 )) 0.2
+    key ctrl+a; xdotool type --clearmodifiers --delay 5 -- "$2"; sleep 0.3
 }
 batch_field Mark "After | review"
 batch_field Font "24"
@@ -1219,7 +1236,7 @@ batch_field Opacity "0.35"
 batch_field Rotation "-30"
 shot 353-labelled-settings
 xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
-SA=$(at Save 600x180+485+380); [ -n "$SA" ] && click $SA 1
+SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
 check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
 xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
 answer "$PWD/$OUT/353-source.pdf"
@@ -1239,9 +1256,9 @@ PY354
 cp "$OUT/text.pdf" "$OUT/354-valid.pdf"
 printf 'Not a PDF' > "$OUT/354-broken.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/354-run.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 # Run is at the end of the right editor's scroll area.
 xdotool mousemove 1245 650; for _ in $(seq 1 35); do xdotool click 5; done; sleep 1
 answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.pdf"
@@ -1294,11 +1311,11 @@ PY356
 mkdir -p "$OUT/356-input/nested"
 cp "$OUT/text.pdf" "$OUT/356-input/first.pdf"; cp "$OUT/text.pdf" "$OUT/356-input/nested/second.pdf"
 launch
-AC=$(at Actions 210x400+0+30); [ -n "$AC" ] && click $AC
+batch_actions
 answer "$PWD/$OUT/356-folder-action.json"
-IM=$(at Import 1000x110+220+100); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
 xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
-IN=$(at Include 740x440+500+290); [ -n "$IN" ] && click $IN 0.3
+IN=$(at Include 790x440+460+290); [ -n "$IN" ] && click $IN 0.3
 answer "$PWD/$OUT/356-input"
 RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done

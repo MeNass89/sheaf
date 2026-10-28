@@ -251,6 +251,9 @@ export component AppWindow inherits Window {
     // ⌘, reaches it wherever the user is.
     changed active-tab => { root.take-keys(); }
     changed pw-visible => { if !self.pw-visible { root.take-keys(); } }
+    // Acrobat returns keyboard edits to the reader after a custom command palette closes.
+    property <bool> custom-tools-visible: ActionBridge.tools-visible;
+    changed custom-tools-visible => { if !self.custom-tools-visible { root.take-keys(); } }
     init => { root.take-keys(); }
     // The keyboard goes where it belongs: the Tools search on Home ▸ Tools, else the app scope (so
     // ⌘, works everywhere); a reader tab and the password dialog take it themselves.
