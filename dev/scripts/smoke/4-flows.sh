@@ -1587,9 +1587,9 @@ quit; rm -f "$OUT/dialog-answer"; ai_stop
 # the PDF holds the Japanese text, searchable (set in a font that draws it, not refused).
 ai_mock seen; prefs_set "p['ai']['language'] = 'Japanese'"; cp "$OUT/text.pdf" "$OUT/ai.pdf"; rm -f "$OUT/ai-ja.pdf"; echo "$PWD/$OUT/ai-ja.pdf" > "$OUT/dialog-answer"
 launch "$OUT/ai.pdf"; sleep 1
-# Translate: the row above the categories field (whose placeholder OCR reads; the language list's chevron and the
-# chips' outlines garble the row itself), right of the language list.
-ai_open; read _ CY <<< "$(at Categories 380x300+900+300)"; [ -n "$CY" ] && click 1076 $(( CY - 44 )) 0.5; TR="${CY:-no Categories}"; sleep 2
+# Translate: the row above the categories field, found by its "Classify PDFs…" button (the placeholder is too
+# light for OCR since W1; the language list's chevron and the chips' outlines garble the row itself).
+ai_open; read _ CY <<< "$(at Classify 380x300+900+300)"; [ -n "$CY" ] && click 1076 $(( CY - 44 )) 0.5; TR="${CY:-no Classify}"; sleep 2
 read SX SY <<< "$(ai_last Save)"; [ -n "$SY" ] && click $SX $SY 0.5
 for _ in $(seq 1 20); do [ -s "$OUT/ai-ja.pdf" ] && break; sleep 0.5; done; shot ai-367
 JT=$(pdftotext "$OUT/ai-ja.pdf" - 2>/dev/null | tr -d '\n')
