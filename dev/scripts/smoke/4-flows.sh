@@ -9,7 +9,9 @@ answer "$PWD/$OUT/named.pdf"; read AX _ <<< "$(at toname 1280x40+0+0)"; xdotool 
 RN=$(at Rename 1280x400+0+0); [ -n "$RN" ] && click $RN 1.5; answer ""
 NM=$( [ -f "$OUT/named.pdf" ] && [ ! -e "$OUT/toname.pdf" ] && echo renamed )
 read AX _ <<< "$(at named 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-MT=$(at Move 1280x400+0+0); [ -n "$MT" ] && click $MT 1.5
+# Read on the menu alone (it opens at the pointer, 280 wide): beside it the page's large first line ran into
+# "Move to Trash" and tesseract lost the item, then "Move to New Window" was the first Move.
+MT=$(at Move "270x400+$(( ${AX:-10} - 10 ))+0"); [ -n "$MT" ] && click $MT 1.5
 check "a tab's menu renames its file and moves it to the trash (${RN:-no Rename} ${NM:-not renamed}; ${MT:-no Move}; $(ntabs) tabs)" "[ \"$NM\" = renamed ] && [ ! -e \"$OUT/named.pdf\" ] && [ \"\$(ntabs)\" = 0 ]"
 quit
 
@@ -1017,7 +1019,9 @@ read SX _ <<< "$(at Search 1280x80+0+40)"; read UX _ <<< "$(at Custom 1280x80+0+
 quit
 cp "$OUT/text.pdf" "$OUT/rtlprint.pdf"; launch "$OUT/rtlprint.pdf"; sleep 1
 key ctrl+p; sleep 1; shot 300b-rtl-print
-read CX _ <<< "$(at Copies 1280x700+0+60)"; read PX _ <<< "$(at Print 1280x700+0+60)"
+# The title read on the sheet's top row alone (on the whole sheet tesseract now misses it and finds "Printer's
+# default" first, which also starts with Print).
+read CX _ <<< "$(at Copies 1280x700+0+60)"; read PX _ <<< "$(at Print 720x40+280+206)"
 key Escape; sleep 0.3
 check "right to left mirrors the Tools page's title row and the print sheet (search x ${SX:-?} < Custom tools ${UX:-?}; Copies at x ${CX:-?}, Print title at ${PX:-?})" "[ -n \"$SX\" ] && [ -n \"$UX\" ] && [ \"$SX\" -lt \"$UX\" ] && [ \"${CX:-0}\" -gt 700 ] && [ \"${PX:-0}\" -gt 900 ]"
 quit; platform_reset

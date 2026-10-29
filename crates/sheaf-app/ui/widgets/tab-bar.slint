@@ -163,9 +163,11 @@ export component TabBar inherits Rectangle {
     property <length> room: root.width - root.home-w - 38px - 8px;
     property <length> each: root.tabs.length == 0 ? Theme.tab-max-width
         : clamp(root.room / root.tabs.length, 72px, Theme.tab-max-width);
-    property <length> active-w: root.each;
-    property <length> other-w: root.each;
-    property <length> row-width: root.home-w + root.tabs.length * root.each + 38px;
+    // The selected tab keeps room for its name (140) however many are open; the others share the rest.
+    property <length> active-w: root.active < 0 ? root.each : min(Theme.tab-max-width, max(root.each, 140px));
+    property <length> other-w: root.active < 0 || root.tabs.length < 2 ? root.each
+        : clamp((root.room - root.active-w) / (root.tabs.length - 1), 72px, Theme.tab-max-width);
+    property <length> row-width: root.home-w + (root.tabs.length - 1) * root.other-w + root.active-w + 38px;
     changed active => { if root.active < 0 { root.active-at = -1; } }
     // The active tab is kept in view (its place is set by the tab itself).
     changed active-at => {

@@ -242,7 +242,8 @@ quit
 # 34. Pages copied between documents: rl.pdf's red page 1 (thumbnail 120,230) ⌘C, then in four.pdf (page 1
 # selected) ⌘V puts it second; saved, four.pdf has five pages, the second red.
 cp "$OUT/text.pdf" "$OUT/four.pdf"; launch "$OUT/rl.pdf" "$OUT/four.pdf"; sleep 3
-read RX _ <<< "$(at rl.pdf 1280x40+0+0)"; xdotool mousemove "${RX:-0}" 21 click 1; sleep 1; click 120 230 0.6; key ctrl+c
+# rl.pdf is the first document tab (120–360 after the 120-wide Home tab): its grey name reads "ri.pdf" to tesseract.
+xdotool mousemove 230 21 click 1; sleep 1; click 120 230 0.6; key ctrl+c
 read FX _ <<< "$(at four 1280x40+0+0)"; xdotool mousemove "${FX:-0}" 21 click 1; sleep 1; click 120 230 0.6; key ctrl+v; sleep 1.5; key ctrl+s; sleep 1.5
 P2=$(pdftoppm -r 10 -f 2 -l 2 -png "$OUT/four.pdf" 2>/dev/null | convert - -resize 1x1\! txt:- | grep -o '#[0-9A-F]\{6\}')
 check "pages copied from one document are pasted into another ($(npages $OUT/four.pdf) pages, page 2 ${P2:-?})" "[ \"\$(npages $OUT/four.pdf)\" = 5 ] && reddish '${P2:-#000000}'"
