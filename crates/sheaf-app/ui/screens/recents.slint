@@ -259,11 +259,14 @@ export component CustomizeHomeSheet inherits Rectangle {
         }
         VerticalLayout {
             spacing: Space.sm;
-            for r in 3: HorizontalLayout {
+            for r in 3: FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 spacing: Space.sm;
                 for c in 2: PopupButton {
                     property <int> k: r * 2 + c;
-                    horizontal-stretch: 1;
+                    // Two equal columns: (480 − 2 × 20 − 8) / 2.
+                    width: (480px - 2 * Space.xl - Space.sm) / 2;
                     options: HomeBridge.tile-choices;
                     current-index: HomeBridge.tile-picks.length > self.k ? HomeBridge.tile-picks[self.k] : 0;
                     tip: @tr("Tile {}", self.k + 1);

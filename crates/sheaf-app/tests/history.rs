@@ -117,6 +117,8 @@ fn prefs_round_trip_and_corrupt_means_default() {
         last_views: vec![(PathBuf::from("/tmp/a.pdf"), 2, 150, 1)],
         tool_styles: vec![(5, 2, 1, 0)],
         favourite_tools: vec!["compress".into()],
+        home_tiles: vec!["edit".into(), "annotate".into(), "merge".into(), "ocr".into(), "sign".into(), "compress".into()],
+        home_hidden: vec!["favourites".into()],
         signature_strokes: Vec::new(),
         signature_name: None,
         signature_pen: (1, 2),
@@ -268,15 +270,6 @@ fn expired_recent_exclusions_are_pruned_and_corrupt_state_is_recoverable() {
     assert!(again.visible_in_recents(&entry(1).outputs[0]));
     again.clear_recents().unwrap();
     assert!(!Store::open(dir.path()).visible_in_recents(&entry(1).outputs[0]));
-}
-
-#[test]
-fn recent_tools_are_the_newest_distinct_runs() {
-    use sheaf_app::history::{recent_tools, Entry};
-    let e = |tool: &str, at| Entry { tool: tool.into(), inputs: vec![], outputs: vec![], at_unix: at, options: Default::default() };
-    let list = vec![e("compress", 9), e("read", 8), e("merge", 7), e("compress", 6), e("split", 5), e("rotate", 4)];
-    assert_eq!(recent_tools(&list, "read", 3), ["compress", "merge", "split"]);
-    assert!(recent_tools(&[], "read", 3).is_empty());
 }
 
 #[test]

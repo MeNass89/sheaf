@@ -90,11 +90,12 @@ export component ToolsScreen inherits Rectangle {
         }
 
         // The categories as chips: All, then each one (Plugins when any).
-        if root.typed == "": HorizontalLayout {
+        if root.typed == "": FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             padding-left: HomeMetrics.margin;
             padding-right: HomeMetrics.margin;
             spacing: Space.sm;
-            alignment: PlatformBridge.rtl ? LayoutAlignment.end : LayoutAlignment.start;
             Chip { text: @tr("All"); on: root.sort < 0; clicked => { root.sort = -1; } }
             for s[i] in root.sections: Chip { text: s.title; on: root.sort == i; clicked => { root.sort = i; } }
         }
