@@ -143,7 +143,12 @@ tokens only (ToolbarButton, ModeSegment, RailButton, TipArea, ResizeHandle, Them
   an overlay at 1024; the menu bar reorder (`mac_menu.rs`, main.slint MenuBar). Measure has no measuring tool.
 - Icons added: `panel-right.svg`, `ruler.svg` (Lucide). 28 new texts in fr / de / es / it / pt.
 
-Smoke recalibrated (gui-smoke.sh `ZOOM_X=160 ZOOM_MENU_X=190 WRENCH_X=784`): 1-reader 6g (Fit page row at
+Smoke recalibrated (gui-smoke.sh `ZOOM_X=160 ZOOM_MENU_X=190 WRENCH_X=784`): 1-reader 2b' (the signature's page
+geometry with the Fill & Sign rail on: 944/612 px a point from 320,134), 2d and 2-documents 20c and 4-flows 210 (the same
+Edit-mode geometry), 3-flows 23 (the search field's text read at x 926), 50 (the sixth dot at 664,100, the palette's orange
+at 618,135), 54 (the dialog's Cancel read on its own row: the Edit text card has one too), 61 (the zoomed word measured on
+the canvas, not in the thumbnails), 4-flows 84 (the Shapes rows from y 80), 352 (custom tools through More ▸ More tools…),
+367 (the AI panel's Translate row found by its Classify button: W1's placeholders are too light for OCR), 1-reader 6g (Fit page row at
 y 311), the options-bar clicks of 1-reader 2d/2e/9/10/11 and 2-documents 16 and 3-flows 53/58/63 (y 110 → 100,
 x + 44: the bar is docked at 82–118 from x 316), 2-documents 18 (Redact: the Redact segment 688,61 then the
 rail's second item 282,148), 4-flows 83 (the Pen in the rail at 282,348), `ai_open` (1090,61), `pdfa_reader_tool`
