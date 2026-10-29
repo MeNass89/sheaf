@@ -142,6 +142,21 @@ fn flatten_which(doc: &mut Document, pages: &[usize], which: Which) -> Result<us
         let page = all[i].clone();
         let annots_obj = page.dict.get(b"Annots").cloned();
         let Some(list) = annots_obj.as_ref().map(|a| doc.resolve(a)).and_then(|a| a.as_array().cloned()) else { continue };
+        // Sheaf: comments written inline in /Annots (PDFium writes them so) become objects of their
+        // own first, or one without an appearance could not be given one and was left unflattened.
+        let list: Vec<Object> = if list.iter().any(|e| e.as_ref().is_none() && e.as_dict().is_some()) {
+            let promoted: Vec<Object> = list.iter().map(|e| match (e.as_ref(), e.as_dict()) {
+                (None, Some(d)) => Object::Ref(doc.add(Object::Dict(d.clone()))),
+                _ => e.clone(),
+            }).collect();
+            match page.dict.get(b"Annots").and_then(|a| a.as_ref()).filter(|r| doc.get(*r).as_array().is_some()) {
+                Some(r) => doc.set(r, Object::Array(promoted.clone())),
+                None => doc.update_dict(page.obj, |d| d.set(b"Annots".to_vec(), Object::Array(promoted.clone())))?,
+            }
+            promoted
+        } else {
+            list
+        };
         let mut content = String::new();
         let mut xobjects = Dict::new();
         let mut name_n = 0u32;

@@ -102,6 +102,23 @@ pub fn from_pasted(p: &Pasted, out: &Path) -> Result<PathBuf> {
 
 /// Paper sizes a page can be changed to (Acrobat's Set Page Boxes ▸ Change Page Size), in points:
 /// A4, US Letter, A3, A5, US Legal.
+/// `input` with the comments and form fields of `pages` (0-based) drawn into those pages, as
+/// PDFium opens it, unprotected; other pages keep theirs. Drawn by PdfCraft: pdfium-render's
+/// `PdfPage::flatten` hands back a page whose structures PDFium has freed (PDFium issue 2055), and
+/// reading it crashed Change Page Size and Flip about one run in five (Valgrind: invalid reads in
+/// FPDFPage_GetCropBox right after the flatten). The caller holds `pdfium_lock()`.
+pub(crate) fn flattened(input: &Input, pages: &[usize]) -> Result<PdfDocument<'static>> {
+    // The password is checked, and its error given, as for any other open.
+    drop(input.open()?);
+    let data = std::sync::Arc::new(std::fs::read(&input.path)?);
+    let engine = |e: &dyn std::fmt::Display| OpdfError::Engine(format!("{}: {e}", input.path.display()));
+    let mut doc = pdfcraft_cos::Document::open_with_password(data, input.password.as_deref()).map_err(|e| engine(&e))?;
+    pdfcraft_edit::flatten(&mut doc, pages, true, true).map_err(|e| engine(&e))?;
+    doc.remove_encryption();
+    let bytes = pdfcraft_cos::write_full(&doc, &pdfcraft_cos::SaveOptions { object_streams: false, ..Default::default() }).map_err(|e| engine(&e))?;
+    pdfium().load_pdf_from_byte_vec(bytes, None).map_err(Into::into)
+}
+
 pub const PAPER: [(&str, f64, f64); 5] = [("A4", 595.0, 842.0), ("Letter", 612.0, 792.0), ("A3", 842.0, 1191.0), ("A5", 420.0, 595.0), ("Legal", 612.0, 1008.0)];
 
 /// Change Page Size: the pages chosen (`pages` a range, none: all) become `size` points (width,
@@ -113,8 +130,7 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
         return Err(OpdfError::Unsupported("the page size must be more than 0".into()));
     }
     let _g = pdfium_lock();
-    let src = input.open()?;
-    let total = src.pages().len() as u32;
+    let total = input.open()?.pages().len() as u32;
     let chosen: Vec<i32> = match pages.map(str::trim).filter(|s| !s.is_empty()) {
         Some(s) => {
             let ranges = parse_ranges(s, total)?;
@@ -122,13 +138,13 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
         }
         None => (0..total as i32).collect(),
     };
+    let src = flattened(input, &chosen.iter().map(|&i| i as usize).collect::<Vec<_>>())?;
     let mut dst = pdfium().create_new_pdf()?;
     dst.pages_mut().append(&src)?;
     for i in chosen {
         let mut page = dst.pages().get(i)?;
-        // Comments are drawn into the page first, so they shrink or grow with it (Sol, 26/10: a
-        // highlight stayed where it was, off its words or off the page).
-        page.flatten()?;
+        // Its comments were drawn into it (`flattened`), so they shrink or grow with it (Sol, 26/10:
+        // a highlight stayed where it was, off its words or off the page).
         let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
         // In user space, before the page's own turn.
         let (w, h) = if turned { (size.1, size.0) } else { size };
@@ -143,6 +159,12 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
         let (dx, dy) = ((w - w0 * k) / 2.0 - x0 * k, (h - h0 * k) / 2.0 - y0 * k);
         let shown = PdfRect::new_from_values((y0 * k + dy) as f32, (x0 * k + dx) as f32, ((y0 + h0) * k + dy) as f32, ((x0 + w0) * k + dx) as f32);
         page.transform_with_clip(k as f32, 0.0, 0.0, k as f32, dx as f32, dy as f32, shown)?;
+        // transform_with_clip reloads the page, but a PdfPage keeps its boundaries (and links,
+        // objects) on the handle it was made with, now freed: setting the boxes through it read
+        // freed memory and crashed about one run in five (Valgrind, 29/10). A fresh page has the
+        // new handle.
+        drop(page);
+        let mut page = dst.pages().get(i)?;
         let rect = PdfRect::new_from_values(0.0, 0.0, h as f32, w as f32);
         page.boundaries_mut().set_media(rect)?;
         page.boundaries_mut().set_crop(rect)?;
@@ -156,8 +178,7 @@ pub fn resize(input: &Input, pages: Option<&str>, size: (f64, f64), out: &Path) 
 /// its words (a mirror is for printing).
 pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) -> Result<PathBuf> {
     let _g = pdfium_lock();
-    let src = input.open()?;
-    let total = src.pages().len() as u32;
+    let total = input.open()?.pages().len() as u32;
     let chosen: Vec<i32> = match pages.map(str::trim).filter(|s| !s.is_empty()) {
         Some(s) => {
             let ranges = parse_ranges(s, total)?;
@@ -165,11 +186,11 @@ pub fn flip(input: &Input, pages: Option<&str>, horizontal: bool, out: &Path) ->
         }
         None => (0..total as i32).collect(),
     };
+    let src = flattened(input, &chosen.iter().map(|&i| i as usize).collect::<Vec<_>>())?;
     let mut dst = pdfium().create_new_pdf()?;
     dst.pages_mut().append(&src)?;
     for i in chosen {
         let mut page = dst.pages().get(i)?;
-        page.flatten()?;
         // As seen: a page turned a quarter is mirrored about the other axis of its own space.
         let turned = matches!(page.rotation()?, PdfPageRenderRotation::Degrees90 | PdfPageRenderRotation::Degrees270);
         // About the middle of what shows: the crop box when there is one (Sol, 26/10: about the

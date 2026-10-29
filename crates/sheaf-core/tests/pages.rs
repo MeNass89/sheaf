@@ -386,3 +386,22 @@ fn letter_paper_is_for_the_regions_that_use_it() {
     }
     assert!(!letter_region(None));
 }
+
+/// pdfium-render's `PdfPage::flatten` leaves the page pointing at structures PDFium has freed:
+/// Change Page Size and Flip crashed about one run in five until comments were drawn by PdfCraft
+/// (`pages::flattened`, Valgrind: invalid reads in FPDFPage_GetCropBox). It must not come back.
+#[test]
+fn pdfium_flatten_is_never_called() {
+    fn rs(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap().flatten() {
+            let p = e.path();
+            if p.is_dir() { rs(&p, out) } else if p.extension().is_some_and(|x| x == "rs") { out.push(p) }
+        }
+    }
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut files = Vec::new();
+    rs(&root.join("src"), &mut files);
+    rs(&root.join("../sheaf-app/src"), &mut files);
+    let found: Vec<String> = files.iter().filter(|f| std::fs::read_to_string(f).unwrap().contains(".flatten()?")).map(|f| f.display().to_string()).collect();
+    assert!(found.is_empty(), "PDFium's page flatten is used in {found:?}");
+}
