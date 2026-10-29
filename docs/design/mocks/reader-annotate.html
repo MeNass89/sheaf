@@ -1,0 +1,131 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sheaf mock: reader, Annotate mode</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.selbar{position:absolute;left:150px;top:128px;height:36px;background:#fff;border:1px solid var(--hairline);border-radius:10px;box-shadow:var(--shadow-pop);display:flex;align-items:center;gap:2px;padding:0 6px}
+.selbar .tb{width:28px;height:28px;border-radius:6px}.selbar .tb svg{width:16px;height:16px}
+.selbar .sw{width:14px;height:14px;margin:0 3px}
+</style></head>
+<body>
+<div class="tabstrip">
+  <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+  <div class="tab" style="min-width:120px"><svg><use href="icons.svg#home"/></svg>Home</div>
+  <div class="tab on" style="width:240px"><svg><use href="icons.svg#file"/></svg>Cardiac physiology.pdf<span class="x"><svg><use href="icons.svg#x"/></svg></span></div>
+  <div class="tab" style="width:200px"><svg><use href="icons.svg#file"/></svg>report.pdf</div>
+  <div class="tab plus"><svg><use href="icons.svg#plus"/></svg></div>
+</div>
+<div class="toolbar">
+  <div class="group" style="margin-left:8px">
+    <div class="tb on"><svg><use href="icons.svg#sidebar"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#grid"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#book"/></svg></div>
+  </div>
+  <div class="group" style="margin-left:8px">
+    <div class="tbtext">87%<svg><use href="icons.svg#chev"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#minus"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#plus"/></svg></div>
+    <div class="tbtext" style="width:88px;justify-content:center;background:#fff;border:1px solid var(--hairline)"><span>4</span><span style="color:var(--text3)">/ 7</span></div>
+  </div>
+  <div class="modebar" style="left:472px;top:4px">
+    <div class="mode on"><svg><use href="icons.svg#highlighter"/></svg></div>
+    <div class="mode"><svg><use href="icons.svg#type"/></svg></div>
+    <div class="mode"><svg><use href="icons.svg#sign"/></svg></div>
+    <div class="mode"><svg><use href="icons.svg#pages"/></svg></div>
+    <div class="mode"><svg><use href="icons.svg#redact"/></svg></div>
+    <div class="mode"><svg><use href="icons.svg#ruler"/></svg></div>
+    <div class="mode"><svg><use href="icons.svg#wrench"/></svg></div>
+  </div>
+  <div class="group" style="position:absolute;right:8px;top:4px;gap:4px">
+    <div class="tb"><svg><use href="icons.svg#aa"/></svg></div>
+    <div class="search"><svg><use href="icons.svg#searchi"/></svg>Search</div>
+    <div class="tb"><svg><use href="icons.svg#sparkle"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#share"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#print"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#more"/></svg></div>
+    <div class="tb on"><svg><use href="icons.svg#inspector"/></svg></div>
+  </div>
+</div>
+<div class="body">
+  <div class="sidebar">
+    <div class="segs">
+      <div class="seg on"><svg><use href="icons.svg#file"/></svg></div>
+      <div class="seg"><svg><use href="icons.svg#outline"/></svg></div>
+      <div class="seg"><svg><use href="icons.svg#star"/></svg></div>
+      <div class="seg"><svg><use href="icons.svg#note"/></svg></div>
+      <div class="seg"><svg><use href="icons.svg#clip"/></svg></div>
+      <div class="seg"><svg><use href="icons.svg#layers"/></svg></div>
+    </div>
+    <div class="ptitle">Thumbnails<span class="act"><svg><use href="icons.svg#more"/></svg></span></div>
+    <div class="thumbs">
+      <div class="thumb"><div class="pg"><b style="font-size:7px">Chapter 3. Cardiac physiology 3</b><br><br>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume.<br><br>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</div><div class="n">3</div></div>
+      <div class="thumb sel"><div class="pg"><b style="font-size:7px">Chapter 4. Cardiac physiology 4</b><br><br>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole.<br><br>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</div><div class="n">4</div></div>
+    </div>
+    <div class="pagebar">
+      <div class="tb"><svg><use href="icons.svg#rotl"/></svg></div>
+      <div class="tb"><svg><use href="icons.svg#rotr"/></svg></div>
+      <div class="tb"><svg><use href="icons.svg#plus"/></svg></div>
+      <div class="tb"><svg><use href="icons.svg#dup"/></svg></div>
+      <div class="tb"><svg><use href="icons.svg#extract"/></svg></div>
+      <div class="tb"><svg><use href="icons.svg#hash"/></svg></div>
+      <div class="tb"><svg><use href="icons.svg#trash"/></svg></div>
+      <div class="tooltip" style="left:166px;top:-28px">Delete page<b>⌫</b></div>
+    </div>
+  </div>
+  <div class="rail">
+    <div class="tb"><svg><use href="icons.svg#cursor"/></svg></div>
+    <div class="tb on"><svg><use href="icons.svg#highlighter"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#underline"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#strike"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#squiggle"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#note"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#textbox"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#callout"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#pen"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#eraser"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#shapes"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#stamp"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#sign"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#link"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#clip"/></svg></div>
+    <div class="tb"><svg><use href="icons.svg#cal"/></svg></div>
+  </div>
+  <div class="main">
+    <div class="optbar">
+      <div class="sw on" style="background:#ffd60a"></div><div class="sw" style="background:#30d158"></div><div class="sw" style="background:#64d2ff"></div><div class="sw" style="background:#ff6482"></div><div class="sw" style="background:#bf5af2"></div><div class="sw" style="background:#fff;box-shadow:inset 0 0 0 1.5px var(--text3)"></div>
+      <div class="vsep"></div>
+      <span style="color:var(--text2)">Opacity</span><div class="slider" style="width:96px"><i style="left:72px"></i></div><span style="color:var(--text2);width:32px">85%</span>
+      <div class="vsep"></div>
+      <div class="stroke"><i style="height:1px"></i></div><div class="stroke on"><i style="height:3px"></i></div><div class="stroke"><i style="height:5px"></i></div>
+    </div>
+    <div class="canvas">
+      <div class="page">
+        <h1>Chapter 4. Cardiac physiology 4</h1>
+        <h2>4.1 Section heading</h2>
+        <p><span class="hl">The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</span> The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</p>
+        <p>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</p>
+        <h2>4.2 Section heading</h2>
+        <p>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume.</p>
+        <p>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</p>
+        <h2>4.3 Section heading</h2>
+        <p>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</p>
+      </div>
+    </div>
+  </div>
+  <div class="inspector">
+    <div class="ihead">Annotate</div>
+    <div class="isec"><h4>Highlight<svg><use href="icons.svg#chev"/></svg></h4>
+      <div class="row">Colour<span class="val"><span class="sw on" style="background:#ffd60a"></span><span class="sw" style="background:#30d158"></span><span class="sw" style="background:#64d2ff"></span><span class="sw" style="background:#ff6482"></span><span class="sw" style="background:#bf5af2"></span><span class="sw" style="background:#fff;box-shadow:inset 0 0 0 1.5px var(--text3)"></span></span></div>
+      <div class="row">Opacity<span class="val"><div class="slider"><i style="left:90px"></i></div>85%</span></div>
+      <div class="row">Blend<span class="val"><div class="popup">Multiply<svg><use href="icons.svg#chev"/></svg></div></span></div>
+    </div>
+    <div class="isec"><h4>Selected highlight<svg><use href="icons.svg#chev"/></svg></h4>
+      <div class="row">Page<span class="val">4</span></div>
+      <div class="row">Author<span class="val">Nassim</span></div>
+      <div class="row">Created<span class="val">Today, 14:02</span></div>
+      <div style="margin-top:8px;height:64px;border:1px solid var(--hairline);border-radius:6px;padding:6px 8px;color:var(--text3)">Add a note…</div>
+      <div class="row" style="margin-top:8px"><div class="popup">No status<svg><use href="icons.svg#chev"/></svg></div><span class="val" style="color:var(--danger)">Delete</span></div>
+    </div>
+    <div class="isec"><h4>Defaults<svg><use href="icons.svg#chevr"/></svg></h4></div>
+  </div>
+</div>
+</body></html>

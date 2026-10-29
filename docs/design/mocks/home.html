@@ -1,0 +1,78 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Sheaf mock: Home (library)</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+.home{display:flex;height:762px}
+.src{width:220px;background:var(--chrome);border-right:1px solid var(--hairline);padding:16px 8px;display:flex;flex-direction:column}
+.src .r{height:28px;display:flex;align-items:center;gap:12px;padding:0 8px;border-radius:6px;color:var(--text);margin-bottom:2px}
+.src .r svg{width:20px;height:20px;color:var(--text2)}
+.src .r.on{background:var(--fill2)}
+.src .r.on svg{color:var(--accent)}
+.content{flex:1;padding:24px 32px 0;overflow:hidden}
+.title{display:flex;align-items:center;height:32px;margin-bottom:16px}
+.title h1{font-size:26px;line-height:32px;font-weight:400}
+.title .btn{margin-left:auto}
+.drop{height:100px;border-radius:16px;border:1.5px dashed rgba(31,111,235,.5);background:rgba(31,111,235,.06);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.drop .line{display:flex;gap:8px;align-items:center}
+.drop small{font-size:12px;line-height:15px;color:var(--text2)}
+h2{font-size:17px;line-height:22px;font-weight:600;display:flex;align-items:center;margin:32px 0 12px}
+h2 .more{margin-left:auto;font-size:13px;font-weight:400;color:var(--accent)}
+h2 .tools{margin-left:auto;display:flex;gap:8px;font-weight:400;font-size:13px}
+.tiles{display:flex;gap:16px}
+.tile{width:152px;height:108px;border-radius:10px;background:var(--fill1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+.tile .ic{width:40px;height:40px;border-radius:10px;background:var(--fill2);display:flex;align-items:center;justify-content:center}
+.tile .ic svg{width:22px;height:22px}
+.cards{display:flex;gap:16px}
+.card{width:152px;height:180px;border-radius:10px;border:1px solid var(--hairline);background:#fff;display:flex;flex-direction:column;align-items:center;padding-top:16px}
+.card .th{width:96px;height:124px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.25);padding:10px 8px;font-size:3px;line-height:4px;color:#555;font-family:Georgia,serif;overflow:hidden}
+.card .nm{margin-top:10px;font-weight:500;max-width:128px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card .mt{font-size:11px;line-height:14px;color:var(--text2)}
+.card.sel{outline:2px solid var(--accent);outline-offset:-1px}
+</style></head>
+<body>
+<div class="tabstrip">
+  <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+  <div class="tab on" style="min-width:120px"><svg><use href="icons.svg#home"/></svg>Home</div>
+  <div class="tab" style="width:240px"><svg><use href="icons.svg#file"/></svg>Cardiac physiology.pdf</div>
+  <div class="tab plus"><svg><use href="icons.svg#plus"/></svg></div>
+</div>
+<div class="home">
+  <div class="src">
+    <div class="r on"><svg><use href="icons.svg#clock"/></svg>Recents</div>
+    <div class="r"><svg><use href="icons.svg#star"/></svg>Favourites</div>
+    <div class="r"><svg><use href="icons.svg#folder"/></svg>Library</div>
+    <div class="r"><svg><use href="icons.svg#list"/></svg>Tasks</div>
+    <div class="r"><svg><use href="icons.svg#bolt"/></svg>Actions</div>
+    <div class="r"><svg><use href="icons.svg#grid"/></svg>All Tools</div>
+    <div style="flex:1"></div>
+    <div class="r"><svg><use href="icons.svg#help"/></svg>Help</div>
+  </div>
+  <div class="content">
+    <div class="title"><h1>Recents</h1><span class="btn">Customize</span></div>
+    <div class="drop">
+      <div class="line"><span class="btn primary cap">Open Files</span><span class="popup" style="height:28px;background:#fff;border:1px solid var(--hairline)">New<svg><use href="icons.svg#chev"/></svg></span></div>
+      <small>or drop any files here</small>
+    </div>
+    <h2>Tools for you<span class="more">View All</span></h2>
+    <div class="tiles">
+      <div class="tile"><div class="ic"><svg><use href="icons.svg#type"/></svg></div>Edit</div>
+      <div class="tile"><div class="ic"><svg><use href="icons.svg#highlighter"/></svg></div>Annotate</div>
+      <div class="tile"><div class="ic"><svg><use href="icons.svg#pages"/></svg></div>Organize Pages</div>
+      <div class="tile"><div class="ic"><svg><use href="icons.svg#file"/></svg></div>Convert to PDF</div>
+      <div class="tile"><div class="ic"><svg><use href="icons.svg#sign"/></svg></div>Sign</div>
+      <div class="tile"><div class="ic"><svg><use href="icons.svg#compress"/></svg></div>Compress</div>
+    </div>
+    <h2>Recent files<span class="tools"><span class="search" style="width:200px">Search recents</span><span class="popup" style="height:28px">Newest<svg><use href="icons.svg#chev"/></svg></span></span></h2>
+    <div class="cards">
+      <div class="card sel"><div class="th"><b style="font-size:4px">Chapter 1. Cardiac physiology</b><br>The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume. The cardiac cycle comprises systole and diastole.</div><div class="nm">Cardiac physiology.pdf</div><div class="mt">7 pages · 2 h ago</div></div>
+      <div class="card"><div class="th"><b style="font-size:4px">Quarterly report</b><br>Revenue grew in every region. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output. The cardiac cycle comprises systole and diastole.</div><div class="nm">report.pdf</div><div class="mt">12 pages · Yesterday</div></div>
+      <div class="card"><div class="th" style="background:#f3f3f3"></div><div class="nm">scan-2026-10-28.pdf</div><div class="mt">3 pages · Yesterday</div></div>
+      <div class="card"><div class="th"><b style="font-size:4px">Contract</b><br>This agreement is made between the parties. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</div><div class="nm">contract-signed.pdf</div><div class="mt">4 pages · Mon</div></div>
+      <div class="card"><div class="th"><b style="font-size:4px">Gynécologie — cours 6</b><br>Le cycle menstruel. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume, while heart rate and stroke volume together set cardiac output.</div><div class="nm">gyneco-cours-6-endometriose.pdf</div><div class="mt">48 pages · Sun</div></div>
+      <div class="card"><div class="th"><b style="font-size:4px">Invoice 2026-114</b><br>Amount due. The cardiac cycle comprises systole and diastole; preload, afterload and contractility determine stroke volume.</div><div class="nm">invoice-114.pdf</div><div class="mt">1 page · 21 Oct</div></div>
+    </div>
+    <h2>Favourites</h2>
+    <div class="cards"><div class="tile"><div class="ic"><svg><use href="icons.svg#scan"/></svg></div>OCR</div></div>
+  </div>
+</div>
+</body></html>
