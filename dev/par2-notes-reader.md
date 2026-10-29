@@ -159,8 +159,11 @@ widgets only (SidebarTabs, ToolbarButton, Chip, Checkbox, Button, SortCombo, Men
   120,645 then 40,670; Number 196,715), 38 / 104 (`first_x … 0`: the grid closes the Thumbnails sidebar), 51
   (71,106; + 224,146; rows 183 / 211, ⋯ 228; drag 211 → 170), 68 (`at All` in the column; field 36 above), 87
   (strip's last row y 718), 108 (Layers 212,106; ⋯ ▸ `at Show`), 86 (Outline 71,106; row 183, ⋯ 228), 311 (options ▸
-  `at Folder`). gui-smoke.sh `at` / `span`: with the Thumbnails tab shown (the bar's hairline at y 748), a lookup over
-  the pages skips words in the thumbnail strip (the fixtures' 28 pt text is readable in a 216-wide thumbnail).
+  `at Folder`), 2-documents 20e (page 2's thumbnail at 124,560), 4-flows 230 (`at Fill 1030x40+0+90`: the RTL
+  sidebar's tab icons on that row made tesseract read "Fil"). gui-smoke.sh `at` / `span`: with the Thumbnails tab
+  shown (`thumbs_side`: the bar's hairline at y 748, left or right to left), a lookup wider than the sidebar takes a
+  word in the thumbnail strip only when the area holds no other (the fixtures' 28 pt text is readable in a 216-wide
+  thumbnail; a menu over the strip still answers).
 - Not done here (other streams' files): ⌥⌘1…6 and Go ▸ Add Bookmark ⌘D (menu bar / reader keys, W3), the thumb
   size slider (inspector, W3: set the grid's zoom), the Organize rail, "n of 7 selected" (W3's inspector),
   rubber-band selection in the grid. At 480 one letter-size thumbnail (448 × 580) fills the column, so "two numbers
