@@ -7494,3 +7494,134 @@ msgstr "Letzte Suchen löschen"
 #: ui/screens/reader-panel.slint ui/screens/reader-search.slint
 msgid "Page {} · {}"
 msgstr "Seite {} · {}"
+#: ui/screens/settings-window.slint
+msgid "The first swatch follows the colour chosen in System Settings."
+msgstr "Das erste Farbfeld folgt der in den Systemeinstellungen gewählten Farbe."
+
+#: ui/screens/settings-window.slint
+msgid "System accent"
+msgstr "Systemfarbe"
+
+#: ui/screens/settings-window.slint
+msgid "Purple"
+msgstr "Lila"
+
+#: ui/screens/settings-window.slint
+msgid "Graphite"
+msgstr "Graphit"
+
+#: ui/screens/settings-window.slint
+msgid "As the appearance"
+msgstr "Wie das Erscheinungsbild"
+
+#: ui/screens/settings-window.slint
+msgid "Light grey"
+msgstr "Hellgrau"
+
+#: ui/screens/settings-window.slint
+msgid "Mid grey"
+msgstr "Mittelgrau"
+
+#: ui/screens/settings-window.slint
+msgid "The system's"
+msgstr "Das des Systems"
+
+#: ui/screens/settings-window.slint
+msgid "Other…"
+msgstr "Anderes …"
+
+#: ui/screens/settings-window.slint
+msgid "Draw with"
+msgstr "Zeichnen mit"
+
+#: ui/screens/settings-window.slint
+msgid "Graphics card"
+msgstr "Grafikkarte"
+
+#: ui/screens/settings-window.slint
+msgid "Processor"
+msgstr "Prozessor"
+
+#: ui/screens/settings-window.slint
+msgid "Open Sheaf when you log in"
+msgstr "Sheaf bei der Anmeldung öffnen"
+
+#: ui/screens/settings-window.slint
+msgid "Ask before quitting while a task runs"
+msgstr "Vor dem Beenden fragen, während eine Aufgabe läuft"
+
+#: ui/screens/settings-window.slint
+msgid "Check for updates once a day"
+msgstr "Einmal täglich nach Updates suchen"
+
+#: ui/screens/settings-window.slint
+msgid "Automatic"
+msgstr "Automatisch"
+
+#: ui/screens/settings-window.slint
+msgid "Save results"
+msgstr "Ergebnisse sichern"
+
+#: ui/screens/settings-window.slint
+msgid "Next to the original file"
+msgstr "Neben der Originaldatei"
+
+#: ui/screens/settings-window.slint
+msgid "In a folder"
+msgstr "In einem Ordner"
+
+#: ui/screens/settings-window.slint
+msgid "Folder"
+msgstr "Ordner"
+
+#: ui/screens/settings-window.slint
+msgid "Make Default"
+msgstr "Als Standard festlegen"
+
+#: ui/screens/settings-window.slint
+msgid "Pages and measures"
+msgstr "Seiten und Maße"
+
+#: ui/screens/settings-window.slint
+msgid "Comments"
+msgstr "Kommentare"
+
+#: ui/screens/settings-window.slint
+msgid "Author name"
+msgstr "Name des Autors"
+
+#: ui/screens/settings-window.slint
+msgid "Print on both sides"
+msgstr "Beidseitig drucken"
+
+#: ui/screens/settings-window.slint
+msgid "Print in grey"
+msgstr "In Graustufen drucken"
+
+#: ui/screens/settings-window.slint
+msgid "Scale pages to fit the paper"
+msgstr "Seiten an das Papier anpassen"
+
+#: ui/screens/settings-window.slint
+msgid "Print comments"
+msgstr "Kommentare drucken"
+
+#: ui/screens/settings-window.slint
+msgid "Digital signatures"
+msgstr "Digitale Signaturen"
+
+#: ui/screens/settings-window.slint
+msgid "General"
+msgstr "Allgemein"
+
+#: ui/screens/settings-window.slint
+msgid "Reading"
+msgstr "Lesen"
+
+#: ui/screens/settings-window.slint
+msgid "Shortcuts"
+msgstr "Kurzbefehle"
+
+#: ui/screens/settings-window.slint
+msgid "Settings"
+msgstr "Einstellungen"

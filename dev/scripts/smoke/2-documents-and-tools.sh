@@ -24,10 +24,10 @@ launch "$OUT/text.pdf" "$OUT/form.pdf"; sleep 1
 copied() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null; }
 T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
-# 9. Preferences (⌘, from Home: no row in Home's source list) ▸ Identity ▸ Your name: what is typed is kept.
-# The field sits 30 px below its "Your name" label.
-click 50 21 0.8; key ctrl+comma; sleep 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
-xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
+# 9. Settings ▸ Reading ▸ Author name: what is typed is kept.
+# The field (220 wide) ends on the cards' trailing edge, on its label's row.
+click 50 21 0.8; settings 2; AN=$(sfind Author); [ -n "$AN" ] && { read _ AY <<< "$AN"; click $(( SX + SWW - 36 - 110 )) $AY 0.5; }
+stype "Smoke Author"; sleep 0.8; shot 09-preferences; sclose
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
 
@@ -43,10 +43,10 @@ check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" 
 click 40 21 0.8; click $ALL_TOOLS_ROW 0.8; click $TOOLS_SEARCH 0.4; key Escape; sleep 0.5; shot 09c-before-star
 read CX CY <<< "$(at Compress 1028x652+252+140)"; [ -n "$CY" ] && tile_star $CX $CY
 check "starring a tool puts it in the preferences' favourites" "grep -rqs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
-# ⌘, opens Preferences from a tool tab and from a document (keys go up to the app).
-key ctrl+comma; sleep 1; PT1=$(ocr 500x60+200+40)
-click 230 21 1; key ctrl+comma; sleep 1; PT2=$(ocr 500x60+200+40)   # the text.pdf tab
-check "⌘, opens Preferences from a tool tab and from a document ($PT1 / $PT2)" "echo \"$PT1\" | grep -q Preferences && echo \"$PT2\" | grep -q Preferences"
+# ⌘, opens Settings from a tool tab and from a document (keys go up to the app): its window, on its tab bar.
+settings; S1=$SWIN; PT1=$(ocr ${SWW}x52+$SX+$SY); sclose
+click 230 21 1; settings; S2=$SWIN; PT2=$(ocr ${SWW}x52+$SX+$SY); sclose   # the text.pdf tab
+check "⌘, opens Settings from a tool tab and from a document ($PT1 / $PT2)" "[ -n \"$S1\" ] && [ -n \"$S2\" ] && echo \"$PT1\" | grep -q Shortcuts && echo \"$PT2\" | grep -q Shortcuts"
 quit
 
 # 10. A tool from the reader: the wrench (WRENCH_X,61) → Tools, "compress" typed in its search, ↩ → Compress PDF
@@ -114,10 +114,10 @@ check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_P
 RP=$(ocr 1280x30+0+5); check "a damaged PDF opens in Repair PDF (${RP:0:60})" "echo \"$RP\" | grep -q 'Repair'"
 click 60 21 1
 lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
-key ctrl+comma; sleep 1; PR=$(at Preferences 600x80+220+40)
-DK=$(at Dark); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark
-LT=$(at Light); [ -n "$LT" ] && click $LT 1.2; L2=$(lum)
-check "Preferences ▸ Dark then Light switch the window ($L1 → $L2)" "python3 -c 'import sys; sys.exit(0 if $L1 < 0.3 and $L2 > 0.7 else 1)'"
+settings 1
+DK=$(at Dark "$SG"); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark
+LT=$(at Light "$SG"); [ -n "$LT" ] && click $LT 1.2; L2=$(lum)
+check "Settings ▸ Appearance ▸ Dark then Light switch the window ($L1 → $L2)" "python3 -c 'import sys; sys.exit(0 if $L1 < 0.3 and $L2 > 0.7 else 1)'"
 quit
 
 # 12. Twelve documents: the tabs narrow to share the bar, the active one keeps its name readable and

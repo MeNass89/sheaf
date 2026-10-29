@@ -23,6 +23,7 @@ mod reader_doc;
 mod platform_ui;
 mod ai_ui;
 mod settings_ui;
+mod settings_window;
 mod feedback_ui;
 mod updates_ui;
 mod plugins_ui;
@@ -763,6 +764,7 @@ fn main() -> Result<(), slint::PlatformError> {
     platform_ui::install(&ui);
     ai_ui::install(&ui);
     settings_ui::install(&ui);
+    settings_window::install(&ui);
     feedback_ui::install(&ui);
     updates_ui::install(&ui);
     plugins_ui::install(&ui);

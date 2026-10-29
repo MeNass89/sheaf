@@ -187,6 +187,27 @@ print(";".join(" ".join(m.group(1).split()) for m in re.finditer(r"/Rect \[([-\d
 # The first line of text of page $2 of $1, its first two words (blank lines skipped).
 first_text() { pdftotext -f "$2" -l "$2" "$1" - 2>/dev/null | grep -m1 '[^[:space:]]' | cut -d' ' -f1-2; }
 
+# The Settings window (its own window since the redesign W5, src/settings_window.rs): Ctrl+, from the main window,
+# then tab $1 (0 General, 1 Appearance, 2 Reading, 3 Tools, 4 AI, 5 Shortcuts; none: the last one shown) clicked in
+# its tab bar (six 72 px tabs, 4 apart, centred in its 520 px). No window manager: it opens where the app puts it,
+# over the main window; its place in SX SY, its size in SWW SWH, its form (under the 52 px tab bar) in SG.
+settings() { local t; key ctrl+comma; SWIN=
+    for t in $(seq 1 20); do SWIN=$(xdotool search --onlyvisible --name '^Settings$' 2>/dev/null | tail -1); [ -n "$SWIN" ] && break; sleep 0.25; done
+    unset X Y WIDTH HEIGHT; eval "$(xdotool getwindowgeometry --shell "${SWIN:-0}" 2>/dev/null | grep -E '^(X|Y|WIDTH|HEIGHT)=')"
+    SX=${X:-380}; SY=${Y:-60}; SWW=${WIDTH:-520}; SWH=${HEIGHT:-640}; SG="${SWW}x$(( SWH - 52 ))+$SX+$(( SY + 52 ))"; unset X Y WIDTH HEIGHT
+    [ -n "${1:-}" ] && { click $(( SX + 70 + $1 * 76 )) $(( SY + 24 )) 0.8; settings_size; }; sleep 0.4; }
+# The Settings window's height follows its tab: read again.
+settings_size() { unset HEIGHT; eval "$(xdotool getwindowgeometry --shell "${SWIN:-0}" 2>/dev/null | grep -E '^HEIGHT=')"; SWH=${HEIGHT:-$SWH}; SG="${SWW}x$(( SWH - 52 ))+$SX+$(( SY + 52 ))"; unset HEIGHT; }
+# A word of the Settings form, the form scrolled until it shows, then read again until its place holds (the scroll
+# eases out).
+sfind() { local f="" g; for _ in $(seq 1 20); do f=$(at "$1" "$SG"); [ -n "$f" ] && break; xdotool mousemove $(( SX + 260 )) $(( SY + 300 )) click 5 click 5 click 5; sleep 0.3; done; for _ in 1 2 3 4 5; do [ -n "$f" ] || break; sleep 0.4; g=$(at "$1" "$SG"); [ "$g" = "$f" ] && break; f=$g; done; echo "$f"; }
+# The switch of the Settings row at y $1: on the cards' trailing edge (20 margin, 16 inside the card, 26 wide).
+sswitch() { click $(( SX + SWW - 20 - 16 - 13 )) "$1" "${2:-0.6}"; }
+# Keys and typing go to the Settings window (Xvfb keeps no focus of its own), and it closes with Ctrl+W.
+skey() { xdotool windowfocus --sync "${SWIN:-0}" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
+stype() { xdotool windowfocus --sync "${SWIN:-0}" 2>/dev/null; xdotool type --delay 20 "$1"; sleep 0.3; }
+sclose() { skey ctrl+w; sleep 0.4; }
+
 # The steps, in order (dev/scripts/smoke/*.sh share this shell: helpers, profile, variables).
 # A shard (gui-parallel.sh) runs some parts only: the helpers the others define come first.
 if [ -n "${SMOKE_PARTS:-}" ]; then

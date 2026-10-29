@@ -194,12 +194,10 @@ RJ=$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1])); print(v["file"
 check "Save report writes the properties as JSON (${SR:-no button}; $RJ)" "[ \"$RJ\" = 'report2.pdf 4 Helvetica' ]"
 quit
 
-# 99. Preferences ▸ Open PDFs with Sheaf by default (Acrobat's and PDF Expert's prompt): the system is asked (the test
+# 99. Settings ▸ General ▸ Open PDFs with Sheaf by default (Acrobat's and PDF Expert's prompt): the system is asked (the test
 # seam records the request).
-# Its button heads the Documents section, mid-page since Preferences gained sections: scrolled to a few rows at a
-# time, then read in the strip under that title (Identity's note also says "PDFs").
-launch; prefs_open; MD=
-for _ in $(seq 1 10); do DT=$(at Documents 900x620+200+90); [ -n "$DT" ] && { set -- $DT; MD=$(at PDFs 900x60+200+$(( $2 + 8 ))); break; }; xdotool mousemove 700 500 click --repeat 3 5; sleep 0.5; done
+# Settings ▸ General ▸ Results: the row "Open PDFs with Sheaf by default" and its Make Default button.
+launch; settings 0; MD=$(sfind Make)
 [ -n "$MD" ] && click $MD 1
 check "Preferences makes Sheaf the default PDF app (${MD:-no button})" "[ \"\$(cat $OUT/made-default 2>/dev/null)\" = default ]"
 quit
@@ -508,26 +506,18 @@ check "the menu bar shows File to Help, File lists Save with Ctrl+S, Window ▸ 
 quit
 unset SHEAF_TEST_MENU_BAR
 
-# Preferences scrolled until a word shows in the page (the platform sections are below Signatures).
-# Once found, read again until the place holds: the scroll is still easing when the word first shows
-# (rows came out 42 px low on 27/10).
-pref_find() { local f="" g; for _ in $(seq 1 25); do f=$(at "$1" 1020x700+250+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; for _ in 1 2 3 4 5; do [ -n "$f" ] || break; sleep 0.4; g=$(at "$1" 1020x700+250+90); [ "$g" = "$f" ] && break; f=$g; done; echo "$f"; }
-# SR keeps Reset all's place before the search: the rows found then start 45 px below the field,
-# 42 px apart (row 1 at SR - 48, row 2 at SR - 6).
-# Preferences ▸ Keyboard shortcuts' search field, found from the section's title ("shortcuts"; its "Keyboard" starts
-# left of the OCR's crop): the field 40 px below it, then what is typed is searched. SR is 133 px below the title,
-# the rows counted from it (Reset all's place moved when Preferences ▸ Interface gained its Language row). The
-# wheel's scroll eases out after the word shows: measured again once still.
-shortcut_search() { local t f; read _ t <<< "$(pref_find shortcuts)"; sleep 1; read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}
-    SR=0; [ -n "$t" ] && click 500 $(( t + 40 )) 0.5; xdotool type --delay 20 "$1"; sleep 0.8
-    # The list found is below the field: the page scrolled on a little (where it can) so its rows show.
-    xdotool mousemove 760 500 click 5 click 5; sleep 0.8
-    read _ f <<< "$(at shortcuts 1020x700+250+90)"; t=${f:-$t}; [ -n "$t" ] && SR=$(( t + 133 )); }
-# A row of the shortcuts list found by a word of its name: its keys box (right-aligned, x 1157) clicked.
-# Starting to record can scroll the page (near its end): when "Press the keys…" does not show, the row is found
-# again and clicked once more.
-keybox() { local y; read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5
-    if [ -n "$y" ] && [ -z "$(at Press 1020x700+250+90)" ]; then read _ y <<< "$(at "$1" 1020x700+250+90)"; [ -n "$y" ] && click 1157 "$y" 0.5; fi
+# A word of the Settings form (gui-smoke.sh's sfind: scrolled until it shows, read again until it holds).
+pref_find() { sfind "$1"; }
+# Settings ▸ Shortcuts' search field, found by its placeholder ("Search commands or keys"), then what is typed is
+# searched. The rows found start under the field: 30 tall, 12 apart (row 1 at SR - 48, row 2 at SR - 6, SR 89 px
+# under the field's centre). KBX: the keys box's centre (170 wide, on the card's trailing edge).
+shortcut_search() { local f; read _ f <<< "$(sfind Search)"
+    SR=0; KBX=$(( SX + SWW - 36 - 85 )); [ -n "$f" ] && click $(( SX + 200 )) "$f" 0.5; stype "$1"; sleep 0.8
+    [ -n "$f" ] && SR=$(( f + 89 )); }
+# A row of the shortcuts list found by a word of its name: its keys box clicked. When "Press the keys…" does not
+# show, the row is found again and clicked once more.
+keybox() { local y; read _ y <<< "$(at "$1" "$SG")"; [ -n "$y" ] && click $KBX "$y" 0.5
+    if [ -n "$y" ] && [ -z "$(at Press "$SG")" ]; then read _ y <<< "$(at "$1" "$SG")"; [ -n "$y" ] && click $KBX "$y" 0.5; fi
     echo "${y:-no $1 row}"; }
 # The preferences file, written even when no earlier step made it.
 prefs_set() { python3 -c 'import json, os, sys; f = sys.argv[1]; p = json.load(open(f)) if os.path.exists(f) else {}; exec(sys.argv[2]); os.makedirs(os.path.dirname(f), exist_ok=True); json.dump(p, open(f, "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1"; }
@@ -537,9 +527,9 @@ platform_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])
 # which moves every later click there: the steps that click those bars start without any (28/10).
 actions_reset() { rm -f "$PWD/$OUT/profile/data/Sheaf/actions.json"; }
 
-# 221. Preferences ▸ Keyboard shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
+# 221. Settings ▸ Shortcuts (C-preferences-013, Stirling's Hotkeys): "find" searched, Find's Ctrl+F
 # clicked and Ctrl+Alt+F pressed: kept in the preferences; Find Next given Ctrl+S is refused (Save has it).
-launch; key ctrl+comma; sleep 0.8
+launch; settings 5
 shortcut_search "find"
 # The rows' places come from the search field's (OCR found "Find…" and "Next" a row off while the
 # list was still laying out): Find… first, Find Next second.
@@ -548,20 +538,20 @@ KF=$(( SR - 48 )); KG=$(( SR - 6 ))
 # are pressed again (box clicked anew, from Find…'s row read on screen) until the preferences hold them.
 kp() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
 for _ in 1 2 3; do
-    [ "$SR" -gt 48 ] && click 1157 $KF 0.5; sleep 0.5; key ctrl+alt+f; sleep 1.5
+    [ "$SR" -gt 48 ] && click $KBX $KF 0.5; sleep 0.5; skey ctrl+alt+f; sleep 1.5
     kp | grep -q "'find'" && break
-    key Escape; sleep 0.5; read _ FY <<< "$(at Next 1020x700+250+90)"; case "$FY" in ''|*[!0-9]*) ;; *) KG=$FY; KF=$(( FY - 42 ));; esac
+    skey Escape; sleep 0.5; read _ FY <<< "$(at Next "$SG")"; case "$FY" in ''|*[!0-9]*) ;; *) KG=$FY; KF=$(( FY - 42 ));; esac
 done
-[ "$KF" -gt 0 ] && click 1157 $KG 0.5; key ctrl+s; sleep 1.2; shot 221-shortcuts
+[ "$KF" -gt 0 ] && click $KBX $KG 0.5; skey ctrl+s; sleep 1.2; shot 221-shortcuts
 # Quotes and other shell characters are taken out of the read text: the grammar line above the
 # shortcuts quotes "a" and "an", which broke the check below.
-KE=$(ocr 1020x700+250+90 | tr -d '"`$\\')
+KE=$(ocr "$SG" | tr -d '"`$\\')
 # The preferences are written a moment after the keys (up to 3 s under load).
 for _ in 1 2 3 4 5 6; do
     KP=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("shortcuts"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
     echo "$KP" | grep -q "'find'" && break; sleep 0.5
 done
-check "a shortcut recorded in Preferences is kept, one already used is refused (rows at $KF, $KG; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
+check "a shortcut recorded in Settings is kept, one already used is refused (rows at $KF, $KG; $KP; $(echo "$KE" | grep -o 'already [A-Za-z ▸]*' | head -1))" "echo \"$KP\" | grep -q \"'find', 'Control+Alt+F'\" && ! echo \"$KP\" | grep -q 'find-next' && echo \"$KE\" | grep -q 'already'"
 quit; platform_reset
 
 # 222. Check spelling while typing (C-edit-013, C-reader-060; Acrobat's and Preview's): a note typed with two
@@ -577,12 +567,12 @@ SN=$(qpdf --qdf --object-streams=disable "$OUT/spelling.pdf" - 2>/dev/null | gre
 check "misspelt words show under the note with corrections, and one clicked goes in the note (${SC:-no sentence chip}; $SN)" "echo \"$SP\" | grep -q 'Ignore' && echo \"$SP\" | grep -q 'Learn' && echo \"$SN\" | grep -q 'sentence here'"
 quit
 
-# 223. Preferences ▸ Interface ▸ Right to left (C-platform-004, iLovePDF's right-to-left interface): Home's
+# 223. Settings ▸ General ▸ Direction ▸ Right to left (C-platform-004, iLovePDF's right-to-left interface): Home's
 # sidebar moves to the window's right edge, back on the left with Left to right.
-launch; key ctrl+comma; sleep 0.8
+launch; settings 0
 RL=$(pref_find Right); [ -n "$RL" ] && click $RL 0.8
 read RX _ <<< "$(at Recents 1280x300+0+40)"
-LR=$(at Left 1280x710+0+90); [ -n "$LR" ] && click $LR 0.8
+LR=$(at Left "$SG"); [ -n "$LR" ] && click $LR 0.8
 read LX _ <<< "$(at Recents 1280x300+0+40)"
 check "right to left puts Home's sidebar on the right, left to right back on the left (Recents at x ${RX:-?}, then ${LX:-?})" "[ \"${RX:-0}\" -gt 1050 ] && [ \"${LX:-9999}\" -lt 250 ]"
 quit; platform_reset
@@ -598,41 +588,45 @@ read HX _ <<< "$(at Home 1280x40+0+0)"; read DX _ <<< "$(at mirrored 1280x40+0+0
 check "right to left mirrors the tab bar and puts the side panel right of the pages (Home at x ${HX:-?}, the document at ${DX:-?}; 'quick' at ${QL:-?} then ${QR:-?})" "[ \"${HX:-0}\" -gt 1100 ] && [ -n \"$DX\" ] && [ \"$DX\" -lt \"$HX\" ] && [ -n \"$QL\" ] && [ \"${QR:-9999}\" -lt \"$(( QL - 150 ))\" ]"
 quit; platform_reset
 
-# 225. A reader tool's letter changed (C-preferences-013): Preferences ▸ Keyboard shortcuts, "highlight" searched,
+# 225. A reader tool's letter changed (C-preferences-013): Settings ▸ Shortcuts, "highlight" searched,
 # its H clicked and Q pressed; in a document Q then picks Highlight (a drag over the words highlights them, saved).
-launch; key ctrl+comma; sleep 0.8
+launch; settings 5
 shortcut_search "highlight"
 # The key's box holds "H" alone (at() matches the start of a word, and "Highlight" starts with H).
-at_word() { import -window root -crop 1020x700+250+90 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '$12 == w { printf "%d %d\n", 250 + ($7 + $9 / 2) / 2, 90 + ($8 + $10 / 2) / 2; exit }'; }
+at_word() { import -window root -crop "$SG" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox=$SX -v oy=$(( SY + 52 )) '$12 == w { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
 # As in 221: the box's click can land before the list settles under load, so the letter is given again
 # until the preferences hold it.
 tk() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("tool_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
-for _ in 1 2 3; do KH=$(keybox Highlight); sleep 0.8; key q; sleep 1.5; tk | grep -q "'highlight'" && break; key Escape; sleep 0.5; done
+for _ in 1 2 3; do KH=$(keybox Highlight); sleep 0.8; skey q; sleep 1.5; tk | grep -q "'highlight'" && break; skey Escape; sleep 0.5; done
 TK=$(tk)
 quit
 cp "$OUT/text.pdf" "$OUT/toolkey.pdf"; launch "$OUT/toolkey.pdf"; sleep 1
 key q; read QX QY <<< "$(at quick 1020x700+255+90)"; [ -n "$QY" ] && { xdotool mousemove $(( QX - 30 )) $QY mousedown 1 mousemove $(( QX + 60 )) $QY mouseup 1; sleep 1; }; key v; key ctrl+s; sleep 1.5
-check "a tool's letter changed in Preferences picks it on the pages (row at $KH; $TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
+check "a tool's letter changed in Settings picks it on the pages (row at $KH; $TK)" "echo \"$TK\" | grep -q \"'highlight', 'q'\" && qpdf --qdf --object-streams=disable \"$OUT/toolkey.pdf\" - 2>/dev/null | grep -aq '/Subtype /Highlight'"
 quit; platform_reset
 
 # 226. Edit ▸ Copy, Select All and Paste from the menu bar (C-platform-014): on the reader's pages, Select All then
-# Copy puts the page's text on the clipboard; in a text field (Preferences ▸ Identity ▸ Your name, "Ada"), Select
-# All, Copy, then Paste at its end makes "AdaAda" (kept as the author's name).
+# Copy puts the page's text on the clipboard; in a text field of the window (Home ▸ Tools' search, "Ada"), Select
+# All, Copy, then Paste at its end makes "AdaAda" (read in the field). Settings is its own window since the
+# redesign (W5): the main window's menu bar acts on the main window's fields.
 menu() { local m; read m _ <<< "$(at "$1" 700x34+0+0)"; [ -n "$m" ] && click $m 14 0.8; local it; it=$(at "$2" 320x520+$(( ${m:-20} - 20 ))+24); [ -n "$it" ] && click $it 0.8; echo "${it:-no $2}"; }
+# Home ▸ Tools from a document (the Home tab, then Tools in its sidebar): the Tools search has the keyboard. TS: the
+# search field's centre, found by its placeholder before typing; TSF: the field itself (not in a subshell: it sets
+# both).
+tools_search() { local h t f; read h _ <<< "$(at Home 400x40+0+28)"; click "${h:-50}" 49 0.8; read t f <<< "$(at Tools 250x300+0+60)"; [ -n "$t" ] && click $t $f 1
+    read t f <<< "$(at Search 1280x200+0+60)"; TSF="300x36+$(( ${t:-900} - 40 ))+$(( ${f:-100} - 18 ))"; [ -n "$t" ] && click $t $f 0.4; TS="${t:-?} ${f:-?}"; }
 export SHEAF_TEST_MENU_BAR=1
 cp "$OUT/text.pdf" "$OUT/editmenu.pdf"; launch "$OUT/editmenu.pdf"; sleep 1
 echo -n | xclip -selection clipboard >/dev/null 2>&1
 E1=$(menu Edit Select); E2=$(menu Edit Copy); sleep 0.4
 CP=$(xclip -o -selection clipboard 2>/dev/null | head -1)
-key ctrl+comma; sleep 0.8
-# Identity's field, 32 px under its label "Your name" ("Your" is read with the label's bold); emptied first.
-read _ YY <<< "$(pref_find name)"; [ -n "$YY" ] && click 500 $(( YY + 32 )) 0.5; key ctrl+a; key BackSpace; xdotool type --delay 20 "Ada"; sleep 0.3
+# Home ▸ Tools (its search takes the keyboard), found by its word in Home's sidebar under the menu bar.
+tools_search; xdotool type --delay 20 "Ada"; sleep 0.3
 E3=$(menu Edit Select); E4=$(menu Edit Copy); key End; E5=$(menu Edit Paste); sleep 0.6
-AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
-check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; author $AU)" "echo \"$CP\" | grep -q 'quick brown fox' && [ \"$AU\" = AdaAda ]"
+AU=$(ocr "$TSF" | tr -d ' ')
+check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; field '$AU' at ${TS:-?})" "echo \"$CP\" | grep -q 'quick brown fox' && echo \"$AU\" | grep -q AdaAda"
 quit
 unset SHEAF_TEST_MENU_BAR
-python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["author"] = None; json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"
 
 # 227. Edit ▸ Check Spelling… (F7; C-edit-013, Acrobat's Check Spelling in comments and form fields): a note "teh cat
 # sat teh" left on the page; the pass shows "teh" with its corrections, "the" clicked and Change All: both go, the
@@ -777,50 +771,51 @@ SC7=$(xclip -o -selection clipboard 2>/dev/null | head -1)
 shot 207b-double-click
 check "a double-click on another document's pane selects the word there (quick at ${QX:-?} ${QY:-?}; copied '$SC7')" "echo \"$SC7\" | grep -qx ' *quick *'"
 quit
-# 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Preferences ▸ Your name,
+# 228. Edit ▸ Undo from the menu bar (C-platform-014) acts on what has the keyboard: in Home ▸ Tools' search,
 # "Ada" typed then Edit ▸ Undo leaves the field empty (the menu is enabled there); on a document's pages, a note
 # added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
 export SHEAF_TEST_MENU_BAR=1
-launch; key ctrl+comma; sleep 0.8
-YN=$(pref_find Your); read YX YY <<< "$YN"; [ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.5; xdotool type --delay 20 "Ada"; sleep 0.4
+launch
+tools_search; read YX YY <<< "$TS"; xdotool type --delay 20 "Ada"; sleep 0.4
 read MX _ <<< "$(at Edit 700x34+0+0)"; [ -n "$MX" ] && click $MX 14 0.8
 UM=$(ocr 420x520+$(( ${MX:-20} - 20 ))+24); key Escape; sleep 0.3
 # The field again has the keyboard (Escape closed the menu), then Edit ▸ Undo.
-[ -n "$YY" ] && click $(( YX + 40 )) $(( YY + 30 )) 0.3
+case "$YY" in ''|*[!0-9]*) ;; *) click $YX $YY 0.3;; esac
 U1=$(menu Edit Undo); sleep 0.8
-AU=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("author") or "")' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
+AU=$(ocr "$TSF" | tr -d ' ' | grep -o Ada)
 quit
 cp "$OUT/text.pdf" "$OUT/undomenu.pdf"; launch "$OUT/undomenu.pdf"; sleep 1
 key n; click 640 420 0.8; xdotool type --delay 10 "undo me"; key ctrl+Return; sleep 0.8; key v
 U2=$(menu Edit Undo); sleep 0.8; key ctrl+s; sleep 1.5
 UN=$(qpdf --qdf --object-streams=disable "$OUT/undomenu.pdf" - 2>/dev/null | grep -ac '/Subtype /Text')
-check "Edit ▸ Undo undoes the focused field's typing and, on the pages, the PDF's last edit ($U1 $U2; author '$AU'; notes $UN; menu: $(echo "$UM" | grep -o 'Undo Ctrl+Z' | head -1))" "[ -z \"$AU\" ] && [ \"$UN\" = 0 ] && echo \"$UM\" | grep -q 'Ctrl+Z'"
+check "Edit ▸ Undo undoes the focused field's typing and, on the pages, the PDF's last edit ($U1 $U2; field '$AU'; notes $UN; menu: $(echo "$UM" | grep -o 'Undo Ctrl+Z' | head -1))" "[ -z \"$AU\" ] && [ \"$UN\" = 0 ] && echo \"$UM\" | grep -q 'Ctrl+Z'"
 quit
 unset SHEAF_TEST_MENU_BAR
 
-# 229. A Tools page tool given keys that open it (C-preferences-013, Stirling's tool hotkeys): Preferences ▸ Keyboard
-# shortcuts, "merge" searched, Merge PDF's None clicked and Ctrl+Alt+M pressed; on Home, Ctrl+Alt+M opens Merge PDF.
-launch; key ctrl+comma; sleep 0.8
+# 229. A Tools page tool given keys that open it (C-preferences-013, Stirling's tool hotkeys): Settings ▸ Shortcuts,
+# "merge" searched, Merge PDF's None clicked and Ctrl+Alt+M pressed; on Home, Ctrl+Alt+M opens Merge PDF.
+launch; settings 5
 shortcut_search "merge pdf"
-KM=$(keybox Merge); key ctrl+alt+m; sleep 0.8
+KM=$(keybox Merge); skey ctrl+alt+m; sleep 0.8
 LK=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("platform", {}).get("launch_keys"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
-key Escape; key ctrl+alt+m; sleep 1.2
+sclose; key ctrl+alt+m; sleep 1.2
 MT=$(ocr 1280x80+0+0)
 check "keys given to a Tools page tool open it (row at $KM; $LK; tab bar: $(echo "$MT" | cut -c1-60))" "echo \"$LK\" | grep -q \"'merge', 'Control+Alt+M'\" && echo \"$MT\" | grep -q 'Merge'"
 quit; platform_reset
 
-# 230. Right to left beyond Home and the reader's bars (C-platform-004): Preferences' rows read from the right
+# 230. Right to left beyond Home and the reader's bars (C-platform-004): Settings' rows read from the right
 # (Rulers measure in: Centimetres left of Inches), and the reader's tool options bar sits at the top right of the
 # pages with its options reversed (Shapes: Fill on the right of the bar's left half, the bar past the middle).
 prefs_set 'p.setdefault("platform", {})["direction"] = 2'
-launch; key ctrl+comma; sleep 0.8
-CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches 1280x710+0+90)"
+# Right to left the tab bar reads from the right too: Reading is the fourth tab from the left (index 3).
+launch; settings 3
+CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches "$SG")"
 quit
 cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
 # The bar's first row only, left of the sidebar (now on the right): its segmented icons on that row made
 # tesseract read "Fil".
 key r; sleep 0.6; read FX _ <<< "$(at Fill 1030x40+0+90)"
-check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
+check "right to left mirrors Settings' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
 
 # 310. A text file opened with Sheaf (C-reader-064, Stirling's non-PDF viewer): it opens in the reader to browse, its
@@ -888,26 +883,25 @@ TB=$(ocr 1280x80+0+0); QK=$(at quick 1020x700+250+90)
 check "Encrypt with certificates writes a copy for two recipients that opens in place with the digital ID (recipients: $(echo "$RL" | grep -o 'Smoke [a-z]*' | sort -u | tr '\n' ' '); envelopes ${ENV:-none}; wrong password: $(echo "$WR" | grep -o 'Wrong password' | head -1); tab: $(echo "$TB" | cut -c1-50); quick at ${QK:-nowhere})" "[ \"${ENV:-0}\" = 2 ] && echo \"$RL\" | grep -q 'Smoke colleague' && echo \"$RL\" | grep -q 'Smoke me' && echo \"$WR\" | grep -q 'Wrong password' && echo \"$TB\" | grep -q certenc && [ -n \"$QK\" ]"
 quit
 
-# 321. Preferences ▸ Signatures ▸ Create a digital ID… (C-sign-013, Acrobat's Add Digital ID ▸ A new digital ID): a
+# 321. Settings ▸ Tools ▸ Digital signatures ▸ Create a digital ID… (C-sign-013, Acrobat's Add Digital ID ▸ A new digital ID): a
 # name and a password typed twice, Create and save: a self-signed .p12 (it opens with that password) and its .cer
 # beside it, issued to that name with key encipherment (usable for certificate encryption), kept in the list of IDs.
 rm -f "$OUT/smoke-id.p12" "$OUT/smoke-id.cer"
-launch; key ctrl+comma; sleep 0.8
+launch; settings 3
 read CX CY <<< "$(pref_find Create)"; [ -n "$CY" ] && click $CX $CY 0.8
-# The form's labels start at x 234, left of pref_find's crop: the same scroll and find, from x 226. Each
-# field is found from its own label once the form has opened and the page has stopped moving (the Name
+# Each field is found from its own label once the form has opened and the page has stopped moving (the Name
 # field was clicked at a place computed from the button, before the form had settled: left empty, 28/10).
-form_find() { local f=""; for _ in $(seq 1 10); do f=$(at "$1" 1040x700+226+90); [ -n "$f" ] && break; xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
+form_find() { local f=""; for _ in $(seq 1 10); do f=$(at "$1" "$SG"); [ -n "$f" ] && break; xdotool mousemove $(( SX + 260 )) $(( SY + 300 )) click 5 click 5 click 5; sleep 0.3; done; echo "$f"; }
 sleep 0.8
 # "Name" alone also starts other words on the page: the Name field is the one just above the
 # Organizational unit label.
-read _ NY <<< "$(form_find Organizational)"; [ -n "$NY" ] && { click 700 $(( NY - 31 )) 0.6; xdotool type --delay 30 "Smoke Signer"; }
-read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click 700 $(( PY + 30 )) 0.6; xdotool type --delay 30 smokepw1; }
-read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click 700 $(( QY + 30 )) 0.6; xdotool type --delay 30 smokepw1; }
+read _ NY <<< "$(form_find Organizational)"; [ -n "$NY" ] && { click $(( SX + 260 )) $(( NY - 31 )) 0.6; stype "Smoke Signer"; }
+read _ PY <<< "$(form_find Password)"; [ -n "$PY" ] && { click $(( SX + 260 )) $(( PY + 30 )) 0.6; stype smokepw1; }
+read _ QY <<< "$(form_find Confirm)"; [ -n "$QY" ] && { click $(( SX + 260 )) $(( QY + 30 )) 0.6; stype smokepw1; }
 shot 321-form
 # Create and save… sits under the "Use it for certificate encryption too" box.
-xdotool mousemove 760 500 click 5 click 5 click 5; sleep 0.4
-answer "$PWD/$OUT/smoke-id.p12"; read _ SY <<< "$(form_find Use)"; [ -n "$SY" ] && click 310 $(( SY + 34 )) 0.5
+xdotool mousemove $(( SX + 260 )) $(( SY + 300 )) click 5 click 5 click 5; sleep 0.4
+answer "$PWD/$OUT/smoke-id.p12"; read _ UY <<< "$(form_find Use)"; [ -n "$UY" ] && click $(( SX + 100 )) $(( UY + 34 )) 0.5
 for _ in $(seq 1 30); do [ -f "$OUT/smoke-id.cer" ] && break; sleep 0.5; done; sleep 0.5; answer ""
 IDS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("digital_ids"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 SUBJ=$(openssl pkcs12 -in "$OUT/smoke-id.p12" -passin pass:smokepw1 -nokeys 2>/dev/null | openssl x509 -noout -subject -ext keyUsage 2>/dev/null | tr '\n' ' ')
@@ -1030,7 +1024,7 @@ key Escape; sleep 0.3
 check "right to left mirrors the Tools page's title row and the print sheet (search x ${SX:-?} < Custom tools ${UX:-?}; Copies at x ${CX:-?}, Print title at ${PX:-?})" "[ -n \"$SX\" ] && [ -n \"$UX\" ] && [ \"$SX\" -lt \"$UX\" ] && [ \"${CX:-0}\" -gt 700 ] && [ \"${PX:-0}\" -gt 900 ]"
 quit; platform_reset
 
-# 301. Preferences ▸ Printing (C-preferences-010, iLovePDF's Printer preferences: paper size, grayscale): Grey,
+# 301. Settings ▸ Tools ▸ Printing (C-preferences-010, iLovePDF's Printer preferences: paper size, grayscale): Grey,
 # Two-sided and A4 chosen are kept, and the print sheet opens with them (Grey and On red); the sheet's Colour then
 # Make default writes colour back.
 settings_val() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1" 2>/dev/null; }
@@ -1038,11 +1032,12 @@ settings_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])
 # The accent (a selected button's accent text; Sheaf blue by default since the redesign, W1 29/10/2026)
 # anywhere in a 40×10 box left of a word's centre.
 red_at() { import -window root -crop "40x10+$(( $1 - 30 ))+$(( $2 - 5 ))" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | python3 -c 'import sys; sys.exit(0 if any(int(c[5:7], 16) > 150 and int(c[1:3], 16) < 90 and int(c[3:5], 16) < 130 for c in sys.stdin.read().split()) else 1)'; }
-launch; key ctrl+comma; sleep 0.8
-G=$(pref_find Grey); [ -n "$G" ] && click $G 0.6
-T=$(at Two-sided 1020x700+250+90); [ -n "$T" ] && click $T 0.6
-# "A4" alone does not OCR: the segment left of Letter (their centres 98 px apart).
-read LX LY <<< "$(at Letter 1020x700+250+90)"; A=; [ -n "$LX" ] && A="$(( LX - 98 )) $LY" && click $A 0.6
+launch; settings 3
+# Print in grey and Print on both sides: switches on their rows; Paper: its popup (on the trailing edge, 40 px in)
+# opened, A4 its second item (28 px rows from 8 px under the button: 64 px under the row's centre).
+read _ G <<< "$(pref_find grey)"; [ -n "$G" ] && sswitch $G
+read _ T <<< "$(at both "$SG")"; [ -n "$T" ] && sswitch $T
+read _ LY <<< "$(at Paper "$SG")"; A=; [ -n "$LY" ] && { click $(( SX + SWW - 36 - 40 )) $LY 0.6; A="$(( SX + SWW - 36 - 40 )) $(( LY + 64 ))"; click $A 0.6; }
 P1=$(settings_val 'p["settings"]["print"]')
 quit
 cp "$OUT/text.pdf" "$OUT/printdef.pdf"; launch "$OUT/printdef.pdf"; sleep 1
@@ -1061,7 +1056,7 @@ key Escape; sleep 0.3
 check "print defaults are kept and the sheet opens with them ($P1; Grey at ${GX:-?},${GY:-?} red $GR, On at ${OX:-?},${OY:-?} red $OR; Colour ${CL:-?}, Make default ${MD:-?}: gray $P2)" "echo \"$P1\" | grep -q \"'two_sided': True\" && echo \"$P1\" | grep -q \"'paper': 1\" && echo \"$P1\" | grep -q \"'gray': True\" && [ $GR = yes ] && [ $OR = yes ] && [ \"$P2\" = False ]"
 quit; settings_reset
 
-# 302. Preferences ▸ Security (C-preferences-014, Acrobat's Enhanced Security and Trust Manager): a document's web
+# 302. Settings ▸ Tools ▸ Security (C-preferences-014, Acrobat's Enhanced Security and Trust Manager): a document's web
 # link asks first ("Open a page of example.org?"); Block with Remember keeps the site blocked, and the next click
 # opens no question; a folder added as a trusted location is kept.
 launch "$OUT/links.pdf"; key ctrl+9; sleep 0.8
@@ -1075,20 +1070,23 @@ BL=$(settings_val 'p["settings"]["trust"]["blocked_sites"]')
 Q2=$(ocr 700x300+290+250)
 quit
 mkdir -p "$OUT/trusted"; answer "$PWD/$OUT/trusted"
-launch; key ctrl+comma; sleep 0.8
-AF=$(pref_find "folder…"); [ -z "$AF" ] && AF=$(pref_find Add); [ -n "$AF" ] && click $AF 1
+launch; settings 3
+# Add a folder…: the first Add under the caption "Trusted locations" (the notes around also say "folder" and
+# "trusted locations"), the form scrolled on until the buttons under it show.
+read _ TL <<< "$(pref_find Trusted)"
+for _ in 1 2 3; do [ -n "$TL" ] && [ $(( TL + 100 )) -gt $(( SY + SWH )) ] || break; xdotool mousemove $(( SX + 260 )) $(( SY + 300 )) click 5 click 5; sleep 0.8; read _ TL <<< "$(at Trusted "$SG")"; done
+AF=; [ -n "$TL" ] && AF=$(at Add ${SWW}x90+$SX+$(( TL + 8 ))); [ -n "$AF" ] && click $AF 1
 LOC=$(settings_val 'p["settings"]["trust"]["locations"]'); shot 302b-trusted
 answer ""
 check "a web link asks first, a blocked site stays blocked, a trusted folder is kept ($(echo "$Q1" | cut -c1-50); Remember ${R:-?}, Block ${B:-?}: $BL; then $(echo "$Q2" | cut -c1-30); $LOC)" "echo \"$Q1\" | grep -q 'example.org' && echo \"$BL\" | grep -q \"'example.org'\" && ! echo \"$Q2\" | grep -q 'Open a page' && echo \"$LOC\" | grep -q 'trusted'"
 quit; settings_reset
 
-# 303. Preferences ▸ Startup (C-preferences-012, iLovePDF's "Open iLovePDF automatically after you log into the
-# computer"): Open Sheaf writes the login item (XDG autostart, pointing at the app), Don't open it removes it.
-launch; key ctrl+comma; sleep 0.8
-# The row's label ("When I log into the computer") found by "log", the choices 34 px under it: Open Sheaf 5 px left
-# of "log", Don't open it 112 px right.
+# 303. Settings ▸ General ▸ Startup (C-preferences-012, iLovePDF's "Open iLovePDF automatically after you log into the
+# computer"): its switch on writes the login item (XDG autostart, pointing at the app), off removes it.
+launch; settings 0
+# The row ("Open Sheaf when you log in") found by "log", its switch on the trailing edge.
 read FX FY <<< "$(pref_find log)"; shot 303-startup; OS=; DO=
-[ -n "$FX" ] && OS="$(( FX - 5 )) $(( FY + 34 ))" && DO="$(( FX + 112 )) $(( FY + 34 ))"
+[ -n "$FY" ] && OS="$(( SX + SWW - 49 )) $FY" && DO=$OS
 [ -n "$OS" ] && click $OS 0.8
 AUTO="$OUT/profile/config/autostart/sheaf.desktop"; A1=$(grep -c "^Exec=.*sheaf-app-under-test" "$AUTO" 2>/dev/null)
 [ -n "$DO" ] && click $DO 0.8
@@ -1126,11 +1124,11 @@ check "340 optimizer saves flattened Fast Web View ($OA; $OF; $OW)" "[ -n \"$OF\
 quit
 
 # 341. Acrobat's display colour management: choose a real monitor ICC, keep it, reset to sRGB.
-launch; key ctrl+comma; sleep 0.8
-IC=$(pref_find monitor); answer "/usr/share/color/icc/ghostscript/a98.icc"; [ -n "$IC" ] && click $IC 1; answer ""
+launch; settings 1
+IC=$(pref_find Other); answer "/usr/share/color/icc/ghostscript/a98.icc"; [ -n "$IC" ] && click $IC 1; answer ""
 IP=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("display_profile"))' "$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 shot 341-display-profile
-IS=$(at sRGB 1020x700+250+90); [ -n "$IS" ] && click $IS 0.5
+IS=$(at sRGB "$SG"); [ -n "$IS" ] && click $IS 0.5
 IR=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("display_profile"))' "$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "341 display ICC persists and resets to sRGB ($IC; $IP; $IR)" "[ \"$IP\" = '/usr/share/color/icc/ghostscript/a98.icc' ] && [ \"$IR\" = None ]"
 quit
@@ -1573,10 +1571,11 @@ prefs_set "p['ai'] = {'provider': 'openai', 'notice_seen': ['openai']}"
 launch "$OUT/ai.pdf"; sleep 1
 ai_open; click 1040 768 0.4; xdotool type --delay 15 "Hello"; key Return
 ai_wait 'API key'; E2=$(ai_text); shot ai-364b
-read SX SY <<< "$(ai_last Open)"; [ -n "$SY" ] && click $SX $SY 1.2
-PG=$(ocr 1280x120+0+40); shot ai-364c
-check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Preferences' | head -1); settings: $(echo "$PG" | grep -o Preferences | head -1))" \
-    "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Preferences' && echo \"$PG\" | grep -q Preferences"
+read OX OY <<< "$(ai_last Open)"; [ -n "$OY" ] && click $OX $OY 1.2
+# Settings ▸ AI in its own window: its form reads the AI card's Provider row.
+SWIN=$(xdotool search --onlyvisible --name '^Settings$' 2>/dev/null | tail -1); PG=; [ -n "$SWIN" ] && PG=$(import -window "$SWIN" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '); shot ai-364c
+check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Preferences' | head -1); settings: $(echo "$PG" | grep -o Provider | head -1))" \
+    "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Preferences' && echo \"$PG\" | grep -q Provider"
 quit; ai_stop
 
 # 365. AI spaces renamed (C-ai-006, Acrobat's Rename space): New space, Rename, "Contracts" typed and Enter: the
@@ -1613,16 +1612,17 @@ JT=$(pdftotext "$OUT/ai-ja.pdf" - 2>/dev/null | tr -d '\n')
 check "a Japanese translation is saved as a searchable PDF (translate $TR, save ${SY:-none}; text: $JT)" "echo \"$JT\" | grep -q '東京の素早い'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
 
-# 306. Preferences ▸ Interface ▸ Language (C-preferences-003, iLovePDF's Language): French chosen, Home reads
+# 306. Settings ▸ General ▸ Language (C-preferences-003, iLovePDF's Language): French chosen, Home reads
 # Favoris and Tous les outils in its source list and All Tools Fusionner des PDF (a name made in Rust); Language ▸
-# English switches back at once, without restarting.
+# English (the Language popup's second item) switches back at once, without restarting.
 prefs_set "p.setdefault('platform', {})['language'] = 2"
 launch; sleep 0.5
 SB=$(ocr 250x300+0+40)
 click $ALL_TOOLS_ROW 0.8
 TP=$(ocr 1080x700+0+90); shot 306a-french
-key ctrl+comma; sleep 0.8
-EN=$(pref_find English); [ -n "$EN" ] && click $EN 0.8
+settings 0
+# The popup on the Language row (its word, in French "Langue", is the row's label), English 64 px under it.
+read _ EY <<< "$(pref_find Langue)"; EN=; [ -n "$EY" ] && { click $(( SX + SWW - 36 - 40 )) $EY 0.6; EN="$(( SX + SWW - 36 - 40 )) $(( EY + 64 ))"; click $EN 0.8; }
 SB2=$(ocr 250x300+0+40); shot 306b-english
 LG=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["platform"]["language"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 check "the interface switches to French and back (sidebar: $(echo $SB | cut -c1-60); Tools page: $(echo "$TP" | grep -o 'Fusionner[^ ]*' | head -1); then $(echo $SB2 | cut -c1-50); language $LG)" "echo \"$SB\" | grep -q 'outils' && echo \"$SB\" | grep -q 'Favoris' && echo \"$TP\" | grep -q 'Fusionner' && echo \"$SB2\" | grep -q 'Tools' && echo \"$SB2\" | grep -q 'Favourites' && [ \"$LG\" = 1 ]"
@@ -1660,7 +1660,7 @@ SP=$(python3 -c 'import json, sys; s = json.load(open(sys.argv[1])); print(len(s
 check "a space exported with relative paths is imported back (new $NS, export $EX, delete $DL, import $IM; file lists $REL; spaces $SP; $(echo "$T7" | grep -o 'Space: Space ([0-9] PDF)' | head -1))" "[ \"$REL\" = \"['../ai.pdf']\" ] && [ \"$SP\" = '1 True' ] && echo \"$T7\" | grep -q 'Space: Space (1 PDF)'"
 quit; rm -f "$OUT/dialog-answer"; ai_stop
 
-# 371. Preferences ▸ Signatures ▸ Add a smart card or token… (C-sign-013, Acrobat's PKCS#11 Modules and Tokens ▸
+# 371. Settings ▸ Tools ▸ Digital signatures ▸ Add a smart card or token… (C-sign-013, Acrobat's PKCS#11 Modules and Tokens ▸
 # Attach Module): a SoftHSM token holding a P-256 key and its certificate, as a smart card does; its module chosen,
 # the card's ID joins the list without the PIN being asked, named after its holder and token, and is kept as a
 # pkcs11: reference (it signs with the PIN in 372).
@@ -1676,14 +1676,13 @@ if [ -n "$SH" ] && command -v pkcs11-tool >/dev/null; then
     softhsm2-util --import "$TK/card.key" --token "Smoke card" --label holder --id 01 --pin 4321 >/dev/null 2>&1
     pkcs11-tool --module "$SH" --token-label "Smoke card" --login --pin 4321 --write-object "$TK/card.der" --type cert --id 01 --label holder >/dev/null 2>&1
 fi
-launch; key ctrl+comma; sleep 0.8
-answer "$SH"; read SX SY <<< "$(pref_find smart)"; [ -n "$SY" ] && click $SX $SY 1
+launch; settings 3
+answer "$SH"; read MX MY <<< "$(pref_find smart)"; [ -n "$MY" ] && click $MX $MY 1
 for _ in $(seq 1 20); do grep -q pkcs11: "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null && break; sleep 0.5; done; answer ""; sleep 0.8
 shot 371-token
-# The list starts at x 234, left of pref_find's crop.
-LIST=$(ocr 1040x710+226+90)
+LIST=$(ocr "$SG")
 REF=$(python3 -c 'import json, sys; print(next((d for d in json.load(open(sys.argv[1])).get("digital_ids", []) if d.startswith("pkcs11:")), ""))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
-check "Add a smart card or token lists the card's digital ID without its PIN (module ${SH:-none}; button ${SY:-not found}; listed: $(echo "$LIST" | grep -o 'Smoke Card Holder ([^)]*)' | head -1); kept: $(echo "$REF" | cut -c1-60))" "echo \"$LIST\" | grep -q 'Smoke Card Holder (Smoke card)' && echo \"$REF\" | grep -q '^pkcs11:token=Smoke%20card;.*module-path='"
+check "Add a smart card or token lists the card's digital ID without its PIN (module ${SH:-none}; button ${MY:-not found}; listed: $(echo "$LIST" | grep -o 'Smoke Card Holder ([^)]*)' | head -1); kept: $(echo "$REF" | cut -c1-60))" "echo \"$LIST\" | grep -q 'Smoke Card Holder (Smoke card)' && echo \"$REF\" | grep -q '^pkcs11:token=Smoke%20card;.*module-path='"
 quit
 
 # 372. Sign with the smart card (C-sign-013): Tools ▸ Sign, a typed name, Use a digital ID; the card's ID chosen from
@@ -1708,7 +1707,7 @@ quit
 # 307. Plugins (C-platform-006; Acrobat's plug-ins, Stirling's custom scripts): the sample plugin in the plugins
 # folder adds "Mark as reviewed" to the Tools page; its first run asks first ("Run the plugin …?"), Allow and run
 # writes "plug - Mark as reviewed.pdf" titled Reviewed by the plugin's own process; the version is kept as allowed;
-# Preferences ▸ Plugins lists it and Off takes its card away.
+# Settings ▸ Tools ▸ Plugins lists it and Off takes its card away.
 mkdir -p "$OUT/profile/data/Sheaf/plugins"; rm -rf "$OUT/profile/data/Sheaf/plugins/reviewed-stamp"
 cp -r dev/plugins/reviewed-stamp "$OUT/profile/data/Sheaf/plugins/"; cp "$OUT/text.pdf" "$OUT/plug.pdf"; rm -f "$OUT/plug - Mark as reviewed.pdf"
 launch; sleep 0.5
@@ -1726,18 +1725,18 @@ read AX AY <<< "$(at Allow 460x160+410+400)"; AL=; [ -n "$AX" ] && AL="$AX $AY"
 for _ in $(seq 1 40); do [ -s "$OUT/plug - Mark as reviewed.pdf" ] && break; sleep 0.25; done; sleep 0.5; answer ""
 PT=$(pdfinfo "$OUT/plug - Mark as reviewed.pdf" 2>/dev/null | awk '/^Title:/ { print $2 }')
 PA=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["allowed"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
-key ctrl+comma; sleep 0.8
-# The plugin's row is the page's last: once found, the page goes on to its end so its buttons show too.
-PR=$(pref_find "Reviewed"); xdotool mousemove 700 500 click 5 click 5 click 5 click 5 click 5; sleep 0.8
-PR=$(pref_find "Reviewed"); OF=; [ -n "$PR" ] && { read _ RY <<< "$PR"; OF=$(at Off 1020x200+250+$(( RY - 10 ))); [ -n "$OF" ] || OF=$(at off 1020x200+250+$(( RY - 10 ))); }   # its 13 px label may OCR "off"
-[ -n "$OF" ] && click $OF 0.8; shot 307b-plugins-prefs
+settings 3
+# The plugin's row is the form's last: once found, the form goes on to its end so its buttons show too.
+PR=$(pref_find "Reviewed"); xdotool mousemove $(( SX + 260 )) $(( SY + 300 )) click 5 click 5 click 5 click 5 click 5; sleep 0.8
+PR=$(pref_find "Reviewed"); OF=; [ -n "$PR" ] && { read _ RY <<< "$PR"; OF=$(at Off ${SWW}x200+$SX+$(( RY - 10 ))); [ -n "$OF" ] || OF=$(at off ${SWW}x200+$SX+$(( RY - 10 ))); }   # its 13 px label may OCR "off"
+[ -n "$OF" ] && click $OF 0.8; shot 307b-plugins-prefs; sclose
 PD=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["disabled"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
 TL=$(at Tools 250x300+0+40); [ -n "$TL" ] && click $TL 0.8
 MK2=; for _ in $(seq 1 25); do MK2=$(at Mark 1080x710+200+90); [ -n "$MK2" ] && break; xdotool mousemove 700 500 click 5 click 5 click 5; sleep 0.2; done
 check "a plugin's tool runs as its own process after a warning, and Off removes it (card ${MK:-none}; asked: $(echo "$WQ" | grep -o 'Run the plugin' | head -1); title $PT; allowed $PA; prefs row ${PR:-none}, Off ${OF:-none}: disabled $PD; card after: ${MK2:-gone})" "[ -n \"$MK\" ] && echo \"$WQ\" | grep -q 'Run the plugin' && [ \"$PT\" = Reviewed ] && echo \"$PA\" | grep -q 'reviewed-stamp@1.0' && echo \"$PD\" | grep -q 'reviewed-stamp' && [ -z \"$MK2\" ]"
 quit; rm -rf "$OUT/profile/data/Sheaf/plugins"
 
-# 308. Preferences ▸ Rendering ▸ Use the system's profile (C-preferences-005, Acrobat's Use display profile): with a
+# 308. Settings ▸ Appearance ▸ Display colour profile ▸ The system's (C-preferences-005, Acrobat's Use display profile): with a
 # Display P3 profile set on the display (the root window's _ICC_PROFILE, as colord sets it), the red of image.pdf
 # is drawn converted (less red, some green) while white stays white; sRGB before.
 # The page's reddest pixel and a white one (a 10× smaller copy of the page area), as "x y r g b" lines.
@@ -1749,9 +1748,8 @@ white = next(p for p in px if min(p[2:]) > 250)
 print(*red, *white)'; }
 cp "$OUT/image.pdf" "$OUT/p3.pdf"; launch "$OUT/p3.pdf"; sleep 1; read RX RY R0 G0 B0 WX WY W0 _ <<< "$(red_white)"; quit
 python3 dev/scripts/smoke/set-icc.py dev/scripts/smoke/display-p3.icc
-launch; key ctrl+comma; sleep 0.8
-# Use the system's profile, the third of the row whose first is Choose monitor ICC… (segments sized to their
-# labels): found by its word "system's" (not "system": Appearance's bold "System" can OCR so).
+launch; settings 1
+# The radio "The system's": found by its word "system's" (not "system": Appearance's "System" can OCR so).
 US=$(pref_find "system's"); [ -n "$US" ] && click $US 0.8
 DS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("display_system"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 quit

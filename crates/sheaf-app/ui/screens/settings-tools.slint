@@ -1,0 +1,187 @@
+// Settings ▸ Tools: the Tools page, how the print sheet opens, security of links and files,
+// digital signatures, plugins.
+import { Theme, Space } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { SettingsBridge } from "../settings.slint";
+import { Picked } from "../flow-types.slint";
+import { Button } from "../widgets/button.slint";
+import { PopupButton, Radio, Checkbox } from "../widgets/controls.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { SecuritySection } from "preferences-more.slint";
+import { PluginsSection } from "preferences-plugins.slint";
+import { Prefs, SettingsCard, SettingsRow, SettingsBlock, SettingsSwitch, RowNote, Flow } from "settings-form.slint";
+
+// iLovePDF's Printer preferences and Acrobat's print defaults: how the print sheet opens (its own
+// "Make default" sets them too).
+component PrintingCard inherits SettingsCard {
+    title: @tr("Printing");
+    function set(two-sided: bool, paper: int, gray: bool, comments: bool, fit: bool, orientation: int, layout: int) {
+        SettingsBridge.set-print-defaults(two-sided, paper, gray, comments, fit, orientation, layout);
+    }
+    SettingsRow {
+        label: @tr("Paper");
+        PopupButton {
+            tip: @tr("Paper");
+            options: [@tr("Printer's default"), @tr("A4"), @tr("Letter"), @tr("Legal")];
+            current-index: SettingsBridge.print-paper;
+            selected(i) => { root.set(SettingsBridge.print-two-sided, i, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); }
+        }
+    }
+    SettingsRow {
+        label: @tr("Orientation");
+        for label[i] in [@tr("Auto"), @tr("Portrait"), @tr("Landscape")]: Radio {
+            text: label;
+            checked: SettingsBridge.print-orientation == i;
+            clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, i, SettingsBridge.print-layout); }
+        }
+    }
+    SettingsRow {
+        label: @tr("Print on both sides");
+        SettingsSwitch { label: parent.label; checked: SettingsBridge.print-two-sided; toggled(v) => { root.set(v, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+    }
+    SettingsRow {
+        label: @tr("Print in grey");
+        SettingsSwitch { label: parent.label; checked: SettingsBridge.print-gray; toggled(v) => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, v, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+    }
+    SettingsRow {
+        label: @tr("Scale pages to fit the paper");
+        SettingsSwitch { label: parent.label; checked: SettingsBridge.print-fit; toggled(v) => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, v, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+    }
+    SettingsRow {
+        label: @tr("Print comments");
+        SettingsSwitch { label: parent.label; checked: SettingsBridge.print-comments; toggled(v) => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, v, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+    }
+    SettingsRow {
+        label: @tr("Quality");
+        PopupButton {
+            tip: @tr("Quality");
+            options: [@tr("Printer's own"), @tr("Draft"), @tr("Normal"), @tr("High")];
+            current-index: SettingsBridge.print-quality;
+            selected(i) => { SettingsBridge.set-print-quality(i); }
+        }
+    }
+    SettingsRow {
+        label: @tr("Pages per sheet");
+        rule: false;
+        PopupButton {
+            tip: @tr("Pages per sheet");
+            options: ["1", "2", "4", "6", "9", "16", @tr("Booklet")];
+            current-index: SettingsBridge.print-layout;
+            selected(i) => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, i); }
+        }
+    }
+}
+
+// A name with its trailing buttons, in a list inside a card.
+component ListRow inherits Flow {
+    in property <string> text;
+    // The name takes the room left (horizontal-stretch); the buttons keep theirs.
+    alignment: stretch;
+    height: Theme.control-height;
+    spacing: Space.sm;
+    Text {
+        horizontal-stretch: 1;
+        text: root.text;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    @children
+}
+
+// Acrobat's Signatures ▸ Identities & Trusted Certificates, and its time stamp servers.
+component SignaturesCard inherits SettingsCard {
+    title: @tr("Digital signatures");
+    property <bool> creating-id;
+    SettingsBlock {
+        RowNote { text: @tr("Digital IDs signed with"); color: Theme.text; font-size: Theme.fs-body; }
+        if Prefs.digital-ids.length == 0: RowNote { text: @tr("None yet: one picked to sign is kept here."); }
+        for d[k] in Prefs.digital-ids: ListRow {
+            text: d;
+            Button { text: @tr("Remove"); clicked => { Prefs.signature-prefs(1, k); } }
+        }
+        Flow {
+            alignment: start;
+            spacing: Space.sm;
+            Button { text: @tr("Add a digital ID…"); clicked => { Prefs.signature-prefs(0, 0); } }
+            Button { text: @tr("Add a smart card or token…"); clicked => { Prefs.signature-prefs(4, 0); } }
+        }
+        Flow {
+            alignment: start;
+            Button { text: @tr("Create a digital ID…"); clicked => { root.creating-id = !root.creating-id; } }
+        }
+        if root.creating-id: VerticalLayout {
+            spacing: 6px;
+            RowNote { text: @tr("A self-signed digital ID saved in a password-protected file (.p12), valid five years. Send its certificate to people who encrypt for you."); }
+            id-name := TextField { label: @tr("Name"); }
+            id-unit := TextField { label: @tr("Organizational unit (optional)"); }
+            id-org := TextField { label: @tr("Organization (optional)"); }
+            id-email := TextField { label: @tr("Email (optional)"); }
+            id-country := TextField { label: @tr("Country code (optional, such as BE)"); }
+            id-password := TextField { label: @tr("Password (6 characters or more)"); password: true; allow-reveal: true; }
+            id-confirm := TextField { label: @tr("Confirm password"); password: true; }
+            id-encrypt := Checkbox { text: @tr("Use it for certificate encryption too"); checked: true; }
+            Flow {
+                alignment: start;
+                Button {
+                    text: @tr("Create and save…");
+                    clicked => { Prefs.create-digital-id(id-name.text, id-unit.text, id-org.text, id-email.text, id-country.text, id-password.text, id-confirm.text, id-encrypt.checked); }
+                }
+            }
+        }
+    }
+    SettingsBlock {
+        RowNote { text: @tr("Certificates trusted"); color: Theme.text; font-size: Theme.fs-body; }
+        if Prefs.trusted-certs.length == 0: RowNote { text: @tr("None: a signature's certificate is trusted from Document properties, or added here."); }
+        for c[k] in Prefs.trusted-certs: ListRow {
+            text: c;
+            Button { text: @tr("Remove"); clicked => { Prefs.signature-prefs(3, k); } }
+        }
+        Flow {
+            alignment: start;
+            Button { text: @tr("Trust a certificate…"); clicked => { Prefs.signature-prefs(2, 0); } }
+        }
+    }
+    // Acrobat's Time Stamp Servers: the default first. None is contacted from here.
+    SettingsBlock {
+        rule: false;
+        RowNote { text: @tr("Time stamp servers"); color: Theme.text; font-size: Theme.fs-body; }
+        if Picked.tsa-servers.length == 0: RowNote { text: @tr("None: add the address of a time stamp server to time stamp documents and signatures."); }
+        for s[k] in Picked.tsa-servers: ListRow {
+            text: k == 0 ? @tr("{} (default)", s) : s;
+            if k > 0: Button { text: @tr("Make default"); clicked => { Picked.tsa-prefs(2, k, ""); } }
+            Button { text: @tr("Remove"); clicked => { Picked.tsa-prefs(1, k, ""); } }
+        }
+        Flow {
+            alignment: stretch;
+            tsa-url := TextField { horizontal-stretch: 1; placeholder: "https://freetsa.org/tsr"; }
+            Button {
+                text: @tr("Add server");
+                clicked => {
+                    Picked.tsa-prefs(0, 0, tsa-url.text);
+                    tsa-url.text = "";
+                }
+            }
+        }
+        RowNote { text: @tr("Free servers: https://freetsa.org/tsr, http://timestamp.digicert.com. A time stamp sends the server only a fingerprint of the document, never the document."); }
+    }
+}
+
+export component SettingsTools inherits VerticalLayout {
+    spacing: Space.xl;
+    SettingsCard {
+        title: @tr("Tools page");
+        footer: PlatformBridge.unavailable-tools == "" ? @tr("Every tool can run on this computer.") : @tr("Can't run here: {}.", PlatformBridge.unavailable-tools);
+        SettingsRow {
+            label: @tr("Hide tools that can't run here");
+            rule: false;
+            SettingsSwitch { label: parent.label; checked: PlatformBridge.hide-unavailable; toggled(v) => { PlatformBridge.set-hide-unavailable(v); } }
+        }
+    }
+    PrintingCard {}
+    SecuritySection {}
+    SignaturesCard {}
+    PluginsSection {}
+}

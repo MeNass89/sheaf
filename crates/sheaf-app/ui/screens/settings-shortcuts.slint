@@ -1,0 +1,9 @@
+// Settings ▸ Shortcuts: every command with its keys, searched, recorded, reset
+// (preferences-platform.slint's KeyboardSection).
+import { Space } from "../theme.slint";
+import { KeyboardSection } from "preferences-platform.slint";
+
+export component SettingsShortcuts inherits VerticalLayout {
+    spacing: Space.xl;
+    KeyboardSection {}
+}

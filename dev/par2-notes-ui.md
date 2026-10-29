@@ -470,3 +470,49 @@ name, by the 168 pitch (a two-word name's first word is off the tile's centre).
 
 Screenshots /tmp/f5/W2/ (self-snapshots, Xvfb :131): home light/dark 1280 and 1024, All Tools, Customize,
 Tasks dark, a tool tab.
+
+## Redesign W5: the Settings window (29/10/2026, Opus)
+
+DESIGN §5.8, DESIGN-PLAN W5, BAMA settings.md. Branch wip/w5-settings (from wip/w1-tokens).
+
+- Settings is its own window (`ui/screens/settings-window.slint`, `src/settings_window.rs`): 520 wide, six icon
+  tabs 72×44 (General, Appearance, Reading, Tools, AI, Shortcuts; the chosen one on `fill-2`), one form per tab on
+  the `chrome` page, cards (`window`, `r-md`, hairline) with a small-capital title, rows 36 tall with the label as a
+  statement and the controls on the trailing edge (`settings-form.slint`: SettingsCard, SettingsRow, SettingsBlock,
+  SettingsSwitch, SettingsSwatch). Applies at once; as tall as its tab up to 640, then it scrolls; reopens on the
+  last tab (for the session); nothing has a focus ring at open. Title: the tab on macOS, "Settings" elsewhere.
+  ⌘W / Escape close it, ⌃Tab steps the tabs.
+- Rows regrouped: General (startup and updates, language and direction, where results go, default PDF app),
+  Appearance (System / Light / Dark radios, six accent swatches with the system's first on macOS, background behind
+  pages, smoothing and boxes as switches, display profile sRGB / The system's / Other…, graphics card or processor),
+  Reading (zoom, layout, reopen position, page numbers, units, guides, stamp dates, author name, spelling), Tools
+  (Tools page, printing defaults as rows, security, digital signatures and time stamp servers, plugins), AI (the
+  existing AI card), Shortcuts (the existing list). Choices are radios (2–3) or popups (4+), never segments.
+- Slint gives each window its own globals: the Settings window mirrors the main window's (Prefs, SettingsBridge,
+  PlatformBridge's settings members, AiBridge's pref members, PluginBridge, Picked.tsa-servers, UpdateBridge.auto,
+  Theme) after each of its callbacks (each handed to the main window's) and every 250 ms while shown. A new setting
+  in a tab must be added to `sync` and `forward!` there.
+- Opens from ⌘, (app keys and the reader), Sheaf ▸ Settings… (macOS, `preferences-asked`), Edit ▸ Settings…
+  (renamed from Preferences…), Home's Preferences row (W2 removes it), Help ▸ Customize Shortcuts… (Shortcuts tab),
+  and the AI panel's Open AI settings… (AI tab; it set a Home page that no longer exists). The Preferences page and
+  `Page.preferences` are gone; the legacy sections left (Security, Plugins, Keyboard, AI) wear the new card.
+- Self-snapshot: a name starting with "settings" draws the Settings window (open it first with Ctrl+,).
+- Not done in W5 (time): the Print sheet at 864×640 with its preview column, Export / Protect / Sign sheets on the
+  `Sheet` widget, the 360 dialogs and the toast's new place; "Page theme when a document opens" (needs a pref
+  setter in reader_ui); texts still saying "Preferences" in other streams' files ("API key in Preferences",
+  "Add a time stamp server in Preferences ▸ Signatures.").
+
+Smoke recalibrated: helpers in gui-smoke.sh (`settings N` opens the window on tab N and reads its geometry, `sfind`
+scrolls its form to a word, `sswitch`, `skey`, `stype`, `sclose`); 2-documents 9 (Reading ▸ Author name), the ⌘,
+check (the window and its tab bar), 11 (Appearance radios); 3-flows 28 (Reading radios), 36 and its reset
+(swatches 26 apart from the trailing edge); 4-flows 99, 221, 223, 225, 229, 230, 301, 302, 303, 306 (Language
+popup), 307, 308, 321, 341, 364c (Open AI settings… shows the AI tab), 371; 226 and 228 (Edit menu on a text field)
+use Home ▸ Tools' search: the main window's menu bar acts on the main window, Settings has none on Linux.
+Step 28's Fit page is clicked beside Actual size and now also asserts `default_zoom` 1 (its OCR miss had left
+Actual size on, the under-120 % check still passed, and step 33's two pages sat off the points it reads); 33 waits
+up to 5 s for the pages under load; 302 finds the caption "Trusted locations" (its notes also say "locations" and
+"folder"). A real bug the smoke found: the time stamp server field had collapsed to nothing (a FlexboxLayout gives
+horizontal-stretch room only with `alignment: stretch`). GUI layer GREEN on 215791c (325+ checks, four shards).
+
+Screenshots /tmp/f5/W5/ (self-snapshots, Xvfb :151–:153): every tab light and dark, the screen with Settings open at
+1280×800 and 1024×768.

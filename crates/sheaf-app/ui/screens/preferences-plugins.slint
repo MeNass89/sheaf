@@ -37,18 +37,24 @@ export global PluginBridge {
 
 component Card inherits Rectangle {
     in property <string> title;
-    border-radius: Theme.radius-card;
-    background: Theme.card;
+    // The Settings window's card (settings-form.slint): small-capital title, hairline edge.
+    border-radius: Theme.r-md;
+    background: Theme.window;
+    border-width: 1px;
+    border-color: Theme.hairline;
     height: lay.preferred-height;
     lay := VerticalLayout {
-        padding: 18px;
+        padding: 16px;
+        padding-top: 8px;
         spacing: 12px;
         Text {
+            height: 16px;
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: root.title;
-            font-size: Theme.fs-body-large;
+            text: root.title.to-uppercase();
+            font-size: Theme.fs-subhead;
             font-weight: Theme.weight-demibold;
-            color: Theme.text;
+            color: Theme.text-2;
+            vertical-alignment: bottom;
         }
         @children
     }

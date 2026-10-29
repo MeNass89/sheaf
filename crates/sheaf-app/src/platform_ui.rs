@@ -831,6 +831,8 @@ pub fn install(ui: &AppWindow) {
             let _ = std::fs::remove_file(&request);
             // A name starting with "gallery" draws the widget gallery's window (SHEAF_GALLERY).
             let gallery = name.trim().starts_with("gallery").then(|| GALLERY.with(|g| g.borrow().as_ref().and_then(|g| g.window().take_snapshot().ok()))).flatten();
+            // A name starting with "settings" draws the Settings window (open it first: ⌘,).
+            let gallery = gallery.or_else(|| name.trim().starts_with("settings").then(crate::settings_window::snapshot).flatten());
             if let Some(ui) = weak.upgrade()
                 && let Some(shot) = gallery.or_else(|| ui.window().take_snapshot().ok())
                 && let Some(img) = image::RgbaImage::from_raw(shot.width(), shot.height(), shot.as_bytes().to_vec())

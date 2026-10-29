@@ -1,0 +1,80 @@
+// Settings ▸ General: startup, language and direction, where results go, the default PDF app.
+import { Theme, Space } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { SettingsBridge } from "../settings.slint";
+import { UpdateBridge } from "updates.slint";
+import { Button } from "../widgets/button.slint";
+import { PopupButton, Radio } from "../widgets/controls.slint";
+import { Prefs, SettingsCard, SettingsRow, SettingsSwitch, RowValue } from "settings-form.slint";
+
+export component SettingsGeneral inherits VerticalLayout {
+    spacing: Space.xl;
+    SettingsCard {
+        title: @tr("Startup");
+        footer: SettingsBridge.login-error != "" ? SettingsBridge.login-error : @tr("Sheaf works offline. It asks GitHub for its latest release only when you check, or once a day at launch if you choose it, and never goes through a proxy.");
+        SettingsRow {
+            label: @tr("Open Sheaf when you log in");
+            SettingsSwitch { label: parent.label; checked: SettingsBridge.open-at-login; toggled(v) => { SettingsBridge.set-open-at-login(v); } }
+        }
+        SettingsRow {
+            label: @tr("Ask before quitting while a task runs");
+            SettingsSwitch { label: parent.label; checked: SettingsBridge.quit-warning; toggled(v) => { SettingsBridge.set-quit-warning(v); } }
+        }
+        SettingsRow {
+            label: @tr("Check for updates once a day");
+            rule: false;
+            Button { text: @tr("Check Now"); clicked => { UpdateBridge.check(); } }
+            SettingsSwitch { label: parent.label; checked: UpdateBridge.auto; toggled(v) => { UpdateBridge.set-auto(v); } }
+        }
+    }
+    SettingsCard {
+        title: @tr("Language");
+        SettingsRow {
+            label: @tr("Language");
+            // Each language named in itself (src/i18n.rs LANGUAGES' order).
+            PopupButton {
+                tip: @tr("Language");
+                options: [@tr("As the system's language"), "English", "Français", "Deutsch", "Español", "Italiano", "Português"];
+                current-index: PlatformBridge.language;
+                selected(i) => { PlatformBridge.set-language(i); }
+            }
+        }
+        SettingsRow {
+            label: @tr("Direction");
+            rule: false;
+            for label[i] in [@tr("Automatic"), @tr("Left to right"), @tr("Right to left")]: Radio {
+                text: label;
+                checked: PlatformBridge.direction == i;
+                clicked => { PlatformBridge.set-direction(i); }
+            }
+        }
+    }
+    SettingsCard {
+        title: @tr("Results");
+        SettingsRow {
+            label: @tr("Save results");
+            PopupButton {
+                tip: @tr("Save results");
+                options: [@tr("Ask every time"), @tr("Next to the original file"), @tr("In a folder")];
+                current-index: Prefs.output-mode;
+                selected(i) => {
+                    if i == 2 && Prefs.fixed-folder == "" { Prefs.choose-folder(); } else { Prefs.set-output(i); }
+                }
+            }
+        }
+        if Prefs.output-mode == 2: SettingsRow {
+            label: @tr("Folder");
+            RowValue { text: Prefs.fixed-folder; }
+            Button { text: @tr("Choose…"); clicked => { Prefs.choose-folder(); } }
+        }
+        SettingsRow {
+            label: @tr("Open PDFs with Sheaf by default");
+            Button { text: @tr("Make Default"); clicked => { Prefs.make-default(); } }
+        }
+        SettingsRow {
+            label: @tr("Open the output folder when done");
+            rule: false;
+            SettingsSwitch { label: parent.label; checked: Prefs.open-after; toggled(v) => { Prefs.set-open-after(v); } }
+        }
+    }
+}

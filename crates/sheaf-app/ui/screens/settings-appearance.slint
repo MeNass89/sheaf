@@ -1,0 +1,76 @@
+// Settings ▸ Appearance: light or dark, the accent, the pages' surroundings and rendering, the
+// display's colour profile and what draws.
+import { Theme, Space } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { SettingsBridge } from "../settings.slint";
+import { Radio } from "../widgets/controls.slint";
+import { Prefs, SettingsCard, SettingsRow, SettingsSwitch, SettingsSwatch, RowValue } from "settings-form.slint";
+
+export component SettingsAppearance inherits VerticalLayout {
+    spacing: Space.xl;
+    SettingsCard {
+        title: @tr("Appearance");
+        footer: Theme.mac ? @tr("The first swatch follows the colour chosen in System Settings.") : "";
+        SettingsRow {
+            label: @tr("Appearance");
+            for label[i] in [@tr("System"), @tr("Light"), @tr("Dark")]: Radio {
+                text: label;
+                checked: Prefs.theme-pref == i;
+                clicked => { Prefs.set-theme(i); }
+            }
+        }
+        SettingsRow {
+            label: @tr("Accent colour");
+            rule: false;
+            gap: 0;
+            for c[i] in Theme.accent-swatches: SettingsSwatch {
+                colour: c;
+                selected: Theme.accent-choice == i;
+                tip: [Theme.mac ? @tr("System accent") : @tr("Blue"), @tr("Red"), @tr("Green"), @tr("Purple"), @tr("Orange"), @tr("Graphite")][i];
+                clicked => { Prefs.set-accent(i); }
+            }
+        }
+    }
+    SettingsCard {
+        title: @tr("Pages");
+        SettingsRow {
+            label: @tr("Background behind pages");
+            gap: 0;
+            for c[i] in [Theme.canvas, #E4E4E7, #9A9AA0, #2B2B2E, #000000]: SettingsSwatch {
+                colour: c;
+                selected: Prefs.backdrop-pref == i;
+                tip: [@tr("As the appearance"), @tr("Light grey"), @tr("Mid grey"), @tr("Dark"), @tr("Black")][i];
+                clicked => { Prefs.set-backdrop(i); }
+            }
+        }
+        for label[k] in [@tr("Smooth text"), @tr("Smooth line art"), @tr("Smooth images")]: SettingsRow {
+            label: label;
+            SettingsSwitch { label: label; checked: Prefs.smooth[k]; toggled(v) => { Prefs.set-smoothing(k, v); } }
+        }
+        SettingsRow {
+            label: @tr("Show art, trim and bleed boxes");
+            SettingsSwitch { label: parent.label; checked: Prefs.show-boxes; toggled(v) => { Prefs.set-page-display(0, v); } }
+        }
+        SettingsRow {
+            label: @tr("Show transparency grid");
+            rule: false;
+            SettingsSwitch { label: parent.label; checked: Prefs.transparency-grid; toggled(v) => { Prefs.set-page-display(2, v); } }
+        }
+    }
+    SettingsCard {
+        title: @tr("Colour");
+        footer: Prefs.display-profile != "sRGB" && !SettingsBridge.display-system ? Prefs.display-profile : "";
+        SettingsRow {
+            label: @tr("Display colour profile");
+            Radio { text: "sRGB"; checked: Prefs.display-profile == "sRGB" && !SettingsBridge.display-system; clicked => { Prefs.reset-display-profile(); } }
+            Radio { text: @tr("The system's"); checked: SettingsBridge.display-system; clicked => { SettingsBridge.use-system-display(); } }
+            Radio { text: @tr("Other…"); checked: Prefs.display-profile != "sRGB" && !SettingsBridge.display-system; clicked => { Prefs.choose-display-profile(); } }
+        }
+        SettingsRow {
+            label: @tr("Draw with");
+            rule: false;
+            Radio { text: @tr("Graphics card"); checked: Prefs.gpu; clicked => { Prefs.set-gpu(true); } }
+            Radio { text: @tr("Processor"); checked: !Prefs.gpu; clicked => { Prefs.set-gpu(false); } }
+        }
+    }
+}

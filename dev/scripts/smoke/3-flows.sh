@@ -165,21 +165,18 @@ EN=$(qpdf --show-encryption "$OUT/perm-protected.pdf" 2>&1)
 check "Protect can restrict without an open password ($(echo "$EN" | grep -E 'print low' | tr -s ' '))" "echo \"$EN\" | grep -q 'User password = $' && echo \"$EN\" | grep -q 'print low resolution: not allowed'"
 quit
 
-# The end of the Preferences page (Documents is below Appearance, Identity and output).
-prefs_end() { xdotool mousemove 700 500 click --repeat 12 5; sleep 0.6; }
-# 28. Preferences ▸ Open new documents at Actual size (Preferences opened with ⌘,: Home's source list has no
-# row for it): a file never opened shows at 100 %.
-prefs_open() { key ctrl+comma; sleep 1; }
-# Preferences scrolled until "Open new documents at"'s row shows (Documents is no longer the last section).
-prefs_documents() { for _ in $(seq 1 20); do [ -n "$(at Actual 900x700+200+90)" ] && return; xdotool mousemove 700 500 click --repeat 2 5; sleep 0.3; done; }
-launch; prefs_open; prefs_documents; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
+# 28. Settings ▸ Reading ▸ Open new documents at Actual size: a file never opened shows at 100 %.
+launch; settings 2; AS=$(sfind Actual); [ -n "$AS" ] && click $AS 0.6; quit
 cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zoomval)
 check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
 # Fit page: a whole letter page in the 700 px high view, well under fit width (163 %).
-launch; prefs_open; prefs_documents; FP2=$(import -window root -crop 900x700+200+90 png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' '$12=="page" && prev=="Fit"{printf "%d %d\n", 200+($7+$9/2)/2, 90+($8+$10/2)/2; exit} {prev=$12}'); [ -n "$FP2" ] && click $FP2 0.6; quit
+# The radios "Fit width", "Fit page", "Actual size" (16 apart, each a 14 px circle 8 before its label): Fit page's
+# label ends 38 px left of Actual's circle's label, clicked 25 px further left (inside "page").
+launch; settings 2; read AL _ AY <<< "$(span Actual "$SG")"; FP2=; [ -n "$AY" ] && FP2="$(( AL - 63 )) $AY" && click $FP2 0.6
+DZ=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("default_zoom"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null); quit
 cp "$OUT/text.pdf" "$OUT/fresh2.pdf"; launch "$OUT/fresh2.pdf"; sleep 1.5; ZP=$(zoomval)
-check "a new document opens fitted to the page when chosen ($ZP %)" "[ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
+check "a new document opens fitted to the page when chosen (Fit page at ${FP2:-?}: default_zoom $DZ; $ZP %)" "[ \"$DZ\" = 1 ] && [ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
 quit
 
 # 29. Close Other Tabs asks about a document with unsaved edits (as ⌘W would): b.pdf highlighted, then from
@@ -234,7 +231,8 @@ quit
 # (1008,295) swaps them (Acrobat's right-to-left page order).
 convert -size 300x400 xc:'#E02020' xc:'#2040E0' "$OUT/rl.pdf"; launch "$OUT/rl.pdf"; sleep 1
 colour_at() { import -window root -crop "1x1+$1+420" txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}'; }
-click 1108 61 0.8; click 1008 239 1.2; L0=$(colour_at 620); R0=$(colour_at 900)
+# Under load the two pages can take a few seconds to draw: read until the left one is drawn (5 s at most).
+click 1108 61 0.8; click 1008 239 1.2; for _ in $(seq 1 10); do L0=$(colour_at 620); [ "$L0" != '#E6E6E6' ] && break; sleep 0.5; done; R0=$(colour_at 900)
 click 1108 61 0.8; click 1008 295 1.2; L1=$(colour_at 620); R1=$(colour_at 900)
 reddish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, b = int(v[0:2], 16), int(v[4:6], 16); sys.exit(0 if r > b + 80 else 1)' "$1"; }
 check "two pages read left to right, then right to left ($L0 $R0 → $L1 $R1)" "reddish '${L0:-#000000}' && reddish '${R1:-#000000}' && ! reddish '${R0:-#FF0000}' && ! reddish '${L1:-#FF0000}'"
@@ -285,19 +283,18 @@ PM=$(for i in 1 2 3 4 5; do echo -n "$(first_text "$OUT/pagemenu.pdf" $i)|"; don
 check "A thumbnail's menu reverses the pages, inserts and replaces from a file ($PM)" "[ \"$PM\" = 'Page 1|Page 1|Page 3|Page 2|Page 1|' ]"
 quit
 
-# 36. Preferences (⌘,) ▸ Accent colour blue (the second swatch, 38 px right of the first,
-# under its label) and Background behind pages black (the fifth): kept in the preferences, and a document
+# 36. Settings ▸ Appearance ▸ Accent colour, the second swatch (26 px apart, the row's last one ending on the
+# cards' trailing edge), and Background behind pages black (the fifth, the row's last): kept in the preferences, and a document
 # opened then shows black around its page (zoomed out, ⌘-).
-launch; prefs_open
-read AX AY <<< "$(at Accent 1100x700+180+60)"; read SX _ <<< "$(at System 1100x700+180+60)"
-SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $(( SW0 + 38 )) $(( AY + 30 )) 0.5
-read BX BY <<< "$(at Background 1100x700+180+60)"; [ -n "$BY" ] && click $(( SW0 + 4 * 38 )) $(( BY + 30 )) 0.5; quit
+launch; settings 1; R=$(( SX + SWW - 36 ))
+read AX AY <<< "$(at Accent "$SG")"; [ -n "$AY" ] && click $(( R - 5 * 26 + 13 )) $AY 0.5
+read BX BY <<< "$(at Background "$SG")"; [ -n "$BY" ] && click $(( R - 26 + 13 )) $BY 0.5; quit
 cp "$OUT/text.pdf" "$OUT/backdrop.pdf"; launch "$OUT/backdrop.pdf"; sleep 1; key ctrl+minus; key ctrl+minus; sleep 1
 BD=$(import -window root -crop 1x1+300+500 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}')
 check "Preferences keep the accent and the background behind pages (${BD:-?}; $(grep -o '"accent": [0-9]' $OUT/profile/data/Sheaf/prefs.json))" "grep -q '\"accent\": 1' $OUT/profile/data/Sheaf/prefs.json && [ \"$BD\" = '#000000' ]"
 quit
-launch; prefs_open; read SX _ <<< "$(at System 1100x700+180+60)"; read AX AY <<< "$(at Accent 1100x700+180+60)"; read BX BY <<< "$(at Background 1100x700+180+60)"
-SW0=$(( ${SX:-0} - 44 + 14 )); [ -n "$AY" ] && click $SW0 $(( AY + 30 )) 0.5; [ -n "$BY" ] && click $SW0 $(( BY + 30 )) 0.5; quit   # back to the defaults
+launch; settings 1; R=$(( SX + SWW - 36 )); read AX AY <<< "$(at Accent "$SG")"; read BX BY <<< "$(at Background "$SG")"
+[ -n "$AY" ] && click $(( R - 6 * 26 + 13 )) $AY 0.5; [ -n "$BY" ] && click $(( R - 5 * 26 + 13 )) $BY 0.5; quit   # back to the defaults
 
 # 37. A signature used once: Signature tool (S) ▸ New signature (412,109), a click on the page opens the pad;
 # drawn, "Keep for next time" unticked, Use (818,555): placed and saved, the kept signatures as they were.
