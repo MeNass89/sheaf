@@ -316,26 +316,42 @@ unsafe fn write_data(data: &AnyObject, to: &Path) -> Result<(), String> {
 /// What Continuity Camera handed back, written to the output: the PDF as it is (Scan Documents),
 /// a picture as PNG, or put on a page when a PDF is wanted.
 ///
+/// The pasteboard lists the iPhone's own representation first (a JPEG or HEIC for Take Photo, a
+/// PDF for Scan Documents) and conversions after it. Only that first one is read: asking for a PDF
+/// of a photo made the iPhone's camera crash and nothing came back (29/10, the PDF was offered).
+///
 /// # Safety
 /// `pasteboard` is an NSPasteboard.
 unsafe fn take(pasteboard: &AnyObject) -> Result<(), String> {
     let (out, pdf) = STATE.with_borrow(|s| (s.out.clone(), s.pdf));
-    let pdf_type = NSString::from_str(PDF_TYPE);
-    let types: Retained<AnyObject> = unsafe { msg_send![AnyClass::get(c"NSArray").unwrap(), arrayWithObject: &*pdf_type] };
-    let found: Option<Retained<NSString>> = unsafe { msg_send![pasteboard, availableTypeFromArray: &*types] };
-    if pdf && found.is_some() {
-        let data: Option<Retained<AnyObject>> = unsafe { msg_send![pasteboard, dataForType: &*pdf_type] };
-        unsafe { write_data(&*data.ok_or("The scan could not be read")?, &out)? };
+    let image_types: Retained<AnyObject> = unsafe { msg_send![AnyClass::get(c"NSImage").unwrap(), imageTypes] };
+    let offered: Option<Retained<AnyObject>> = unsafe { msg_send![pasteboard, types] };
+    let offered = offered.ok_or("Nothing came back")?;
+    let count: usize = unsafe { msg_send![&*offered, count] };
+    let mut chosen: Option<(Retained<NSString>, bool)> = None;
+    for i in 0..count {
+        let kind: Retained<NSString> = unsafe { msg_send![&*offered, objectAtIndex: i] };
+        let is_pdf = kind.to_string() == PDF_TYPE;
+        let is_image: Bool = unsafe { msg_send![&*image_types, containsObject: &*kind] };
+        if cfg!(debug_assertions) {
+            eprintln!("offered: {kind}");
+        }
+        if (is_pdf && pdf) || (is_image.as_bool() && !is_pdf) {
+            chosen = Some((kind, is_pdf));
+            break;
+        }
+    }
+    let (kind, is_pdf) = chosen.ok_or("The iPhone sent nothing Sheaf can read")?;
+    let data: Option<Retained<AnyObject>> = unsafe { msg_send![pasteboard, dataForType: &*kind] };
+    let data = data.ok_or("Nothing came back from the iPhone")?;
+    if is_pdf {
+        unsafe { write_data(&data, &out)? };
         let readable = std::fs::read(&out).is_ok_and(|b| sheaf_core::pages::count_in(&b) > 0);
         return if readable { Ok(()) } else { Err("The scan is not a readable PDF".into()) };
     }
     let image_class = AnyClass::get(c"NSImage").unwrap();
-    let readable: Bool = unsafe { msg_send![image_class, canInitWithPasteboard: pasteboard] };
-    if !readable.as_bool() {
-        return Err("The picture could not be read".into());
-    }
     let allocated: Allocated<AnyObject> = unsafe { msg_send![image_class, alloc] };
-    let image: Option<Retained<AnyObject>> = unsafe { msg_send![allocated, initWithPasteboard: pasteboard] };
+    let image: Option<Retained<AnyObject>> = unsafe { msg_send![allocated, initWithData: &*data] };
     let image = image.ok_or("The picture could not be read")?;
     if !pdf {
         return unsafe { save_png(&image, &out) };
