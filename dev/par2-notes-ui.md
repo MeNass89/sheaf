@@ -460,6 +460,11 @@ check (the window and its tab bar), 11 (Appearance radios); 3-flows 28 (Reading 
 (swatches 26 apart from the trailing edge); 4-flows 99, 221, 223, 225, 229, 230, 301, 302, 303, 306 (Language
 popup), 307, 308, 321, 341, 364c (Open AI settings… shows the AI tab), 371; 226 and 228 (Edit menu on a text field)
 use Home ▸ Tools' search: the main window's menu bar acts on the main window, Settings has none on Linux.
+Step 28's Fit page is clicked beside Actual size and now also asserts `default_zoom` 1 (its OCR miss had left
+Actual size on, the under-120 % check still passed, and step 33's two pages sat off the points it reads); 33 waits
+up to 5 s for the pages under load; 302 finds the caption "Trusted locations" (its notes also say "locations" and
+"folder"). A real bug the smoke found: the time stamp server field had collapsed to nothing (a FlexboxLayout gives
+horizontal-stretch room only with `alignment: stretch`). GUI layer GREEN on 215791c (325+ checks, four shards).
 
 Screenshots /tmp/f5/W5/ (self-snapshots, Xvfb :151–:153): every tab light and dark, the screen with Settings open at
 1280×800 and 1024×768.
