@@ -10,7 +10,8 @@ dir="$(cd "$(dirname "$0")/.." && pwd)/vendor/craft-fonts"
 if [ "$(git -C "$dir" rev-parse HEAD 2>/dev/null || true)" != "$pin" ]; then
     rm -rf "$dir"
     git clone -q --filter=blob:none --no-checkout https://github.com/storytold/craft-fonts "$dir"
-    git -C "$dir" sparse-checkout set --no-cone /fonts/biz-ud-pgothic/ /fonts/noto-sans-arabic/ /fonts/noto-sans-thai/ /fonts/noto-sans-georgian/ /fonts/manifest.txt /ATTRIBUTION.md
+    # Git Bash on Windows rewrites arguments that start with / into Windows paths: not these patterns.
+    MSYS_NO_PATHCONV=1 MSYS2_ARG_CONV_EXCL="*" git -C "$dir" sparse-checkout set --no-cone /fonts/biz-ud-pgothic/ /fonts/noto-sans-arabic/ /fonts/noto-sans-thai/ /fonts/noto-sans-georgian/ /fonts/manifest.txt /ATTRIBUTION.md
     git -C "$dir" checkout -q "$pin"
 fi
 # The manifest lists only the faces fetched (build.rs checks every line's file and checksum).
