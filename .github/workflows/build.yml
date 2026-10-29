@@ -1,0 +1,53 @@
+name: Build
+
+# On demand: the macOS DMG, the Windows zip and the Linux tarball of any branch, smoke-tested and
+# kept as this run's artifacts (90 days). Nothing is published: release.yml attaches packages to a
+# release, on a version tag only.
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 24.04: onnxruntime's prebuilt static library (OCR) needs glibc 2.38 (release.yml).
+          - os: ubuntu-24.04
+            build: sh scripts/package-linux.sh
+            out: target/Sheaf-*-linux-x64.tar.gz
+            smoke: target/Sheaf-*-linux-x64/bin/sheaf
+          - os: windows-2022
+            build: sh scripts/package-windows.sh
+            out: target/Sheaf-*-windows-x64.zip
+            smoke: target/Sheaf-*-windows-x64/sheaf-cli.exe
+          - os: macos-14
+            build: bash scripts/bundle-macos.sh && bash scripts/make-dmg.sh
+            out: target/Sheaf-*-arm64.dmg
+            smoke: target/Sheaf.app/Contents/MacOS/sheaf-cli
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+      - name: Linux build dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libudev-dev
+      - name: macOS build dependencies
+        if: runner.os == 'macOS'
+        run: brew install librsvg
+      - run: ${{ matrix.build }}
+      - name: Smoke test
+        run: sh scripts/smoke.sh ${{ matrix.smoke }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sheaf-${{ runner.os }}
+          path: ${{ matrix.out }}
+          if-no-files-found: error
