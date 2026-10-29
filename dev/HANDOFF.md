@@ -28,8 +28,9 @@ interface languages; macOS iPhone/iPad capture (Continuity Camera), camera signa
 OCR on onnxruntime (1.41 s/page on MICI, Tesseract 2.3); RFC 3161 document time stamps; Check for Updates from
 GitHub releases; AI natural voices, bold non-Latin titles, category chips; BAMA design pass on every platform
 (theme, widgets, reader; smoke recalibrated). Linux needs glibc 2.39 (DECISIONS 29/10).
-Next: Sol reviews optimize-006, sign-015, platform-001, ai-005, ai-007, files-018, sign-004, platform-007,
-preferences-003; platform-012 regrade with the release builds; .dmg on the MBP.
+Board: 325 closed at ≥9, 6 out of scope (cloud features), none open (29/10). Packages: .github/workflows/build.yml
+(push to build/*): DMG, Windows zip, Linux tarball as artifacts; MBP DMG in iCloud temp (Sheaf-0.2.1-r40-arm64.dmg).
+Open beyond the board: the pages tests' rare PDFium SIGSEGV (above); a public release needs Nassim's go.
 
 ## Where things are
 

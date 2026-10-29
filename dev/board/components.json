@@ -21074,14 +21074,14 @@
    271
   ],
   "grade": {
-   "function": 7,
-   "aesthetics": 7,
+   "function": 9,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "notarisation out of scope (DECISIONS 28/10); regrade the native builds without it",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21093,6 +21093,17 @@
      "overall": 7
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows [268, 271]"
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (build workflow run 40851924338: macOS dmg, Windows zip, Linux tarball, smoke-tested; MBP dmg launched) and Sol AGREE 9 (rev41a, 29/10)"
    }
   ]
  },

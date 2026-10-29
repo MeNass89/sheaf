@@ -1,13 +1,12 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 324 · closed 324, out 6, open 1
+331 components · at parity (≥9): 325 · closed 325, out 6
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
-| 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | notarisation out of scope (DECISIONS 28/10); regrade the native builds without it |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
@@ -23,7 +22,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | optimize | 15 | 9.0 | 15 |
 | organize | 27 | 9.0 | 27 |
 | output | 15 | 9.0 | 15 |
-| platform | 14 | 8.2 | 12 |
+| platform | 14 | 8.4 | 13 |
 | preferences | 14 | 9.0 | 14 |
 | reader | 64 | 9.0 | 64 |
 | security | 18 | 9.0 | 18 |
@@ -241,6 +240,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-platform-009 | Command-line interface | 9 | Help on every option and value (args::help_tests every_option_and_value_has_help, page_number_help_reads_as_written); {page}/{pages} placeholders; joint review |
 | C-platform-010 | MCP server for AI agents | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
 | C-platform-011 | Open files from the system | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27c-round22, 26/10) |
+| C-platform-012 | Native desktop builds | 9 | Joint 9: Opus (build workflow run 40851924338: macOS dmg, Windows zip, Linux tarball, smoke-tested; MBP dmg launched) and Sol AGREE 9 (rev41a, 29/10) |
 | C-platform-013 | Work offline without account | 9 | Stale-grade audit 22/10 (independent reviewer): no network library at run time (reqwest only a Windows build dep of winprint); outgoing URLs only opened by the user (main.rs, reader_ui/pointer.rs) |
 | C-platform-014 | Native menu bar and shortcuts | 9 | Joint 9: Opus (round 38, 8f150fd: macOS menu conventions; MBP checks in dev/par2-notes-ui.md) and Sol AGREE 9 (rev38b, 28/10) |
 | C-preferences-001 | Open preferences | 9 | ⌘, from anywhere (Home, tool tabs, documents, their fields) opens Preferences, leaving full screen and a presentation; Home sidebar entry. gui-smoke: from a tool tab and a document. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3 |
