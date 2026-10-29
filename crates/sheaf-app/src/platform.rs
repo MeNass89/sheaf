@@ -78,7 +78,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("find-next", "Edit", "Find Next", "Control+G"),
     cmd("find-previous", "Edit", "Find Previous", "Control+Shift+G"),
     cmd("spelling", "Edit", "Check Spelling While Typing", ""),
-    cmd("preferences", "Edit", "Preferences…", "Control+Comma"),
+    cmd("preferences", "Edit", "Settings…", "Control+Comma"),
     cmd("zoom-in", "View", "Zoom In", "Control+Plus"),
     cmd("zoom-out", "View", "Zoom Out", "Control+HyphenMinus"),
     cmd("actual-size", "View", "Actual Size", "Control+Digit0"),
