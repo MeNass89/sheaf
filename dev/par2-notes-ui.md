@@ -413,6 +413,16 @@ Screenshots /tmp/f5/w1/ (self-snapshots, Xvfb :128–:130): reader light/dark 12
 tips (trash above the bar, right edge clamped at 1280 and 1024, panel tab over its separator, Notes toolbar over
 the popups, rail to the right), narrow panel 200 (Notes, Pages), wide 480, reset.
 
+Second pass (29/10, to green): one UI fix, placeholders of `widgets/text-field.slint` in `text-3` (they used
+`text-disabled`, which the token table made fainter: the recents search, Redact's page range and AI's categories no
+longer read). The selected tab keeps 140 for its name among many. Smoke lookups recalibrated on the new chrome, no
+assertion changed: tab × at 342 / 582 and the dot corner at 560 (240-wide tabs after the 120 Home tab; 54, 76),
+the first document tab by place (34), the tab menu read on the menu alone (79), twelve tabs' active name alone
+(12), Run again by "Run" and the tool tab's files read inside the dashed edge (10b), Library's Add files… through a
+new `at_on_accent` helper in gui-smoke.sh (white on the accent), the plugin's Allow and run on the dialog's lower
+part (307), the print sheet's title on its top row (300), Redact's mark row from its heading down (77).
+GUI runs only under `flock /tmp/f5/gui.lock`. Default panel width stays 248 (W3 switches to 260).
+
 ## Redesign W5: the Settings window (29/10/2026, Opus)
 
 DESIGN §5.8, DESIGN-PLAN W5, BAMA settings.md. Branch wip/w5-settings (from wip/w1-tokens).
