@@ -27,7 +27,8 @@ jobs:
             build: sh scripts/package-windows.sh
             out: target/Sheaf-*-windows-x64.zip
             smoke: target/Sheaf-*-windows-x64/sheaf-cli.exe
-          - os: macos-14
+          # The newest image: its Xcode compiles the dark-mode icon (AppIcon.icon needs Xcode 26).
+          - os: macos-latest
             build: bash scripts/bundle-macos.sh && bash scripts/make-dmg.sh
             out: target/Sheaf-*-arm64.dmg
             smoke: target/Sheaf.app/Contents/Helpers/sheaf
@@ -45,7 +46,10 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev libudev-dev
       - name: macOS build dependencies
         if: runner.os == 'macOS'
-        run: brew install librsvg
+        run: |
+          brew install librsvg
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)"
+          xcodebuild -version
       - run: ${{ matrix.build }}
       - name: Smoke test
         run: sh scripts/smoke.sh ${{ matrix.smoke }}

@@ -67,8 +67,9 @@ if xcrun --find actool >/dev/null 2>&1; then
     mkdir -p target/icon-car
     xcrun actool "$root/$mac/AppIcon.icon" --compile "$root/target/icon-car" --platform macosx \
         --minimum-deployment-target 11.0 --app-icon AppIcon --include-all-app-icons \
-        --output-partial-info-plist "$root/target/icon-car/partial.plist" >/dev/null
-    [ -f target/icon-car/Assets.car ] || { echo "error: actool produced no Assets.car" >&2; exit 1; }
+        --output-partial-info-plist "$root/target/icon-car/partial.plist" >/dev/null || true
+    # An .icon (Icon Composer) needs Xcode 26's actool: an older one leaves the icns alone.
+    [ -f target/icon-car/Assets.car ] || { echo "warning: this Xcode's actool cannot read AppIcon.icon (Xcode 26+): the icon will not follow dark mode" >&2; rm -rf target/icon-car; }
 else
     echo "warning: actool not found (needs Xcode): the icon will not follow dark mode" >&2
 fi
