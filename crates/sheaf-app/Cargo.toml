@@ -18,6 +18,8 @@ slint = { workspace = true, features = ["unstable-winit-030", "raw-window-handle
 rfd.workspace = true
 # The system language, ticked first in OCR's languages (already in the tree through slint).
 sys-locale = "0.3.2"
+# Get/set names for the Settings window's mirror of the main window's state (already in the tree).
+paste = "1.0.15"
 dirs.workspace = true
 serde.workspace = true
 serde_json.workspace = true

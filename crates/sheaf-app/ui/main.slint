@@ -10,7 +10,6 @@ import { MenuItem as SideMenuItem } from "widgets/menu-item.slint";
 import { TabBar } from "widgets/tab-bar.slint";
 import { RecentsScreen } from "screens/recents.slint";
 import { HistoryScreen, ClearHistoryDialog } from "screens/history.slint";
-import { PreferencesScreen } from "screens/preferences.slint";
 import { RecentFile, HistoryRow } from "history-types.slint";
 import { ToolsScreen, ToolSection } from "screens/tools.slint";
 import { ToolTab, ToolOptions, FileItem, PageItem, ResultFile, ContinueTool, Parse, OcrInfo, OcrLanguage, Picked, ReaderBridge, ReaderState, ReaderOutlineRow, ReaderAnnotRow, ReaderReply, ReaderNote, ReaderMark, ReaderResultRow, ViewerBridge, ViewerPage, ViewerThumb, ViewerOverlay, RedactResult, RedactMarkItem, SignBridge, SignOverlay, EditBridge, EditOverlay } from "flow-types.slint";
@@ -28,6 +27,9 @@ import { UpdateBridge, UpdateDialog, UpdateNotice } from "screens/updates.slint"
 import { PluginBridge, PluginRow, PluginWarningDialog } from "screens/preferences-plugins.slint";
 import { TooltipBridge, TooltipLayer } from "widgets/tooltip.slint";
 export { WidgetGallery } from "widgets/gallery.slint";
+// The Settings window and the preferences it mirrors (src/settings_window.rs).
+export { SettingsWindow } from "screens/settings-window.slint";
+export { Prefs } from "screens/settings-form.slint";
 
 export { PrintPreviewBridge, InkPlate }
 
@@ -38,10 +40,11 @@ export { AiBridge, AiMessage }
 export { SettingsBridge, FeedbackBridge, UpdateBridge }
 export { PluginBridge, PluginRow }
 
-export enum Page { recents, tools, history, preferences, actions, library }
+export enum Page { recents, tools, history, actions, library }
 
 component Sidebar inherits Rectangle {
     in-out property <Page> page;
+    callback open-settings();
     in property <bool> collapsed;
 
     width: collapsed ? Theme.sidebar-collapsed-width : Theme.sidebar-width;
@@ -91,8 +94,8 @@ component Sidebar inherits Rectangle {
             icon: @image-url("icons/settings.svg");
             text: @tr("Preferences");
             collapsed: root.collapsed;
-            selected: root.page == Page.preferences;
-            clicked => { root.page = Page.preferences; }
+            // Settings is its own window (⌘,): the row opens it.
+            clicked => { root.open-settings(); }
         }
     }
 
@@ -190,6 +193,8 @@ export component AppWindow inherits Window {
     callback reset-display-profile();
     in property <string> author-default;
     property <bool> confirm-clear;
+    // The Settings window shown on tab k (-1 the last one used; src/settings_window.rs).
+    callback open-settings(int);
 
     callback open-file();
     callback new-blank();
@@ -283,8 +288,7 @@ export component AppWindow inherits Window {
     function show-preferences() {
         root.end-presenting += 1;
         root.full-screen = false;
-        root.active-tab = -1;
-        root.page = Page.preferences;
+        root.open-settings(-1);
     }
     // Home page switched: refresh relative times and missing files.
     callback page-shown();
@@ -364,7 +368,7 @@ export component AppWindow inherits Window {
             MenuItem { title: PlatformBridge.spell-on ? @tr("Stop Checking Spelling While Typing") : @tr("Check Spelling While Typing"); shortcut: PlatformBridge.keys[14]; activated => { PlatformBridge.set-spell-on(!PlatformBridge.spell-on); } }
             // A Mac's is Settings… in the app menu (src/mac_menu.rs).
             if !PlatformBridge.mac: MenuSeparator {}
-            if !PlatformBridge.mac: MenuItem { title: @tr("Preferences…"); shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
+            if !PlatformBridge.mac: MenuItem { title: @tr("Settings…"); shortcut: PlatformBridge.keys[15]; activated => { root.show-preferences(); } }
         }
         Menu {
             title: @tr("View");
@@ -443,7 +447,7 @@ export component AppWindow inherits Window {
         Menu {
             title: @tr("Help");
             MenuItem { title: @tr("Keyboard Shortcuts"); shortcut: PlatformBridge.keys[38]; enabled: root.reader-on; activated => { ReaderBridge.show-help(root.reader-id, true); } }
-            MenuItem { title: @tr("Customize Shortcuts…"); shortcut: PlatformBridge.keys[39]; activated => { root.show-preferences(); } }
+            MenuItem { title: @tr("Customize Shortcuts…"); shortcut: PlatformBridge.keys[39]; activated => { root.open-settings(5); } }
             // PDF Expert's Welcome document and Acrobat's Help: how to use Sheaf, in a tab.
             MenuItem { title: @tr("Sheaf Guide"); activated => { root.open-guide(); } }
             // iLovePDF's Contact us: a problem or an idea, saved or opened as an issue.
@@ -502,6 +506,7 @@ export component AppWindow inherits Window {
                         height: parent.height;
                         page <=> root.page;
                         collapsed: root.width < Theme.sidebar-collapse-below;
+                        open-settings => { root.show-preferences(); }
                     }
                     Rectangle {
                         x: PlatformBridge.rtl ? 0 : sidebar.width;
@@ -544,50 +549,6 @@ export component AppWindow inherits Window {
                             reveal(i) => { root.reveal-history(i); }
                             rerun(i) => { root.rerun-history(i); }
                             ask-clear => { root.confirm-clear = true; }
-                        }
-                        if root.page == Page.preferences: PreferencesScreen {
-                            theme-pref: root.theme-pref;
-                            output-mode: root.output-mode;
-                            fixed-folder: root.fixed-folder;
-                            open-after: root.open-after;
-                            author-name: root.author-name;
-                            author-default: root.author-default;
-                            default-zoom: root.default-zoom;
-                            stamp-date: root.stamp-date;
-                            set-stamp-date(f) => { root.set-stamp-date(f); }
-                            metric: root.metric;
-                            set-metric(m) => { root.set-metric(m); }
-                            guide-colour: root.guide-colour;
-                            set-guide-colour(k) => { root.set-guide-colour(k); }
-                            gpu: root.gpu;
-                            set-gpu(on) => { root.set-gpu(on); }
-                            show-boxes: root.show-boxes;
-                            physical-numbers: root.physical-numbers;
-                            transparency-grid: root.transparency-grid;
-                            set-page-display(w, on) => { root.set-page-display(w, on); }
-                            digital-ids: root.digital-ids;
-                            trusted-certs: root.trusted-certs;
-                            signature-prefs(w, k) => { root.signature-prefs(w, k); }
-                            create-digital-id(n, u, o, e, c, p, q, x) => { root.create-digital-id(n, u, o, e, c, p, q, x); }
-                            make-default => { root.make-default(); }
-                            set-default-zoom(z) => { root.set-default-zoom(z); }
-                            default-spread: root.default-spread;
-                            set-default-spread(s) => { root.set-default-spread(s); }
-                            open-first-page: root.open-first-page;
-                            set-open-first-page(f) => { root.set-open-first-page(f); }
-                            smooth: root.smooth;
-                            display-profile: root.display-profile;
-                            choose-display-profile => { root.choose-display-profile(); }
-                            reset-display-profile => { root.reset-display-profile(); }
-                            set-smoothing(k, on) => { root.set-smoothing(k, on); }
-                            backdrop-pref: root.backdrop-pref;
-                            set-accent(i) => { root.set-accent(i); }
-                            set-backdrop(i) => { root.set-backdrop(i); }
-                            set-theme(m) => { root.set-theme(m); }
-                            set-output(m) => { root.set-output(m); }
-                            choose-folder => { root.choose-folder(); }
-                            set-open-after(v) => { root.set-open-after(v); }
-                            set-author(n) => { root.set-author(n); }
                         }
                     }
                 }

@@ -1,0 +1,119 @@
+// Settings ▸ Reading: how documents open, page numbers and measures, the author name on comments,
+// spelling.
+import { Theme, Space } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { Button } from "../widgets/button.slint";
+import { PopupButton, Radio, Checkbox } from "../widgets/controls.slint";
+import { TextField } from "../widgets/text-field.slint";
+import { Prefs, SettingsCard, SettingsRow, SettingsBlock, SettingsSwitch, RowNote } from "settings-form.slint";
+
+export component SettingsReading inherits VerticalLayout {
+    spacing: Space.xl;
+    SettingsCard {
+        title: @tr("Documents");
+        SettingsRow {
+            label: @tr("Open new documents at");
+            for label[i] in [@tr("Fit width"), @tr("Fit page"), @tr("Actual size")]: Radio {
+                text: label;
+                checked: Prefs.default-zoom == i;
+                clicked => { Prefs.set-default-zoom(i); }
+            }
+        }
+        SettingsRow {
+            label: @tr("Page layout");
+            PopupButton {
+                tip: @tr("Page layout");
+                options: [@tr("One page"), @tr("Two pages"), @tr("Two, cover alone")];
+                current-index: Prefs.default-spread;
+                selected(i) => { Prefs.set-default-spread(i); }
+            }
+        }
+        SettingsRow {
+            label: @tr("Reopen documents");
+            rule: false;
+            Radio { text: @tr("Where I left off"); checked: !Prefs.open-first-page; clicked => { Prefs.set-open-first-page(false); } }
+            Radio { text: @tr("On the first page"); checked: Prefs.open-first-page; clicked => { Prefs.set-open-first-page(true); } }
+        }
+    }
+    SettingsCard {
+        title: @tr("Pages and measures");
+        SettingsRow {
+            label: @tr("Page numbers as printed (iv)");
+            SettingsSwitch { label: parent.label; checked: !Prefs.physical-numbers; toggled(v) => { Prefs.set-page-display(1, v); } }
+        }
+        SettingsRow {
+            label: @tr("Rulers measure in");
+            Radio { text: @tr("Inches"); checked: !Prefs.metric; clicked => { Prefs.set-metric(false); } }
+            Radio { text: @tr("Centimetres"); checked: Prefs.metric; clicked => { Prefs.set-metric(true); } }
+        }
+        SettingsRow {
+            label: @tr("Guides in");
+            PopupButton {
+                tip: @tr("Guides in");
+                options: [@tr("Cyan"), @tr("Magenta"), @tr("Green"), @tr("Orange")];
+                current-index: Prefs.guide-colour;
+                selected(i) => { Prefs.set-guide-colour(i); }
+            }
+        }
+        SettingsRow {
+            label: @tr("Dated stamps write the time as");
+            rule: false;
+            PopupButton {
+                tip: @tr("Dated stamps write the time as");
+                options: [@tr("2:05 pm, Oct 25, 2026"), "25/10/2026 14:05", "2026-10-25 14:05"];
+                current-index: Prefs.stamp-date;
+                selected(i) => { Prefs.set-stamp-date(i); }
+            }
+        }
+    }
+    SettingsCard {
+        title: @tr("Comments");
+        footer: @tr("Signs your comments, and is the author of the PDFs Sheaf makes from images and documents.");
+        SettingsRow {
+            label: @tr("Author name");
+            rule: false;
+            TextField {
+                width: 220px;
+                text: Prefs.author-name;
+                placeholder: Prefs.author-default;
+                changed text => { Prefs.set-author(self.text); }
+            }
+        }
+    }
+    SettingsCard {
+        title: @tr("Spelling");
+        footer: PlatformBridge.spell-dictionary == "" ? @tr("Looking for a dictionary…") : PlatformBridge.spell-dictionary;
+        SettingsRow {
+            label: @tr("Check spelling while typing");
+            SettingsSwitch { label: parent.label; checked: PlatformBridge.spell-on; toggled(v) => { PlatformBridge.set-spell-on(v); } }
+        }
+        SettingsRow {
+            label: @tr("Check grammar too");
+            rule: PlatformBridge.dictionaries.length > 1 || PlatformBridge.learned.length > 0;
+            SettingsSwitch { label: parent.label; checked: PlatformBridge.grammar-on; toggled(v) => { PlatformBridge.set-grammar-on(v); } }
+        }
+        // Acrobat's dictionary list: those ticked are used, in their order; none ticked, the
+        // system's language.
+        if PlatformBridge.dictionaries.length > 1: SettingsBlock {
+            rule: PlatformBridge.learned.length > 0;
+            RowNote { text: @tr("Dictionaries (ticked ones are used, in this order; none: your system's language)"); }
+            for d in PlatformBridge.dictionaries: HorizontalLayout {
+                height: Theme.control-height;
+                spacing: Space.sm;
+                Checkbox {
+                    horizontal-stretch: 1;
+                    text: d.name;
+                    checked: d.chosen;
+                    toggled => { PlatformBridge.dictionary-change(d.lang, 0); }
+                }
+                if d.chosen: Button { text: @tr("Up"); clicked => { PlatformBridge.dictionary-change(d.lang, -1); } }
+                if d.chosen: Button { text: @tr("Down"); clicked => { PlatformBridge.dictionary-change(d.lang, 1); } }
+            }
+        }
+        if PlatformBridge.learned.length > 0: SettingsRow {
+            label: PlatformBridge.learned.length == 1 ? @tr("1 word learned (Learn in the spelling card)") : @tr("{} words learned (Learn in the spelling card)", PlatformBridge.learned.length);
+            rule: false;
+            Button { text: @tr("Forget them"); clicked => { PlatformBridge.forget-learned(); } }
+        }
+    }
+}

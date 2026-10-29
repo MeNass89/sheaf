@@ -1,0 +1,202 @@
+// The Settings window's grouped form (DESIGN §5.8, BAMA settings.md): cards of rows on the
+// `chrome` page, each row a statement on the left and its control on the right, every trailing
+// control ending at the same x. `Prefs` carries the main window's preferences into the Settings
+// window (src/settings_window.rs mirrors them: a second window has globals of its own).
+import { Theme, Space } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { Switch, Swatch } from "../widgets/controls.slint";
+
+export global Prefs {
+    // 0 System, 1 Light, 2 Dark.
+    in property <int> theme-pref;
+    // 0 Ask, 1 next to the original, 2 a fixed folder.
+    in property <int> output-mode;
+    in property <string> fixed-folder;
+    in property <bool> open-after;
+    in property <string> author-name;
+    in property <string> author-default;
+    // 0 fit width, 1 fit page, 2 actual size.
+    in property <int> default-zoom;
+    in property <int> default-spread;
+    in property <bool> open-first-page;
+    in property <int> stamp-date;
+    in property <bool> metric;
+    in property <int> guide-colour;
+    in property <bool> gpu: true;
+    in property <bool> show-boxes;
+    in property <bool> physical-numbers;
+    in property <bool> transparency-grid;
+    in property <[bool]> smooth: [true, true, true];
+    in property <string> display-profile;
+    in property <int> backdrop-pref;
+    in property <[string]> digital-ids;
+    in property <[string]> trusted-certs;
+    callback set-theme(int);
+    callback set-accent(int);
+    callback set-backdrop(int);
+    callback set-output(int);
+    callback choose-folder();
+    callback set-open-after(bool);
+    callback set-author(string);
+    callback set-default-zoom(int);
+    callback set-default-spread(int);
+    callback set-open-first-page(bool);
+    callback set-stamp-date(int);
+    callback set-metric(bool);
+    callback set-guide-colour(int);
+    callback set-gpu(bool);
+    callback set-page-display(int, bool);
+    callback set-smoothing(int, bool);
+    callback choose-display-profile();
+    callback reset-display-profile();
+    callback make-default();
+    callback signature-prefs(int, int);
+    callback create-digital-id(string, string, string, string, string, string, string, bool);
+}
+
+// A card: its title in small capitals, then its rows; a footer says what the rows above need to
+// be understood (never in a row's label).
+export component SettingsCard inherits Rectangle {
+    in property <string> title;
+    in property <string> footer;
+    background: Theme.window;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    accessible-role: groupbox;
+    accessible-label: root.title;
+    VerticalLayout {
+        padding-left: Space.lg;
+        padding-right: Space.lg;
+        padding-top: Space.xs;
+        padding-bottom: Space.xs;
+        if root.title != "": Text {
+            height: 24px;
+            text: root.title.to-uppercase();
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+            font-size: Theme.fs-subhead;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text-2;
+            vertical-alignment: bottom;
+        }
+        @children
+        if root.footer != "": Rectangle {
+            height: foot.preferred-height + Space.sm + 4px;
+            foot := Text {
+                y: 4px;
+                width: parent.width;
+                text: root.footer;
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                font-size: Theme.fs-subhead;
+                color: Theme.text-2;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// One row, 36 tall: the label as a statement, the controls on the trailing edge (mirrored right to
+// left), a hairline under it unless it is the card's last row.
+export component SettingsRow inherits Rectangle {
+    in property <string> label;
+    in property <bool> rule: true;
+    in property <bool> enabled: true;
+    // Between the trailing controls: 16 (radios, buttons), 0 for swatches (their boxes space them).
+    in property <length> gap: Space.lg;
+    height: 36px;
+    lbl := Text {
+        x: PlatformBridge.rtl ? parent.width - self.width : 0;
+        width: max(0px, parent.width - trail.width - Space.md);
+        text: root.label;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        font-size: Theme.fs-body;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    trail := FlexboxLayout {
+        x: PlatformBridge.rtl ? 0 : parent.width - self.width;
+        y: (parent.height - Theme.control-height) / 2;
+        width: min(self.preferred-width, root.width);
+        height: Theme.control-height;
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: end;
+        spacing: root.gap;
+        @children
+    }
+    if root.rule: Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.hairline;
+    }
+}
+
+// A row that holds more than one line (a list, a field with its note): its own content, then the
+// hairline.
+export component SettingsBlock inherits Rectangle {
+    in property <bool> rule: true;
+    height: lay.preferred-height;
+    lay := VerticalLayout {
+        padding-top: Space.sm;
+        padding-bottom: Space.sm + (root.rule ? 1px : 0px);
+        spacing: Space.sm;
+        @children
+    }
+    if root.rule: Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        background: Theme.hairline;
+    }
+}
+
+// The settings' switch, centred in a control-tall box so rows keep one height.
+export component SettingsSwitch inherits Rectangle {
+    in property <bool> checked;
+    in property <string> label;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    width: 26px;
+    height: Theme.control-height;
+    sw := Switch {
+        y: (parent.height - self.height) / 2;
+        checked: root.checked;
+        label: root.label;
+        enabled: root.enabled;
+        toggled(v) => { root.toggled(v); }
+    }
+}
+
+// A colour swatch in a row (accent, background behind pages).
+export component SettingsSwatch inherits Rectangle {
+    in property <color> colour;
+    in property <bool> selected;
+    in property <string> tip;
+    callback clicked();
+    width: Theme.swatch + 8px;
+    height: Theme.control-height;
+    Swatch {
+        y: (parent.height - self.height) / 2;
+        colour: root.colour;
+        selected: root.selected;
+        tip: root.tip;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A short secondary text in a row (a folder, a profile's name).
+export component RowValue inherits Text {
+    font-size: Theme.fs-body;
+    color: Theme.text-2;
+    vertical-alignment: center;
+    overflow: elide;
+    max-width: 180px;
+}
+
+// A note in a block, under what it explains.
+export component RowNote inherits Text {
+    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+    font-size: Theme.fs-subhead;
+    color: Theme.text-2;
+    wrap: word-wrap;
+}

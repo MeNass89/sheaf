@@ -9,8 +9,10 @@ import { TextField } from "../widgets/text-field.slint";
 import { AiBridge } from "../ai.slint";
 
 export component AiSection inherits Rectangle {
-    border-radius: Theme.radius-card;
-    background: Theme.card;
+    border-radius: Theme.r-md;
+    background: Theme.window;
+    border-width: 1px;
+    border-color: Theme.hairline;
     height: lay.preferred-height;
     // The fields as typed (they live inside conditional rows), refilled when the provider changes.
     property <string> model-text: AiBridge.pref-model;
@@ -24,9 +26,10 @@ export component AiSection inherits Rectangle {
         provider.current-index = AiBridge.pref-provider;
     }
     lay := VerticalLayout {
-        padding: 18px;
+        padding: 16px;
+        padding-top: 8px;
         spacing: 12px;
-        Text { text: @tr("AI"); font-size: Theme.fs-body-large; font-weight: Theme.weight-demibold; color: Theme.text; }
+        Text { height: 16px; text: @tr("AI").to-uppercase(); font-size: Theme.fs-subhead; font-weight: Theme.weight-demibold; color: Theme.text-2; vertical-alignment: bottom; }
         Text {
             text: @tr("The AI Assistant (✦ in a document's toolbar) sends only the document's text, never the file, to the provider below. Automatic uses Ollama or a llama.cpp server on this computer when one is running.");
             font-size: Theme.fs-caption;

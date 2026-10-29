@@ -1,5 +1,5 @@
-// Preferences' print defaults, security and startup sections, and the question a document's web
-// link asks (the SettingsBridge global, src/settings_ui.rs).
+// Settings ▸ Tools ▸ Security, and the question a document's web link asks (the SettingsBridge
+// global, src/settings_ui.rs).
 import { Theme } from "../theme.slint";
 import { Segment } from "../widgets/radio-card.slint";
 import { SecondaryButton, Modal } from "dialogs.slint";
@@ -7,23 +7,27 @@ import { PrimaryButton } from "../widgets/button.slint";
 import { Check } from "../widgets/check.slint";
 import { PlatformBridge } from "../platform.slint";
 import { SettingsBridge } from "../settings.slint";
-import { UpdateBridge } from "updates.slint";
 
-// A white card with a title, as the page's other sections.
 component Card inherits Rectangle {
     in property <string> title;
-    border-radius: Theme.radius-card;
-    background: Theme.card;
+    // The Settings window's card (settings-form.slint): small-capital title, hairline edge.
+    border-radius: Theme.r-md;
+    background: Theme.window;
+    border-width: 1px;
+    border-color: Theme.hairline;
     height: lay.preferred-height;
     lay := VerticalLayout {
-        padding: 18px;
+        padding: 16px;
+        padding-top: 8px;
         spacing: 12px;
         Text {
+            height: 16px;
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: root.title;
-            font-size: Theme.fs-body-large;
+            text: root.title.to-uppercase();
+            font-size: Theme.fs-subhead;
             font-weight: Theme.weight-demibold;
-            color: Theme.text;
+            color: Theme.text-2;
+            vertical-alignment: bottom;
         }
         @children
     }
@@ -41,91 +45,6 @@ component Note inherits Text {
     font-size: Theme.fs-caption;
     color: Theme.text-muted;
     wrap: word-wrap;
-}
-
-// iLovePDF's Printer preferences (paper size, grayscale) and Acrobat's print defaults: how the
-// print sheet opens. The sheet's own "Make default" sets them too.
-export component PrintDefaultsSection inherits Card {
-    title: @tr("Printing");
-    function set(two-sided: bool, paper: int, gray: bool, comments: bool, fit: bool, orientation: int, layout: int) {
-        SettingsBridge.set-print-defaults(two-sided, paper, gray, comments, fit, orientation, layout);
-    }
-    Caption { text: @tr("Paper"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        for label[i] in [@tr("Printer's default"), @tr("A4"), @tr("Letter"), @tr("Legal")]: Segment {
-            width: i == 0 ? 150px : 90px;
-            text: label;
-            selected: SettingsBridge.print-paper == i;
-            clicked => { root.set(SettingsBridge.print-two-sided, i, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); }
-        }
-    }
-    Caption { text: @tr("Sides and colour"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        Segment { width: self.fit-width; text: @tr("One-sided"); selected: !SettingsBridge.print-two-sided; clicked => { root.set(false, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: self.fit-width; text: @tr("Two-sided"); selected: SettingsBridge.print-two-sided; clicked => { root.set(true, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Rectangle { width: 12px; }
-        Segment { width: self.fit-width; text: @tr("Colour"); selected: !SettingsBridge.print-gray; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, false, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: self.fit-width; text: @tr("Grey"); selected: SettingsBridge.print-gray; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, true, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-    }
-    Caption { text: @tr("Scale and comments"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        Segment { width: self.fit-width; text: @tr("Fit to paper"); selected: SettingsBridge.print-fit; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, true, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: self.fit-width; text: @tr("Actual size"); selected: !SettingsBridge.print-fit; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, false, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Rectangle { width: 12px; }
-        Segment { width: self.fit-width; text: @tr("With comments"); selected: SettingsBridge.print-comments; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, true, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: self.fit-width; text: @tr("Without comments"); selected: !SettingsBridge.print-comments; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, false, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-    }
-    Caption { text: @tr("Orientation"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        for label[i] in [@tr("Auto"), @tr("Portrait"), @tr("Landscape")]: Segment {
-            width: self.fit-width;
-            text: label;
-            selected: SettingsBridge.print-orientation == i;
-            clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, i, SettingsBridge.print-layout); }
-        }
-    }
-    Caption { text: @tr("Quality"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        for label[i] in [@tr("Printer's own"), @tr("Draft"), @tr("Normal"), @tr("High")]: Segment {
-            width: i == 0 ? 130px : 90px;
-            text: label;
-            selected: SettingsBridge.print-quality == i;
-            clicked => { SettingsBridge.set-print-quality(i); }
-        }
-    }
-    Caption { text: @tr("Pages per sheet"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        for label[i] in ["1", "2", "4", "6", "9", "16", @tr("Booklet")]: Segment {
-            width: i == 6 ? 90px : 48px;
-            text: label;
-            selected: SettingsBridge.print-layout == i;
-            clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, i); }
-        }
-    }
 }
 
 // Acrobat's Enhanced Security, Trust Manager (Internet Access from PDF files, opening attachments
@@ -191,44 +110,6 @@ export component SecuritySection inherits Card {
         Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: s; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
         SecondaryButton { text: @tr("Forget"); clicked => { SettingsBridge.trust-list(3, k); } }
     }
-}
-
-// iLovePDF's "Open iLovePDF automatically after you log into the computer" and its Processing
-// warning, and its update check. Sheaf needs no proxy.
-export component StartupSection inherits Card {
-    title: @tr("Startup");
-    Caption { text: @tr("When I log into the computer"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        Segment { width: self.fit-width; text: @tr("Open Sheaf"); selected: SettingsBridge.open-at-login; clicked => { SettingsBridge.set-open-at-login(true); } }
-        Segment { width: self.fit-width; text: @tr("Don't open it"); selected: !SettingsBridge.open-at-login; clicked => { SettingsBridge.set-open-at-login(false); } }
-    }
-    if SettingsBridge.login-error != "": Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: SettingsBridge.login-error; font-size: Theme.fs-caption; color: Theme.danger; wrap: word-wrap; }
-    Caption { text: @tr("Quitting while a task runs"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        Segment { width: self.fit-width; text: @tr("Ask first"); selected: SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(true); } }
-        Segment { width: self.fit-width; text: @tr("Quit at once"); selected: !SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(false); } }
-    }
-    // iLovePDF's and Acrobat's automatic update check, off unless the user turns it on (DECISIONS
-    // 28/10/2026): Sheaf goes online only when asked.
-    Caption { text: @tr("Updates"); }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.start;
-        spacing: 8px;
-        Segment { width: self.fit-width; text: @tr("Only when I ask"); selected: !UpdateBridge.auto; clicked => { UpdateBridge.set-auto(false); } }
-        Segment { width: self.fit-width; text: @tr("Once a day"); selected: UpdateBridge.auto; clicked => { UpdateBridge.set-auto(true); } }
-        SecondaryButton { text: @tr("Check Now"); clicked => { UpdateBridge.check(); } }
-    }
-    Note { text: @tr("Sheaf works offline. It asks GitHub for its latest release only when you check, or once a day at launch if you choose it, and never goes through a proxy."); }
 }
 
 // Acrobat's security warning when a document opens a web page: allow or block, remembered for

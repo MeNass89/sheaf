@@ -403,8 +403,8 @@ fn act(ui: &AppWindow, tab: i32, req: Request) {
             return;
         }
         "settings" => {
-            ui.set_active_tab(-1);
-            ui.set_page(sheaf_app::Page::Preferences);
+            // Settings ▸ AI, in the Settings window.
+            ui.invoke_open_settings(4);
             return;
         }
         _ => {}

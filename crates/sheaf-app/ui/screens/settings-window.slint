@@ -1,0 +1,124 @@
+// The Settings window (DESIGN §5.8, BAMA settings.md): its own window, opened with ⌘, (Sheaf ▸
+// Settings… on macOS, Edit ▸ Settings… elsewhere). 520 wide; six topics as icon tabs; one grouped
+// form per tab that applies at once; as tall as the tab's content up to 640, then it scrolls;
+// reopens on the last tab. Nothing has the keyboard's ring when it opens.
+// src/settings_window.rs makes it, mirrors the main window's state into its globals and sizes it.
+import { ScrollView } from "std-widgets.slint";
+import { Theme, Space, Motion } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { TooltipLayer } from "../widgets/tooltip.slint";
+import { SettingsGeneral } from "settings-general.slint";
+import { SettingsAppearance } from "settings-appearance.slint";
+import { SettingsReading } from "settings-reading.slint";
+import { SettingsTools } from "settings-tools.slint";
+import { SettingsAi } from "settings-ai.slint";
+import { SettingsShortcuts } from "settings-shortcuts.slint";
+
+// One topic of the tab bar: a 24 px icon over its 11 px name; the chosen one on `fill-2`.
+component SettingsTab inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    callback clicked();
+    width: 64px;
+    height: 44px;
+    border-radius: Theme.r-sm;
+    background: root.selected ? Theme.fill-2 : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { root.clicked(); }
+    Image {
+        x: (parent.width - self.width) / 2;
+        y: 4px;
+        width: 24px;
+        height: 24px;
+        source: root.icon;
+        colorize: root.selected ? Theme.text : Theme.text-2;
+    }
+    Text {
+        y: 28px;
+        width: parent.width;
+        height: 14px;
+        text: root.text;
+        font-size: Theme.fs-subhead;
+        color: root.selected ? Theme.text : Theme.text-2;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component SettingsWindow inherits Window {
+    // The tab shown (0 General … 5 Shortcuts); kept by src/settings_window.rs for the next opening.
+    in-out property <int> tab;
+    // Bumped by Rust when the window opens: the content scrolls back to its top.
+    in property <int> opened;
+    // The window's height for the tab shown: the tab bar and the form, at most 640 (Rust applies it).
+    out property <length> wanted-height: min(640px, 52px + body.preferred-height);
+    property <[string]> names: [@tr("General"), @tr("Appearance"), @tr("Reading"), @tr("Tools"), @tr("AI"), @tr("Shortcuts")];
+    // The title follows the tab on macOS (its Settings windows); elsewhere the window is "Settings".
+    title: Theme.mac ? root.names[root.tab] : @tr("Settings");
+    icon: @image-url("../../macos/icon.svg");
+    preferred-width: 520px;
+    min-width: 520px;
+    max-width: 520px;
+    background: Theme.chrome;
+    callback fit(length);
+    callback dismiss();
+    changed wanted-height => { root.fit(self.wanted-height); }
+    changed tab => { scroll.content-y = 0; }
+    changed opened => { scroll.content-y = 0; keys.focus(); }
+
+    keys := FocusScope {
+        key-pressed(e) => {
+            // ⌘W closes the window; ⌘, (already open) does nothing more.
+            if e.modifiers.control && (e.text == "w" || e.text == "W") { root.dismiss(); return accept; }
+            if e.text == Key.Escape { root.dismiss(); return accept; }
+            // ⌃Tab / ⌃⇧Tab: the next and previous topic.
+            if e.text == Key.Tab && e.modifiers.control { root.tab = mod(root.tab + (e.modifiers.shift ? 5 : 1), 6); return accept; }
+            reject
+        }
+        VerticalLayout {
+            Rectangle {
+                height: 52px;
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: Space.xs;
+                    padding-top: 2px;
+                    padding-bottom: 6px;
+                    accessible-role: tab-list;
+                    for name[i] in root.names: SettingsTab {
+                        icon: [@image-url("../icons/settings.svg"), @image-url("../icons/palette.svg"), @image-url("../icons/book-open.svg"), @image-url("../icons/wrench.svg"), @image-url("../icons/sparkles.svg"), @image-url("../icons/keyboard.svg")][i];
+                        text: name;
+                        selected: root.tab == i;
+                        clicked => { root.tab = i; }
+                    }
+                }
+                Rectangle {
+                    y: parent.height - 1px;
+                    height: 1px;
+                    background: Theme.hairline;
+                }
+            }
+            scroll := ScrollView {
+                vertical-stretch: 1;
+                content-width: self.visible-width;
+                content-height: body.preferred-height;
+                body := VerticalLayout {
+                    width: scroll.visible-width;
+                    padding: Space.xl;
+                    alignment: start;
+                    if root.tab == 0: SettingsGeneral {}
+                    if root.tab == 1: SettingsAppearance {}
+                    if root.tab == 2: SettingsReading {}
+                    if root.tab == 3: SettingsTools {}
+                    if root.tab == 4: SettingsAi {}
+                    if root.tab == 5: SettingsShortcuts {}
+                }
+            }
+        }
+    }
+    TooltipLayer {}
+}
