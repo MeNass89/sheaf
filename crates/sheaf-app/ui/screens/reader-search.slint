@@ -1,0 +1,269 @@
+// Search results (DESIGN §5.6, PDF Expert's results column, evidence 09): the inspector column's
+// content while the search field has text. A header (title "Search", the count, the options, close),
+// the results grouped by page ("Page 6 · 16"), each a 2-line context with the match marked, the
+// current one an accent row; ↑ ↓ / ⌘G move it (the field's keys). No results: the words searched and
+// the options still there. At the bottom, Replace (Acrobat's Find and Replace) on the words found.
+// Nothing here animates (search results never do). The host gives the width (260; 240 at 1024).
+import { ListView } from "std-widgets.slint";
+import { Theme, Space } from "../theme.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
+import { TipArea } from "../widgets/tooltip.slint";
+import { MenuRow, MenuSeparatorLine } from "../widgets/surfaces.slint";
+import { Button, ButtonKind } from "../widgets/button.slint";
+import { PanelField, PopoverFrame } from "reader-parts.slint";
+
+// A 28×28 icon button of a column header (close ×, options): icon 16, radius 6.
+export component HeaderButton inherits Rectangle {
+    in property <image> icon;
+    in property <string> tip;
+    in property <string> shortcut;
+    in property <bool> on;
+    callback clicked();
+    width: 28px;
+    height: 28px;
+    border-radius: Theme.r-sm;
+    background: root.on ? Theme.fill-2 : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-description: root.shortcut;
+    accessible-action-default => { root.clicked(); }
+    Image {
+        width: Theme.icon-sm;
+        height: Theme.icon-sm;
+        source: root.icon;
+        colorize: Theme.text-2;
+    }
+    ta := TipArea {
+        tip: root.tip;
+        shortcut: root.shortcut;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SearchResults inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    // The words in the search field (the options and Replace run with them).
+    in property <string> search-text;
+    // Close: the field emptied (the host clears it), the results gone.
+    callback close();
+    // A recent search picked: back in the field, searched.
+    callback search-again(string);
+    // The keyboard back to the pages.
+    callback focus-pages();
+    public function show-options() { options.show(); }
+
+    property <bool> none: root.tab.reader.search-count == "None";
+    property <int> n: root.tab.reader.results.length;
+    background: Theme.window;
+    accessible-role: list;
+    accessible-label: @tr("Search");
+    // The hairline on the canvas side (right to left: the column is on the left).
+    Rectangle {
+        x: PlatformBridge.rtl ? parent.width - 1px : 0;
+        width: 1px;
+        background: Theme.hairline;
+    }
+    VerticalLayout {
+        padding-left: PlatformBridge.rtl ? 0 : 1px;
+        padding-right: PlatformBridge.rtl ? 1px : 0;
+        // Header 36: the title at 16, then the count, the options and close, 8 from the edge.
+        Rectangle {
+            height: 36px;
+            Text {
+                x: PlatformBridge.rtl ? parent.width - self.width - Space.lg : Space.lg;
+                text: @tr("Search");
+                font-size: Theme.fs-title-3;
+                font-weight: Theme.weight-demibold;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+            HorizontalLayout {
+                x: PlatformBridge.rtl ? Space.sm : parent.width - self.width - Space.sm;
+                width: self.preferred-width;
+                padding-top: 4px;
+                padding-bottom: 4px;
+                alignment: end;
+                spacing: Space.xs;
+                Text {
+                    text: root.none ? @tr("No results")
+                        : root.tab.reader.search-busy && root.n == 0 ? @tr("Searching…")
+                        : root.n == 1 ? @tr("1 result") : @tr("{} results", root.n + (root.tab.reader.search-busy ? "+" : ""));
+                    font-size: Theme.fs-callout;
+                    color: Theme.text-2;
+                    vertical-alignment: center;
+                }
+                Rectangle { width: Space.xs; }
+                opt-button := HeaderButton {
+                    icon: @image-url("../icons/sliders-horizontal.svg");
+                    tip: @tr("Search options");
+                    on: root.tab.reader.case-sensitive || root.tab.reader.whole-words;
+                    clicked => { options.show(); }
+                }
+                HeaderButton {
+                    icon: @image-url("../icons/x.svg");
+                    tip: @tr("Close search");
+                    shortcut: "Esc";
+                    clicked => { root.close(); }
+                }
+            }
+        }
+        Rectangle { height: 1px; background: Theme.hairline; }
+        // No results: the words searched, and the options still in reach.
+        if root.none: VerticalLayout {
+            vertical-stretch: 1;
+            padding: Space.lg;
+            spacing: Space.sm;
+            alignment: start;
+            Text {
+                text: @tr("No results for “{}”", root.search-text);
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                wrap: word-wrap;
+                horizontal-alignment: PlatformBridge.rtl ? right : left;
+            }
+            Text {
+                text: root.tab.reader.case-sensitive || root.tab.reader.whole-words
+                    ? @tr("Match Case or Whole Words is on: turn it off in the options to find more.")
+                    : @tr("Check the spelling, or search a shorter part of the word.");
+                font-size: Theme.fs-callout;
+                color: Theme.text-2;
+                wrap: word-wrap;
+                horizontal-alignment: PlatformBridge.rtl ? right : left;
+            }
+        }
+        // A ListView makes only the rows in view: tens of thousands of results stay cheap.
+        if !root.none: ListView {
+            vertical-stretch: 1;
+            for h[i] in root.tab.reader.results: Rectangle {
+                height: (h.first ? 36px : 0px) + row.height + 2px;
+                // The page heads its group: "Page 6 · 16" (PDF Expert's "Page 6   16 items").
+                if h.first: Text {
+                    x: PlatformBridge.rtl ? parent.width - self.width - Space.lg : Space.lg;
+                    y: 12px;
+                    height: 20px;
+                    text: h.page-label;
+                    font-size: Theme.fs-callout;
+                    font-weight: Theme.weight-demibold;
+                    color: Theme.text-2;
+                    vertical-alignment: center;
+                }
+                row := Rectangle {
+                    x: Space.sm;
+                    y: h.first ? 36px : 0px;
+                    width: parent.width - 2 * Space.sm;
+                    height: ctx.preferred-height + 2 * Space.sm;
+                    border-radius: Theme.r-row;
+                    background: h.current ? Theme.accent : ht.has-hover ? Theme.fill-1 : transparent;
+                    accessible-role: list-item;
+                    accessible-label: h.before + h.hit + h.after;
+                    accessible-item-selected: h.current;
+                    accessible-action-default => { ReaderBridge.result-clicked(root.id, i); }
+                    // Two lines of context, the match marked: bold, in the `warning` amber (PDF Expert's
+                    // yellow; Slint's styled text has no background tint); bold alone on the current
+                    // (accent) row.
+                    ctx := StyledText {
+                        x: Space.sm;
+                        y: Space.sm;
+                        width: parent.width - 2 * Space.sm;
+                        text: h.current ? @markdown("\{h.before}**\{h.hit}**\{h.after}")
+                            : Theme.dark ? @markdown("\{h.before}<font color=\"#F5A623\">**\{h.hit}**</font>\{h.after}")
+                            : @markdown("\{h.before}<font color=\"#B45309\">**\{h.hit}**</font>\{h.after}");
+                        default-font-size: Theme.fs-body;
+                        default-color: h.current ? Theme.on-accent : Theme.text;
+                        max-lines: 2;
+                    }
+                    // Above the text: StyledText takes clicks for its links.
+                    ht := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { ReaderBridge.result-clicked(root.id, i); }
+                    }
+                }
+            }
+        }
+        // Replace (Acrobat's Find and Replace): the words found rewritten in the pages' text, the
+        // one in view or every one. Pinned at the bottom, as a tool's Run row.
+        Rectangle { height: 1px; background: Theme.hairline; }
+        VerticalLayout {
+            padding: Space.lg;
+            padding-top: Space.md;
+            spacing: Space.sm;
+            replace-in := PanelField { height: Theme.control-height; placeholder: @tr("Replace with"); }
+            HorizontalLayout {
+                spacing: Space.sm;
+                alignment: end;
+                Button { text: @tr("Replace"); enabled: !root.none && root.n > 0; clicked => { ReaderBridge.replace-one(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+                Button { text: @tr("Replace All"); enabled: !root.none && root.n > 0; clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
+            }
+        }
+    }
+    // The options (DESIGN §5.6): Match Case, Whole Words, Search in Folder…, the recent searches
+    // (each removable, then Clear). The field's magnifier opens it too (show-options).
+    property <int> recents: root.tab.reader.search-history.length;
+    options := PopupWindow {
+        x: PlatformBridge.rtl ? Space.sm : root.width - self.width - Space.sm;
+        y: 36px;
+        width: 240px;
+        height: 2 * Theme.row-height + 9px + Theme.row-height + (root.recents > 0 ? 9px + 24px + root.recents * Theme.row-height + Theme.row-height : 0px) + 8px;
+        PopoverFrame {
+            VerticalLayout {
+                padding: 4px;
+                MenuRow {
+                    has-icon: true;
+                    icon: root.tab.reader.case-sensitive ? @image-url("../icons/check.svg") : @image-url("");
+                    text: @tr("Match Case");
+                    activated => { ReaderBridge.search-options(root.id, !root.tab.reader.case-sensitive, root.tab.reader.whole-words, root.search-text); }
+                }
+                MenuRow {
+                    has-icon: true;
+                    icon: root.tab.reader.whole-words ? @image-url("../icons/check.svg") : @image-url("");
+                    text: @tr("Whole Words");
+                    activated => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
+                }
+                MenuSeparatorLine { }
+                // Acrobat's Advanced Search ▸ All PDF documents in a folder.
+                MenuRow {
+                    has-icon: true;
+                    icon: @image-url("../icons/folder-open.svg");
+                    text: @tr("Search in Folder…");
+                    activated => { ReaderBridge.folder-search(root.id, root.search-text); }
+                }
+                if root.recents > 0: MenuSeparatorLine { }
+                if root.recents > 0: Text {
+                    height: 24px;
+                    x: 12px;
+                    text: @tr("Recent Searches");
+                    font-size: Theme.fs-subhead;
+                    font-weight: Theme.weight-demibold;
+                    color: Theme.text-2;
+                    vertical-alignment: center;
+                }
+                for q[k] in root.tab.reader.search-history: Rectangle {
+                    height: Theme.row-height;
+                    MenuRow {
+                        has-icon: true;
+                        icon: @image-url("../icons/history.svg");
+                        text: q;
+                        activated => { root.search-again(q); }
+                    }
+                    // Forget this one (PDF Expert's recent searches are removable one by one).
+                    Rectangle {
+                        x: parent.width - self.width - 4px;
+                        y: 4px;
+                        width: 20px;
+                        height: 20px;
+                        border-radius: Theme.r-xs;
+                        background: xt.has-hover ? Theme.fill-2 : transparent;
+                        Image { width: 12px; height: 12px; source: @image-url("../icons/x.svg"); colorize: Theme.text-2; }
+                        xt := TipArea { tip: @tr("Remove from Recent Searches"); clicked => { ReaderBridge.search-forget(root.id, k); } }
+                    }
+                }
+                if root.recents > 0: MenuRow {
+                    text: @tr("Clear Recent Searches");
+                    activated => { ReaderBridge.search-forget(root.id, -1); }
+                }
+            }
+        }
+    }
+}

@@ -45,18 +45,22 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             }
         }
     }
-    // The page grid's selection: each page ringed.
+    // The page organiser (DESIGN §5.7, reader-organize.slint): each page in view with its number
+    // under it, the selected ones framed with an accent badge; where dragged pages would go, a 2 px
+    // accent bar in the middle of the gap before page `g` (after the last one).
+    let mut grid_cells = Vec::new();
+    let mut grid_bar = sheaf_app::ReaderGridCell::default();
     if r.grid_prev.is_some() {
-        for &p in &r.page_sel {
+        for p in wanted.clone() {
             let [x, y, w, h] = v.viewer.page_rect(p);
-            marks.push(overlay([x - 4.0, y - 4.0, w + 8.0, h + 8.0], 12));
+            grid_cells.push(sheaf_app::ReaderGridCell { x: x as f32, y: y as f32, w: w as f32, h: h as f32, label: label(r, p).into(), selected: r.page_sel.contains(&p) });
         }
-        // Where the pages dragged would go: a bar in the gap before page `g` (after the last one).
         if let Some(g) = r.grid_gap {
             let n = v.viewer.page_count();
             let [x, y, w, h] = v.viewer.page_rect(g.min(n.saturating_sub(1)));
-            let bar_x = if g >= n { x + w + 4.0 } else { x - 8.0 };
-            marks.push(overlay([bar_x, y, 4.0, h], 12));
+            let half = viewer::GRID_GAP_X / 2.0;
+            let bar_x = if g >= n { x + w + half - 1.0 } else { x - half - 1.0 };
+            grid_bar = sheaf_app::ReaderGridCell { x: bar_x as f32, y: y as f32, w: 2.0, h: h as f32, selected: true, ..Default::default() };
         }
     }
     if let Some((page, range)) = &r.sel
@@ -343,11 +347,8 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
             *counts.entry(*p).or_default() += 1;
         }
         let heading = |page: usize| -> slint::SharedString {
-            match counts.get(&page).copied().unwrap_or(0) {
-                1 => sheaf_app::i18n::trf("Page {}", &[&label(r, page)]),
-                n => sheaf_app::i18n::trf("Page {} · {} results", &[&label(r, page), &n]),
-            }
-            .into()
+            // The page, then how many results it holds (PDF Expert's "Page 6 · 16 items").
+            sheaf_app::i18n::trf("Page {} · {}", &[&label(r, page), &counts.get(&page).copied().unwrap_or(0)]).into()
         };
         // A page whose results came in two batches: its heading counts them all.
         if let Some(last) = have.checked_sub(1)
@@ -481,6 +482,9 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
         panel_open: r.panel_open,
         panel: r.panel,
         outline_empty: r.rows.is_empty(),
+        grid_cells: ModelRc::new(VecModel::from(grid_cells)),
+        grid_bar,
+        bookmarks: ModelRc::new(VecModel::from(bookmarks_model(r, v.current()))),
         outline,
         annots,
         tool: r.tool,
@@ -759,6 +763,34 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     }
 }
 
+/// The sidebar's Bookmarks: each bookmarked page titled by the outline heading it falls under (the
+/// last one starting on or before it), else "Page n"; its page number right; the page in view marked.
+pub(super) fn bookmarks_model(r: &ReaderUi, current: usize) -> Vec<sheaf_app::ReaderBookmarkRow> {
+    fn heading(items: &[render::OutlineItem], page: usize, best: &mut Option<(usize, String)>) {
+        for it in items {
+            if let Some(p) = it.page
+                && p <= page
+                && best.as_ref().is_none_or(|b| p >= b.0)
+            {
+                *best = Some((p, reader::clean_title(&it.title)));
+            }
+            heading(&it.children, page, best);
+        }
+    }
+    r.bookmarks
+        .iter()
+        .map(|&p| {
+            let mut best = None;
+            heading(&r.snap.outline, p, &mut best);
+            sheaf_app::ReaderBookmarkRow {
+                title: best.map(|b| b.1).filter(|t| !t.is_empty()).unwrap_or_else(|| sheaf_app::i18n::trf("Page {}", &[&label(r, p)])).into(),
+                page_label: label(r, p).into(),
+                current: p == current,
+            }
+        })
+        .collect()
+}
+
 pub(super) fn outline_model(r: &ReaderUi, current_row: Option<usize>) -> Vec<ReaderOutlineRow> {
     let outline: Vec<ReaderOutlineRow> = r
         .rows
@@ -867,6 +899,7 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
                 index: i as i32,
                 replies: ModelRc::new(VecModel::from(a.replies.iter().map(|(t, p, i)| ReaderReply { text: t.into(), page: *p as i32, index: *i as i32 }).collect::<Vec<_>>())),
                 status: a.status.clone().into(),
+                group: Default::default(),
             };
             (a, row)
         })
@@ -877,6 +910,20 @@ pub(super) fn annots_model(r: &ReaderUi, v: &ViewerUi) -> Vec<ReaderAnnotRow> {
         2 => rows.sort_by_key(|x| x.0.author.to_lowercase()),
         3 => rows.sort_by(|x, y| x.1.kind.cmp(&y.1.kind)),
         _ => {}
+    }
+    // In page order, each page heads its comments with their count (DESIGN §5.4: "Page 3 · 4").
+    if r.notes_sort == 0 {
+        let mut counts: HashMap<usize, usize> = HashMap::new();
+        for (a, _) in &rows {
+            *counts.entry(a.page).or_default() += 1;
+        }
+        let mut last = None;
+        for (a, row) in &mut rows {
+            if last != Some(a.page) {
+                row.group = sheaf_app::i18n::trf("Page {} · {}", &[&label(r, a.page), &counts[&a.page]]).into();
+                last = Some(a.page);
+            }
+        }
     }
     rows.into_iter().map(|(_, row)| row).collect()
 }

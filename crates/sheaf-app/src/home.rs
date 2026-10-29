@@ -337,6 +337,27 @@ fn tool_style_of(p: &Prefs, tool: i32) -> Option<(u8, u8, u8)> {
     p.tool_styles.iter().find(|s| s.0 == tool).map(|s| (s.1, s.2, s.3))
 }
 
+/// The pages bookmarked in `path` (the sidebar's Bookmarks), in page order.
+pub fn page_bookmarks(path: &Path) -> Vec<usize> {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    with(|h| h.prefs.page_bookmarks.iter().find(|(q, _)| q == &p).map(|(_, v)| v.iter().map(|&n| n as usize).collect()).unwrap_or_default())
+}
+
+/// Keeps `pages` as `path`'s bookmarks (none: the document is forgotten).
+pub fn set_page_bookmarks(path: &Path, pages: &[usize]) {
+    let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    with(|h| {
+        h.prefs.page_bookmarks.retain(|(q, _)| q != &p);
+        if !pages.is_empty() {
+            h.prefs.page_bookmarks.insert(0, (p, pages.iter().map(|&n| n as u32).collect()));
+            h.prefs.page_bookmarks.truncate(200);
+        }
+        if let Err(e) = h.prefs.save(&h.dir) {
+            eprintln!("sheaf: cannot save preferences: {e}");
+        }
+    });
+}
+
 /// The page `path` was left on, if any.
 pub fn last_page(path: &Path) -> Option<usize> {
     let p = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());

@@ -186,6 +186,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_search, |ui, id, q| reader_ui::search(&ui, id, &q));
     rb.on_search_step(reader_ui::search_step);
     rb.on_search_clear(reader_ui::search_clear);
+    rb.on_search_forget(reader_ui::search_forget);
     wire_global!(ui, rb, on_search_options, |ui, id, c, w, q| reader_ui::search_options(&ui, id, c, w, &q));
     rb.on_result_clicked(reader_ui::result_clicked);
     wire_global!(ui, rb, on_markup, |ui, id, k| reader_ui::markup(&ui, id, k));
@@ -345,6 +346,7 @@ fn wire_reader(ui: &AppWindow) {
     wire_global!(ui, rb, on_layer_set, |ui, id, i, on| reader_ui::layer_set(&ui, id, i, on));
     wire_global!(ui, rb, on_layers_all, |ui, id, how| reader_ui::layers_all(&ui, id, how));
     wire_global!(ui, rb, on_outline_op, |ui, id, row, op, t| reader_ui::outline_op(&ui, id, row, op, &t));
+    wire_global!(ui, rb, on_bookmark_op, |ui, id, op, row| reader_ui::bookmark_op(&ui, id, op, row));
     wire_global!(ui, rb, on_zoom_typed, |ui, id, t| reader_ui::zoom_typed(&ui, id, &t));
     wire_global!(ui, rb, on_annot_status, |ui, id, k, s| reader_ui::annot_status(&ui, id, k, s));
     rb.on_props_cancel(reader_ui::props_cancel);

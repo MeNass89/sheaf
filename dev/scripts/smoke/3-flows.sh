@@ -96,14 +96,15 @@ check "clicks between Split's pages cut and join its ranges ($R1 → $R2)" "[ \"
 check "Split writes a file for each cut range" "[ \"\$(pdfinfo $OUT/reo/ten-4-7.pdf 2>/dev/null | awk '/^Pages/{print \$2}')\" = 4 ] && [ -f $OUT/reo/ten-1-3.pdf ] && [ -f $OUT/reo/ten-8-10.pdf ]"
 quit
 
-# 23. Search history (Acrobat's and PDF Expert's recent searches): "fox" then "quick"; the clock in the results
-# panel (223,153) lists them newest first; the second ("fox", 60,237) runs again and is back in the field.
+# 23. Search history (Acrobat's and PDF Expert's recent searches): "fox" then "quick"; the search options (the
+# results column's header, 1226,102) list them newest first; the second ("fox") runs again and is back in the field,
+# its count in the column's header.
 launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
-click 223 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 60x26+1004+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
-check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
+click 1226 102 0.8; shot 23-recent; click 1100 292 1.5   # "fox", the second recent row
+SF=$(ocr 60x26+1004+48 | tr -d ' '); RN=$(ocr 220x28+1024+88)
+check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 \?results'"
 quit
 
 # 24. More ▸ Highlight form fields (1127,61 ▸ "form" 1008,211) turns the fields' tint off and on (Acrobat's
@@ -120,13 +121,13 @@ PR=$(ocr 440x700+420+50)
 check "Document properties say what the owner password forbids and the dates ($(echo $PR | cut -c1-80))" "echo \"$PR\" | grep -q 'Restricted: no printing' && echo \"$PR\" | grep -q 'PDF/A'"
 quit
 
-# 25. Files panel (211,106), Acrobat's Attachments: four attached files; "con" in Find (160,150) leaves
-# contract.txt alone; a click on annex.pdf (100,185) opens it in its own tab.
+# 25. Attachments tab (177,106), Acrobat's Attachments: four attached files; "con" in Find (120,187) leaves
+# contract.txt alone; a click on annex.pdf (the first row, 100,219) opens it in its own tab.
 echo hello > "$OUT/notes.txt"; echo b > "$OUT/budget.txt"; echo c > "$OUT/contract.txt"; cp "$OUT/text.pdf" "$OUT/annex.pdf"
 qpdf "$OUT/text.pdf" --add-attachment "$OUT/annex.pdf" -- --add-attachment "$OUT/notes.txt" -- --add-attachment "$OUT/budget.txt" -- --add-attachment "$OUT/contract.txt" -- "$OUT/withatt.pdf"
-launch "$OUT/withatt.pdf"; click 211 106 1
-click 160 150 0.5; xdotool type --delay 30 "con"; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+165)
-xdotool key ctrl+a BackSpace; sleep 0.5; click 100 185 2; TB=$(ocr 700x30+0+8)
+launch "$OUT/withatt.pdf"; click 177 106 1
+click 120 187 0.5; xdotool type --delay 30 "con"; sleep 0.6; xdotool mousemove 100 400; sleep 0.3; AF=$(ocr 240x140+0+200)
+xdotool key ctrl+a BackSpace; sleep 0.5; click 100 219 2; TB=$(ocr 700x30+0+8)
 check "attachments are found by name and open, a PDF in its own tab ($AF; tabs: $TB)" "echo \"$AF\" | grep -q contract && ! echo \"$AF\" | grep -q budget && echo \"$TB\" | grep -q 'annex.pdf'"
 quit
 
@@ -198,18 +199,18 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
 quit
 
-# 30. Pages panel ▸ Extract… (156,778) opens its options strip, Acrobat's: one file per page, delete the
-# pages after. Deleting the only page is refused before any file is asked for.
+# 30. Thumbnails bar ▸ ⋯ (206,774) ▸ Extract… (250,706) opens its options strip, Acrobat's: one file per page,
+# delete the pages after. Deleting the only page is refused before any file is asked for.
 qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"; launch "$OUT/single.pdf"; sleep 1
-click 156 778 0.8; XS=$(ocr 260x110+0+620)
-click 17 704 0.3; click 201 734 0.6   # "Delete pages after extracting", then Extract
+click 206 774 0.8; click 250 706 0.8; XS=$(ocr 248x110+0+630)
+click 23 686 0.3; click 196 718 0.6   # "Delete pages after extracting", then Extract
 XT=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
 check "Extract offers one file per page and deleting the pages ($XS)" "echo \"$XS\" | grep -q 'One file per page' && echo \"$XS\" | grep -q 'Delete pages'"
 check "extracting and deleting the only page is refused" "echo \"$XT\" | grep -q 'needs at least one page' && [ \"\$(npages $OUT/single.pdf)\" = 1 ]"
 quit
 
 # 31. The side panel's edge (247,400) dragged 100 px right: the first thumbnail (row y 230) widens
-# from 150 to 250 px, and the width is kept for the next start (PDF Expert's sidebar).
+# from 216 to 316 px (the sidebar's width less 32), and the width is kept for the next start (PDF Expert's sidebar).
 # The width of the first blue run on row 230: the first thumbnail of a blue page.
 thumbw() { import -window root -crop 500x1+0+230 png:- 2>/dev/null | convert - txt:- | awk -F'[(),]' 'NR > 1 { b = ($5 + 0 > 180 && $3 + 0 < 90); if (b) n++; else if (n > 20) { print n; exit } else n = 0 }' | head -1; }
 convert -size 300x400 xc:'#2040E0' "$OUT/blue.pdf"; launch "$OUT/blue.pdf"; sleep 1.5; TW0=$(thumbw)
@@ -218,14 +219,14 @@ launch "$OUT/blue.pdf"; sleep 1.5; TW2=$(thumbw)
 quit
 # Back to the default panel for the later steps.
 python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["panel_width"] = 0; json.dump(p, open(sys.argv[1], "w"))' "$OUT/profile/data/Sheaf/prefs.json"
-check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 130 ] && [ \"\${TW0:-0}\" -lt 160 ] && [ \"\${TW1:-0}\" -gt 230 ] && [ \"\${TW1:-0}\" -lt 260 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
+check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 200 ] && [ \"\${TW0:-0}\" -lt 232 ] && [ \"\${TW1:-0}\" -gt 300 ] && [ \"\${TW1:-0}\" -lt 332 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
 
-# 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
+# 32. A highlight saved without a note, on a page never shown: the Annotations tab (142,106) lists the
 # words it covers (step 1's highlight, its page moved third; made as step 1 does when this part runs alone).
 [ -f "$OUT/highlighted.pdf" ] || { cp "$OUT/text.pdf" "$OUT/highlighted.pdf"; launch "$OUT/highlighted.pdf"; key ctrl+9
     xdotool mousemove 330 200 mousedown 1 mousemove 600 201 mousemove 900 201 mouseup 1; sleep 0.4; key h; sleep 1; key ctrl+s; sleep 1.5; quit; }
 qpdf "$OUT/highlighted.pdf" --pages . 2,3,1,4 -- "$OUT/hl-third.pdf"; launch "$OUT/hl-third.pdf"; sleep 1
-click 153 106 1; NT=$(ocr 260x300+0+130)
+click 142 106 1; NT=$(ocr 260x300+0+130)
 check "the Notes panel shows a highlight's words though its page was never shown ($NT)" "echo \"$NT\" | grep -qi 'quick'"
 quit
 
@@ -249,11 +250,11 @@ P2=$(pdftoppm -r 10 -f 2 -l 2 -png "$OUT/four.pdf" 2>/dev/null | convert - -resi
 check "pages copied from one document are pasted into another ($(npages $OUT/four.pdf) pages, page 2 ${P2:-?})" "[ \"\$(npages $OUT/four.pdf)\" = 5 ] && reddish '${P2:-#000000}'"
 quit
 
-# 35. Pages panel ▸ Number pages… (188,778): page 1 selected, "i, ii, iii" (the style list, then its second
-# entry), Number: the saved file labels its pages i to iv (/PageLabels, style /r).
+# 35. Thumbnails bar ▸ ⋯ (206,774) ▸ Number pages… (250,734): page 1 selected, "i, ii, iii" (the style list at
+# 120,645, then its second entry, 40,670: the list is pushed up to end at the window's edge), Number (196,715): the saved file labels its pages i to iv (/PageLabels, /r).
 cp "$OUT/text.pdf" "$OUT/numbered.pdf"; launch "$OUT/numbered.pdf"; sleep 1
-click 120 230 0.6; click 188 778 0.8; click 62 665 0.8; click 40 661 0.6   # the style list, then "i, ii, iii"
-NB="198 732"; click $NB 1; key ctrl+s; sleep 1.5
+click 120 230 0.6; click 206 774 0.8; click 250 734 0.8; click 120 645 0.8; click 40 670 0.6   # the style list, then "i, ii, iii"
+NB="196 715"; click $NB 1; key ctrl+s; sleep 1.5
 check "Number pages labels the pages in the style chosen (${NB:-no Number button})" "qpdf --qdf --object-streams=disable $OUT/numbered.pdf - 2>/dev/null | grep -aq '/S /r'"
 quit
 # 35c. More (1127,61) ▸ Page background… (13th item, 1008,435): pale yellow chosen (the first colour), Apply,
@@ -315,8 +316,9 @@ quit
 # the grid on it (it fills the width again).
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/grid.pdf"; launch "$OUT/grid.pdf"; sleep 1
 click 1108 61 0.8; click 1008 267 1.5
-# The x of the first pixel where colour channel $1 (r, g or b) dominates on row y = $2, right of the panel.
-first_x() { import -window root -crop "1030x1+250+$2" txt:- 2>/dev/null | python3 -c '
+# The x of the first pixel where colour channel $1 (r, g or b) dominates on row y = $2, right of the panel (from x
+# $3, default 250; the page grid closes the Thumbnails sidebar, so its pages are read from 0).
+first_x() { local x0=${3:-250}; import -window root -crop "$(( 1280 - x0 ))x1+$x0+$2" txt:- 2>/dev/null | python3 -c '
 import re, sys
 want = "rgb".index(sys.argv[1])
 for line in sys.stdin:
@@ -324,8 +326,8 @@ for line in sys.stdin:
     m = re.match(r"(\d+),0: .*srgb\((\d+),(\d+),(\d+)", line)
     if not m: continue
     c = [int(m.group(k)) for k in (2, 3, 4)]
-    if c[want] > 150 and all(c[k] < 110 for k in range(3) if k != want): print(250 + int(m.group(1))); break' "$1"; }
-GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY); GG=$(first_x g $GY)
+    if c[want] > 150 and all(c[k] < 110 for k in range(3) if k != want): print(int(sys.argv[2]) + int(m.group(1))); break' "$1" "$x0"; }
+GY=226; GR=$(first_x r $GY 0); GB=$(first_x b $GY 0); GG=$(first_x g $GY 0)
 [ -n "$GB" ] && click $(( GB + 20 )) $GY 0.6; key Delete; sleep 1.5; key ctrl+s; sleep 1.5
 NB=$(npages "$OUT/grid.pdf")
 [ -n "$GR" ] && xdotool mousemove $(( GR + 20 )) $GY click --repeat 2 --delay 120 1; sleep 1.5; WIDE=$(first_x r 450)
@@ -402,8 +404,8 @@ quit
 # as "<name> - page 1.pdf" in it; a file of that name already there is kept, the page goes to "… (1).pdf".
 mkdir -p "$OUT/each"; cp "$OUT/text.pdf" "$OUT/four-pages.pdf"; launch "$OUT/four-pages.pdf"; sleep 1
 echo mine > "$OUT/each/four-pages - page 1.pdf"
-click 120 230 0.6; click 156 778 0.8; click 17 674 0.3
-answer "$PWD/$OUT/each"; click 201 734 2; answer ""
+click 120 230 0.6; click 206 774 0.8; click 250 706 0.8; click 23 654 0.3
+answer "$PWD/$OUT/each"; click 196 718 2; answer ""
 check "Extract writes one file per page in the folder chosen, never over a file there ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "grep -qx mine \"$OUT/each/four-pages - page 1.pdf\" && qpdf --check \"$OUT/each/four-pages - page 1 (1).pdf\" >/dev/null 2>&1"
 quit
 
@@ -653,11 +655,11 @@ for v in json.load(sys.stdin)["qpdf"][1].values():
 check "a colour from the palette draws the stroke ($OC)" "echo \"$OC\" | grep -qE '0\.94[0-9]*, 0\.54[0-9]*, 0\.15'"
 quit
 
-# 51. Bookmarks (Outline 95,106): + Bookmark on page 1 then on page 3; the second moved up (hover, ⋯ at the
-# row's right 199,218 ▸ Move up) comes first in the file's outline.
+# 51. Outline (71,106): + (224,146) on page 1 then on page 3; the second moved up (hover, ⋯ at the row's right
+# 228,211 ▸ Move up) comes first in the file's outline.
 cp "$OUT/text.pdf" "$OUT/marks.pdf"; launch "$OUT/marks.pdf"; key ctrl+9; sleep 1
-click 95 106 0.8; click 55 149 1; key End; sleep 1; key Up; key Up; sleep 0.8; click 55 149 1
-xdotool mousemove 150 218; sleep 0.5; click 199 218 0.8; MU=$(at Move 260x200+0+220); [ -n "$MU" ] && click $MU 1; key ctrl+s; sleep 1.5; shot 51-bookmarks
+click 71 106 0.8; click 224 146 1; key End; sleep 1; key Up; key Up; sleep 0.8; click 224 146 1
+xdotool mousemove 150 211; sleep 0.5; click 228 211 0.8; MU=$(at Move 260x200+0+220); [ -n "$MU" ] && click $MU 1; key ctrl+s; sleep 1.5; shot 51-bookmarks
 OT=$(qpdf --json=2 "$OUT/marks.pdf" | python3 -c 'import json, sys
 o = json.load(sys.stdin)["qpdf"][1]
 get = lambda r: o.get("obj:" + r, {}).get("value", {})
@@ -669,8 +671,8 @@ while cur:
     d = get(cur); titles.append(d.get("/Title", "")); cur = d.get("/Next")
 print(" ".join(t.replace("u:", "") for t in titles))')
 check "a bookmark moved up comes first in the outline ($OT)" "echo \"$OT\" | grep -qE '^Page [34] Page 1'"
-# Dragged (Acrobat's): the second row (y 218) pressed and drawn up to the first row's top edge, dropped: back first.
-xdotool mousemove 100 218 mousedown 1; for y in 212 204 196 188 180 172 169; do xdotool mousemove 100 $y; sleep 0.06; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
+# Dragged (Acrobat's): the second row (y 211) pressed and drawn up to the first row's top edge, dropped: back first.
+xdotool mousemove 100 211 mousedown 1; for y in 205 197 189 181 175 171 170; do xdotool mousemove 100 $y; sleep 0.06; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 OT2=$(qpdf --json=2 "$OUT/marks.pdf" | python3 -c 'import json, sys
 o = json.load(sys.stdin)["qpdf"][1]
 get = lambda r: o.get("obj:" + r, {}).get("value", {}) if r else {}
@@ -682,12 +684,13 @@ print(" ".join(t.replace("u:", "") for t in titles))')
 check "a bookmark dragged above another goes before it ($OT → $OT2)" "echo \"$OT2\" | grep -qE '^Page 1 Page [34]'"
 quit
 
-# 52. Files panel (211,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
-# Attachments pane). Rows from y 185, 34 apart, in name order: annex, budget, contract, notes; trash at 223,
-# pencil at 193. notes.txt deleted, budget.txt renamed money.txt; Attach… adds one to the document.
-cp "$OUT/withatt.pdf" "$OUT/att2.pdf"; launch "$OUT/att2.pdf"; click 211 106 1
-xdotool mousemove 120 287; sleep 0.4; click 223 287 1
-xdotool mousemove 120 219; sleep 0.4; click 193 219 0.6; key ctrl+a; xdotool type --delay 20 "money.txt"; key Return; sleep 1
+# 52. Attachments tab (177,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
+# Attachments pane). Rows from y 219, 28 apart, in name order: annex, budget, contract, notes; trash at 228,
+# pencil at 206. budget.txt renamed money.txt first (four rows: the Find field above them), then notes.txt (still
+# the fourth row) deleted; + adds one to the document.
+cp "$OUT/withatt.pdf" "$OUT/att2.pdf"; launch "$OUT/att2.pdf"; click 177 106 1
+xdotool mousemove 120 247; sleep 0.4; click 206 247 0.6; key ctrl+a; xdotool type --delay 20 "money.txt"; key Return; sleep 1
+xdotool mousemove 120 303; sleep 0.4; click 228 303 1
 key ctrl+s; sleep 1.5; shot 52-attachments
 AL=$(qpdf --list-attachments "$OUT/att2.pdf" 2>/dev/null | tr '\n' ' ')
 check "an attachment is deleted and another renamed ($AL)" "! echo \"$AL\" | grep -q notes.txt && echo \"$AL\" | grep -q money.txt && ! echo \"$AL\" | grep -q budget.txt && echo \"$AL\" | grep -q contract.txt"
@@ -706,11 +709,11 @@ check "One page at a time zoomed in scrolls within the page before turning it ($
 quit
 
 # 68. Find and replace (Acrobat's Edit PDF ▸ Find ▸ Replace All): "quick" searched (⌘F, ↩), "slow" typed in the
-# panel's Replace with, Replace all: every page's text now says "slow brown fox", none "quick".
+# results column's Replace with (its last rows), Replace All: every page's text now says "slow brown fox", none "quick".
 cp "$OUT/text.pdf" "$OUT/replace-all.pdf"; launch "$OUT/replace-all.pdf"; sleep 1
 key ctrl+f; xdotool type --delay 10 "quick"; key Return; sleep 2
-# The field's placeholder is too faint to read: it is the row above the "Replace all" button, across the panel.
-RA=$(at all 300x300+0+60); RW=${RA:+$(set -- $RA; echo 100 $(( $2 - 34 )))}
+# The field's placeholder is too faint to read: it is the row above the "Replace All" button, across the column.
+RA=$(at All 260x140+1020+660); RW=${RA:+$(set -- $RA; echo 1150 $(( $2 - 36 )))}
 [ -n "$RW" ] && { click $RW 0.4; xdotool type --delay 20 "slow"; click $RA 3; }; key ctrl+s; sleep 2; shot 68-replace-all
 RT=$(pdftotext "$OUT/replace-all.pdf" - 2>/dev/null | tr '\n' ' ')
 check "Replace all rewrites the words on every page (${RW:-no field} ${RA:-no button}; $(echo "$RT" | cut -c1-60))" "[ \"\$(echo \"$RT\" | grep -o 'slow brown' | wc -l)\" = 4 ] && ! echo \"$RT\" | grep -q quick"

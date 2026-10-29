@@ -379,9 +379,12 @@ impl ViewerUi {
     /// The view is `width` × `height`, scrolled to `top`. With pages across, a new size keeps the
     /// point at the view's top middle on its page (Sol, 27/10: deep in a strip, a window or side
     /// panel resized slid toward another page: the strip is laid out again at the new width).
+    /// Down a column too: a column opening or closing beside the pages (the search results, the
+    /// sidebar) re-fits their width, and the page read stays the one at the top (W4: closing the
+    /// search results slid from page 3 to page 2).
     fn resize(&mut self, width: f64, top: f64, height: f64) {
         let w = self.viewer.view_width();
-        let anchor = self.viewer.across().then(|| self.viewer.anchor_of(self.left + w / 2.0, self.top));
+        let anchor = Some(self.viewer.anchor_of(self.left + w / 2.0, self.top));
         let wide = self.viewer.set_width(width);
         let high = self.viewer.set_height(height);
         self.top = top;
@@ -1134,7 +1137,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     tab.viewer_selecting = v.selecting;
     tab.viewer_width = len(v.viewer.content_width());
     tab.viewer_height = len(v.viewer.content_height());
-    tab.viewer_thumbs_height = len(viewer::content_height(&tl));
+    tab.viewer_thumbs_height = len(v.viewer.thumb_content_height());
     tab.viewer_current = v.current() as i32;
     // Shown as the step it is (100 %, 200 %) when the integer zoom lands a hair off it.
     let actual = v.viewer.actual_percent(v.current());
@@ -1401,11 +1404,17 @@ mod tests {
             v.resize(w, top, h);
             assert_eq!(v.current(), 22, "at {w} × {h}");
         }
-        // Down a column a resize is as before: the scroll asked for is left alone.
+        // Down a column too (W4): a column opening beside the pages (search results) and closing
+        // again re-fits them, and the page read stays in view.
         v.viewer.set_horizontal(false);
-        let seq = v.scroll_seq;
-        v.resize(800.0, v.top, 700.0);
-        assert_eq!(v.scroll_seq, seq);
+        v.show_page(12, None);
+        let y = v.scroll;
+        v.top = y;
+        for w in [740.0, 1000.0] {
+            let top = v.top;
+            v.resize(w, top, 700.0);
+            assert_eq!(v.current(), 12, "down a column at {w}");
+        }
     }
 
     /// What [`view_left`] does to a tab's viewer.

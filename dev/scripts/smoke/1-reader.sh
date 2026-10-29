@@ -180,14 +180,15 @@ for _ in $(seq 1 12); do sleep 0.5; PV2=$(ocr 1000x500+260+90); echo "$PV2" | gr
 key Escape; key v
 check "an edited paragraph shows on the page before ⌘↩, Escape takes it back" "echo \"$PV1\" | grep -q zebra && ! echo \"$PV2\" | grep -q zebra && ! pdftotext $OUT/text.pdf - | grep -q zebra"
 
-# 3. Page operations from the Pages panel: duplicate page 1, delete it again, rotate.
-click 120 230; click 124 778 1.2      # select page 1, Duplicate
+# 3. Page operations from the sidebar's Thumbnails bar (DESIGN §5.4: 36 apart from x 8, y 774; at the default 248 it
+# holds Rotate left 26, Rotate right 62, Insert 98, Duplicate 134, Delete 170 and ⋯ 206 with Extract and Number pages).
+click 120 230; click 134 774 1.2      # select page 1, Duplicate
 key ctrl+s; sleep 1.5
 check "duplicate adds a page" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
-click 120 230; click 220 778 1.2      # Delete
+click 120 230; click 170 774 1.2      # Delete
 key ctrl+s; sleep 1.5
 check "delete removes it" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
-click 120 230; click 92 778 1.2       # Insert blank page after page 1
+click 120 230; click 98 774 1.2       # Insert blank page after page 1
 key ctrl+s; sleep 1.5
 check "insert blank adds an empty page 2" "[ \"\$(npages $OUT/text.pdf)\" = 5 ] && [ -z \"\$(pdftotext -f 2 -l 2 $OUT/text.pdf - | tr -d '[:space:]')\" ]"
 key ctrl+z; key ctrl+s; sleep 1.5
@@ -198,7 +199,7 @@ key ctrl+z; key ctrl+s; sleep 1.5
 check "undo again removes the duplicate" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
 # Drag page 1's thumbnail (120,230) below page 2's (the drop line, a page badge under the pointer):
 # page 2 comes first; ⌘Z puts it back.
-xdotool mousemove 120 230 mousedown 1; for i in $(seq 1 12); do xdotool mousemove 120 $((230 + i * 25)); sleep 0.04; done; sleep 0.3; shot 03b-page-drag; xdotool mouseup 1; sleep 1.2
+xdotool mousemove 120 230 mousedown 1; for i in $(seq 1 12); do xdotool mousemove 120 $((230 + i * 35)); sleep 0.04; done; sleep 0.3; shot 03b-page-drag; xdotool mouseup 1; sleep 1.2
 key ctrl+s; sleep 1.5; FP=$(first_text $OUT/text.pdf 1)
 check "dragging a thumbnail reorders the pages ($FP)" "[ \"$FP\" = 'Page 2' ]"
 key ctrl+z; key ctrl+s; sleep 1.5
@@ -317,51 +318,56 @@ for v in json.load(sys.stdin)["qpdf"][1].values():
     if d.get("/Name") == "/PCCheck": print(d.get("/C"))')
 check "the checkmark is in the colour picked (blue: $MC)" "echo \"$MC\" | grep -q '0.9'"
 
-# 6c-notes. Notes panel (153,106): Hide all (45,149) hides the stamp at 900,300 and shows it again;
-# the trash (226,152) removes every comment, in the saved file too.
-click 153 106 0.8
+# 6c-notes. Annotations tab (142,106): its title's ⋯ (224,146) ▸ Hide all (the first row, 60,178) hides the stamp at
+# 900,300 and shows it again; ⋯ ▸ Remove all comments removes every comment, in the saved file too.
+click 142 106 0.8
 stampshade() { import -window root -crop 200x40+800+280 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
-H0=$(stampshade); click 45 149 1.2; H1=$(stampshade); click 45 149 1.2; H2=$(stampshade)
+H0=$(stampshade); click 224 146 0.8; click 60 178 1.2; H1=$(stampshade); click 224 146 0.8; click 60 178 1.2; H2=$(stampshade)
 check "Hide all comments hides them and Show all brings them back ($H0 → $H1 → $H2)" "python3 -c 'import sys; a, b, c = $H0, $H1, $H2; sys.exit(0 if b - a > 0.05 and abs(a - c) < 0.005 else 1)'"
-click 226 152 1.5; key ctrl+s; sleep 1.5
+click 224 146 0.8; RA=$(at Remove 260x220+0+160); [ -n "$RA" ] && click $RA 1.5; key ctrl+s; sleep 1.5
 # The file must be read for the absence to mean anything.
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "Remove all comments leaves none in the file" "[ -n \"\$QD\" ] && ! echo \"\$QD\" | grep -aqE '/Subtype /(Square|Circle|Line|Ink|Stamp|Text|FreeText|Highlight)\$'"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "⌘Z brings them all back" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Subtype /Stamp'"
-# The filter (64,186 ▸ Stamps at 40,350) lists only stamps; deleting the first row deletes a stamp,
-# not what sat at that row's place in the full list; back to All (40,230).
+# The filter chips (y 184; they scroll sideways: dragged left to bring Stamps in) list only stamps; deleting the
+# first card (under its "Page 1 · n" heading, 120,290) deletes a stamp, not what sat at that row's place in the full
+# list; back to All (the chips dragged back, All at 33,184).
 NST=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/Subtype /Stamp$')
-click 64 186 0.8; click 40 350 1; click 120 240 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+# Slowly, and held still before the release: a quick drag flings the row past Stamps.
+chips_left() { xdotool mousemove 230 184 mousedown 1; for x in 220 210 200 190 180 170 160 150 140 130; do xdotool mousemove $x 184; sleep 0.05; done; sleep 0.5; xdotool mouseup 1; sleep 0.6; }
+chips_right() { xdotool mousemove 30 184 mousedown 1; for x in 60 90 120 150 180 210 240; do xdotool mousemove $x 184; sleep 0.05; done; sleep 0.5; xdotool mouseup 1; sleep 0.6; }
+chips_left; ST=$(at Stamps 248x24+0+172); [ -n "$ST" ] && click $ST 1; click 120 290 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
-check "Notes filter: the first row of Stamps deletes a stamp ($NST → one less), shapes kept" "[ \$(echo \"\$QD\" | grep -ac '/Subtype /Stamp\$') -eq \$(( NST - 1 )) ] && echo \"\$QD\" | grep -aq '/Subtype /Square\$'"
-click 64 186 0.8; click 40 230 1
-# Reply (52,270 on the selected first row): typed, ↩ sends it; the file holds it as a reply (/IRT).
-click 120 240 1; click 52 270 1; xdotool windowfocus --sync "$W" 2>/dev/null; sleep 0.3; xdotool type --delay 20 "Smoke reply"; key Return; sleep 1; key ctrl+s; sleep 1.5
+check "Notes filter: the first row of Stamps deletes a stamp (${ST:-no chip}; $NST → one less), shapes kept" "[ \$(echo \"\$QD\" | grep -ac '/Subtype /Stamp\$') -eq \$(( NST - 1 )) ] && echo \"\$QD\" | grep -aq '/Subtype /Square\$'"
+chips_right; click 33 184 1
+# Reply (read under the selected first card): typed, ↩ sends it; the file holds it as a reply (/IRT).
+click 120 290 1; RB=$(at Reply 248x400+0+260); [ -n "$RB" ] && click $RB 1; xdotool windowfocus --sync "$W" 2>/dev/null; sleep 0.3; xdotool type --delay 20 "Smoke reply"; key Return; sleep 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a reply to a comment is saved as a reply" "echo \"\$QD\" | grep -aq '/IRT' && echo \"\$QD\" | grep -aq '(Smoke reply)'"
-# Status (the list right of Reply, 150,292 once the reply shows ▸ Accepted, the second entry):
+# Status (the list right of Reply, about 80 right of its word ▸ Accepted, read in the list under it):
 # saved as a status reply.
-click 120 240 1; click 150 292 0.8; shot 06c-status; click 150 358 1; key ctrl+s; sleep 1.5
+click 120 290 1; read RL RR RY <<< "$(span Reply 248x500+0+260)"; [ -n "$RY" ] && click $(( RR + 80 )) $RY 0.8; shot 06c-status
+AC=$(at Accepted 260x200+0+$(( ${RY:-300} + 16 ))); [ -n "$AC" ] && click $AC 1; key ctrl+s; sleep 1.5
 check "a review status is saved (Accepted)" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/State (Accepted)'"
 # The reply's own bin (right of its line, x 220) deletes it alone: the comment and its status stay.
 read _ RY <<< "$(at Smoke 260x500+0+130)"; [ -n "$RY" ] && click 220 "$RY" 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a reply is deleted alone, its comment and status kept" "[ -n \"$RY\" ] && ! echo \"\$QD\" | grep -aq '(Smoke reply)' && echo \"\$QD\" | grep -aq '/State (Accepted)'"
 key Escape
-click 37 106 0.8   # back to the Pages panel
+click 36 106 0.8   # back to the Thumbnails tab
 
 # 6c-props. ⌘D: Document Properties; a title typed and Return is saved into the file's Info.
 key ctrl+d; sleep 0.5; xdotool key ctrl+a; xdotool type --delay 10 "Smoke Title"; key Return; sleep 1; key ctrl+s; sleep 1.5
 check "Document Properties: the title typed is saved" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Smoke Title)'"
 
-# 6c-outline. Outline panel (95,106): + Bookmark (55,149) bookmarks the page in view; saved.
-click 95 106 0.8; click 55 149 1.2; key ctrl+s; sleep 1.5; shot 06c-outline
+# 6c-outline. Outline tab (71,106): + in its title row (224,146) adds the page in view; saved.
+click 71 106 0.8; click 224 146 1.2; key ctrl+s; sleep 1.5; shot 06c-outline
 check "+ Bookmark adds the page in view to the outline" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Page 1)'"
-# Double-click the bookmark (120,190) to rename it in place; ↩ keeps the new title.
-xdotool mousemove 120 190 click --repeat 2 --delay 80 1; sleep 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "Renamed"; key Return; sleep 1; key ctrl+s; sleep 1.5; shot 06c-outline-renamed
+# Double-click the item (the first row, 120,183) to rename it in place; ↩ keeps the new title.
+xdotool mousemove 120 183 click --repeat 2 --delay 80 1; sleep 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "Renamed"; key Return; sleep 1; key ctrl+s; sleep 1.5; shot 06c-outline-renamed
 check "a bookmark is renamed in place" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Renamed)'"
-click 37 106 0.8
+click 36 106 0.8
 
 # 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.

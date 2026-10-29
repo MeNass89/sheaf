@@ -387,7 +387,7 @@ pub fn thumb_at(tab_id: i32, y: f32) -> i32 {
     with(|a| {
         let v = a.tab(tab_id)?.viewer.as_ref()?;
         let y = y as f64;
-        v.viewer.thumb_layout().iter().position(|(t, h)| y >= *t && y <= t + h + 18.0).map(|p| p as i32)
+        v.viewer.thumb_layout().iter().position(|(t, h)| y >= *t && y <= t + h + v.viewer.thumb_below.max(18.0)).map(|p| p as i32)
     })
     .unwrap_or(-1)
 }
@@ -396,10 +396,10 @@ pub fn thumb_at(tab_id: i32, y: f32) -> i32 {
 pub(super) fn drop_gap(v: &Viewer, y: f64) -> (usize, f64) {
     let tl = v.thumb_layout();
     let gap = tl.iter().position(|(top, h)| y < top + h / 2.0).unwrap_or(tl.len());
-    // Just above the next thumbnail, below the previous one's page number (drawn under it).
+    // In the middle of the gap above the next thumbnail, under the previous one's page number.
     let line = match tl.get(gap) {
-        Some((top, _)) => top - 2.0,
-        None => tl.last().map(|(t, h)| t + h + 20.0).unwrap_or(0.0),
+        Some((top, _)) => top - v.thumb_gap / 2.0,
+        None => tl.last().map(|(t, h)| t + h + v.thumb_below + v.thumb_gap / 2.0).unwrap_or(0.0),
     };
     (gap, line)
 }

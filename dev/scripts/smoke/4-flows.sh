@@ -65,9 +65,9 @@ quit
 # 86. A bookmark's ⋯ menu ▸ Bold, then ▸ Set destination to this view at 200 % (Acrobat's bookmark Appearance and Set
 # Destination): saved, its /F holds bold (2) and its /Dest is /XYZ with a zoom of 2.
 cp "$OUT/text.pdf" "$OUT/markstyle.pdf"; launch "$OUT/markstyle.pdf"; key ctrl+9; sleep 1
-click 95 106 0.8; click 55 149 1
-xdotool mousemove 150 182; sleep 0.5; click 199 182 0.8; BO=$(at Bold 260x400+0+180); [ -n "$BO" ] && click $BO 1
-key ctrl+0; sleep 0.8; xdotool mousemove 150 182; sleep 0.5; click 199 182 0.8; SD=$(at Set 260x400+0+180); [ -n "$SD" ] && click $SD 1
+click 71 106 0.8; click 224 146 1
+xdotool mousemove 150 183; sleep 0.5; click 228 183 0.8; BO=$(at Bold 260x400+0+180); [ -n "$BO" ] && click $BO 1
+key ctrl+0; sleep 0.8; xdotool mousemove 150 183; sleep 0.5; click 228 183 0.8; SD=$(at Set 260x400+0+180); [ -n "$SD" ] && click $SD 1
 key ctrl+s; sleep 1.5
 BQ=$(qpdf --qdf --object-streams=disable "$OUT/markstyle.pdf" - 2>/dev/null | python3 -c '
 import re, sys
@@ -81,9 +81,9 @@ quit
 # the pages asks from which page (Acrobat's pages … of the file); 3 typed: page 1 is now text.pdf's page 3.
 cp "$OUT/text.pdf" "$OUT/repfrom.pdf"; launch "$OUT/repfrom.pdf"; sleep 1
 answer "$PWD/$OUT/text.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; RP=$(at Replace 300x400+20+200); [ -n "$RP" ] && click $RP 1.5; answer ""
-# The field, Cancel and Replace make the strip's last row, 44 px under the "from page" that ends its sentence
-# (Cancel, bold on grey, and the faint placeholder are not read): the field at x 40, Replace at x 200.
-CA=$(at from 248x200+0+560); [ -n "$CA" ] && { set -- $CA; click 40 $(( $2 + 44 )) 0.4; xdotool type --delay 20 "3"; click 200 $(( $2 + 44 )) 1.5; }
+# The field, Cancel and Replace make the strip's last row, 16 above the Thumbnails bar (y 718; Cancel, bold on grey,
+# and the faint placeholder are not read): the field at x 40, Replace at x 200.
+CA=$(at from 248x120+0+630); [ -n "$CA" ] && { click 40 718 0.4; xdotool type --delay 20 "3"; click 200 718 1.5; }
 key ctrl+s; sleep 1.5
 check "Replace with a longer file's pages takes the ones chosen (${RP:-no item} ${CA:-no strip}; page 1: $(first_text "$OUT/repfrom.pdf" 1))" "[ \"\$(first_text $OUT/repfrom.pdf 1)\" = 'Page 3' ]"
 quit
@@ -242,7 +242,7 @@ quit
 # first) goes before it (Acrobat's Organize Pages): saved, the first page is yellow.
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/griddrag.pdf"; launch "$OUT/griddrag.pdf"; sleep 1
 click 1108 61 0.8; click 1008 267 1.5
-GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY)
+GY=226; GR=$(first_x r $GY 0); GB=$(first_x b $GY 0)
 # Yellow is red and green high: the last card, right of the blue one (cards are about as wide as blue's offset).
 GYW=${GB:+$(( GB + (GB - ${GR:-0}) / 2 + 20 ))}
 if [ -n "$GR" ] && [ -n "$GYW" ]; then
@@ -276,7 +276,7 @@ AV=$(qpdf --json=2 --json-key=acroform "$OUT/autocomplete.pdf" | python3 -c "imp
 check "a form field offers an entry typed before, and a click fills it (${AC:-no suggestion}; $AV)" "echo \"$AV\" | grep -q 'Remembered entry'"
 quit
 
-# 108. Layers panel (Acrobat's Layers pane; the fifth tab, 218,106 (five share the row), shown when the document has layers): a
+# 108. Layers tab (Acrobat's Layers pane; the sixth tab, 212,106; its title's ⋯ at 224,146 holds Show all): a
 # page with a red square in layer Red and a blue one in layer Blue, Blue hidden by the file. A click on Red hides
 # it, Show all shows both; the file keeps its own choice.
 python3 - "$OUT/layers-raw.pdf" <<'PY'
@@ -293,9 +293,9 @@ qpdf "$OUT/layers-raw.pdf" "$OUT/layers.pdf" 2>/dev/null; cp "$OUT/layers.pdf" "
 launch "$OUT/layers.pdf"; sleep 1
 share() { import -window root -crop 1000x700+260+90 png:- 2>/dev/null | convert - -fuzz 25% -fill black +opaque "$1" -fill white -opaque "$1" -format "%[fx:mean>0.002]" info: 2>/dev/null; }
 L0="$(share '#ff0000')$(share '#0000ff')"
-click 218 106 1; LR=$(at Red 300x300+0+120); [ -n "$LR" ] && click $LR 1.5
+click 212 106 1; LR=$(at Red 300x300+0+160); [ -n "$LR" ] && click $LR 1.5
 L1="$(share '#ff0000')$(share '#0000ff')"
-LS=$(at Show 300x200+0+110); [ -n "$LS" ] && click $LS 1.5
+click 224 146 0.8; LS=$(at Show 248x120+0+160); [ -n "$LS" ] && click $LS 1.5
 L2="$(share '#ff0000')$(share '#0000ff')"
 check "Layers: as the file sets them, Red hidden by a click, Show all (red,blue: $L0 → $L1 → $L2; ${LR:-no Red row})" "[ \"$L0\" = 10 ] && [ \"$L1\" = 00 ] && [ \"$L2\" = 11 ] && cmp -s \"$OUT/layers.pdf\" \"$OUT/layers-before.pdf\""
 quit
@@ -817,7 +817,9 @@ launch; key ctrl+comma; sleep 0.8
 CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches 1280x710+0+90)"
 quit
 cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
-key r; sleep 0.6; read FX _ <<< "$(at Fill 1280x120+0+80)"
+# The bar's first row only, left of the sidebar (now on the right): its segmented icons on that row made
+# tesseract read "Fil".
+key r; sleep 0.6; read FX _ <<< "$(at Fill 1030x40+0+90)"
 check "right to left mirrors Preferences' rows and the tool options bar (Centimetres x ${CX:-?} < Inches ${IX:-?}; Fill at x ${FX:-?})" "[ -n \"$CX\" ] && [ -n \"$IX\" ] && [ \"$CX\" -lt \"$IX\" ] && [ \"${FX:-0}\" -gt 640 ]"
 quit; platform_reset
 
@@ -841,7 +843,7 @@ cp "$OUT/text.pdf" "$OUT/many/z-last.pdf"; qpdf --encrypt pw pw 256 -- "$OUT/tex
 launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 answer "$PWD/$OUT/many"
-FS=$(at folder 300x30+0+160); [ -n "$FS" ] && click $FS 4
+click 1226 102 0.8; FS=$(at Folder 248x120+1024+180); [ -n "$FS" ] && click $FS 4
 FT=$(ocr 800x560+240+100 | tr '\n' ' ' | tr -s ' ')
 shot 311-folder-search
 check "In a folder… counts the PDF read and lists the 601 not searched with why (link at ${FS:-?}; sheet: $(echo "$FT" | cut -c1-220))" "echo \"$FT\" | grep -q 'found in 1 PDF\. 601 PDFs could not be searched' && echo \"$FT\" | grep -q 'z-last' && echo \"$FT\" | grep -q '0-locked.pdf Protected by a password' && echo \"$FT\" | grep -q 'Damaged or not a PDF'"

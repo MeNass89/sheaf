@@ -442,8 +442,11 @@ pub struct ReaderUi {
     annot_resize: Option<AnnotPull>,
     /// The annotation under the press, selected if the press ends without a drag.
     annot_candidate: Option<usize>,
-    /// The panel shown before a search took it over (results, panel 3).
-    panel_before_search: Option<i32>,
+    /// The sidebar's Bookmarks: the pages bookmarked (0-based, in order), kept in the preferences.
+    bookmarks: Vec<usize>,
+    /// Organize mode's grid closed the Thumbnails tab (it shows the same pages): the tab to reopen
+    /// when the grid closes.
+    panel_before_grid: Option<i32>,
     results_cache: Cache<(Rc<VecModel<ReaderResultRow>>, Option<usize>)>,
     /// 0 fit width, 1 fit page, 2 a zoom the user chose.
     zoom_mode: i32,
@@ -649,7 +652,8 @@ impl ReaderUi {
             pending_reduce: None,
             undo_pages: Vec::new(),
             redo_pages: Vec::new(),
-            panel_before_search: None,
+            bookmarks: Vec::new(),
+            panel_before_grid: None,
             results_cache: Default::default(),
             zoom_mode: 0,
             back: Vec::new(),
@@ -659,6 +663,7 @@ impl ReaderUi {
             annots_cache: Default::default(),
         };
         r.rows = reader::outline_rows(&r.snap.outline, &r.toggled);
+        r.bookmarks = crate::home::page_bookmarks(&r.path);
         r
     }
 
@@ -1204,15 +1209,22 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
 /// The reader's side panel width until one is dragged (Theme.sidebar-default).
 pub const PANEL_WIDTH: f32 = 248.0;
 
-/// Thumbnails in the reader's side panel: its width less the margins (150 px at the default
-/// width, PDF Expert's size; the tools' strip uses 84 px).
+/// Thumbnails in the reader's sidebar (DESIGN §5.4): its width less a 16 margin each side (216 at
+/// 248, 448 at 480); the tools' strip uses 84 px.
 pub fn reader_thumb(panel: f32) -> f64 {
-    (panel as f64 - 98.0).max(100.0)
+    (panel as f64 - 32.0).max(100.0)
 }
+
+/// The sidebar's thumbnail rhythm (DESIGN §5.4): 8 above the first, the page number badge (18
+/// tall, 6 under the page) under each, 12 to the next.
+pub const THUMB_TOP: f64 = 8.0;
+pub const THUMB_BELOW: f64 = 24.0;
+pub const THUMB_GAP: f64 = 12.0;
 
 fn reader_viewer(boxes: Vec<viewer::PageBox>) -> Viewer {
     let mut v = Viewer::new(boxes);
     v.thumb_width = reader_thumb(crate::home::panel_width());
+    (v.thumb_top, v.thumb_below, v.thumb_gap) = (THUMB_TOP, THUMB_BELOW, THUMB_GAP);
     v
 }
 

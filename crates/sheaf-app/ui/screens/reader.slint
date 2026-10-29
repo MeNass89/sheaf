@@ -17,6 +17,8 @@ import { OcrReviewPanel } from "ocr-review.slint";
 import { AiPanel } from "ai-panel.slint";
 import { AiBridge } from "../ai.slint";
 import { ReaderPanel } from "reader-panel.slint";
+import { OrganiserMarks } from "reader-organize.slint";
+import { SearchResults } from "reader-search.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
 import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
@@ -407,12 +409,10 @@ export component ReaderScreen inherits Rectangle {
                 bare: root.bare;
                 panel-width: root.panel-width;
                 window-width: root.width;
-                search-text: toolbar.search-text;
                 thumb-down-y <=> root.thumb-down-y;
                 drop-line <=> root.drop-line;
                 thumb-down-page <=> root.thumb-down-page;
                 focus-pages => { keys.focus(); }
-                search-again(text) => { toolbar.search-for(text); }
             }
 
             // ---- pages ------------------------------------------------------------------------
@@ -491,6 +491,15 @@ export component ReaderScreen inherits Rectangle {
                             source: p.image;
                             image-fit: fill;
                         }
+                    }
+                    // W4: the page organiser's numbers, frames and insertion bar (reader-organize.slint).
+                    if root.tab.reader.grid-cells.length > 0: OrganiserMarks {
+                        x: 0;
+                        y: 0;
+                        width: root.tab.viewer-width;
+                        height: root.tab.viewer-height;
+                        cells: root.tab.reader.grid-cells;
+                        bar: root.tab.reader.grid-bar;
                     }
                     for m in root.tab.reader.provisional: Rectangle {
                         x: m.x;
@@ -1341,6 +1350,18 @@ export component ReaderScreen inherits Rectangle {
                         color: Theme.info;
                     }
                 }
+            }
+            // ---- search results (W4, reader-search.slint) ---------------------------------------
+            // Hosted here, in the inspector's column (DESIGN §5.6: 260, 240 under 1120 wide), until
+            // W3's inspector takes it as its "Search" content.
+            if root.tab.reader.search-count != "" && !root.bare: SearchResults {
+                width: root.width < 1120px ? 240px : 260px;
+                tab: root.tab;
+                id: root.id;
+                search-text: toolbar.search-text;
+                close => { toolbar.search-for(""); keys.focus(); }
+                search-again(text) => { toolbar.search-for(text); }
+                focus-pages => { keys.focus(); }
             }
         }
     }

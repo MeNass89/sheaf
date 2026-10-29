@@ -21,6 +21,21 @@ fn remember(history: &mut Vec<String>, q: &str) {
     history.truncate(HISTORY_LEN);
 }
 
+/// The options' Recent Searches: search `index` forgotten (−1: every one); the list shown again.
+pub fn search_forget(tab_id: i32, index: i32) {
+    HISTORY.with(|h| {
+        let mut h = h.borrow_mut();
+        match usize::try_from(index) {
+            Ok(i) if i < h.len() => {
+                h.remove(i);
+            }
+            Ok(_) => {}
+            Err(_) => h.clear(),
+        }
+    });
+    update(tab_id, |r, _| r.version += 1);
+}
+
 pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
     let q = query.trim().to_string();
     if !q.is_empty() {
@@ -33,12 +48,8 @@ pub fn search(ui: &AppWindow, tab_id: i32, query: &str) {
         r.search.snippets.clear();
         r.search.current = None;
         r.search.busy = !q.is_empty();
-        if !q.is_empty() {
-            // The results show in the side panel, as in PDF Expert (evidence 09).
-            r.panel_before_search = Some(r.panel);
-            r.panel = 3;
-            r.panel_open = true;
-        }
+        // The results show in the inspector column (reader-search.slint), as PDF Expert lists them
+        // on the right (evidence 09); the sidebar keeps what it showed.
         r.search_live.store(r.search.generation, std::sync::atomic::Ordering::Relaxed);
         // Pages read before (an earlier search, selection) are not read again.
         let known = r.texts.clone();
@@ -205,9 +216,6 @@ pub fn search_clear(tab_id: i32) {
         r.search.current = None;
         r.search.busy = false;
         r.version += 1;
-        if r.panel == 3 {
-            r.panel = r.panel_before_search.take().unwrap_or(0);
-        }
     });
 }
 

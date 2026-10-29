@@ -206,8 +206,18 @@ pub fn toggle_grid(ui: &AppWindow, tab_id: i32) {
         match r.grid_prev.take() {
             Some(prev) => {
                 v.viewer.set_spread(prev);
+                // The Thumbnails tab the grid closed comes back (DESIGN §5.7).
+                if let Some(panel) = r.panel_before_grid.take() {
+                    r.panel_open = true;
+                    r.panel = panel;
+                }
             }
             None => {
+                // The grid shows the pages the Thumbnails tab shows: the sidebar closes while it is on.
+                if r.panel_open && r.panel == 0 {
+                    r.panel_before_grid = Some(0);
+                    r.panel_open = false;
+                }
                 r.grid_prev = Some(v.viewer.spread());
                 v.viewer.set_spread(3);
                 v.viewer.set_zoom(100);
@@ -228,6 +238,10 @@ pub fn toggle_grid(ui: &AppWindow, tab_id: i32) {
 pub(super) fn open_from_grid(r: &mut ReaderUi, v: &mut ViewerUi, page: usize) {
     if let Some(prev) = r.grid_prev.take() {
         v.viewer.set_spread(prev);
+    }
+    if let Some(panel) = r.panel_before_grid.take() {
+        r.panel_open = true;
+        r.panel = panel;
     }
     v.show_page(page, None);
 }
@@ -441,4 +455,40 @@ pub fn select_all(tab_id: i32) {
         let page = v.current();
         r.sel = r.text(page).filter(|t| !t.glyphs.is_empty()).map(|t| (page, 0..t.glyphs.len()));
     });
+}
+
+/// The sidebar's Bookmarks (PDF Expert's page bookmarks, Go ▸ Add Bookmark ⌘D): `op` 0 bookmarks the
+/// page in view (again: takes it off), 1 goes to bookmark `row`, 2 removes it. Kept beside the file
+/// in the preferences, so the document itself is not changed.
+pub fn bookmark_op(ui: &AppWindow, tab_id: i32, op: i32, row: i32) {
+    let changed = update(tab_id, |r, v| {
+        let row = usize::try_from(row).ok().filter(|&i| i < r.bookmarks.len());
+        match (op, row) {
+            (0, _) => {
+                let page = v.current();
+                match r.bookmarks.binary_search(&page) {
+                    Ok(i) => {
+                        r.bookmarks.remove(i);
+                    }
+                    Err(i) => r.bookmarks.insert(i, page),
+                }
+            }
+            (1, Some(i)) => {
+                let page = r.bookmarks[i];
+                jump(r, v, page, None);
+                return None;
+            }
+            (2, Some(i)) => {
+                r.bookmarks.remove(i);
+            }
+            _ => return None,
+        }
+        r.version += 1;
+        Some((r.path.clone(), r.bookmarks.clone()))
+    })
+    .flatten();
+    if let Some((path, pages)) = changed {
+        crate::home::set_page_bookmarks(&path, &pages);
+    }
+    crate::viewer_ui::request(ui, tab_id);
 }

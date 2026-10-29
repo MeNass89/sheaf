@@ -115,6 +115,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
         backdrop: 3,
         last_pages: vec![(PathBuf::from("/tmp/a.pdf"), 12)],
         last_views: vec![(PathBuf::from("/tmp/a.pdf"), 2, 150, 1)],
+        page_bookmarks: vec![(PathBuf::from("/tmp/a.pdf"), vec![0, 3])],
         tool_styles: vec![(5, 2, 1, 0)],
         favourite_tools: vec!["compress".into()],
         home_tiles: vec!["edit".into(), "annotate".into(), "merge".into(), "ocr".into(), "sign".into(), "compress".into()],

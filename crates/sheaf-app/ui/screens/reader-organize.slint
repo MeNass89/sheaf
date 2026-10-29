@@ -1,0 +1,53 @@
+// The page organiser (Organize mode's canvas, DESIGN §5.7; PDF Expert's page grid, evidence 08):
+// drawn over the pages the viewer lays out in its grid (viewer::GRID_*), in content coordinates.
+// Each page gets its number under it; a selected page a 2 px accent frame 3 px outside it and an
+// accent badge; a drag shows a 2 px accent insertion bar in the gap. Nothing here animates (the
+// organiser never does). Selection, rubber band and drag are the pages area's own pointer handling.
+import { Theme } from "../theme.slint";
+import { ReaderGridCell } from "../flow-types.slint";
+
+export component OrganiserMarks inherits Rectangle {
+    in property <[ReaderGridCell]> cells;
+    in property <ReaderGridCell> bar;
+    for c in root.cells: Rectangle {
+        x: c.x;
+        y: c.y;
+        width: c.w;
+        height: c.h;
+        // The frame: outside the page, its corners rounded as the badge's.
+        if c.selected: Rectangle {
+            x: -3px;
+            y: -3px;
+            width: parent.width + 6px;
+            height: parent.height + 6px;
+            border-radius: Theme.r-xs;
+            border-width: 2px;
+            border-color: Theme.accent;
+        }
+        // The number, 8 under the page: plain, or an accent badge when selected (22×18 at least).
+        Rectangle {
+            y: parent.height + 8px;
+            x: (parent.width - self.width) / 2;
+            width: max(22px, num.preferred-width + 10px);
+            height: 18px;
+            border-radius: Theme.r-xs;
+            background: c.selected ? Theme.accent : transparent;
+            num := Text {
+                text: c.label;
+                font-size: Theme.fs-body;
+                font-weight: c.selected ? Theme.weight-demibold : Theme.weight-regular;
+                color: c.selected ? Theme.on-accent : Theme.text-2;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+    if root.bar.w > 0: Rectangle {
+        x: root.bar.x;
+        y: root.bar.y;
+        width: root.bar.w;
+        height: root.bar.h;
+        border-radius: 1px;
+        background: Theme.accent;
+    }
+}

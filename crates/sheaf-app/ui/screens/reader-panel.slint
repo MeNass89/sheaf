@@ -1,14 +1,65 @@
-// The reader's side panel: Pages (thumbnails, drag to reorder, page operations), Outline, Notes
-// and search Results.
+// The reader's sidebar (DESIGN §5.4, PDF Expert's sidebar, evidence 03, 04a–c): segmented tabs 28
+// tall at 16 (Thumbnails, Outline, Bookmarks, Annotations, Attachments, Layers), a title row 36 with
+// the tab's actions at its right, then the tab's content. Thumbnails end on the page actions bar.
+// Every length here is on the 4 grid; colours and type are Theme tokens; tips go through the layer.
 
 import { ScrollView, ListView } from "std-widgets.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Space } from "../theme.slint";
 import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
-import { ToolButton, PanelTab, SmallButton, PanelField, PopoverFrame } from "reader-parts.slint";
+import { SmallButton, PanelField, PopoverFrame } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
 import { ResizeHandle } from "../widgets/resize-handle.slint";
-import { Check } from "../widgets/check.slint";
+import { SidebarTabs, SidebarTabItem, ToolbarButton } from "../widgets/toolbar.slint";
+import { Chip, Checkbox } from "../widgets/controls.slint";
+import { MenuRow, MenuSeparatorLine } from "../widgets/surfaces.slint";
+import { Button, ButtonKind } from "../widgets/button.slint";
+import { TipArea } from "../widgets/tooltip.slint";
+import { HeaderButton } from "reader-search.slint";
+
+// What a tab shows before it has anything (DESIGN §1 Empty states): a 40 glyph in `text-3`, one or
+// two centred lines in `text-2`, a little above the middle of the column.
+component EmptyState inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    VerticalLayout {
+        y: max(Space.section, parent.height * 0.3 - self.preferred-height / 2);
+        height: self.preferred-height;
+        padding-left: Space.xxl;
+        padding-right: Space.xxl;
+        spacing: Space.md;
+        alignment: start;
+        Image {
+            height: 40px;
+            source: root.icon;
+            colorize: Theme.text-3;
+            image-fit: contain;
+        }
+        Text {
+            text: root.text;
+            font-size: Theme.fs-body;
+            color: Theme.text-2;
+            wrap: word-wrap;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// A row's small hover action (rename, delete, save): 20×20, icon 12, radius 4.
+component RowAction inherits Rectangle {
+    in property <image> icon;
+    in property <string> tip;
+    callback clicked();
+    width: 20px;
+    height: 20px;
+    border-radius: Theme.r-xs;
+    background: ta.pressed ? Theme.fill-3 : ta.has-hover ? Theme.fill-2 : transparent;
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-action-default => { root.clicked(); }
+    Image { width: 12px; height: 12px; source: root.icon; colorize: Theme.text-2; }
+    ta := TipArea { tip: root.tip; clicked => { root.clicked(); } }
+}
 
 export component ReaderPanel inherits Rectangle {
     in property <ToolTab> tab;
@@ -17,1057 +68,1152 @@ export component ReaderPanel inherits Rectangle {
     in property <length> panel-width;
     // The window's width: the panel never takes more than 45 % of it.
     in property <length> window-width: 1280px;
-    // Too narrow for the seven page actions (7 × 32 + 14): Extract and Number pages fold into ⋯,
-    // Delete stays last (the first icon the panel's edge clipped was the trash).
-    property <bool> fold-actions: root.panel-width < 240px;
-    // The search field's text (the options re-run the search with it).
-    in property <string> search-text;
     // Pages drag: where the press was, and the drop line (−1: no drag); shared with the reader.
     in-out property <length> thumb-down-y;
     in-out property <length> drop-line;
     in-out property <int> thumb-down-page;
-    // Where the thumbnails' right-click menu opens.
-    property <length> menu-x;
-    property <length> menu-y;
     // The thumbnail strip's scroll, for rendering what it shows.
     out property <length> strip-top: -strip.content-y;
     out property <length> strip-h: strip.visible-height;
     // The keyboard goes back to the pages.
     callback focus-pages();
-    // A recent search picked: it goes back in the search field and runs.
-    callback search-again(string);
-    // Files panel: the attachments' names must hold this (any case); the one being renamed (−1 none).
+
+    // The tabs, in PDF Expert's order plus Attachments and Layers; `panel` keeps its old codes.
+    property <[int]> codes: [0, 1, 6, 2, 4, 5];
+    property <int> tab-index: root.tab.reader.panel == 1 ? 1 : root.tab.reader.panel == 6 ? 2 : root.tab.reader.panel == 2 ? 3
+        : root.tab.reader.panel == 4 ? 4 : root.tab.reader.panel == 5 ? 5 : 0;
+    property <int> panel: root.codes[root.tab-index];
+    // The content starts under the tabs (8 + 28) and the title row (8 + 36 → 80) and its hairline.
+    property <length> content-top: 81px;
+
+    // The page actions bar (DESIGN §5.4): 36×36 on a 36 pitch from x 8, Rotate left, Rotate right,
+    // Insert blank, Duplicate, Extract…, Number pages…, Delete. Narrower than 260 (7 × 36 + 8), the
+    // last ones fold into ⋯: Number pages and Extract first, Delete only when even it has no room
+    // (the first icon the panel's edge clipped was the trash: never again).
+    property <length> bar-height: 52px;
+    property <int> slots: floor((root.width - Space.sm) / 36px);
+    property <bool> all-actions: root.slots >= 7;
+    property <bool> show-delete: root.all-actions || root.slots >= 6;
+    property <bool> show-duplicate: root.all-actions || root.slots >= 5;
+
+    // Where the thumbnails' right-click menu opens.
+    property <length> menu-x;
+    property <length> menu-y;
+    // Attachments: the names must hold this (any case); the one being renamed (−1 none).
     property <string> att-filter;
+    property <int> att-renaming: -1;
     // Extract…'s options strip (Acrobat's Extract bar), shown over the page strip.
     property <bool> extract-open;
     property <bool> extract-each;
     property <bool> extract-delete;
     // Number pages…'s strip (Acrobat's Page Labels): style, prefix, first number.
     property <bool> number-open;
-    // Pages ▸ Transitions: the effect (0 none, then transitions::STYLES) and the seconds per page.
-    property <bool> transition-open;
-    property <int> transition-style;
-    property <string> transition-advance;
     property <int> number-style;
     property <string> number-prefix;
     property <string> number-start;
     property <string> number-through;
-    property <int> att-renaming: -1;
-        visible: root.tab.reader.panel-open && !root.bare;
-        width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
-        background: Theme.panel-bg;
-        VerticalLayout {
-            FlexboxLayout {
-                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                flex-wrap: FlexboxLayoutWrap.no-wrap;
-                alignment: LayoutAlignment.stretch;
-                padding: 8px;
-                spacing: 2px;
-                PanelTab { text: @tr("Pages"); icon: @image-url("../icons/layout-grid.svg"); selected: root.tab.reader.panel == 0; clicked => { ReaderBridge.set-panel(root.id, 0); } }
-                PanelTab { text: @tr("Outline"); icon: @image-url("../icons/list-tree.svg"); selected: root.tab.reader.panel == 1; clicked => { ReaderBridge.set-panel(root.id, 1); } }
-                PanelTab { text: @tr("Notes"); icon: @image-url("../icons/message-square.svg"); selected: root.tab.reader.panel == 2; clicked => { ReaderBridge.set-panel(root.id, 2); } }
-                PanelTab { text: @tr("Files"); icon: @image-url("../icons/paperclip.svg"); selected: root.tab.reader.panel == 4; clicked => { ReaderBridge.set-panel(root.id, 4); } }
-                if root.tab.reader.layers.length > 0: PanelTab { text: @tr("Layers"); icon: @image-url("../icons/layers.svg"); selected: root.tab.reader.panel == 5; clicked => { ReaderBridge.set-panel(root.id, 5); } }
-            }
-            Rectangle { height: 1px; background: Theme.sidebar-border; }
-            Rectangle {
-                vertical-stretch: 1;
-                if root.tab.reader.panel == 3: VerticalLayout {
-                    // The search options on one row, how many results and where on the next. The rows
-                    // keep their height (stretch 0): the results follow them, no empty band between.
-                    FlexboxLayout {
-                        vertical-stretch: 0;
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        alignment: LayoutAlignment.stretch;
-                        padding: 10px;
-                        padding-bottom: 4px;
-                        spacing: 6px;
-                        SmallButton {
-                            text: @tr("Aa");
-                            on: root.tab.reader.case-sensitive;
-                            clicked => { ReaderBridge.search-options(root.id, !root.tab.reader.case-sensitive, root.tab.reader.whole-words, root.search-text); }
-                        }
-                        SmallButton {
-                            text: @tr("Whole words");
-                            on: root.tab.reader.whole-words;
-                            clicked => { ReaderBridge.search-options(root.id, root.tab.reader.case-sensitive, !root.tab.reader.whole-words, root.search-text); }
-                        }
-                        Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.search-history.length > 1: ToolButton {
-                            cross-axis-self-alignment: CrossAxisAlignment.center;
-                            icon: @image-url("../icons/history.svg");
-                            tip: @tr("Recent searches");
-                            clicked => { recent.show(); }
-                        }
-                    }
-                    FlexboxLayout {
-                        vertical-stretch: 0;
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        alignment: LayoutAlignment.stretch;
-                        padding-left: 12px;
-                        padding-right: 10px;
-                        padding-bottom: 6px;
-                        Text {
-                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: root.tab.reader.search-count == "None" ? "No results" : root.tab.reader.results.length + (root.tab.reader.search-busy ? "+ results" : root.tab.reader.results.length == 1 ? " result" : " results")
-                                + (root.tab.reader.search-pages > 1 ? " on \{root.tab.reader.search-pages} pages" : "");
-                            font-size: Theme.fs-caption;
-                            font-weight: Theme.weight-demibold;
-                            color: Theme.text-secondary;
-                            overflow: elide;
-                            horizontal-stretch: 1;
-                        }
-                        // Acrobat's Advanced Search ▸ All PDF documents in a folder: the same words there.
-                        Text {
-                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: @tr("In a folder…");
-                            font-size: Theme.fs-caption;
-                            color: Theme.accent;
-                            TouchArea { mouse-cursor: pointer; clicked => { ReaderBridge.folder-search(root.id, root.search-text); } }
-                        }
-                    }
-                    // Acrobat's Find and Replace: the words found rewritten in the pages' text. The field
-                    // has the row to itself (beside two buttons it was too narrow to read).
-                    VerticalLayout {
-                        vertical-stretch: 0;
-                        padding-left: 10px;
-                        padding-right: 10px;
-                        padding-bottom: 6px;
-                        spacing: 6px;
-                        replace-in := PanelField { placeholder: @tr("Replace with"); }
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            spacing: 6px;
-                            alignment: start;
-                            // Acrobat's Replace: the match in view only.
-                            SmallButton { text: @tr("Replace"); clicked => { ReaderBridge.replace-one(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
-                            SmallButton { text: @tr("Replace all"); clicked => { ReaderBridge.replace-all(root.id, root.search-text, replace-in.text); root.focus-pages(); } }
-                        }
-                    }
-                    recent := PopupWindow {
-                        x: 10px;
-                        y: 40px;
-                        width: root.panel-width - 20px;
-                        PopoverFrame {
-                            VerticalLayout {
-                                padding: 4px;
-                                Text {
-                                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                    text: @tr("Recent searches");
-                                    font-size: Theme.fs-caption;
-                                    color: Theme.text-muted;
-                                    height: 22px;
-                                    vertical-alignment: center;
-                                    x: 6px;
-                                }
-                                for q in root.tab.reader.search-history: Rectangle {
-                                    height: 28px;
-                                    border-radius: 3px;
-                                    background: qt.has-hover ? Theme.popup-hover : transparent;
-                                    Text {
-                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                        x: 6px;
-                                        width: parent.width - 12px;
-                                        text: q;
-                                        font-size: Theme.fs-label;
-                                        color: Theme.text;
-                                        vertical-alignment: center;
-                                        overflow: elide;
-                                    }
-                                    qt := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { root.search-again(q); }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    // A ListView makes only the rows in view: tens of thousands of results stay cheap.
-                    ListView {
-                        vertical-stretch: 1;
-                            for h[i] in root.tab.reader.results: Rectangle {
-                                height: hl.preferred-height + 2px;
-                                Rectangle {
-                                x: PlatformBridge.rtl ? parent.width - (6px) - self.width : 6px;
-                                width: parent.width - 12px;
-                                height: parent.height - 2px;
-                                border-radius: Theme.radius-button;
-                                background: h.current ? Theme.menu-selected-bg : ht.has-hover ? Theme.popup-hover : transparent;
-                                hl := VerticalLayout {
-                                    padding: 8px;
-                                    padding-top: h.first ? 10px : 4px;
-                                    spacing: 2px;
-                                    // The page heads its results (PDF Expert groups them by page).
-                                    if h.first: Text {
-                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                        text: h.page-label;
-                                        font-size: Theme.fs-caption;
-                                        font-weight: Theme.weight-demibold;
-                                        color: Theme.text-secondary;
-                                    }
-                                    // The match in bold inside its context, as PDF Expert lists results.
-                                    StyledText {
-                                        text: @markdown("\{h.before}**\{h.hit}**\{h.after}");
-                                        default-font-size: Theme.fs-label;
-                                        default-color: Theme.text;
-                                        // A fixed width makes it wrap; three lines at most.
-                                        width: root.panel-width - 28px;
-                                        max-lines: 3;
-                                    }
-                                }
-                                // Above the text: StyledText takes clicks for its links.
-                                ht := TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => { ReaderBridge.result-clicked(root.id, i); }
-                                }
-                                }
-                            }
-                    }
-                }
-                if root.tab.reader.panel == 1 && root.tab.reader.outline-empty: Text {
-                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                    x: PlatformBridge.rtl ? parent.width - (16px) - self.width : 16px;
-                    y: 50px;
-                    width: parent.width - 32px;
-                    text: @tr("No bookmarks yet: + Bookmark adds the page in view.");
-                    font-size: Theme.fs-label;
-                    color: Theme.text-muted;
-                    wrap: word-wrap;
-                }
-                if root.tab.reader.panel == 1: VerticalLayout {
-                    FlexboxLayout {
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        padding: 8px;
-                        padding-bottom: 0px;
-                        alignment: start;
-                        SmallButton { text: @tr("+ Bookmark"); clicked => { ReaderBridge.outline-op(root.id, -1, 0, ""); root.focus-pages(); } }
-                    }
-                ScrollView {
-                    VerticalLayout {
-                        padding-top: 4px;
-                        padding-bottom: 8px;
-                        for r[i] in root.tab.reader.outline: Rectangle {
-                            height: 30px;
-                            // Inset and rounded, as the search results and a Mac sidebar's rows.
-                            Rectangle {
-                                x: 6px;
-                                width: parent.width - 12px;
-                                border-radius: Theme.radius-button;
-                                background: r.current ? Theme.menu-selected-bg : ot.has-hover ? Theme.popup-hover : transparent;
-                            }
-                            // Where a dragged bookmark would land: a line above this row, or the row ringed.
-                            if root.drag-mark >= 0 && root.drop-row == i: Rectangle {
-                                y: root.drop-inside ? 0px : -1px;
-                                height: root.drop-inside ? parent.height : 2px;
-                                border-width: root.drop-inside ? 2px : 0px;
-                                border-color: Theme.accent;
-                                background: root.drop-inside ? transparent : Theme.accent;
-                            }
-                            ot := TouchArea {
-                                mouse-cursor: root.drag-mark >= 0 ? grabbing : pointer;
-                                moved => {
-                                    if root.drag-mark >= 0 || abs(self.mouse-y - self.pressed-y) > 6px {
-                                        root.drag-mark = i;
-                                        root.drop-row = i + floor(self.mouse-y / 30px);
-                                        root.drop-inside = mod(self.mouse-y / 1px + 3000, 30) > 8 && mod(self.mouse-y / 1px + 3000, 30) < 22;
-                                    }
-                                }
-                                pointer-event(e) => {
-                                    if e.kind == PointerEventKind.up && root.drag-mark == i {
-                                        if root.drop-row != i { ReaderBridge.outline-drop(root.id, i, root.drop-row, root.drop-inside); }
-                                        root.drag-mark = -1;
-                                        root.drop-row = -1;
-                                        root.just-dropped = true;
-                                    }
-                                }
-                                clicked => {
-                                    if root.just-dropped { root.just-dropped = false; return; }
-                                    ReaderBridge.outline-clicked(root.id, i);
-                                    root.focus-pages();
-                                }
-                                double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
-                                // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu); inside
-                                // the TouchArea so reaching them keeps the row hovered.
-                                if ot.has-hover && !r.editing: FlexboxLayout {
-                                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                                    flex-wrap: FlexboxLayoutWrap.no-wrap;
-                                    alignment: LayoutAlignment.stretch;
-                                    x: PlatformBridge.rtl ? parent.width - (parent.width - 34px - 90px) - self.width : parent.width - 34px - 90px;
-                                    width: 90px;
-                                    ToolButton { icon: @image-url("../icons/pencil.svg"); tip: @tr("Rename"); clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
-                                    ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete bookmark"); clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
-                                    ToolButton { icon: @image-url("../icons/ellipsis.svg"); tip: @tr("More"); clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 30px; mark-menu.show(); } }
-                                }
-                            }
-                            if r.has-children: Rectangle {
-                                x: PlatformBridge.rtl ? parent.width - (6px + r.depth * 14px) - self.width : 6px + r.depth * 14px;
-                                width: 18px;
-                                Image {
-                                    width: 12px;
-                                    height: 12px;
-                                    source: @image-url("../icons/chevron-right.svg");
-                                    colorize: Theme.text-muted;
-                                    transform-rotation: r.expanded ? 90deg : 0deg;
-                                }
-                                TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => { ReaderBridge.outline-toggled(root.id, i); }
-                                }
-                            }
-                            if !r.editing: Text {
-                                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                x: PlatformBridge.rtl ? parent.width - (26px + r.depth * 14px) - self.width : 26px + r.depth * 14px;
-                                width: parent.width - (26px + r.depth * 14px) - (ot.has-hover ? 84px : 40px);
-                                text: r.title;
-                                font-size: Theme.fs-label;
-                                // Its own look when it has one (bold, italic, colour), as Acrobat shows it.
-                                font-weight: r.bold ? 700 : r.depth == 0 ? Theme.weight-demibold : 400;
-                                font-italic: r.italic;
-                                color: r.has-colour ? r.colour : Theme.text;
-                                overflow: elide;
-                                vertical-alignment: center;
-                            }
-                            // Renamed in place: ↩ keeps the new title, Escape the old one.
-                            if r.editing: Rectangle {
-                                x: PlatformBridge.rtl ? parent.width - (22px + r.depth * 14px) - self.width : 22px + r.depth * 14px;
-                                width: parent.width - (22px + r.depth * 14px) - 40px;
-                                height: 24px;
-                                border-radius: Theme.radius-small;
-                                border-width: 1px;
-                                border-color: Theme.text-secondary;
-                                background: Theme.input-bg;
-                                rename := TextInput {
-                                    // Tools page tools' keys wait while a field has the keyboard.
-                                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
-                                    x: PlatformBridge.rtl ? parent.width - (4px) - self.width : 4px;
-                                    width: parent.width - 8px;
-                                    text: r.title;
-                                    font-size: Theme.fs-label;
-                                    color: Theme.text;
-                                    vertical-alignment: center;
-                                    single-line: true;
-                                    init => { self.focus(); self.select-all(); }
-                                    accepted => { ReaderBridge.outline-op(root.id, i, 2, self.text); root.focus-pages(); }
-                                    key-pressed(e) => {
-                                        if e.text == Key.Escape { ReaderBridge.outline-op(root.id, i, 3, ""); root.focus-pages(); return accept; }
-                                        reject
-                                    }
-                                }
-                            }
-                            Text {
-                                x: PlatformBridge.rtl ? parent.width - (parent.width - 34px) - self.width : parent.width - 34px;
-                                width: 26px;
-                                text: r.page-label;
-                                font-size: Theme.fs-caption;
-                                color: Theme.text-muted;
-                                horizontal-alignment: right;
-                                vertical-alignment: center;
-                            }
-                        }
-                    }
-                }
-                }
-                // Attached files (Acrobat's Attachments pane): a click opens one, its arrow saves it,
-                // Attach… adds one; past three, a field finds them by name.
-                // The document's layers (Acrobat's Layers pane): a click shows or hides one on screen;
-                // the file keeps them as it sets them.
-                if root.tab.reader.panel == 5: VerticalLayout {
-                    padding: 8px;
-                    spacing: 4px;
-                    FlexboxLayout {
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        alignment: LayoutAlignment.stretch;
-                        spacing: 6px;
-                        SmallButton { text: @tr("Show all"); clicked => { ReaderBridge.layers-all(root.id, 0); } }
-                        SmallButton { text: @tr("Hide all"); clicked => { ReaderBridge.layers-all(root.id, 1); } }
-                        if root.tab.reader.layers-changed: SmallButton { text: @tr("Reset"); clicked => { ReaderBridge.layers-all(root.id, 2); } }
-                        Rectangle { horizontal-stretch: 1; }
-                    }
-                    if root.tab.reader.layers.length == 0: Text {
-                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                        text: @tr("No layers.");
-                        font-size: Theme.fs-label;
-                        color: Theme.text-muted;
-                    }
-                    for l[i] in root.tab.reader.layers: Rectangle {
-                        height: 30px;
-                        border-radius: Theme.radius-item;
-                        background: la.has-hover ? Theme.popup-hover : transparent;
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: LayoutAlignment.stretch;
-                            padding-left: 8px;
-                            padding-right: 8px;
-                            spacing: 8px;
-                            Image {
-                                cross-axis-self-alignment: CrossAxisAlignment.center;
-                                width: 14px;
-                                height: 14px;
-                                source: l.shown ? @image-url("../icons/eye.svg") : @image-url("../icons/eye-off.svg");
-                                colorize: l.shown ? Theme.text-secondary : Theme.text-muted;
-                            }
-                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: l.name; font-size: Theme.fs-label; color: l.shown ? Theme.text : Theme.text-muted; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
-                        }
-                        la := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { ReaderBridge.layer-set(root.id, i, !l.shown); }
-                        }
-                    }
-                    Rectangle { vertical-stretch: 1; }
-                }
-                if root.tab.reader.panel == 4: VerticalLayout {
-                    padding: 8px;
-                    spacing: 4px;
-                    FlexboxLayout {
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        alignment: LayoutAlignment.stretch;
-                        spacing: 6px;
-                        SmallButton { text: @tr("Attach…"); clicked => { ReaderBridge.attachment-add(root.id); } }
-                        if root.tab.reader.attachments.length <= 3: Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.attachments.length > 3: PanelField {
-                            horizontal-stretch: 1;
-                            placeholder: @tr("Find");
-                            edited(t) => { root.att-filter = t; }
-                        }
-                    }
-                    if root.tab.reader.attachments.length == 0: Text {
-                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                        text: @tr("No attached files.");
-                        font-size: Theme.fs-label;
-                        color: Theme.text-muted;
-                    }
-                    for f[i] in root.tab.reader.attachments: Rectangle {
-                        visible: Parse.name-matches(f.name, root.att-filter);
-                        height: self.visible ? 34px : 0px;
-                        border-radius: Theme.radius-item;
-                        background: fa.has-hover ? Theme.popup-hover : transparent;
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: LayoutAlignment.stretch;
-                            padding-left: 8px;
-                            padding-right: 8px;
-                            spacing: 8px;
-                            Image { cross-axis-self-alignment: CrossAxisAlignment.center; width: 14px; height: 14px; source: @image-url("../icons/paperclip.svg"); colorize: Theme.text-secondary; }
-                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: f.name; font-size: Theme.fs-label; color: Theme.text; overflow: elide; vertical-alignment: center; horizontal-stretch: 1; }
-                            // Its size gives way to the buttons on hover.
-                            Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: f.value; opacity: fa.has-hover ? 0 : 1; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                            Rectangle { width: 22px; }
-                        }
-                        fa := TouchArea {
-                            mouse-cursor: pointer;
-                            clicked => { ReaderBridge.attachment-open(root.id, i); }
-                            // On hover (Acrobat's Attachments pane): save a copy, rename, delete.
-                            if fa.has-hover && root.att-renaming != i: FlexboxLayout {
-                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                                flex-wrap: FlexboxLayoutWrap.no-wrap;
-                                alignment: LayoutAlignment.stretch;
-                                x: PlatformBridge.rtl ? parent.width - (parent.width - 92px) - self.width : parent.width - 92px;
-                                y: 2px;
-                                width: 90px;
-                                ToolButton { icon: @image-url("../icons/download.svg"); tip: @tr("Save a copy…"); clicked => { ReaderBridge.attachment-save(root.id, i); } }
-                                ToolButton { icon: @image-url("../icons/pencil.svg"); tip: @tr("Rename"); clicked => { root.att-renaming = i; } }
-                                ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete attachment"); clicked => { ReaderBridge.attachment-change(root.id, i, ""); } }
-                            }
-                        }
-                        if root.att-renaming == i: Rectangle {
-                            x: PlatformBridge.rtl ? parent.width - (28px) - self.width : 28px;
-                            width: parent.width - 36px;
-                            height: 24px;
-                            background: Theme.input-bg;
-                            border-radius: 3px;
-                            border-width: 1px;
-                            border-color: Theme.accent;
-                            att-name := TextInput {
-                                // Tools page tools' keys wait while a field has the keyboard.
-                                changed has-focus => { PlatformBridge.typing = self.has-focus; }
-                                x: PlatformBridge.rtl ? parent.width - (5px) - self.width : 5px;
-                                width: parent.width - 10px;
-                                text: f.name;
-                                font-size: Theme.fs-label;
-                                color: Theme.text;
-                                vertical-alignment: center;
-                                single-line: true;
-                                init => { self.focus(); self.select-all(); }
-                                // The field goes: the keys (⌘S…) back to the pages.
-                                accepted => { ReaderBridge.attachment-change(root.id, i, self.text); root.att-renaming = -1; root.focus-pages(); }
-                                key-pressed(e) => {
-                                    if e.text == Key.Escape { root.att-renaming = -1; root.focus-pages(); return accept; }
-                                    reject
-                                }
-                            }
-                        }
-                    }
-                    Rectangle { vertical-stretch: 1; }
-                }
-                if root.tab.reader.panel == 2 && root.tab.reader.annots.length == 0: Text {
-                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                    x: PlatformBridge.rtl ? parent.width - (16px) - self.width : 16px;
-                    y: 86px;
-                    width: parent.width - 32px;
-                    text: @tr("No annotations yet. Select text and pick Highlight, or choose a tool above.");
-                    font-size: Theme.fs-label;
-                    color: Theme.text-muted;
-                    wrap: word-wrap;
-                }
-                if root.tab.reader.panel == 2: VerticalLayout {
-                    // Acrobat's comment list actions: hide all, a summary, remove all (⌘Z undoes it).
-                    FlexboxLayout {
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        alignment: LayoutAlignment.stretch;
-                        padding: 8px;
-                        padding-bottom: 0px;
-                        spacing: 6px;
-                        // A narrow panel (under 240) shows the eye instead of the words, so the row
-                        // (and its trash at the end) stays inside the panel.
-                        if root.panel-width >= 240px: SmallButton { text: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
-                        if root.panel-width < 240px: ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: root.tab.reader.comments-hidden ? @image-url("../icons/eye.svg") : @image-url("../icons/eye-off.svg"); tip: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
-                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-text.svg"); tip: @tr("Summary of comments…"); clicked => { ReaderBridge.notes-action(root.id, 1); } }
-                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-output.svg"); tip: @tr("Export comments (XFDF, FDF)…"); clicked => { ReaderBridge.notes-action(root.id, 3); } }
-                        ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-input.svg"); tip: @tr("Import comments…"); clicked => { ReaderBridge.notes-action(root.id, 4); } }
-                        Rectangle { horizontal-stretch: 1; }
-                        if root.tab.reader.annots.length > 0: ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/trash-2.svg"); tip: @tr("Remove all comments"); clicked => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
-                    }
-                    // Which comments, in which order (Acrobat's comment list filter and sort).
-                    FlexboxLayout {
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        alignment: LayoutAlignment.stretch;
-                        padding: 8px;
-                        padding-bottom: 0px;
-                        spacing: 6px;
-                        SortCombo {
-                            width: clamp((root.panel-width - 22px) / 2, 88px, 112px);
-                            options: [@tr("All"), @tr("Markup"), @tr("Notes"), @tr("Drawings"), @tr("Stamps"), @tr("Accepted"), @tr("Rejected"), @tr("Cancelled"), @tr("Completed"), @tr("No status"), @tr("Checked")];
-                            current-index: root.tab.reader.notes-filter;
-                            chevron: @image-url("../icons/chevron-down.svg");
-                            selected(i) => { ReaderBridge.notes-view(root.id, 0, i); }
-                        }
-                        SortCombo {
-                            width: clamp((root.panel-width - 22px) / 2, 88px, 112px);
-                            options: [@tr("By page"), @tr("Newest"), @tr("By author"), @tr("By type")];
-                            current-index: root.tab.reader.notes-sort;
-                            chevron: @image-url("../icons/chevron-down.svg");
-                            selected(i) => { ReaderBridge.notes-view(root.id, 1, i); }
-                        }
-                    }
-                    ScrollView {
-                        VerticalLayout {
-                            padding: 8px;
-                            spacing: 6px;
-                            for a[i] in root.tab.reader.annots: Rectangle {
-                                height: al.preferred-height;
-                                border-radius: Theme.radius-item;
-                                background: a.selected ? Theme.menu-selected-bg : at.has-hover ? Theme.popup-hover : Theme.card;
-                                border-width: 1px;
-                                border-color: Theme.sidebar-border;
-                                at := TouchArea {
-                                    mouse-cursor: pointer;
-                                    clicked => { ReaderBridge.annot-clicked(root.id, a.index); root.focus-pages(); }
-                                }
-                                // The comment's colour: a rounded strip inside the card's corners
-                                // (at its very edge it was cut square by them).
-                                Rectangle {
-                                    x: PlatformBridge.rtl ? parent.width - (5px) - self.width : 5px;
-                                    y: 8px;
-                                    width: 3px;
-                                    height: parent.height - 16px;
-                                    border-radius: 1.5px;
-                                    background: a.colour;
-                                }
-                                al := VerticalLayout {
-                                    padding: 10px;
-                                    padding-left: 14px;
-                                    spacing: 4px;
-                                    FlexboxLayout {
-                                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                                        alignment: LayoutAlignment.stretch;
-                                        // Room for the delete button that shows on hover.
-                                        padding-right: 22px;
-                                        Text {
-                                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                            text: a.kind;
-                                            font-size: Theme.fs-caption;
-                                            font-weight: Theme.weight-demibold;
-                                            color: Theme.text-secondary;
-                                        }
-                                        Rectangle { horizontal-stretch: 1; }
-                                        Text {
-                                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                            text: a.page-label;
-                                            font-size: Theme.fs-caption;
-                                            color: Theme.text-muted;
-                                        }
-                                    }
-                                    if a.text != "": Text {
-                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                        text: a.text;
-                                        font-size: Theme.fs-label;
-                                        color: Theme.text;
-                                        wrap: word-wrap;
-                                        overflow: elide;
-                                        max-height: 60px;
-                                    }
-                                    if a.meta != "": Text {
-                                        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                        text: a.meta + (a.status != "" ? " · " + a.status : "");
-                                        font-size: Theme.fs-caption;
-                                        color: Theme.text-muted;
-                                        overflow: elide;
-                                    }
-                                    // Replies, under the comment (Acrobat's and PDF Expert's threads),
-                                    // each deleted alone by the bin on its hover.
-                                    for rp in a.replies: Rectangle {
-                                        height: max(rl.preferred-height, 20px);
-                                        rt := TouchArea {}
-                                        rl := Text {
-                                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                                            x: PlatformBridge.rtl ? parent.width - (0) - self.width : 0;
-                                            width: parent.width - 24px;
-                                            text: rp.text;
-                                            font-size: Theme.fs-caption;
-                                            color: Theme.text-secondary;
-                                            wrap: word-wrap;
-                                        }
-                                        if rt.has-hover || rd.has-hover: Rectangle {
-                                            x: PlatformBridge.rtl ? parent.width - (parent.width - 20px) - self.width : parent.width - 20px;
-                                            y: 0;
-                                            width: 20px;
-                                            height: 20px;
-                                            border-radius: Theme.radius-small;
-                                            background: rd.has-hover ? Theme.pill-bg : transparent;
-                                            Image {
-                                                width: 12px;
-                                                height: 12px;
-                                                source: @image-url("../icons/trash-2.svg");
-                                                colorize: Theme.text-muted;
-                                            }
-                                        }
-                                        rd := TouchArea {
-                                            x: PlatformBridge.rtl ? parent.width - (parent.width - 20px) - self.width : parent.width - 20px;
-                                            width: 20px;
-                                            height: 20px;
-                                            y: 0;
-                                            mouse-cursor: pointer;
-                                            clicked => { ReaderBridge.reply-delete(root.id, rp.page, rp.index); }
-                                        }
-                                    }
-                                    if a.selected: FlexboxLayout {
-                                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                                        alignment: start;
-                                        spacing: 6px;
-                                        SmallButton { text: @tr("Reply"); clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
-                                        // Acrobat's Set Status.
-                                        SortCombo {
-                                            width: 120px;
-                                            options: [@tr("No status"), @tr("Accepted"), @tr("Rejected"), @tr("Cancelled"), @tr("Completed")];
-                                            current-index: a.status == "Accepted" ? 1 : a.status == "Rejected" ? 2 : a.status == "Cancelled" ? 3 : a.status == "Completed" ? 4 : 0;
-                                            chevron: @image-url("../icons/chevron-down.svg");
-                                            selected(i) => { ReaderBridge.annot-status(root.id, a.index, i); }
-                                        }
-                                    }
-                                }
-                                if at.has-hover || a.selected: Rectangle {
-                                    x: PlatformBridge.rtl ? parent.width - (parent.width - 28px) - self.width : parent.width - 28px;
-                                    y: 6px;
-                                    width: 22px;
-                                    height: 22px;
-                                    border-radius: Theme.radius-small;
-                                    background: dt.has-hover ? Theme.pill-bg : transparent;
-                                    Image {
-                                        width: 13px;
-                                        height: 13px;
-                                        source: @image-url("../icons/trash-2.svg");
-                                        colorize: Theme.text-muted;
-                                    }
-                                    dt := TouchArea {
-                                        mouse-cursor: pointer;
-                                        clicked => { ReaderBridge.annot-delete(root.id, a.index); }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                strip := ScrollView {
-                    visible: root.tab.reader.panel == 0;
-                    height: parent.height - (root.tab.reader.panel == 0 ? 44px : 0px);
-                    content-width: self.visible-width;
-                    content-height: root.tab.viewer-thumbs-height + 20px;
-                    for t in root.tab.viewer-thumbs: Rectangle {
-                        x: (strip.visible-width - ReaderBridge.thumb-width) / 2;
-                        y: t.y;
-                        width: ReaderBridge.thumb-width;
-                        height: t.h + 18px;
-                        // One selection language (Preview's sidebar): a rounded ground behind the page
-                        // and its number, grey for the page in view, an accent tint for those selected;
-                        // the page itself keeps its edges (no coloured frame).
-                        Rectangle {
-                            x: -5px;
-                            y: -5px;
-                            width: parent.width + 10px;
-                            height: parent.height + 7px;
-                            border-radius: Theme.radius-item;
-                            background: t.selected ? Theme.accent.transparentize(80%) : t.page == root.tab.viewer-current ? Theme.pill-bg : transparent;
-                        }
-                        Rectangle {
-                            height: t.h;
-                            y: 0;
-                            background: Theme.thumb-placeholder;
-                            drop-shadow-blur: 5px;
-                            drop-shadow-color: Theme.thumb-shadow;
-                            drop-shadow-offset-y: 1px;
-                            if t.ready: Image {
-                                x: PlatformBridge.rtl ? parent.width - (2px) - self.width : 2px;
-                                y: 2px;
-                                width: parent.width - 4px;
-                                height: parent.height - 4px;
-                                source: t.image;
-                                image-fit: fill;
-                            }
-                        }
-                        Text {
-                            y: t.h + 3px;
-                            width: parent.width;
-                            text: t.page + 1;
-                            font-size: Theme.fs-caption;
-                            color: t.page == root.tab.viewer-current || t.selected ? Theme.text : Theme.text-muted;
-                            horizontal-alignment: center;
-                        }
-                    }
-                    // One area over the whole strip: the thumbnails' model is replaced on
-                    // every refresh, which would drop a press held on one of them.
-                    page-menu := PopupWindow {
-                        x: root.menu-x;
-                        y: root.menu-y;
-                        width: 220px;
-                        height: 12 * 30px + 8px;
-                        PopoverFrame {
-                            VerticalLayout {
-                                padding: 4px;
-                                // Codes as reader_ui::page_op.
-                                for o in [{ t: @tr("Rotate left"), k: 0 }, { t: @tr("Rotate right"), k: 1 }, { t: @tr("Insert blank page after"), k: 5 }, { t: @tr("Duplicate"), k: 3 },
-                                          { t: @tr("Insert pages from file…"), k: 6 }, { t: @tr("Insert a file's pages before…"), k: 9 }, { t: @tr("Insert from clipboard"), k: 10 }, { t: @tr("Insert from scanner…"), k: 11 }, { t: @tr("Insert from iPhone or iPad…"), k: 12 },
-                                          { t: @tr("Replace with a file's pages…"), k: 7 }, { t: @tr("Reverse page order"), k: 8 },
-                                          // Acrobat's Page Transitions (in its page thumbnail menu).
-                                          { t: @tr("Transitions…"), k: -1 }, { t: @tr("Delete"), k: 2 }]: Rectangle {
-                                    // Continuity Camera (12) is a Mac's.
-                                    visible: o.k != 12 || PlatformBridge.mac;
-                                    height: self.visible ? 30px : 0px;
-                                    background: pm.has-hover ? Theme.popup-hover : transparent;
-                                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: o.t; font-size: Theme.fs-label; color: o.k == 2 ? Theme.danger : Theme.text; vertical-alignment: center; }
-                                    pm := TouchArea {
-                                        clicked => {
-                                            if o.k < 0 { root.transition-open = true; root.number-open = false; root.extract-open = false; } else { ReaderBridge.page-op(root.id, o.k); root.focus-pages(); }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    strip-ta := TouchArea {
-                        // The pointer in the visible strip (y from its top): kept while the strip
-                        // scrolls under a still pointer.
-                        property <length> view-y;
-                        width: strip.visible-width;
-                        height: root.tab.viewer-thumbs-height + 20px;
-                        mouse-cursor: root.drop-line >= 0 ? move : pointer;
-                        pointer-event(e) => {
-                            // A right click: the page actions at the pointer (Acrobat's and Preview's
-                            // thumbnail menu); a page outside a selection of several is selected first.
-                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
-                                root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
-                                if root.thumb-down-page >= 0 {
-                                    if root.tab.reader.pages-selected <= 1 {
-                                        ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, false, false);
-                                        ReaderBridge.thumb-released(root.id);
-                                    }
-                                    root.menu-x = min(self.mouse-x, self.width - 220px);
-                                    root.menu-y = self.mouse-y;
-                                    page-menu.show();
-                                }
-                                return;
-                            }
-                            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
-                                root.thumb-down-y = self.mouse-y;
-                                root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
-                                if root.thumb-down-page >= 0 {
-                                    ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, e.modifiers.shift, e.modifiers.control || e.modifiers.meta);
-                                }
-                                root.focus-pages();
-                            } else if e.kind == PointerEventKind.up && root.drop-line >= 0 {
-                                ReaderBridge.thumb-drop(root.id, self.mouse-y);
-                                root.drop-line = -1px;
-                            } else if e.kind == PointerEventKind.up {
-                                ReaderBridge.thumb-released(root.id);
-                            }
-                        }
-                        moved => {
-                            self.view-y = self.mouse-y + strip.content-y;
-                            if self.pressed && root.thumb-down-page >= 0 && abs(self.mouse-y - root.thumb-down-y) > 8px {
-                                root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, self.mouse-y);
-                            }
-                        }
-                    }
-                    // Dragging near the top or bottom of the strip scrolls it (a long book's page can
-                    // be carried anywhere), the drop line following.
-                    Timer {
-                        interval: 30ms;
-                        running: root.drop-line >= 0;
-                        triggered => {
-                            let edge = 40px;
-                            let step = strip-ta.view-y < edge ? 14px : strip-ta.view-y > strip.visible-height - edge ? -14px : 0px;
-                            if step != 0px {
-                                strip.content-y = max(min(0px, strip.content-y + step), min(0px, strip.visible-height - strip.content-height));
-                                root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, strip-ta.view-y - strip.content-y);
-                            }
-                        }
-                    }
-                    // What is carried: a badge under the pointer (PDF Expert shows the pages).
-                    if root.drop-line >= 0: Rectangle {
-                        x: strip-ta.mouse-x + 10px;
-                        // Under the pointer even while the strip scrolls beneath it.
-                        y: strip-ta.view-y - strip.content-y + 8px;
-                        width: ghost.preferred-width + 16px;
-                        height: 24px;
-                        border-radius: 12px;
-                        background: Theme.info;
-                        drop-shadow-blur: 6px;
-                        drop-shadow-color: #00000033;
-                        ghost := Text {
-                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: root.tab.reader.pages-selected <= 1 ? @tr("1 page") : @tr("{} pages", root.tab.reader.pages-selected);
-                            font-size: Theme.fs-caption;
-                            font-weight: Theme.weight-demibold;
-                            color: white;
-                        }
-                    }
-                    if root.drop-line >= 0: Rectangle {
-                        x: PlatformBridge.rtl ? parent.width - (12px) - self.width : 12px;
-                        y: root.drop-line - 1.5px;
-                        width: strip.visible-width - 24px;
-                        height: 3px;
-                        border-radius: 1.5px;
-                        background: Theme.info;
-                    }
-                }
-                // Page actions on the selection (or the page shown), PDF Expert's page strip.
-                if root.tab.reader.panel == 0: Rectangle {
-                    y: parent.height - 44px;
-                    height: 44px;
-                    background: Theme.panel-bg;
-                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
-                    FlexboxLayout {
-                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                        flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        padding: root.fold-actions ? 4px : 7px;
-                        spacing: 2px;
-                        alignment: center;
-                        ToolButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: @tr("Rotate left"); clicked => { ReaderBridge.page-op(root.id, 0); } }
-                        ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: @tr("Rotate right"); clicked => { ReaderBridge.page-op(root.id, 1); } }
-                        ToolButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert blank page after"); clicked => { ReaderBridge.page-op(root.id, 5); } }
-                        ToolButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Duplicate"); clicked => { ReaderBridge.page-op(root.id, 3); } }
-                        if !root.fold-actions: ToolButton { icon: @image-url("../icons/file-output.svg"); tip: @tr("Extract…"); clicked => { root.extract-open = !root.extract-open; root.number-open = false; root.transition-open = false; } }
-                        if !root.fold-actions: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Number pages…"); clicked => { root.number-open = !root.number-open; root.extract-open = false; root.transition-open = false; } }
-                        if root.fold-actions: ToolButton {
-                            icon: @image-url("../icons/ellipsis.svg");
-                            tip: @tr("More page actions");
-                            clicked => { actions-more.show(); }
-                            actions-more := PopupWindow {
-                                x: 0;
-                                y: -self.height - 4px;
-                                width: 200px;
-                                height: 2 * Theme.row-height + 8px;
-                                PopoverFrame {
-                                    VerticalLayout {
-                                        padding: 4px;
-                                        for item[k] in [@tr("Extract…"), @tr("Number pages…")]: Rectangle {
-                                            height: Theme.row-height;
-                                            border-radius: Theme.r-row;
-                                            background: pam.has-hover ? Theme.accent : transparent;
-                                            Text { x: 12px; text: item; font-size: Theme.fs-body; color: pam.has-hover ? Theme.on-accent : Theme.text; vertical-alignment: center; }
-                                            pam := TouchArea {
-                                                clicked => {
-                                                    if k == 0 { root.extract-open = !root.extract-open; root.number-open = false; } else { root.number-open = !root.number-open; root.extract-open = false; }
-                                                    root.transition-open = false;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete"); clicked => { ReaderBridge.page-op(root.id, 2); } }
-                    }
-                }
-                if root.tab.reader.panel == 0 && root.number-open: Rectangle {
-                    y: parent.height - 44px - self.height;
-                    height: 136px;
-                    background: Theme.panel-bg;
-                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 6px;
-                        Text {
-                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: @tr("Number ") + (root.tab.reader.pages-selected <= 1 ? @tr("this page") : @tr("the {} pages", root.tab.reader.pages-selected)) + (root.number-through != "" ? @tr(" through page {}", root.number-through) : root.tab.reader.pages-selected <= 1 ? @tr(" and the next ones") : "");
-                            font-size: Theme.fs-caption;
-                            color: Theme.text-secondary;
-                        }
-                        SortCombo {
-                            options: ["1, 2, 3", @tr("i, ii, iii"), @tr("I, II, III"), @tr("a, b, c"), @tr("A, B, C"), @tr("No number")];
-                            current-index <=> root.number-style;
-                            chevron: @image-url("../icons/chevron-down.svg");
-                        }
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: LayoutAlignment.stretch;
-                            spacing: 6px;
-                            PanelField { placeholder: @tr("Prefix"); text <=> root.number-prefix; }
-                            PanelField { width: 70px; placeholder: @tr("Start: 1"); text <=> root.number-start; }
-                            // Acrobat's Pages from … to …: the last page numbered so (empty: as selected).
-                            PanelField { width: 86px; placeholder: @tr("Through: end"); text <=> root.number-through; }
-                        }
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: end;
-                            spacing: 6px;
-                            SmallButton { text: @tr("Cancel"); clicked => { root.number-open = false; } }
-                            SmallButton {
-                                text: @tr("Number");
-                                primary: true;
-                                clicked => {
-                                    root.number-open = false;
-                                    ReaderBridge.number-pages(root.id, root.number-style, root.number-prefix, root.number-start, root.number-through);
-                                }
-                            }
-                        }
-                    }
-                }
-                if root.tab.reader.panel == 0 && root.transition-open: Rectangle {
-                    y: parent.height - 44px - self.height;
-                    height: 136px;
-                    background: Theme.panel-bg;
-                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 6px;
-                        Text {
-                            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                            text: @tr("In full screen, ") + (root.tab.reader.pages-selected <= 1 ? @tr("this page comes") : @tr("the {} pages come", root.tab.reader.pages-selected)) + @tr(" in with");
-                            font-size: Theme.fs-caption;
-                            color: Theme.text-secondary;
-                        }
-                        SortCombo {
-                            options: [@tr("No effect"), @tr("Fade"), @tr("Dissolve"), @tr("Wipe"), @tr("Push"), @tr("Cover"), @tr("Uncover"), @tr("Split"), @tr("Blinds"), @tr("Box"), @tr("Glitter"), @tr("Fly")];
-                            current-index <=> root.transition-style;
-                            chevron: @image-url("../icons/chevron-down.svg");
-                        }
-                        PanelField { placeholder: @tr("Next page after (seconds): when turned"); text <=> root.transition-advance; }
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: end;
-                            spacing: 6px;
-                            SmallButton { text: @tr("Cancel"); clicked => { root.transition-open = false; } }
-                            SmallButton {
-                                text: @tr("Set");
-                                primary: true;
-                                clicked => {
-                                    root.transition-open = false;
-                                    ReaderBridge.page-transition(root.id, root.transition-style - 1, root.transition-advance);
-                                }
-                            }
-                        }
-                    }
-                }
-                // Replace Pages from a longer file: which of its pages (Acrobat's pages … to … of it).
-                if root.tab.reader.panel == 0 && root.tab.reader.replace-ask != "": Rectangle {
-                    y: parent.height - 44px - self.height;
-                    height: 112px;
-                    background: Theme.panel-bg;
-                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 6px;
-                        Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: root.tab.reader.replace-ask; font-size: Theme.fs-caption; color: Theme.text-secondary; wrap: word-wrap; }
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: LayoutAlignment.stretch;
-                            spacing: 6px;
-                            from-in := PanelField { placeholder: "1"; }
-                            SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
-                            SmallButton { text: @tr("Replace"); primary: true; clicked => { ReaderBridge.replace-from(root.id, from-in.text == "" ? "1" : from-in.text); root.focus-pages(); } }
-                        }
-                    }
-                }
-                if root.tab.reader.panel == 0 && root.extract-open: Rectangle {
-                    y: parent.height - 44px - self.height;
-                    height: 104px;
-                    background: Theme.panel-bg;
-                    Rectangle { y: 0; height: 1px; background: Theme.sidebar-border; }
-                    VerticalLayout {
-                        padding: 10px;
-                        spacing: 6px;
-                        Check { text: @tr("One file per page"); checked <=> root.extract-each; }
-                        Check { text: @tr("Delete pages after extracting"); checked <=> root.extract-delete; }
-                        FlexboxLayout {
-                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                            flex-wrap: FlexboxLayoutWrap.no-wrap;
-                            alignment: end;
-                            spacing: 6px;
-                            SmallButton { text: @tr("Cancel"); clicked => { root.extract-open = false; } }
-                            SmallButton {
-                                text: @tr("Extract");
-                                primary: true;
-                                clicked => {
-                                    root.extract-open = false;
-                                    ReaderBridge.extract(root.id, root.extract-each, root.extract-delete);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        // The edge next to the pages drags to resize the panel (PDF Expert's sidebar): the design
-        // system's handle (widgets/resize-handle.slint), 200–480 and at most 45 % of the window;
-        // a double click puts back 260. The thumbnails take the new width once it is let go.
-        ResizeHandle {
-            edge-x: PlatformBridge.rtl ? 0 : parent.width;
-            leading: PlatformBridge.rtl;
-            current-width: root.panel-width;
-            resized(w) => { ReaderBridge.panel-width = clamp(w, Theme.sidebar-min, max(Theme.sidebar-min, min(Theme.sidebar-max, root.window-width * Theme.sidebar-max-share))); }
-            reset => { ReaderBridge.panel-width = Theme.sidebar-default; }
-            committed => { ReaderBridge.panel-resized(ReaderBridge.panel-width); }
-        }
-    // A bookmark's commands (Acrobat): move, nest, point it at the page in view.
+    // Pages ▸ Transitions: the effect (0 none, then transitions::STYLES) and the seconds per page.
+    property <bool> transition-open;
+    property <int> transition-style;
+    property <string> transition-advance;
+    // An outline item's commands (Acrobat): move, nest, point it at the page in view.
     property <int> mark-row;
     property <length> mark-menu-y;
-    // A bookmark dragged (Acrobat's): its row, the row it is over, whether it would go inside that
-    // row (over its middle) or before it; a drop just made (its release is not a click).
+    // An outline item dragged (Acrobat's): its row, the row it is over, whether it would go inside
+    // that row (over its middle) or before it; a drop just made (its release is not a click).
     property <int> drag-mark: -1;
     property <int> drop-row: -1;
     property <bool> drop-inside;
     property <bool> just-dropped;
+
+    function open-strip(k: int) {
+        root.extract-open = k == 0 && !root.extract-open;
+        root.number-open = k == 1 && !root.number-open;
+        root.transition-open = k == 2 && !root.transition-open;
+    }
+
+    visible: root.tab.reader.panel-open && !root.bare;
+    width: root.tab.reader.panel-open && !root.bare ? root.panel-width : 0px;
+    background: Theme.chrome;
+
+    // ---- segmented tabs -------------------------------------------------------------------------
+    // The control sets its own `current` on a click (which ends the binding): the tab Rust shows is
+    // given back to it whenever it changes (a search, the organiser, When opened).
+    changed tab-index => { tabs.current = root.tab-index; }
+    tabs := SidebarTabs {
+        x: Space.lg;
+        y: Space.sm;
+        width: parent.width - 2 * Space.lg;
+        items: [
+            { icon: @image-url("../icons/file.svg"), text: @tr("Thumbnails") },
+            { icon: @image-url("../icons/list-tree.svg"), text: @tr("Outline") },
+            { icon: @image-url("../icons/bookmark.svg"), text: @tr("Bookmarks") },
+            { icon: @image-url("../icons/highlighter.svg"), text: @tr("Annotations") },
+            { icon: @image-url("../icons/paperclip.svg"), text: @tr("Attachments") },
+            { icon: @image-url("../icons/layers.svg"), text: @tr("Layers") },
+        ];
+        current: root.tab-index;
+        selected(i) => { ReaderBridge.set-panel(root.id, root.codes[i]); }
+    }
+
+    // ---- title row: the tab's name at 16 (15/600), its action at the right inside 16 -------------
+    Rectangle {
+        y: 44px;
+        height: 36px;
+        Text {
+            x: PlatformBridge.rtl ? parent.width - self.width - Space.lg : Space.lg;
+            width: min(self.preferred-width, parent.width - 2 * Space.lg - 32px);
+            text: root.panel == 0 ? @tr("Thumbnails") : root.panel == 1 ? @tr("Outline") : root.panel == 6 ? @tr("Bookmarks")
+                : root.panel == 2 ? @tr("Annotations") : root.panel == 4 ? @tr("Attachments") : @tr("Layers");
+            font-size: Theme.fs-title-3;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        // 28 wide, its icon's edge 16 from the sidebar's (the button's own pad is 6).
+        HeaderButton {
+            x: PlatformBridge.rtl ? Space.lg - 6px : parent.width - self.width - Space.lg + 6px;
+            y: 4px;
+            icon: root.panel == 1 || root.panel == 6 || root.panel == 4 ? @image-url("../icons/plus.svg") : @image-url("../icons/ellipsis.svg");
+            tip: root.panel == 1 ? @tr("Add the page you are on to the outline") : root.panel == 6 ? @tr("Bookmark the page you are on")
+                : root.panel == 4 ? @tr("Attach a file…") : root.panel == 0 ? @tr("More page actions")
+                : root.panel == 2 ? @tr("Comment actions") : @tr("Layer actions");
+            clicked => {
+                if root.panel == 1 { ReaderBridge.outline-op(root.id, -1, 0, ""); root.focus-pages(); }
+                else if root.panel == 6 { ReaderBridge.bookmark-op(root.id, 0, -1); }
+                else if root.panel == 4 { ReaderBridge.attachment-add(root.id); }
+                else if root.panel == 0 { pages-more.show(); }
+                else if root.panel == 2 { notes-more.show(); }
+                else { layers-more.show(); }
+            }
+        }
+    }
+    Rectangle { y: 80px; height: 1px; background: Theme.hairline; }
+
+    // ---- Thumbnails -------------------------------------------------------------------------------
+    // Cells `width − 32`, 12 apart, the number badge (22×18) 6 under each (reader_ui::THUMB_*). The
+    // page in view sits on a `fill-1` ground; selected pages get a 2 px accent frame and an accent
+    // badge (PDF Expert). ⌘ / ⇧ select more; a drag reorders; a right click opens the page menu.
+    strip := ScrollView {
+        y: root.content-top;
+        visible: root.panel == 0;
+        height: root.panel == 0 ? parent.height - root.content-top - root.bar-height : 0px;
+        content-width: self.visible-width;
+        content-height: root.tab.viewer-thumbs-height;
+        for t in root.tab.viewer-thumbs: Rectangle {
+            x: (strip.visible-width - ReaderBridge.thumb-width) / 2;
+            y: t.y;
+            width: ReaderBridge.thumb-width;
+            height: t.h + 24px;
+            if t.page == root.tab.viewer-current && !t.selected: Rectangle {
+                x: -Space.sm;
+                y: -Space.sm;
+                width: parent.width + 2 * Space.sm;
+                height: parent.height + Space.md;
+                border-radius: Theme.r-row;
+                background: Theme.fill-1;
+            }
+            if t.selected: Rectangle {
+                x: -3px;
+                y: -3px;
+                width: parent.width + 6px;
+                height: t.h + 6px;
+                border-radius: Theme.r-xs;
+                border-width: 2px;
+                border-color: Theme.accent;
+            }
+            Rectangle {
+                height: t.h;
+                y: 0;
+                background: Theme.thumb-placeholder;
+                drop-shadow-blur: 4px;
+                drop-shadow-color: Theme.page-shadow;
+                drop-shadow-offset-y: 1px;
+                if t.ready: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: t.image;
+                    image-fit: fill;
+                }
+            }
+            Rectangle {
+                y: t.h + 6px;
+                x: (parent.width - self.width) / 2;
+                width: max(22px, num.preferred-width + 10px);
+                height: 18px;
+                border-radius: Theme.r-xs;
+                background: t.selected ? Theme.accent : transparent;
+                num := Text {
+                    text: t.page + 1;
+                    font-size: Theme.fs-body;
+                    font-weight: t.selected ? Theme.weight-demibold : Theme.weight-regular;
+                    color: t.selected ? Theme.on-accent : t.page == root.tab.viewer-current ? Theme.text : Theme.text-2;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        // The page menu at the pointer (Acrobat's and Preview's thumbnail menu; the Organize rail's
+        // items). Codes as reader_ui::page_op; −1 Transitions…, −2 Number pages…, −3 Extract….
+        page-menu := PopupWindow {
+            x: root.menu-x;
+            y: root.menu-y;
+            width: 248px;
+            height: (PlatformBridge.mac ? 15 : 14) * Theme.row-height + 3 * 9px + 8px;
+            PopoverFrame {
+                VerticalLayout {
+                    padding: 4px;
+                    for o in [{ t: @tr("Rotate left"), k: 0 }, { t: @tr("Rotate right"), k: 1 }, { t: "", k: -9 },
+                              { t: @tr("Insert blank page after"), k: 5 }, { t: @tr("Insert pages from file…"), k: 6 }, { t: @tr("Insert a file's pages before…"), k: 9 },
+                              { t: @tr("Insert from clipboard"), k: 10 }, { t: @tr("Insert from scanner…"), k: 11 }, { t: @tr("Insert from iPhone or iPad…"), k: 12 }, { t: "", k: -9 },
+                              { t: @tr("Duplicate"), k: 3 }, { t: @tr("Extract…"), k: -3 }, { t: @tr("Replace with a file's pages…"), k: 7 }, { t: @tr("Reverse page order"), k: 8 },
+                              { t: @tr("Number pages…"), k: -2 },
+                              // Acrobat's Page Transitions (in its page thumbnail menu).
+                              { t: @tr("Transitions…"), k: -1 }, { t: "", k: -9 }, { t: @tr("Delete"), k: 2 }]: Rectangle {
+                        // Continuity Camera (12) is a Mac's.
+                        visible: o.k != 12 || PlatformBridge.mac;
+                        height: !self.visible ? 0px : o.k == -9 ? 9px : Theme.row-height;
+                        if o.k == -9: MenuSeparatorLine { }
+                        if o.k != -9: MenuRow {
+                            text: o.t;
+                            danger: o.k == 2;
+                            activated => {
+                                if o.k == -1 { root.open-strip(2); }
+                                else if o.k == -2 { root.open-strip(1); }
+                                else if o.k == -3 { root.open-strip(0); }
+                                else { ReaderBridge.page-op(root.id, o.k); root.focus-pages(); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        strip-ta := TouchArea {
+            // The pointer in the visible strip (y from its top): kept while the strip scrolls under a
+            // still pointer. One area over the whole strip: the thumbnails' model is replaced on every
+            // refresh, which would drop a press held on one of them.
+            property <length> view-y;
+            width: strip.visible-width;
+            height: max(root.tab.viewer-thumbs-height, strip.visible-height);
+            mouse-cursor: root.drop-line >= 0 ? move : pointer;
+            pointer-event(e) => {
+                // A right click: the page menu at the pointer; a page outside a selection of several
+                // is selected first.
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                    root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
+                    if root.thumb-down-page >= 0 {
+                        if root.tab.reader.pages-selected <= 1 {
+                            ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, false, false);
+                            ReaderBridge.thumb-released(root.id);
+                        }
+                        // At the pointer, as Preview opens it (it may reach past the sidebar).
+                        root.menu-x = self.mouse-x;
+                        root.menu-y = self.mouse-y;
+                        page-menu.show();
+                    }
+                    return;
+                }
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                    root.thumb-down-y = self.mouse-y;
+                    root.thumb-down-page = ReaderBridge.thumb-at(root.id, self.mouse-y);
+                    if root.thumb-down-page >= 0 {
+                        ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, e.modifiers.shift, e.modifiers.control || e.modifiers.meta);
+                    }
+                    root.focus-pages();
+                } else if e.kind == PointerEventKind.up && root.drop-line >= 0 {
+                    ReaderBridge.thumb-drop(root.id, self.mouse-y);
+                    root.drop-line = -1px;
+                } else if e.kind == PointerEventKind.up {
+                    ReaderBridge.thumb-released(root.id);
+                }
+            }
+            moved => {
+                self.view-y = self.mouse-y + strip.content-y;
+                if self.pressed && root.thumb-down-page >= 0 && abs(self.mouse-y - root.thumb-down-y) > 8px {
+                    root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, self.mouse-y);
+                }
+            }
+        }
+        // Dragging near the top or bottom of the strip scrolls it (a long book's page can be carried
+        // anywhere), the drop line following.
+        Timer {
+            interval: 30ms;
+            running: root.drop-line >= 0;
+            triggered => {
+                let edge = 40px;
+                let step = strip-ta.view-y < edge ? 14px : strip-ta.view-y > strip.visible-height - edge ? -14px : 0px;
+                if step != 0px {
+                    strip.content-y = max(min(0px, strip.content-y + step), min(0px, strip.visible-height - strip.content-height));
+                    root.drop-line = ReaderBridge.thumb-drag(root.id, root.thumb-down-page, strip-ta.view-y - strip.content-y);
+                }
+            }
+        }
+        // What is carried: a capsule under the pointer (PDF Expert shows the pages).
+        if root.drop-line >= 0: Rectangle {
+            x: strip-ta.mouse-x + 12px;
+            // Under the pointer even while the strip scrolls beneath it.
+            y: strip-ta.view-y - strip.content-y + 8px;
+            width: ghost.preferred-width + 16px;
+            height: 24px;
+            border-radius: 12px;
+            background: Theme.accent;
+            drop-shadow-blur: Theme.toast-blur;
+            drop-shadow-offset-y: Theme.toast-y;
+            drop-shadow-color: Theme.toast-shadow;
+            ghost := Text {
+                text: root.tab.reader.pages-selected <= 1 ? @tr("1 page") : @tr("{} pages", root.tab.reader.pages-selected);
+                font-size: Theme.fs-subhead;
+                font-weight: Theme.weight-demibold;
+                color: Theme.on-accent;
+            }
+        }
+        // The insertion bar: 2 px accent across the cell, in the middle of the gap.
+        if root.drop-line >= 0: Rectangle {
+            x: Space.sm;
+            y: root.drop-line - 1px;
+            width: strip.visible-width - 2 * Space.sm;
+            height: 2px;
+            border-radius: 1px;
+            background: Theme.accent;
+        }
+    }
+
+    // ---- Thumbnails: the page actions bar (on the selection, or the page in view) -----------------
+    if root.panel == 0: Rectangle {
+        y: parent.height - root.bar-height;
+        height: root.bar-height;
+        background: Theme.chrome;
+        Rectangle { y: 0; height: 1px; background: Theme.hairline; }
+        FlexboxLayout {
+            y: Space.sm;
+            height: 36px;
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            padding-left: Space.sm;
+            padding-right: Space.sm;
+            spacing: 0px;
+            alignment: start;
+            ToolbarButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: @tr("Rotate left"); clicked => { ReaderBridge.page-op(root.id, 0); } }
+            ToolbarButton { icon: @image-url("../icons/rotate-cw.svg"); tip: @tr("Rotate right"); clicked => { ReaderBridge.page-op(root.id, 1); } }
+            ToolbarButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert blank page after"); clicked => { ReaderBridge.page-op(root.id, 5); } }
+            if root.show-duplicate: ToolbarButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Duplicate"); clicked => { ReaderBridge.page-op(root.id, 3); } }
+            if root.all-actions: ToolbarButton { icon: @image-url("../icons/file-output.svg"); tip: @tr("Extract…"); clicked => { root.open-strip(0); } }
+            if root.all-actions: ToolbarButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Number pages…"); clicked => { root.open-strip(1); } }
+            if root.show-delete: ToolbarButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete"); clicked => { ReaderBridge.page-op(root.id, 2); } }
+            if !root.all-actions: ToolbarButton {
+                icon: @image-url("../icons/ellipsis.svg");
+                tip: @tr("More page actions");
+                clicked => { actions-more.show(); }
+                // Opens above the bar (at the window's bottom edge there is no room under it).
+                actions-more := PopupWindow {
+                    x: 0;
+                    y: -self.height - 4px;
+                    width: 200px;
+                    height: (2 + (root.show-duplicate ? 0 : 1) + (root.show-delete ? 0 : 1)) * Theme.row-height + (root.show-delete ? 0px : 9px) + 8px;
+                    PopoverFrame {
+                        VerticalLayout {
+                            padding: 4px;
+                            if !root.show-duplicate: MenuRow { text: @tr("Duplicate"); activated => { ReaderBridge.page-op(root.id, 3); } }
+                            MenuRow { text: @tr("Extract…"); activated => { root.open-strip(0); } }
+                            MenuRow { text: @tr("Number pages…"); activated => { root.open-strip(1); } }
+                            if !root.show-delete: MenuSeparatorLine { }
+                            if !root.show-delete: MenuRow { text: @tr("Delete"); danger: true; activated => { ReaderBridge.page-op(root.id, 2); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // The strips over the bar: Number pages…, Transitions…, Replace's pages, Extract….
+    if root.panel == 0 && root.number-open: Rectangle {
+        y: parent.height - root.bar-height - self.height;
+        height: 152px;
+        background: Theme.chrome;
+        Rectangle { y: 0; height: 1px; background: Theme.hairline; }
+        VerticalLayout {
+            padding: Space.lg;
+            padding-top: Space.md;
+            spacing: Space.sm;
+            Text {
+                text: @tr("Number ") + (root.tab.reader.pages-selected <= 1 ? @tr("this page") : @tr("the {} pages", root.tab.reader.pages-selected)) + (root.number-through != "" ? @tr(" through page {}", root.number-through) : root.tab.reader.pages-selected <= 1 ? @tr(" and the next ones") : "");
+                font-size: Theme.fs-callout;
+                color: Theme.text-2;
+                // One line, so the rows under it keep their place.
+                overflow: elide;
+            }
+            SortCombo {
+                width: parent.width - 2 * Space.lg;
+                options: ["1, 2, 3", @tr("i, ii, iii"), @tr("I, II, III"), @tr("a, b, c"), @tr("A, B, C"), @tr("No number")];
+                current-index <=> root.number-style;
+                chevron: @image-url("../icons/chevron-down.svg");
+            }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
+                spacing: Space.sm;
+                PanelField { placeholder: @tr("Prefix"); text <=> root.number-prefix; }
+                PanelField { width: 64px; placeholder: @tr("Start: 1"); text <=> root.number-start; }
+                // Acrobat's Pages from … to …: the last page numbered so (empty: as selected).
+                PanelField { width: 88px; placeholder: @tr("Through: end"); text <=> root.number-through; }
+            }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: end;
+                spacing: Space.sm;
+                Button { text: @tr("Cancel"); clicked => { root.number-open = false; } }
+                Button {
+                    text: @tr("Number");
+                    kind: ButtonKind.primary;
+                    clicked => {
+                        root.number-open = false;
+                        ReaderBridge.number-pages(root.id, root.number-style, root.number-prefix, root.number-start, root.number-through);
+                    }
+                }
+            }
+        }
+    }
+    if root.panel == 0 && root.transition-open: Rectangle {
+        y: parent.height - root.bar-height - self.height;
+        height: 152px;
+        background: Theme.chrome;
+        Rectangle { y: 0; height: 1px; background: Theme.hairline; }
+        VerticalLayout {
+            padding: Space.lg;
+            padding-top: Space.md;
+            spacing: Space.sm;
+            Text {
+                text: @tr("In full screen, ") + (root.tab.reader.pages-selected <= 1 ? @tr("this page comes") : @tr("the {} pages come", root.tab.reader.pages-selected)) + @tr(" in with");
+                font-size: Theme.fs-callout;
+                color: Theme.text-2;
+                // One line, so the rows under it keep their place.
+                overflow: elide;
+            }
+            SortCombo {
+                width: parent.width - 2 * Space.lg;
+                options: [@tr("No effect"), @tr("Fade"), @tr("Dissolve"), @tr("Wipe"), @tr("Push"), @tr("Cover"), @tr("Uncover"), @tr("Split"), @tr("Blinds"), @tr("Box"), @tr("Glitter"), @tr("Fly")];
+                current-index <=> root.transition-style;
+                chevron: @image-url("../icons/chevron-down.svg");
+            }
+            PanelField { placeholder: @tr("Next page after (seconds): when turned"); text <=> root.transition-advance; }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: end;
+                spacing: Space.sm;
+                Button { text: @tr("Cancel"); clicked => { root.transition-open = false; } }
+                Button {
+                    text: @tr("Set");
+                    kind: ButtonKind.primary;
+                    clicked => {
+                        root.transition-open = false;
+                        ReaderBridge.page-transition(root.id, root.transition-style - 1, root.transition-advance);
+                    }
+                }
+            }
+        }
+    }
+    // Replace Pages from a longer file: which of its pages (Acrobat's pages … to … of it).
+    if root.panel == 0 && root.tab.reader.replace-ask != "": Rectangle {
+        y: parent.height - root.bar-height - self.height;
+        height: 116px;
+        background: Theme.chrome;
+        Rectangle { y: 0; height: 1px; background: Theme.hairline; }
+        VerticalLayout {
+            padding: Space.lg;
+            padding-top: Space.md;
+            spacing: Space.sm;
+            // The question takes what is left: the field and buttons keep the strip's last row.
+            Text { text: root.tab.reader.replace-ask; font-size: Theme.fs-callout; color: Theme.text-2; wrap: word-wrap; overflow: elide; vertical-stretch: 1; }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
+                spacing: Space.sm;
+                from-in := PanelField { placeholder: "1"; }
+                SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
+                SmallButton { text: @tr("Replace"); primary: true; clicked => { ReaderBridge.replace-from(root.id, from-in.text == "" ? "1" : from-in.text); root.focus-pages(); } }
+            }
+        }
+    }
+    if root.panel == 0 && root.extract-open: Rectangle {
+        y: parent.height - root.bar-height - self.height;
+        height: 120px;
+        background: Theme.chrome;
+        Rectangle { y: 0; height: 1px; background: Theme.hairline; }
+        VerticalLayout {
+            padding: Space.lg;
+            padding-top: Space.md;
+            spacing: Space.xs;
+            Checkbox { text: @tr("One file per page"); checked <=> root.extract-each; }
+            Checkbox { text: @tr("Delete pages after extracting"); checked <=> root.extract-delete; }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: end;
+                spacing: Space.sm;
+                Button { text: @tr("Cancel"); clicked => { root.extract-open = false; } }
+                Button {
+                    text: @tr("Extract");
+                    kind: ButtonKind.primary;
+                    clicked => {
+                        root.extract-open = false;
+                        ReaderBridge.extract(root.id, root.extract-each, root.extract-delete);
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Outline --------------------------------------------------------------------------------
+    // Rows 28, text 13 inset 8, hover and current fill inset 6 (radius 6); disclosure 12 at depth ×
+    // 16; the page number right in `text-2`. On hover: rename, delete, more; a drag moves an item.
+    if root.panel == 1 && root.tab.reader.outline-empty: EmptyState {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        icon: @image-url("../icons/list-tree.svg");
+        text: @tr("Click + to add the page you are on. With text selected, its words become the title.");
+    }
+    if root.panel == 1 && !root.tab.reader.outline-empty: ScrollView {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        VerticalLayout {
+            padding-top: Space.xs;
+            padding-bottom: Space.sm;
+            for r[i] in root.tab.reader.outline: Rectangle {
+                height: Theme.row-height;
+                accessible-role: list-item;
+                accessible-label: r.title;
+                accessible-value: r.page-label;
+                accessible-item-selected: r.current;
+                accessible-action-default => { ReaderBridge.outline-clicked(root.id, i); }
+                Rectangle {
+                    x: 6px;
+                    width: parent.width - 12px;
+                    border-radius: Theme.r-row;
+                    background: r.current ? Theme.fill-2 : ot.has-hover ? Theme.fill-1 : transparent;
+                }
+                // Where a dragged item would land: a line above this row, or the row ringed.
+                if root.drag-mark >= 0 && root.drop-row == i: Rectangle {
+                    x: 6px;
+                    width: parent.width - 12px;
+                    y: root.drop-inside ? 0px : -1px;
+                    height: root.drop-inside ? parent.height : 2px;
+                    border-radius: root.drop-inside ? Theme.r-row : 1px;
+                    border-width: root.drop-inside ? 2px : 0px;
+                    border-color: Theme.accent;
+                    background: root.drop-inside ? transparent : Theme.accent;
+                }
+                ot := TouchArea {
+                    mouse-cursor: root.drag-mark >= 0 ? grabbing : pointer;
+                    moved => {
+                        if root.drag-mark >= 0 || abs(self.mouse-y - self.pressed-y) > 6px {
+                            root.drag-mark = i;
+                            root.drop-row = i + floor(self.mouse-y / Theme.row-height);
+                            root.drop-inside = mod(self.mouse-y / 1px + 2800, 28) > 8 && mod(self.mouse-y / 1px + 2800, 28) < 20;
+                        }
+                    }
+                    pointer-event(e) => {
+                        if e.kind == PointerEventKind.up && root.drag-mark == i {
+                            if root.drop-row != i { ReaderBridge.outline-drop(root.id, i, root.drop-row, root.drop-inside); }
+                            root.drag-mark = -1;
+                            root.drop-row = -1;
+                            root.just-dropped = true;
+                        }
+                    }
+                    clicked => {
+                        if root.just-dropped { root.just-dropped = false; return; }
+                        ReaderBridge.outline-clicked(root.id, i);
+                        root.focus-pages();
+                    }
+                    double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
+                    // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu);
+                    // inside the TouchArea so reaching them keeps the row hovered.
+                    if ot.has-hover && !r.editing: FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
+                        x: PlatformBridge.rtl ? 10px : parent.width - self.width - 10px;
+                        y: 4px;
+                        width: 3 * 20px + 2 * 2px;
+                        height: 20px;
+                        spacing: 2px;
+                        RowAction { icon: @image-url("../icons/pencil.svg"); tip: @tr("Rename"); clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); } }
+                        RowAction { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete bookmark"); clicked => { ReaderBridge.outline-op(root.id, i, 4, ""); root.focus-pages(); } }
+                        RowAction { icon: @image-url("../icons/ellipsis.svg"); tip: @tr("More"); clicked => { root.mark-row = i; root.mark-menu-y = self.absolute-position.y - root.absolute-position.y + 24px; mark-menu.show(); } }
+                    }
+                }
+                if r.has-children: Rectangle {
+                    x: PlatformBridge.rtl ? parent.width - (6px + r.depth * 16px) - self.width : 6px + r.depth * 16px;
+                    width: 16px;
+                    Image {
+                        width: 12px;
+                        height: 12px;
+                        source: @image-url("../icons/chevron-right.svg");
+                        colorize: Theme.text-2;
+                        transform-rotation: r.expanded ? 90deg : 0deg;
+                    }
+                    TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { ReaderBridge.outline-toggled(root.id, i); }
+                    }
+                }
+                if !r.editing: Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                    x: PlatformBridge.rtl ? parent.width - (24px + r.depth * 16px) - self.width : 24px + r.depth * 16px;
+                    width: parent.width - (24px + r.depth * 16px) - (ot.has-hover ? 80px : 52px);
+                    text: r.title;
+                    font-size: Theme.fs-body;
+                    // Its own look when it has one (bold, italic, colour), as Acrobat shows it.
+                    font-weight: r.bold ? Theme.weight-bold : r.depth == 0 ? Theme.weight-demibold : Theme.weight-regular;
+                    font-italic: r.italic;
+                    color: r.has-colour ? r.colour : Theme.text;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+                // Renamed in place: ↩ keeps the new title, Escape the old one.
+                if r.editing: Rectangle {
+                    x: PlatformBridge.rtl ? parent.width - (20px + r.depth * 16px) - self.width : 20px + r.depth * 16px;
+                    y: 2px;
+                    width: parent.width - (20px + r.depth * 16px) - 12px;
+                    height: 24px;
+                    border-radius: Theme.r-sm;
+                    border-width: 2px;
+                    border-color: Theme.focus-ring;
+                    background: Theme.field;
+                    rename := TextInput {
+                        // Tools page tools' keys wait while a field has the keyboard.
+                        changed has-focus => { PlatformBridge.typing = self.has-focus; }
+                        x: 6px;
+                        width: parent.width - 12px;
+                        text: r.title;
+                        font-size: Theme.fs-body;
+                        color: Theme.text;
+                        vertical-alignment: center;
+                        single-line: true;
+                        init => { self.focus(); self.select-all(); }
+                        accepted => { ReaderBridge.outline-op(root.id, i, 2, self.text); root.focus-pages(); }
+                        key-pressed(e) => {
+                            if e.text == Key.Escape { ReaderBridge.outline-op(root.id, i, 3, ""); root.focus-pages(); return accept; }
+                            reject
+                        }
+                    }
+                }
+                if !ot.has-hover && !r.editing: Text {
+                    x: PlatformBridge.rtl ? 14px : parent.width - self.width - 14px;
+                    width: 32px;
+                    text: r.page-label;
+                    font-size: Theme.fs-callout;
+                    color: Theme.text-2;
+                    horizontal-alignment: PlatformBridge.rtl ? left : right;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+
+    // ---- Bookmarks (PDF Expert's page bookmarks) ------------------------------------------------
+    if root.panel == 6 && root.tab.reader.bookmarks.length == 0: EmptyState {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        icon: @image-url("../icons/bookmark.svg");
+        text: @tr("Click + to bookmark the page you are on.");
+    }
+    if root.panel == 6 && root.tab.reader.bookmarks.length > 0: ScrollView {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        VerticalLayout {
+            padding-top: Space.xs;
+            padding-bottom: Space.sm;
+            for b[i] in root.tab.reader.bookmarks: Rectangle {
+                height: Theme.row-height;
+                accessible-role: list-item;
+                accessible-label: b.title;
+                accessible-value: b.page-label;
+                accessible-action-default => { ReaderBridge.bookmark-op(root.id, 1, i); }
+                Rectangle {
+                    x: 6px;
+                    width: parent.width - 12px;
+                    border-radius: Theme.r-row;
+                    background: b.current ? Theme.fill-2 : bt.has-hover ? Theme.fill-1 : transparent;
+                }
+                Image {
+                    x: PlatformBridge.rtl ? parent.width - self.width - 14px : 14px;
+                    width: Theme.icon-sm;
+                    height: Theme.icon-sm;
+                    source: @image-url("../icons/bookmark.svg");
+                    colorize: Theme.text-2;
+                }
+                Text {
+                    x: PlatformBridge.rtl ? 52px : 38px;
+                    width: parent.width - 38px - 52px;
+                    text: b.title;
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    horizontal-alignment: PlatformBridge.rtl ? right : left;
+                }
+                bt := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { ReaderBridge.bookmark-op(root.id, 1, i); root.focus-pages(); }
+                    if bt.has-hover: RowAction {
+                        x: PlatformBridge.rtl ? 10px : parent.width - self.width - 10px;
+                        y: 4px;
+                        icon: @image-url("../icons/x.svg");
+                        tip: @tr("Remove bookmark");
+                        clicked => { ReaderBridge.bookmark-op(root.id, 2, i); }
+                    }
+                }
+                if !bt.has-hover: Text {
+                    x: PlatformBridge.rtl ? 14px : parent.width - self.width - 14px;
+                    width: 32px;
+                    text: b.page-label;
+                    font-size: Theme.fs-callout;
+                    color: Theme.text-2;
+                    horizontal-alignment: PlatformBridge.rtl ? left : right;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    // ---- Annotations ----------------------------------------------------------------------------
+    // Filter chips (they scroll sideways when the sidebar is narrow), then the count and the order,
+    // then CommentCards grouped by page under "Page 3 · 4".
+    if root.panel == 2 && root.tab.reader.annots.length == 0 && root.tab.reader.notes-filter == 0: EmptyState {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        icon: @image-url("../icons/highlighter.svg");
+        text: @tr("Highlights, notes and drawings will be listed here.");
+    }
+    if root.panel == 2 && (root.tab.reader.annots.length > 0 || root.tab.reader.notes-filter != 0): Rectangle {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        Flickable {
+            y: Space.sm;
+            height: 22px;
+            content-width: chip-row.preferred-width;
+            chip-row := FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                padding-left: Space.lg;
+                padding-right: Space.lg;
+                spacing: Space.sm;
+                // reader::notes_filter's codes.
+                for c in [{ t: @tr("All"), k: 0 }, { t: @tr("Highlights"), k: 1 }, { t: @tr("Notes"), k: 2 }, { t: @tr("Drawings"), k: 3 }, { t: @tr("Stamps"), k: 4 },
+                          { t: @tr("Accepted"), k: 5 }, { t: @tr("Rejected"), k: 6 }, { t: @tr("Cancelled"), k: 7 }, { t: @tr("Completed"), k: 8 }, { t: @tr("No status"), k: 9 }, { t: @tr("Checked"), k: 10 }]: Chip {
+                    text: c.t;
+                    on: root.tab.reader.notes-filter == c.k;
+                    clicked => { ReaderBridge.notes-view(root.id, 0, c.k); }
+                }
+            }
+        }
+        Rectangle {
+            y: 38px;
+            height: Theme.control-height;
+            Text {
+                x: PlatformBridge.rtl ? parent.width - self.width - Space.lg : Space.lg;
+                width: parent.width - 2 * Space.lg - sort.width - Space.sm;
+                text: root.tab.reader.annots.length == 1 ? @tr("1 comment") : @tr("{} comments", root.tab.reader.annots.length);
+                font-size: Theme.fs-callout;
+                color: Theme.text-2;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-alignment: PlatformBridge.rtl ? right : left;
+            }
+            // "By page ⌄": 88 at least, its label elided before the chevron, never the chevron.
+            sort := SortCombo {
+                x: PlatformBridge.rtl ? Space.lg : parent.width - self.width - Space.lg;
+                width: clamp(parent.width / 2 - Space.lg, 88px, 120px);
+                options: [@tr("By page"), @tr("Newest"), @tr("By author"), @tr("By type")];
+                current-index: root.tab.reader.notes-sort;
+                chevron: @image-url("../icons/chevron-down.svg");
+                selected(i) => { ReaderBridge.notes-view(root.id, 1, i); }
+            }
+        }
+        if root.tab.reader.annots.length == 0: Text {
+            x: Space.lg;
+            y: 84px;
+            width: parent.width - 2 * Space.lg;
+            text: @tr("No comments of this kind.");
+            font-size: Theme.fs-body;
+            color: Theme.text-2;
+            wrap: word-wrap;
+        }
+        ScrollView {
+            y: 74px;
+            height: parent.height - 74px;
+            VerticalLayout {
+                padding-left: Space.sm;
+                padding-right: Space.sm;
+                padding-bottom: Space.sm;
+                spacing: Space.sm;
+                for a[i] in root.tab.reader.annots: VerticalLayout {
+                    spacing: 0px;
+                    if a.group != "": Text {
+                        height: Theme.row-height;
+                        text: a.group;
+                        font-size: Theme.fs-callout;
+                        font-weight: Theme.weight-demibold;
+                        color: Theme.text-2;
+                        vertical-alignment: center;
+                        horizontal-alignment: PlatformBridge.rtl ? right : left;
+                    }
+                    // A CommentCard: `window` and a hairline, radius 6, pad 10, its colour as a 3 px
+                    // strip inset 6 (radius 2); hover a shade darker, selected an accent border.
+                    Rectangle {
+                        height: al.preferred-height;
+                        border-radius: Theme.r-row;
+                        background: at.has-hover && !a.selected ? Theme.window.mix(Theme.text, 0.96) : Theme.window;
+                        border-width: a.selected ? 2px : 1px;
+                        border-color: a.selected ? Theme.accent : Theme.hairline;
+                        accessible-role: list-item;
+                        accessible-label: a.kind + ", " + a.page-label;
+                        accessible-description: a.text;
+                        accessible-item-selected: a.selected;
+                        accessible-action-default => { ReaderBridge.annot-clicked(root.id, a.index); }
+                        // The card's delete is inside its area: reaching it keeps the card hovered.
+                        at := TouchArea {
+                            mouse-cursor: pointer;
+                            clicked => { ReaderBridge.annot-clicked(root.id, a.index); root.focus-pages(); }
+                            if at.has-hover || a.selected: RowAction {
+                                x: PlatformBridge.rtl ? 6px : parent.width - self.width - 6px;
+                                y: 6px;
+                                icon: @image-url("../icons/trash-2.svg");
+                                tip: @tr("Delete comment");
+                                clicked => { ReaderBridge.annot-delete(root.id, a.index); }
+                            }
+                        }
+                        Rectangle {
+                            x: PlatformBridge.rtl ? parent.width - self.width - 6px : 6px;
+                            y: 6px;
+                            width: 3px;
+                            height: parent.height - 12px;
+                            border-radius: 2px;
+                            background: a.colour;
+                        }
+                        al := VerticalLayout {
+                            padding: 10px;
+                            padding-left: PlatformBridge.rtl ? 10px : 16px;
+                            padding-right: PlatformBridge.rtl ? 16px : 10px;
+                            spacing: Space.xs;
+                            FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                alignment: LayoutAlignment.stretch;
+                                // Room for the delete button that shows on hover.
+                                padding-right: 24px;
+                                spacing: Space.sm;
+                                Text {
+                                    text: a.kind;
+                                    font-size: Theme.fs-subhead;
+                                    font-weight: Theme.weight-demibold;
+                                    color: Theme.text-2;
+                                    overflow: elide;
+                                    horizontal-stretch: 1;
+                                }
+                                // The page is in the group's heading when listed by page.
+                                if root.tab.reader.notes-sort != 0: Text {
+                                    text: a.page-label;
+                                    font-size: Theme.fs-subhead;
+                                    color: Theme.text-2;
+                                }
+                            }
+                            if a.text != "": Text {
+                                text: a.text;
+                                font-size: Theme.fs-body;
+                                color: Theme.text;
+                                wrap: word-wrap;
+                                overflow: elide;
+                                max-height: 64px;
+                            }
+                            if a.meta != "": Text {
+                                text: a.meta + (a.status != "" ? " · " + a.status : "");
+                                font-size: Theme.fs-subhead;
+                                color: Theme.text-2;
+                                overflow: elide;
+                            }
+                            // Replies, under the comment (Acrobat's and PDF Expert's threads), each
+                            // deleted alone by the bin on its hover.
+                            for rp in a.replies: Rectangle {
+                                height: max(rl.preferred-height, 20px);
+                                rt := TouchArea {
+                                    if rt.has-hover: RowAction {
+                                        x: parent.width - self.width;
+                                        y: 0;
+                                        icon: @image-url("../icons/trash-2.svg");
+                                        tip: @tr("Delete reply");
+                                        clicked => { ReaderBridge.reply-delete(root.id, rp.page, rp.index); }
+                                    }
+                                }
+                                rl := Text {
+                                    x: 0;
+                                    width: parent.width - 24px;
+                                    text: rp.text;
+                                    font-size: Theme.fs-callout;
+                                    color: Theme.text-2;
+                                    wrap: word-wrap;
+                                }
+                            }
+                            if a.selected: FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                alignment: start;
+                                spacing: Space.sm;
+                                SmallButton { text: @tr("Reply"); clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
+                                // Acrobat's Set Status.
+                                SortCombo {
+                                    width: 120px;
+                                    options: [@tr("No status"), @tr("Accepted"), @tr("Rejected"), @tr("Cancelled"), @tr("Completed")];
+                                    current-index: a.status == "Accepted" ? 1 : a.status == "Rejected" ? 2 : a.status == "Cancelled" ? 3 : a.status == "Completed" ? 4 : 0;
+                                    chevron: @image-url("../icons/chevron-down.svg");
+                                    selected(i) => { ReaderBridge.annot-status(root.id, a.index, i); }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Attachments ----------------------------------------------------------------------------
+    // Rows 28: the clip, the name, the size right; on hover Save a copy…, Rename, Delete. A click
+    // opens one; + attaches a file to the page in view; past three, a field finds them by name.
+    if root.panel == 4 && root.tab.reader.attachments.length == 0: EmptyState {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        icon: @image-url("../icons/paperclip.svg");
+        text: @tr("Files attached to this PDF appear here. Click + to attach one.");
+    }
+    if root.panel == 4 && root.tab.reader.attachments.length > 0: VerticalLayout {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        padding-top: Space.sm;
+        spacing: Space.xs;
+        if root.tab.reader.attachments.length > 3: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
+            padding-left: Space.lg;
+            padding-right: Space.lg;
+            PanelField {
+                height: Theme.control-height;
+                placeholder: @tr("Find");
+                edited(t) => { root.att-filter = t; }
+            }
+        }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                for f[i] in root.tab.reader.attachments: Rectangle {
+                    visible: Parse.name-matches(f.name, root.att-filter);
+                    height: self.visible ? Theme.row-height : 0px;
+                    accessible-role: list-item;
+                    accessible-label: f.name;
+                    accessible-value: f.value;
+                    accessible-action-default => { ReaderBridge.attachment-open(root.id, i); }
+                    Rectangle {
+                        x: 6px;
+                        width: parent.width - 12px;
+                        border-radius: Theme.r-row;
+                        background: fa.has-hover ? Theme.fill-1 : transparent;
+                    }
+                    Image {
+                        x: PlatformBridge.rtl ? parent.width - self.width - 14px : 14px;
+                        width: Theme.icon-sm;
+                        height: Theme.icon-sm;
+                        source: @image-url("../icons/paperclip.svg");
+                        colorize: Theme.text-2;
+                    }
+                    if root.att-renaming != i: Text {
+                        x: PlatformBridge.rtl ? 76px : 38px;
+                        width: parent.width - 38px - 76px;
+                        text: f.name;
+                        font-size: Theme.fs-body;
+                        color: Theme.text;
+                        overflow: elide;
+                        vertical-alignment: center;
+                        horizontal-alignment: PlatformBridge.rtl ? right : left;
+                    }
+                    if !fa.has-hover && root.att-renaming != i: Text {
+                        x: PlatformBridge.rtl ? 14px : parent.width - self.width - 14px;
+                        width: 56px;
+                        text: f.value;
+                        font-size: Theme.fs-callout;
+                        color: Theme.text-2;
+                        horizontal-alignment: PlatformBridge.rtl ? left : right;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    fa := TouchArea {
+                        mouse-cursor: pointer;
+                        clicked => { ReaderBridge.attachment-open(root.id, i); }
+                        if fa.has-hover && root.att-renaming != i: FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
+                            x: PlatformBridge.rtl ? 10px : parent.width - self.width - 10px;
+                            y: 4px;
+                            width: 3 * 20px + 2 * 2px;
+                            height: 20px;
+                            spacing: 2px;
+                            RowAction { icon: @image-url("../icons/download.svg"); tip: @tr("Save a copy…"); clicked => { ReaderBridge.attachment-save(root.id, i); } }
+                            RowAction { icon: @image-url("../icons/pencil.svg"); tip: @tr("Rename"); clicked => { root.att-renaming = i; } }
+                            RowAction { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete attachment"); clicked => { ReaderBridge.attachment-change(root.id, i, ""); } }
+                        }
+                    }
+                    if root.att-renaming == i: Rectangle {
+                        x: PlatformBridge.rtl ? 12px : 34px;
+                        y: 2px;
+                        width: parent.width - 46px;
+                        height: 24px;
+                        background: Theme.field;
+                        border-radius: Theme.r-sm;
+                        border-width: 2px;
+                        border-color: Theme.focus-ring;
+                        att-name := TextInput {
+                            // Tools page tools' keys wait while a field has the keyboard.
+                            changed has-focus => { PlatformBridge.typing = self.has-focus; }
+                            x: 6px;
+                            width: parent.width - 12px;
+                            text: f.name;
+                            font-size: Theme.fs-body;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                            single-line: true;
+                            init => { self.focus(); self.select-all(); }
+                            // The field goes: the keys (⌘S…) back to the pages.
+                            accepted => { ReaderBridge.attachment-change(root.id, i, self.text); root.att-renaming = -1; root.focus-pages(); }
+                            key-pressed(e) => {
+                                if e.text == Key.Escape { root.att-renaming = -1; root.focus-pages(); return accept; }
+                                reject
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- Layers ---------------------------------------------------------------------------------
+    // Rows 28 with a checkbox: shown or hidden on screen; the file keeps them as it sets them.
+    if root.panel == 5 && root.tab.reader.layers.length == 0: EmptyState {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        icon: @image-url("../icons/layers.svg");
+        text: @tr("This PDF has no layers.");
+    }
+    if root.panel == 5 && root.tab.reader.layers.length > 0: ScrollView {
+        y: root.content-top;
+        height: parent.height - root.content-top;
+        VerticalLayout {
+            padding-top: Space.xs;
+            for l[i] in root.tab.reader.layers: Rectangle {
+                height: Theme.row-height;
+                Rectangle {
+                    x: 6px;
+                    width: parent.width - 12px;
+                    border-radius: Theme.r-row;
+                    background: la.has-hover ? Theme.fill-1 : transparent;
+                }
+                Checkbox {
+                    x: PlatformBridge.rtl ? parent.width - self.width - 14px : 14px;
+                    width: min(self.preferred-width, parent.width - 28px);
+                    text: l.name;
+                    checked: l.shown;
+                    toggled(on) => { ReaderBridge.layer-set(root.id, i, on); }
+                }
+                la := TouchArea {
+                    x: 36px;
+                    width: parent.width - self.x - 14px;
+                    mouse-cursor: pointer;
+                    clicked => { ReaderBridge.layer-set(root.id, i, !l.shown); }
+                }
+            }
+        }
+    }
+
+    // The edge next to the pages drags to resize the sidebar (PDF Expert's): the design system's
+    // handle (widgets/resize-handle.slint), 200–480 and at most 45 % of the window; a double click
+    // puts back the default. The thumbnails take the new width once it is let go.
+    ResizeHandle {
+        edge-x: PlatformBridge.rtl ? 0 : parent.width;
+        leading: PlatformBridge.rtl;
+        current-width: root.panel-width;
+        resized(w) => { ReaderBridge.panel-width = clamp(w, Theme.sidebar-min, max(Theme.sidebar-min, min(Theme.sidebar-max, root.window-width * Theme.sidebar-max-share))); }
+        reset => { ReaderBridge.panel-width = Theme.sidebar-default; }
+        committed => { ReaderBridge.panel-resized(ReaderBridge.panel-width); }
+    }
+
+    // ---- the title row's menus ------------------------------------------------------------------
+    // Thumbnails ⋯: what the bar does not hold (PDF Expert's page menu).
+    pages-more := PopupWindow {
+        x: root.width - self.width - Space.sm;
+        y: 76px;
+        width: min(248px, root.width - 2 * Space.sm);
+        height: (PlatformBridge.mac ? 10 : 9) * Theme.row-height + 2 * 9px + 8px;
+        PopoverFrame {
+            VerticalLayout {
+                padding: 4px;
+                MenuRow { text: @tr("Insert pages from file…"); activated => { ReaderBridge.page-op(root.id, 6); } }
+                MenuRow { text: @tr("Insert a file's pages before…"); activated => { ReaderBridge.page-op(root.id, 9); } }
+                MenuRow { text: @tr("Insert from clipboard"); activated => { ReaderBridge.page-op(root.id, 10); } }
+                MenuRow { text: @tr("Insert from scanner…"); activated => { ReaderBridge.page-op(root.id, 11); } }
+                if PlatformBridge.mac: MenuRow { text: @tr("Insert from iPhone or iPad…"); activated => { ReaderBridge.page-op(root.id, 12); } }
+                MenuSeparatorLine { }
+                MenuRow { text: @tr("Replace with a file's pages…"); activated => { ReaderBridge.page-op(root.id, 7); } }
+                MenuRow { text: @tr("Reverse page order"); activated => { ReaderBridge.page-op(root.id, 8); } }
+                MenuSeparatorLine { }
+                MenuRow { text: @tr("Extract…"); activated => { root.open-strip(0); } }
+                MenuRow { text: @tr("Number pages…"); activated => { root.open-strip(1); } }
+                MenuRow { text: @tr("Transitions…"); activated => { root.open-strip(2); } }
+            }
+        }
+    }
+    // Annotations ⋯ (Acrobat's comment list actions; ⌘Z undoes Remove all).
+    notes-more := PopupWindow {
+        x: root.width - self.width - Space.sm;
+        y: 76px;
+        width: min(248px, root.width - 2 * Space.sm);
+        height: (root.tab.reader.annots.length > 0 ? 5 : 4) * Theme.row-height + (root.tab.reader.annots.length > 0 ? 2 : 1) * 9px + 8px;
+        PopoverFrame {
+            VerticalLayout {
+                padding: 4px;
+                MenuRow { text: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); activated => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
+                MenuSeparatorLine { }
+                MenuRow { text: @tr("Summary of comments…"); activated => { ReaderBridge.notes-action(root.id, 1); } }
+                MenuRow { text: @tr("Export comments (XFDF, FDF)…"); activated => { ReaderBridge.notes-action(root.id, 3); } }
+                MenuRow { text: @tr("Import comments…"); activated => { ReaderBridge.notes-action(root.id, 4); } }
+                if root.tab.reader.annots.length > 0: MenuSeparatorLine { }
+                if root.tab.reader.annots.length > 0: MenuRow { text: @tr("Remove all comments"); danger: true; activated => { ReaderBridge.notes-action(root.id, 2); root.focus-pages(); } }
+            }
+        }
+    }
+    // Layers ⋯.
+    layers-more := PopupWindow {
+        x: root.width - self.width - Space.sm;
+        y: 76px;
+        width: 200px;
+        height: (root.tab.reader.layers-changed ? 3 : 2) * Theme.row-height + 8px;
+        PopoverFrame {
+            VerticalLayout {
+                padding: 4px;
+                MenuRow { text: @tr("Show all"); enabled: root.tab.reader.layers.length > 0; activated => { ReaderBridge.layers-all(root.id, 0); } }
+                MenuRow { text: @tr("Hide all"); enabled: root.tab.reader.layers.length > 0; activated => { ReaderBridge.layers-all(root.id, 1); } }
+                if root.tab.reader.layers-changed: MenuRow { text: @tr("Reset"); activated => { ReaderBridge.layers-all(root.id, 2); } }
+            }
+        }
+    }
+    // An outline item's commands (Acrobat): move, nest, point it at the page in view, its look.
     mark-menu := PopupWindow {
-        x: root.width - 216px;
+        x: root.width - self.width - Space.sm;
         y: root.mark-menu-y;
-        width: 210px;
-        height: 9 * 30px + 8px;
+        width: 232px;
+        height: 9 * Theme.row-height + 2 * 9px + 8px;
         PopoverFrame {
             VerticalLayout {
                 padding: 4px;
@@ -1076,18 +1222,18 @@ export component ReaderPanel inherits Rectangle {
                     { text: @tr("Move down"), op: 7 },
                     { text: @tr("Indent"), op: 8 },
                     { text: @tr("Outdent"), op: 9 },
+                    { text: "", op: -1 },
                     { text: @tr("Set destination to this view"), op: 5 },
+                    { text: "", op: -1 },
                     // Acrobat's bookmark Appearance: style and colour.
                     { text: @tr("Bold"), op: 10 },
                     { text: @tr("Italic"), op: 11 },
                     { text: @tr("In the pen's colour"), op: 12 },
                     { text: @tr("In the usual colour"), op: 13 },
                 ]: Rectangle {
-                    height: 30px;
-                    border-radius: Theme.radius-small;
-                    background: mt.has-hover ? Theme.popup-hover : transparent;
-                    Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; x: 10px; text: item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                    mt := TouchArea { clicked => { ReaderBridge.outline-op(root.id, root.mark-row, item.op, ""); root.focus-pages(); } }
+                    height: item.op < 0 ? 9px : Theme.row-height;
+                    if item.op < 0: MenuSeparatorLine { }
+                    if item.op >= 0: MenuRow { text: item.text; activated => { ReaderBridge.outline-op(root.id, root.mark-row, item.op, ""); root.focus-pages(); } }
                 }
             }
         }
