@@ -447,14 +447,19 @@ export component ReaderPanel inherits Rectangle {
                 current-index <=> root.number-style;
                 chevron: @image-url("../icons/chevron-down.svg");
             }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: Space.sm;
                 PanelField { placeholder: @tr("Prefix"); text <=> root.number-prefix; }
                 PanelField { width: 64px; placeholder: @tr("Start: 1"); text <=> root.number-start; }
                 // Acrobat's Pages from … to …: the last page numbered so (empty: as selected).
                 PanelField { width: 88px; placeholder: @tr("Through: end"); text <=> root.number-through; }
             }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: end;
                 spacing: Space.sm;
                 Button { text: @tr("Cancel"); clicked => { root.number-open = false; } }
@@ -492,7 +497,9 @@ export component ReaderPanel inherits Rectangle {
                 chevron: @image-url("../icons/chevron-down.svg");
             }
             PanelField { placeholder: @tr("Next page after (seconds): when turned"); text <=> root.transition-advance; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: end;
                 spacing: Space.sm;
                 Button { text: @tr("Cancel"); clicked => { root.transition-open = false; } }
@@ -519,7 +526,10 @@ export component ReaderPanel inherits Rectangle {
             spacing: Space.sm;
             // The question takes what is left: the field and buttons keep the strip's last row.
             Text { text: root.tab.reader.replace-ask; font-size: Theme.fs-callout; color: Theme.text-2; wrap: word-wrap; overflow: elide; vertical-stretch: 1; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: Space.sm;
                 from-in := PanelField { placeholder: "1"; }
                 SmallButton { text: @tr("Cancel"); clicked => { ReaderBridge.replace-from(root.id, ""); root.focus-pages(); } }
@@ -538,7 +548,9 @@ export component ReaderPanel inherits Rectangle {
             spacing: Space.xs;
             Checkbox { text: @tr("One file per page"); checked <=> root.extract-each; }
             Checkbox { text: @tr("Delete pages after extracting"); checked <=> root.extract-delete; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: end;
                 spacing: Space.sm;
                 Button { text: @tr("Cancel"); clicked => { root.extract-open = false; } }
@@ -618,7 +630,9 @@ export component ReaderPanel inherits Rectangle {
                     double-clicked => { ReaderBridge.outline-op(root.id, i, 1, ""); }
                     // On hover: rename, delete, and the rest in a menu (Acrobat's bookmark context menu);
                     // inside the TouchArea so reaching them keeps the row hovered.
-                    if ot.has-hover && !r.editing: HorizontalLayout {
+                    if ot.has-hover && !r.editing: FlexboxLayout {
+                        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                        flex-wrap: FlexboxLayoutWrap.no-wrap;
                         x: PlatformBridge.rtl ? 10px : parent.width - self.width - 10px;
                         y: 4px;
                         width: 3 * 20px + 2 * 2px;
@@ -781,7 +795,9 @@ export component ReaderPanel inherits Rectangle {
             y: Space.sm;
             height: 22px;
             content-width: chip-row.preferred-width;
-            chip-row := HorizontalLayout {
+            chip-row := FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 padding-left: Space.lg;
                 padding-right: Space.lg;
                 spacing: Space.sm;
@@ -883,7 +899,10 @@ export component ReaderPanel inherits Rectangle {
                             padding-left: PlatformBridge.rtl ? 10px : 16px;
                             padding-right: PlatformBridge.rtl ? 16px : 10px;
                             spacing: Space.xs;
-                            HorizontalLayout {
+                            FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                                alignment: LayoutAlignment.stretch;
                                 // Room for the delete button that shows on hover.
                                 padding-right: 24px;
                                 spacing: Space.sm;
@@ -938,7 +957,9 @@ export component ReaderPanel inherits Rectangle {
                                     wrap: word-wrap;
                                 }
                             }
-                            if a.selected: HorizontalLayout {
+                            if a.selected: FlexboxLayout {
+                                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                                flex-wrap: FlexboxLayoutWrap.no-wrap;
                                 alignment: start;
                                 spacing: Space.sm;
                                 SmallButton { text: @tr("Reply"); clicked => { ReaderBridge.annot-reply(root.id, a.index); } }
@@ -972,7 +993,10 @@ export component ReaderPanel inherits Rectangle {
         height: parent.height - root.content-top;
         padding-top: Space.sm;
         spacing: Space.xs;
-        if root.tab.reader.attachments.length > 3: HorizontalLayout {
+        if root.tab.reader.attachments.length > 3: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
+            alignment: LayoutAlignment.stretch;
             padding-left: Space.lg;
             padding-right: Space.lg;
             PanelField {
@@ -1028,7 +1052,9 @@ export component ReaderPanel inherits Rectangle {
                     fa := TouchArea {
                         mouse-cursor: pointer;
                         clicked => { ReaderBridge.attachment-open(root.id, i); }
-                        if fa.has-hover && root.att-renaming != i: HorizontalLayout {
+                        if fa.has-hover && root.att-renaming != i: FlexboxLayout {
+                            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                            flex-wrap: FlexboxLayoutWrap.no-wrap;
                             x: PlatformBridge.rtl ? 10px : parent.width - self.width - 10px;
                             y: 4px;
                             width: 3 * 20px + 2 * 2px;
