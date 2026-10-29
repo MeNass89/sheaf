@@ -819,8 +819,10 @@ click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
 Q=$(at quick 820x700+140+60); [ -n "$Q" ] && { set -- $Q; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
 # Scrolled away by the wheel (Redact's view takes no End key).
 xdotool mousemove 500 400; for _ in $(seq 1 40); do xdotool click 5; sleep 0.02; done; sleep 1; V0=$(ocr 820x700+140+60)
-# The row's "Page 1", under "Marked for redaction" (the intro above says "quickly").
-ROW=$(at Page 280x300+1000+480); [ -n "$ROW" ] && click $ROW 1.2; V1=$(ocr 820x700+140+60)
+# The row's "Page 1", under "Marked for redaction" (the intro above says "quickly"; the page-range field above
+# the heading reads "Pages: 2-4, 7"): looked for from the heading down.
+read _ MY <<< "$(at Marked 280x400+1000+400)"
+ROW=$(at Page "280x300+1000+${MY:-480}"); [ -n "$ROW" ] && click $ROW 1.2; V1=$(ocr 820x700+140+60)
 check "a mark's row in Redact's list shows it on its page (${ROW:-no row}; $(echo $V0 | cut -c1-20) → $(echo $V1 | cut -c1-20))" "! echo \"$V0\" | grep -q 'Page 1' && echo \"$V1\" | grep -q 'Page 1'"
 quit
 
