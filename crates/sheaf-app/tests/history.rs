@@ -144,6 +144,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             notice_seen: vec!["mistral".into()],
             auto_open: true,
             language: Some("French".into()),
+            podcast_voices: vec!["Ava (Premium)".into(), "Evan (Enhanced)".into()],
         },
         settings: sheaf_app::settings::SettingsPrefs {
             print: sheaf_app::settings::PrintDefaults { two_sided: true, paper: 1, gray: true, quality: 3, ..Default::default() },

@@ -1,6 +1,8 @@
 //! Acrobat's Generate presentation: the outline an AI wrote (`# Title` then `- ` points) set as
 //! 16:9 slides in a PDF, or a PowerPoint file through Sheaf's own PDF to PowerPoint export (one
-//! slide per page). Western text in Helvetica; any other script in an embedded font that draws it.
+//! slide per page). Western text in Helvetica; any other script in an embedded font that draws it,
+//! titles in its bold face (BIZ UDPGothic Bold for Japanese and Cyrillic) or, for a script
+//! without one, in synthetic bold, so the PowerPoint made from it has bold titles too.
 
 use crate::export::{self, ExportOptions, Office};
 use crate::pages::Input;
@@ -108,13 +110,14 @@ impl Ink {
                 }
             }
             Ink::Any(set) => {
-                for (i, l) in set.lines(text, size, right - x)?.iter().take(max).enumerate() {
+                for (i, l) in set.lines(text, size, right - x, bold)?.iter().take(max).enumerate() {
                     if i == 0 && let Some(bx) = bullet {
                         // A right-to-left point has its bullet on the right.
                         let bx = if l.rtl { right + (x - bx) - 7.0 } else { bx };
                         c.extend(format!("0.85 0.2 0.2 rg {bx:.1} {:.1} 7 7 re f\n", y + 4.0).into_bytes());
                     }
-                    c.extend(format!("BT {rgb} rg\n").into_bytes());
+                    // The stroke colour too: synthetic bold strokes the glyphs.
+                    c.extend(format!("BT {rgb} rg {rgb} RG\n").into_bytes());
                     c.extend(set.draw(l, size, x, right, y).into_bytes());
                     c.extend_from_slice(b"ET\n");
                     y -= gap;

@@ -82,6 +82,10 @@ struct State {
     filter: Option<String>,
     /// The space's files shown (indexes into its files, after the filter).
     shown: Vec<usize>,
+    /// The voices that can speak the last podcast (its language's, best first) and the one each
+    /// host speaks with (indexes into them).
+    voices: Vec<ai::audio::Voice>,
+    hosts: [usize; 2],
 }
 
 thread_local! {
@@ -218,8 +222,9 @@ fn push(ui: &AppWindow) {
         s.space = s.space.min(s.spaces.len());
         g.set_space(s.space as i32);
         let sp = s.space.checked_sub(1).and_then(|k| s.spaces.get(k));
-        let mut cats: Vec<String> = sp.map(|sp| sp.files.iter().filter_map(|f| s.labels.get(f).cloned()).collect()).unwrap_or_default();
-        cats.sort();
+        let mut all: Vec<String> = sp.map(|sp| sp.files.iter().filter_map(|f| s.labels.get(f).cloned()).collect()).unwrap_or_default();
+        all.sort();
+        let mut cats = all.clone();
         cats.dedup();
         if s.filter.as_ref().is_some_and(|f| !cats.contains(f)) {
             s.filter = None;
@@ -241,8 +246,14 @@ fn push(ui: &AppWindow) {
                 }).collect()
             })
             .unwrap_or_default();
-        g.set_space_labels(ModelRc::new(VecModel::from(std::iter::once(SharedString::from("All categories")).chain(cats.iter().map(|c| SharedString::from(c.as_str()))).collect::<Vec<_>>())));
+        // Stirling's category chips: each with its number of files, after an "All" chip (the
+        // space's files, labelled or not).
+        g.set_space_labels(ModelRc::new(VecModel::from(cats.iter().map(|c| SharedString::from(c.as_str())).collect::<Vec<_>>())));
+        g.set_space_counts(ModelRc::new(VecModel::from(std::iter::once(sp.map_or(0, |sp| sp.files.len() as i32)).chain(cats.iter().map(|c| all.iter().filter(|a| *a == c).count() as i32)).collect::<Vec<_>>())));
         g.set_space_filter(s.filter.as_ref().and_then(|f| cats.iter().position(|c| c == f)).map_or(0, |i| i as i32 + 1));
+        g.set_voices(ModelRc::new(VecModel::from(s.voices.iter().map(|v| SharedString::from(v.label.as_str())).collect::<Vec<_>>())));
+        g.set_voice_a(s.hosts[0] as i32);
+        g.set_voice_b(s.hosts[1] as i32);
         s.shown = shown;
         g.set_space_files(ModelRc::new(VecModel::from(files)));
         g.set_space_name(s.space.checked_sub(1).and_then(|k| s.spaces.get(k)).map(|sp| sp.name.as_str()).unwrap_or_default().into());
@@ -358,6 +369,20 @@ fn act(ui: &AppWindow, tab: i32, req: Request) {
         }
         "copy" | "save" | "open" => return message_act(ui, tab, &req),
         "audio" => return save_audio(ui, tab, &req.arg),
+        // A host's voice chosen in the podcast's options (scope: the host, 0 or 1), kept for the
+        // next podcasts.
+        "voice" => {
+            let Ok(k) = req.arg.parse::<usize>() else { return };
+            let host = req.scope.clamp(0, 1) as usize;
+            let ids = with(|s| {
+                if k < s.voices.len() {
+                    s.hosts[host] = k;
+                }
+                s.hosts.map(|h| s.voices.get(h).map(|v| v.id.clone()).unwrap_or_default()).to_vec()
+            });
+            crate::home::update_ai(ui, |a| a.podcast_voices = ids);
+            return push(ui);
+        }
         "goto" => return goto(ui, tab, &req.arg),
         "highlight" => {
             let points = req.arg.parse::<usize>().ok().and_then(|k| panel(tab, |p| p.messages.get(k).map(|m| m.points.clone()))).unwrap_or_default();
@@ -573,6 +598,9 @@ fn finish(ui: &AppWindow, tab: i32, req: Request, result: Result<String, AiError
             };
             panel(tab, |p| p.messages.push(Msg { text: text.clone(), podcast, cites, points, ..Default::default() }));
             push(ui);
+            if podcast {
+                load_voices(ui, &text);
+            }
             if req.action.starts_with("slides") {
                 save_deck(ui, tab, &title, &text, req.action == "slides-pptx");
             }
@@ -653,8 +681,30 @@ fn goto(ui: &AppWindow, tab: i32, arg: &str) {
     }
 }
 
-/// Acrobat's podcast, spoken: the script read by the computer's voices, one per host, into a
-/// WAV file the user names; then opened from its message.
+/// The voices that can speak `script` (those of its language, best first), found on a worker
+/// thread (Windows's listing takes a second); each host keeps the voice last chosen for it when
+/// there is one, else gets the best two ([`ai::audio::host_voices`]).
+fn load_voices(ui: &AppWindow, script: &str) {
+    let lang = ai::audio::guess_language(script);
+    let weak = ui.as_weak();
+    std::thread::spawn(move || {
+        let ranked = ai::audio::rank_voices(&ai::audio::system_voices(), lang);
+        let _ = weak.upgrade_in_event_loop(move |ui| {
+            let chosen = crate::home::prefs().ai.podcast_voices;
+            let best = ai::audio::host_voices(&ranked);
+            let at = |id: &str| ranked.iter().position(|v| v.id == id);
+            let hosts = [0, 1].map(|h| chosen.get(h).and_then(|id| at(id)).or_else(|| best[h].as_ref().and_then(|v| at(&v.id))).unwrap_or(0));
+            with(|s| {
+                s.voices = ranked;
+                s.hosts = hosts;
+            });
+            push(&ui);
+        });
+    });
+}
+
+/// Acrobat's podcast, spoken: the script read by the computer's voices, one per host (as chosen
+/// in the podcast's options), into a WAV file the user names; then opened from its message.
 fn save_audio(ui: &AppWindow, tab: i32, k: &str) {
     let Ok(k) = k.parse::<usize>() else { return };
     let Some(script) = panel(tab, |p| p.messages.get(k).map(|m| m.text.clone())) else { return };
@@ -671,10 +721,11 @@ fn save_audio(ui: &AppWindow, tab: i32, k: &str) {
             p.cancel = cancel.clone();
         });
         push(ui);
-        let voice = crate::home::prefs().reading_voice;
+        let chosen = with(|s| s.hosts.map(|h| s.voices.get(h).cloned()));
         let weak = ui.as_weak();
         std::thread::spawn(move || {
-            let voices = ai::audio::host_voices(voice.as_deref(), &crate::run::voices());
+            // Voices not listed yet (Save audio… right away): the best two of the script's language.
+            let voices = if chosen.iter().all(Option::is_some) { chosen } else { ai::audio::host_voices(&ai::audio::rank_voices(&ai::audio::system_voices(), ai::audio::guess_language(&script))) };
             let status = weak.clone();
             let r = ai::audio::podcast_wav(&script, &ai::audio::SystemSynth, &voices, &out, &mut |i, n| {
                 let _ = status.upgrade_in_event_loop(move |ui| {

@@ -3,7 +3,9 @@
 //! (Japanese, Arabic, Thai, Hebrew…) and the computer's open-licensed fonts (DejaVu, Noto,
 //! Liberation…), each face embedded whole as a CID font with a ToUnicode map, so the text stays
 //! searchable and copyable. Arabic and Thai are shaped by PdfCraft's shaper; Arabic and Hebrew
-//! lines run right to left.
+//! lines run right to left. Bold text (slide titles) takes a bold face when one draws the
+//! character (BIZ UDPGothic Bold for Japanese, Cyrillic and Greek; the system's DejaVu or Noto
+//! Bold), else the regular face stroked as well as filled (synthetic bold, named `Face,Bold`).
 
 use crate::{OpdfError, Result};
 use lopdf::{dictionary, Document, Object, Stream};
@@ -18,6 +20,8 @@ struct Face {
     name: String,
     bytes: std::sync::Arc<Vec<u8>>,
     cff: bool,
+    /// A bold face (used for bold text only).
+    bold: bool,
 }
 
 impl Face {
@@ -29,8 +33,32 @@ impl Face {
 fn face_of(name: &str, bytes: Vec<u8>) -> Option<Face> {
     let f = FontRef::new(&bytes).ok()?;
     let cff = skrifa::raw::TableProvider::glyf(&f).is_err();
-    let name = name.chars().filter(|c| c.is_ascii_alphanumeric()).collect::<String>();
-    Some(Face { name: if name.is_empty() { "Font".into() } else { name }, cff, bytes: std::sync::Arc::new(bytes) })
+    let name = name.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect::<String>();
+    Some(Face { name: if name.is_empty() { "Font".into() } else { name }, cff, bytes: std::sync::Arc::new(bytes), bold: false })
+}
+
+/// The bold faces tried for bold text, in order: the common Latin families' Bold (DejaVu Sans
+/// Bold…), the bundled craft fonts' Bold faces, then the system's other plain Bold faces.
+fn bold_faces() -> Vec<Face> {
+    let mut system: Vec<&crate::system_fonts::SystemFont> = crate::system_fonts::installed()
+        .iter()
+        .filter(|f| f.why_not.is_none() && f.name == format!("{} Bold", f.family) && !f.path.extension().is_some_and(|e| e.eq_ignore_ascii_case("ttc")))
+        .collect();
+    let rank = |f: &&crate::system_fonts::SystemFont| {
+        let n = f.family.to_ascii_lowercase();
+        ["dejavu sans", "liberation sans", "noto sans", "free sans", "freesans"].iter().position(|k| n == *k).unwrap_or(9)
+    };
+    system.sort_by_key(rank);
+    let read = |f: &&crate::system_fonts::SystemFont| std::fs::read(&f.path).ok().and_then(|b| face_of(&format!("{}-Bold", f.family), b));
+    let mut out: Vec<Face> = system.iter().take_while(|f| rank(f) < 9).filter_map(read).collect();
+    for c in pdfcraft_fonts::CRAFT_FONTS.iter().filter(|c| c.style.eq_ignore_ascii_case("bold")) {
+        out.extend(face_of(&format!("{}-Bold", c.family), c.bytes.to_vec()));
+    }
+    out.extend(system.iter().filter(|f| rank(f) == 9).filter_map(read));
+    for f in &mut out {
+        f.bold = true;
+    }
+    out
 }
 
 /// The faces tried, in order: bundled craft fonts, then the system's embeddable fonts (common
@@ -58,10 +86,12 @@ fn faces() -> Vec<Face> {
     out
 }
 
-/// One glyph placed: face, glyph id, x and y offset from the pen, the text it shows.
+/// One glyph placed: face, glyph id, x and y offset from the pen, the text it shows, and whether
+/// it is bold drawn from a regular face (stroked as well as filled).
 #[derive(Clone)]
 struct Glyph {
     face: usize,
+    fake_bold: bool,
     gid: u16,
     advance: f64,
     dy: f64,
@@ -73,6 +103,8 @@ struct Shaper {
     faces: Vec<Face>,
     /// The face of PdfCraft's Arabic and Thai shapers, added to `faces` when used.
     shaped: BTreeMap<u8, usize>,
+    /// Whether the bold faces were added to `faces` (the first time bold text is set).
+    bold_loaded: bool,
 }
 
 fn rtl_char(c: char) -> bool {
@@ -105,7 +137,11 @@ impl Shaper {
     /// The glyphs of `text` at `size`, in logical order (Arabic runs come back in visual order:
     /// they are reversed again when the line is laid out right to left). Err names a character no
     /// face has.
-    fn glyphs(&mut self, text: &str, size: f64) -> std::result::Result<Vec<Glyph>, char> {
+    fn glyphs(&mut self, text: &str, size: f64, bold: bool) -> std::result::Result<Vec<Glyph>, char> {
+        if bold && !self.bold_loaded {
+            self.faces.extend(bold_faces());
+            self.bold_loaded = true;
+        }
         let mut out = Vec::new();
         let chars: Vec<char> = text.chars().collect();
         let mut i = 0;
@@ -127,7 +163,7 @@ impl Shaper {
                     for cl in clusters {
                         let n = cl.glyphs.len();
                         for (k, (gid, [dx, dy])) in cl.glyphs.iter().enumerate() {
-                            part.push(Glyph { face: fi, gid: *gid as u16, advance: if k + 1 == n { cl.advance * size } else { 0.0 }, dx: dx * size, dy: dy * size, text: if k == 0 { cl.text.clone() } else { String::new() } });
+                            part.push(Glyph { face: fi, fake_bold: bold, gid: *gid as u16, advance: if k + 1 == n { cl.advance * size } else { 0.0 }, dx: dx * size, dy: dy * size, text: if k == 0 { cl.text.clone() } else { String::new() } });
                         }
                     }
                     // Shaped right to left: back to logical order, so the line's bidi pass applies once.
@@ -140,27 +176,35 @@ impl Shaper {
                 }
             }
             if c.is_whitespace() || c.is_control() {
-                let sp = self.simple(' ', size).unwrap_or(Glyph { face: 0, gid: 0, advance: size * 0.3, dx: 0.0, dy: 0.0, text: String::new() });
+                let sp = self.simple(' ', size, bold).unwrap_or(Glyph { face: 0, fake_bold: false, gid: 0, advance: size * 0.3, dx: 0.0, dy: 0.0, text: String::new() });
                 out.push(Glyph { text: " ".into(), ..sp });
             } else {
-                out.push(self.simple(c, size).ok_or(c)?);
+                out.push(self.simple(c, size, bold).ok_or(c)?);
             }
             i += 1;
         }
         Ok(out)
     }
 
-    fn simple(&self, c: char, size: f64) -> Option<Glyph> {
-        self.faces.iter().enumerate().find_map(|(i, f)| {
-            let font = f.font()?;
-            let gid = font.charmap().map(c)?;
-            if gid.to_u32() == 0 || gid.to_u32() > u16::MAX as u32 {
-                return None;
-            }
-            let upm = font.metrics(Size::unscaled(), LocationRef::default()).units_per_em.max(1) as f64;
-            let adv = font.glyph_metrics(Size::unscaled(), LocationRef::default()).advance_width(gid).unwrap_or(0.0) as f64 / upm;
-            Some(Glyph { face: i, gid: gid.to_u32() as u16, advance: adv * size, dx: 0.0, dy: 0.0, text: c.to_string() })
-        })
+    /// `c` from the first face that has it: for bold text a bold face, else a regular one drawn
+    /// with synthetic bold.
+    fn simple(&self, c: char, size: f64, bold: bool) -> Option<Glyph> {
+        let found = |want_bold: bool| {
+            self.faces.iter().enumerate().filter(|(_, f)| f.bold == want_bold).find_map(|(i, f)| {
+                let font = f.font()?;
+                let gid = font.charmap().map(c)?;
+                if gid.to_u32() == 0 || gid.to_u32() > u16::MAX as u32 {
+                    return None;
+                }
+                let upm = font.metrics(Size::unscaled(), LocationRef::default()).units_per_em.max(1) as f64;
+                let adv = font.glyph_metrics(Size::unscaled(), LocationRef::default()).advance_width(gid).unwrap_or(0.0) as f64 / upm;
+                Some(Glyph { face: i, fake_bold: false, gid: gid.to_u32() as u16, advance: adv * size, dx: 0.0, dy: 0.0, text: c.to_string() })
+            })
+        };
+        match bold {
+            true => found(true).or_else(|| found(false).map(|g| Glyph { fake_bold: true, ..g })),
+            false => found(false),
+        }
     }
 }
 
@@ -259,7 +303,8 @@ impl Line {
 /// `/F1`… in a page's font resources).
 pub struct Setter {
     sh: Shaper,
-    used: BTreeMap<usize, BTreeMap<u16, (f64, String)>>,
+    /// Glyphs drawn, by face and synthetic bold (a `Face,Bold` font of its own).
+    used: BTreeMap<(usize, bool), BTreeMap<u16, (f64, String)>>,
 }
 
 impl Default for Setter {
@@ -270,15 +315,16 @@ impl Default for Setter {
 
 impl Setter {
     pub fn new() -> Setter {
-        Setter { sh: Shaper { faces: faces(), shaped: BTreeMap::new() }, used: BTreeMap::new() }
+        Setter { sh: Shaper { faces: faces(), shaped: BTreeMap::new(), bold_loaded: false }, used: BTreeMap::new() }
     }
 
-    /// `text`'s paragraphs at `size`, wrapped to `width`. Err names a character no face draws.
-    pub fn lines(&mut self, text: &str, size: f64, width: f64) -> Result<Vec<Line>> {
+    /// `text`'s paragraphs at `size`, wrapped to `width`, bold or not. Err names a character no
+    /// face draws.
+    pub fn lines(&mut self, text: &str, size: f64, width: f64, bold: bool) -> Result<Vec<Line>> {
         let mut out = Vec::new();
         for para in text.replace("\r\n", "\n").split('\n') {
             let rtl = para.chars().find(|c| c.is_alphabetic()).is_some_and(rtl_char);
-            let glyphs = self.sh.glyphs(para, size).map_err(|c| OpdfError::Unsupported(format!("no font on this computer draws “{c}” (U+{:04X}); save the text as a .txt file instead", c as u32)))?;
+            let glyphs = self.sh.glyphs(para, size, bold).map_err(|c| OpdfError::Unsupported(format!("no font on this computer draws “{c}” (U+{:04X}); save the text as a .txt file instead", c as u32)))?;
             for l in wrap(glyphs, width) {
                 out.push(Line { glyphs: l, rtl });
             }
@@ -298,11 +344,16 @@ impl Setter {
                 let font = self.sh.faces[g.face].font();
                 let upm = font.as_ref().map_or(1000.0, |f| f.metrics(Size::unscaled(), LocationRef::default()).units_per_em.max(1) as f64);
                 let adv = font.as_ref().and_then(|f| f.glyph_metrics(Size::unscaled(), LocationRef::default()).advance_width(GlyphId::new(g.gid as u32))).unwrap_or(0.0) as f64 / upm * 1000.0;
-                let e = self.used.entry(g.face).or_default().entry(g.gid).or_insert((adv, String::new()));
+                let e = self.used.entry((g.face, g.fake_bold)).or_default().entry(g.gid).or_insert((adv, String::new()));
                 if e.1.is_empty() {
                     e.1 = g.text.clone();
                 }
-                c.push_str(&format!("/F{} {size} Tf 1 0 0 1 {:.2} {:.2} Tm <{:04X}> Tj\n", g.face, x + g.dx, y + g.dy, g.gid));
+                if g.fake_bold {
+                    // Filled and stroked (in the stroke colour the caller sets to the fill's): synthetic bold.
+                    c.push_str(&format!("/B{} {size} Tf 2 Tr {:.2} w 1 0 0 1 {:.2} {:.2} Tm <{:04X}> Tj 0 Tr\n", g.face, size * 0.035, x + g.dx, y + g.dy, g.gid));
+                } else {
+                    c.push_str(&format!("/F{} {size} Tf 1 0 0 1 {:.2} {:.2} Tm <{:04X}> Tj\n", g.face, x + g.dx, y + g.dy, g.gid));
+                }
             }
             x += g.advance;
         }
@@ -312,20 +363,31 @@ impl Setter {
     /// The faces drawn with, embedded in `doc`: the font resource dictionary.
     pub fn fonts(&self, doc: &mut Document) -> Result<lopdf::Dictionary> {
         let mut fonts = lopdf::Dictionary::new();
-        for (fi, glyphs) in &self.used {
+        // A face drawn both plain and with synthetic bold is embedded once.
+        let mut files: BTreeMap<usize, lopdf::ObjectId> = BTreeMap::new();
+        for ((fi, fake_bold), glyphs) in &self.used {
             let f = &self.sh.faces[*fi];
             let font = f.font().ok_or_else(|| OpdfError::Engine("font unreadable".into()))?;
             let m = font.metrics(Size::unscaled(), LocationRef::default());
             let scale = 1000.0 / m.units_per_em.max(1) as f64;
-            let mut file = Stream::new(dictionary! { "Length1" => f.bytes.len() as i64 }, f.bytes.to_vec());
-            if f.cff {
-                file.dict.set("Subtype", "OpenType");
-            }
-            let _ = file.compress();
-            let file = doc.add_object(file);
+            let file = match files.get(fi) {
+                Some(id) => *id,
+                None => {
+                    let mut file = Stream::new(dictionary! { "Length1" => f.bytes.len() as i64 }, f.bytes.to_vec());
+                    if f.cff {
+                        file.dict.set("Subtype", "OpenType");
+                    }
+                    let _ = file.compress();
+                    let id = doc.add_object(file);
+                    files.insert(*fi, id);
+                    id
+                }
+            };
+            // Synthetic bold is named as Acrobat names it ("Face,Bold") and flagged ForceBold.
+            let name = if *fake_bold { format!("{},Bold", f.name) } else { f.name.clone() };
             let b = m.bounds.map(|b| [b.x_min, b.y_min, b.x_max, b.y_max]).unwrap_or([0.0, -200.0, 1000.0, 900.0]);
             let mut desc = dictionary! {
-                "Type" => "FontDescriptor", "FontName" => Object::Name(f.name.clone().into_bytes()), "Flags" => 4,
+                "Type" => "FontDescriptor", "FontName" => Object::Name(name.clone().into_bytes()), "Flags" => if *fake_bold { 4 | 1 << 18 } else { 4 },
                 "FontBBox" => b.iter().map(|v| Object::Real(*v * scale as f32)).collect::<Vec<_>>(),
                 "ItalicAngle" => 0, "Ascent" => Object::Real(m.ascent * scale as f32), "Descent" => Object::Real(m.descent * scale as f32),
                 "CapHeight" => Object::Real(m.cap_height.unwrap_or(m.ascent) * scale as f32), "StemV" => 80,
@@ -334,7 +396,7 @@ impl Setter {
             let desc = doc.add_object(desc);
             let widths: Vec<Object> = glyphs.iter().flat_map(|(gid, (adv, _))| [Object::Integer(*gid as i64), Object::Array(vec![Object::Real(*adv as f32)])]).collect();
             let mut cid = dictionary! {
-                "Type" => "Font", "Subtype" => if f.cff { "CIDFontType0" } else { "CIDFontType2" }, "BaseFont" => Object::Name(f.name.clone().into_bytes()),
+                "Type" => "Font", "Subtype" => if f.cff { "CIDFontType0" } else { "CIDFontType2" }, "BaseFont" => Object::Name(name.clone().into_bytes()),
                 "CIDSystemInfo" => dictionary! { "Registry" => Object::string_literal("Adobe"), "Ordering" => Object::string_literal("Identity"), "Supplement" => 0 },
                 "FontDescriptor" => desc, "W" => widths, "DW" => 0,
             };
@@ -355,10 +417,10 @@ impl Setter {
             cmap.push_str("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
             let to_unicode = doc.add_object(Stream::new(dictionary! {}, cmap.into_bytes()));
             let type0 = doc.add_object(dictionary! {
-                "Type" => "Font", "Subtype" => "Type0", "BaseFont" => Object::Name(f.name.clone().into_bytes()), "Encoding" => "Identity-H",
+                "Type" => "Font", "Subtype" => "Type0", "BaseFont" => Object::Name(name.into_bytes()), "Encoding" => "Identity-H",
                 "DescendantFonts" => vec![cid.into()], "ToUnicode" => to_unicode,
             });
-            fonts.set(format!("F{fi}"), type0);
+            fonts.set(format!("{}{fi}", if *fake_bold { "B" } else { "F" }), type0);
         }
         Ok(fonts)
     }
@@ -370,7 +432,7 @@ pub fn text_pdf(title: &str, text: &str) -> Result<Vec<u8>> {
     let (w, h, margin, size) = (612.0, 792.0, 72.0, 11.0);
     let line_h = size * 1.45;
     let mut set = Setter::new();
-    let lines = set.lines(text, size, w - 2.0 * margin)?;
+    let lines = set.lines(text, size, w - 2.0 * margin, false)?;
     let per_page = (((h - 2.0 * margin) / line_h).floor() as usize).max(1);
     let mut doc = Document::with_version("1.7");
     let pages_id = doc.new_object_id();
@@ -430,7 +492,7 @@ mod tests {
 
     #[test]
     fn long_lines_wrap_at_spaces_and_text_without_spaces_anywhere() {
-        let g = |t: &str| Glyph { face: 0, gid: 1, advance: 10.0, dx: 0.0, dy: 0.0, text: t.into() };
+        let g = |t: &str| Glyph { face: 0, fake_bold: false, gid: 1, advance: 10.0, dx: 0.0, dy: 0.0, text: t.into() };
         let words: Vec<Glyph> = "ab cd ef".chars().map(|c| g(&c.to_string())).collect();
         let lines = wrap(words, 55.0);
         let text: Vec<String> = lines.iter().map(|l| l.iter().map(|g| g.text.as_str()).collect()).collect();

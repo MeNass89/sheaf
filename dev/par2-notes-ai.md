@@ -95,6 +95,56 @@ map-reduce, ask, summarize, translate, podcast, slides, classify; `deck.rs` slid
 - Smoke: step 336's restore line (convert batch) had landed after step 367 in a merge, breaking a run
   of the AI steps alone ("AF: unbound variable"); moved back to the end of 336.
 
+## 28/10/2026 — polish to 9/9/9 (branch wip/ai-polish)
+
+### C-ai-005 Turn a document into a podcast or a slide deck
+
+- Gap (author a8, round 34): eSpeak voices sound robotic; non-Western decks had no bold titles.
+- Change, voices: `ai::audio` lists the computer's voices and ranks them for the script's language
+  (`guess_language`: by script, then by common short words for Latin text). macOS: `say -v ?`,
+  Premium > Enhanced > standard > Eloquence voices, novelty voices (Bubbles, Zarvox…) never chosen.
+  Windows: OneCore voices (Windows.Media.SpeechSynthesis, spoken through WinRT from PowerShell),
+  Natural or Neural ones first, then the desktop SAPI voices. A voice in both lists is kept once.
+  Linux: Piper when installed with a `.onnx` model and its `.json` (`$PIPER_VOICES`, then
+  `~/.local/share/piper*` and `/usr/share/piper-voices`), one voice per speaker of a multi-speaker
+  model, else eSpeak NG's male and female variants as before. The two hosts get the best voice and
+  then the best other one, of the other sex when both are known. Voices that write different
+  formats (Piper 16 kHz, eSpeak 22 kHz) are joined in the first turn's format: mixed down and
+  resampled. The podcast message has two voice lists, First host and Second host. Each defaults to
+  the best two, and the choice is kept in Preferences (`ai.podcast_voices`). Under gui-smoke
+  (`SHEAF_TEST_SPEECH`) the list is eSpeak NG's only, so the smoke does not depend on the machine.
+- Change, decks: slide titles in a non-Western deck are set in a bold face when one draws the
+  character: BIZ UDPGothic Bold (bundled) for Japanese, the system's DejaVu/Liberation/Noto Sans
+  Bold for Cyrillic and Greek. With no bold face (Thai, Arabic, Georgian) the regular face is
+  filled and stroked: synthetic bold, embedded as `Face,Bold` with ForceBold and the same font
+  file. PdfCraft's PowerPoint export reads bold from the font name, so the .pptx titles are bold
+  too (`b="1"`).
+- Tests: `macos_hosts_get_the_premium_and_enhanced_voices_of_two_sexes`,
+  `the_second_host_is_of_the_other_sex_when_as_good`, `windows_hosts_get_onecore_and_natural_voices_first`,
+  `linux_hosts_get_piper_voices_before_espeak`, `the_language_of_a_script_is_guessed`,
+  `voices_of_two_formats_are_joined_in_the_first` (unit, sample listings);
+  `japanese_and_cyrillic_decks_have_bold_titles` (title font `BIZUDPGothic-Bold…` / a Bold face,
+  points regular, text read back, pptx title run bold), `a_title_without_a_bold_face_is_drawn_in_synthetic_bold`
+  (Thai: `,Bold` font, `2 Tr`, text read back); `espeak_speaks_a_podcast_when_installed` now
+  goes through the ranking. Smoke 366 is unchanged (Save audio… still records a WAV).
+- Not proved here: `say` and PowerShell synthesis need a Mac and a Windows machine (the listings
+  are parsed from real sample outputs; the commands themselves are not run). Piper is not installed
+  on the VPS: its ranking is tested on a model folder made by the test, but Piper never spoke.
+- Self-grade: F 9 · A 9 · P 9.
+
+### C-ai-007 Let AI sort documents into categories
+
+- Gap (author a8, round 34): the category filter was a plain drop-down list.
+- Change: the space's categories are chips, as in Stirling: "All 4", then "Invoices 3"… with the
+  number of files of each in a muted figure. A click shows that category only, a second click shows
+  them all again. Tab reaches each chip and Space or Return selects it; screen readers get a checkable
+  button named with its count. Chips wrap on as many lines as needed. This is the app's chip
+  (`redact-panel.slint`'s `Chip`), given an optional `count` and keyboard focus. Focus comes by Tab
+  only, so a click on Redact's or Options' chips still leaves the focus in the field being typed in.
+- Tests: smoke 363 adds a check that the chips read "All 2" and "Animals 2"; the filter logic
+  (`space-act filter`) is unchanged. `every_interface_text_has_its_french` covers the new texts.
+- Self-grade: F 9 · A 9 · P 9.
+
 ## Left, and why
 
 - Right-to-left layout is per line (no full Unicode bidi algorithm for mixed nested runs); Arabic

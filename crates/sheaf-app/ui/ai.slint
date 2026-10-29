@@ -47,14 +47,20 @@ export global AiBridge {
     in property <int> space;
     in property <[string]> space-files;
     in property <string> space-name;
-    // The categories written in the space's PDFs ("All categories" first) and the one shown.
+    // The categories written in the space's PDFs, their number of files (the space's count first,
+    // for the All chip, then one per category), and the chip shown (0 All, k the category k - 1).
     in property <[string]> space-labels;
+    in property <[int]> space-counts;
     in property <int> space-filter;
+    // The voices that can speak the last podcast ("Ava (Premium) · en_US") and each host's.
+    in property <[string]> voices;
+    in property <int> voice-a;
+    in property <int> voice-b;
     // Open or close the panel on a tab.
     callback toggle(int);
     // A request: action ("ask", "summarize", "points", "translate", "podcast", "slides-pptx",
     // "slides-pdf", "classify", "cancel", "clear", "notice-ok", "notice-off", "turn-on", "copy",
-    // "save", "open", "retry", "settings", "audio", "highlight", "goto" ("message:cite")), its text (a question, a language, categories, a message's index), the
+    // "save", "open", "retry", "settings", "audio", "highlight", "goto" ("message:cite"), "voice" (a voice's index, the host as scope)), its text (a question, a language, categories, a message's index), the
     // scope (0 whole document, 1 selection, 2 pages) and the pages typed.
     callback act(int, string, string, int, string);
     // Spaces: "select" (index), "new", "add", "remove" (a file's index), "open" (a file's index), "delete",

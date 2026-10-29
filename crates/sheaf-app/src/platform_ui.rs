@@ -740,15 +740,9 @@ pub fn install(ui: &AppWindow) {
     // Slint rebuilds the menu bar.
     #[cfg(target_os = "macos")]
     {
-        let weak = ui.as_weak();
-        sheaf_app::mac_menu::install(&sheaf_app::i18n::tr("Settings…"), move || {
-            if let Some(ui) = weak.upgrade() {
-                let g = ui.global::<PlatformBridge>();
-                g.set_preferences_asked(g.get_preferences_asked() + 1);
-            }
-        });
         // AppleScript and Shortcuts (Run AppleScript): the dictionary's commands (macos/Sheaf.sdef).
         sheaf_app::scripting_mac::install();
+        let weak = ui.as_weak();
         let weak_check = ui.as_weak();
         sheaf_app::mac_menu::install(
             &sheaf_app::i18n::tr("Settings…"),

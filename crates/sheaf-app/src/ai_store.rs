@@ -27,6 +27,8 @@ pub struct AiPrefs {
     pub auto_open: bool,
     /// The language last translated into.
     pub language: Option<String>,
+    /// The voices last chosen for the podcast's two hosts (`Voice::id`), kept while they exist.
+    pub podcast_voices: Vec<String>,
 }
 
 impl AiPrefs {

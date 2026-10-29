@@ -7196,3 +7196,10 @@ msgstr "Recherche de mises à jour…"
 #: src/updates_ui.rs
 msgid "Sheaf {} is available."
 msgstr "Sheaf {} est disponible."
+#: ui/screens/ai-panel.slint
+msgid "First host"
+msgstr "Premier animateur"
+
+#: ui/screens/ai-panel.slint
+msgid "Second host"
+msgstr "Second animateur"

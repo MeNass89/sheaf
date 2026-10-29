@@ -368,8 +368,14 @@ fn answers_are_streamed_in_each_providers_format() {
 /// A voice that writes `n` samples of the voice's number (1 or 2) per word, 16-bit mono 22050 Hz.
 struct FakeVoice(Mutex<Vec<(String, Option<String>)>>);
 
+/// A voice the fake speaks with, by id.
+fn fake(id: &str) -> Option<sheaf_core::ai::audio::Voice> {
+    Some(sheaf_core::ai::audio::Voice { engine: sheaf_core::ai::audio::Engine::Espeak, id: id.into(), label: id.into(), lang: "en".into(), female: None, quality: 1 })
+}
+
 impl sheaf_core::ai::audio::Synth for FakeVoice {
-    fn to_wav(&self, text: &str, voice: Option<&str>, out: &std::path::Path) -> sheaf_core::Result<()> {
+    fn to_wav(&self, text: &str, voice: Option<&sheaf_core::ai::audio::Voice>, out: &std::path::Path) -> sheaf_core::Result<()> {
+        let voice = voice.map(|v| v.id.as_str());
         self.0.lock().unwrap().push((text.into(), voice.map(str::to_string)));
         let v: i16 = if voice == Some("m") { 1 } else { 2 };
         let data: Vec<u8> = (0..text.split_whitespace().count() * 10).flat_map(|_| v.to_le_bytes()).collect();
@@ -393,7 +399,7 @@ fn a_podcast_script_is_spoken_by_two_voices_into_one_wav() {
     use sheaf_core::ai::audio;
     let d = tempfile::tempdir().unwrap();
     let voice = FakeVoice(Mutex::new(Vec::new()));
-    let out = audio::podcast_wav("Alex: one two\nSam: three\nAlex: four", &voice, &[Some("m".into()), Some("f".into())], &d.path().join("p.wav"), &mut |_, _| true).unwrap();
+    let out = audio::podcast_wav("Alex: one two\nSam: three\nAlex: four", &voice, &[fake("m"), fake("f")], &d.path().join("p.wav"), &mut |_, _| true).unwrap();
     let said = voice.0.lock().unwrap().clone();
     assert_eq!(said.iter().map(|(t, v)| (t.as_str(), v.as_deref().unwrap())).collect::<Vec<_>>(), [("one two", "m"), ("three", "f"), ("four", "m")]);
     let b = std::fs::read(out).unwrap();
@@ -418,7 +424,10 @@ fn espeak_speaks_a_podcast_when_installed() {
         return;
     }
     let d = tempfile::tempdir().unwrap();
-    let voices = sheaf_core::ai::audio::host_voices(None, &[]);
+    use sheaf_core::ai::audio;
+    // The best two voices of the script's language (eSpeak NG's variants, or Piper's when installed).
+    let voices = audio::host_voices(&audio::rank_voices(&audio::system_voices(), audio::guess_language("Hello there. Hi Alex.")));
+    assert!(voices.iter().all(|v| v.as_ref().is_some_and(|v| v.lang.starts_with("en"))), "{voices:?}");
     let out = sheaf_core::ai::audio::podcast_wav("Alex: Hello there.\nSam: Hi Alex.", &sheaf_core::ai::audio::SystemSynth, &voices, &d.path().join("p.wav"), &mut |_, _| true).unwrap();
     let b = std::fs::read(out).unwrap();
     assert!(b.len() > 22050, "{} bytes", b.len());
@@ -467,6 +476,71 @@ fn a_deck_in_any_script_keeps_its_text_in_pdf_and_powerpoint() {
         }
     }
     assert!(xml.contains("年次報告") && xml.contains("Продажи"), "slides: {}", xml.chars().take(400).collect::<String>());
+}
+
+/// The base font names of the faces a deck page draws its title with (the first text drawn on
+/// the page) and its other text with.
+fn deck_fonts(pdf: &std::path::Path) -> Vec<(String, Vec<String>)> {
+    let doc = lopdf::Document::load(pdf).unwrap();
+    doc.get_pages()
+        .values()
+        .map(|id| {
+            let content = String::from_utf8_lossy(&doc.get_page_content(*id)).into_owned();
+            let fonts = doc.get_page_fonts(*id).unwrap();
+            let name = |key: &str| fonts.get(key.as_bytes()).and_then(|f| f.get(b"BaseFont").ok()).and_then(|n| n.as_name().ok()).map(|n| String::from_utf8_lossy(n).into_owned()).unwrap_or_default();
+            let used: Vec<String> = content.split_whitespace().filter(|t| t.starts_with("/F") || t.starts_with("/B")).map(|t| name(&t[1..])).collect();
+            (used.first().cloned().unwrap_or_default(), used.into_iter().skip(1).collect())
+        })
+        .collect()
+}
+
+/// Author a8, round 34: a Japanese or Russian deck had its titles in the regular face. The title
+/// of every slide is set in a bold face (BIZ UDPGothic Bold for Japanese, a Bold face for
+/// Cyrillic), the points in a regular one, and the text still reads back.
+#[test]
+fn japanese_and_cyrillic_decks_have_bold_titles() {
+    let d = tempfile::tempdir().unwrap();
+    for (name, outline, words) in [
+        ("ja", "# 年次報告\n- 売上は12%増加\n# 今後の計画\n- 新しい市場", ["年次報告", "今後の計画", "新しい市場"]),
+        ("ru", "# Годовой отчёт\n- Рост на 12%\n# Планы\n- Новые рынки", ["Годовой отчёт", "Планы", "Новые рынки"]),
+    ] {
+        let slides = deck::parse(outline);
+        let pdf = deck::write(&slides[0].title, &slides, &d.path().join(format!("{name}.pdf"))).unwrap();
+        for (k, (title, rest)) in deck_fonts(&pdf).iter().enumerate() {
+            assert!(title.contains("Bold"), "{name} slide {}: title in {title}", k + 1);
+            assert!(rest.iter().any(|f| !f.contains("Bold")), "{name} slide {}: points in {rest:?}", k + 1);
+        }
+        if name == "ja" {
+            assert!(deck_fonts(&pdf)[0].0.starts_with("BIZUDPGothic-Bold"), "{:?}", deck_fonts(&pdf)[0]);
+        }
+        let texts = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&pdf), &[]).unwrap().join("\n");
+        for w in words {
+            assert!(texts.contains(w), "{w} not in {texts:?}");
+        }
+        // The PowerPoint made from it has its titles bold.
+        let pptx = deck::write(&slides[0].title, &slides, &d.path().join(format!("{name}.pptx"))).unwrap();
+        let mut zip = zip::ZipArchive::new(std::fs::File::open(pptx).unwrap()).unwrap();
+        let mut xml = String::new();
+        std::io::Read::read_to_string(&mut zip.by_name("ppt/slides/slide2.xml").unwrap(), &mut xml).unwrap();
+        let run = xml.split("<a:r>").find(|r| r.contains(words[1])).unwrap_or_default();
+        assert!(run.contains("b=\"1\""), "{name}: {run}");
+    }
+}
+
+/// A script without a bold face (Thai: the bundled Noto Sans Thai is regular only) gets synthetic
+/// bold: its regular face, named `Face,Bold` and stroked; the text reads back.
+#[test]
+fn a_title_without_a_bold_face_is_drawn_in_synthetic_bold() {
+    let d = tempfile::tempdir().unwrap();
+    let slides = deck::parse("# สวัสดีครับ\n- ประเทศไทย");
+    let pdf = deck::write("t", &slides, &d.path().join("th.pdf")).unwrap();
+    let (title, _) = &deck_fonts(&pdf)[0];
+    assert!(title.ends_with(",Bold"), "{title}");
+    let doc = lopdf::Document::load(&pdf).unwrap();
+    let content = String::from_utf8_lossy(&doc.get_page_content(doc.page_iter().next().unwrap())).into_owned();
+    assert!(content.contains("2 Tr"), "no stroke in {content}");
+    let texts = sheaf_core::text::page_texts(&sheaf_core::pages::Input::new(&pdf), &[]).unwrap().concat();
+    assert!(texts.contains("ประเทศไทย"), "{texts:?}");
 }
 
 /// Sol, round 31: an Arabic line's "12.50" came out as 50.12. Drawn right to left, the number's
