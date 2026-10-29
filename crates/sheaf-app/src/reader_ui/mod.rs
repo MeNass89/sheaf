@@ -1202,7 +1202,7 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
 }
 
 /// The reader's side panel width until one is dragged (Theme.sidebar-default).
-pub const PANEL_WIDTH: f32 = 248.0;
+pub const PANEL_WIDTH: f32 = 260.0;
 
 /// Thumbnails in the reader's side panel: its width less the margins (150 px at the default
 /// width, PDF Expert's size; the tools' strip uses 84 px).

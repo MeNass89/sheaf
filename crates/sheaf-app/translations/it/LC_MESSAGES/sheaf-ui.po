@@ -7223,3 +7223,115 @@ msgstr "o trascina qui i file"
 #: ui/widgets/home-parts.slint
 msgid "Open Files"
 msgstr "Apri file"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Show or hide the sidebar"
+msgstr "Mostra o nascondi la barra laterale"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Show all pages"
+msgstr "Mostra tutte le pagine"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Read with the toolbars hidden"
+msgstr "Leggi senza le barre degli strumenti"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Zoom in"
+msgstr "Ingrandisci"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Zoom out"
+msgstr "Riduci"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Go to a page"
+msgstr "Vai a una pagina"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Fill & Sign"
+msgstr "Compila e firma"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Organize"
+msgstr "Organizza"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Redact"
+msgstr "Oscura"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Measure"
+msgstr "Misura"
+
+#: ui/screens/reader-toolbar.slint
+msgid "All tools"
+msgstr "Tutti gli strumenti"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page theme and text size"
+msgstr "Tema della pagina e dimensione del testo"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Reflow text"
+msgstr "Ridisponi il testo"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Find in the document"
+msgstr "Cerca nel documento"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Ask AI about this document"
+msgstr "Chiedi all’IA di questo documento"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Share this document"
+msgstr "Condividi questo documento"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Save as…"
+msgstr "Salva con nome…"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page theme: Day"
+msgstr "Tema della pagina: Giorno"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page theme: Sepia"
+msgstr "Tema della pagina: Seppia"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Page theme: Night"
+msgstr "Tema della pagina: Notte"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Show or hide the inspector"
+msgstr "Mostra o nascondi l’ispettore"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Select"
+msgstr "Seleziona"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Close the inspector"
+msgstr "Chiudi l’ispettore"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Stroke"
+msgstr "Tratto"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Selected"
+msgstr "Selezionate"
+
+#: ui/screens/reader-toolbar.slint
+msgid "{} of {}"
+msgstr "{} di {}"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Properties"
+msgstr "Proprietà"
+
+#: ui/screens/reader-toolbar.slint
+msgid "Select something on the page to see its properties"
+msgstr "Seleziona qualcosa nella pagina per vederne le proprietà"

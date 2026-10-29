@@ -1,4 +1,4 @@
-// The reader's options bar, floating over the top of the pages: the tool in use's options (stamp,
+// The reader's options bar, docked under the toolbar across the canvas (DESIGN §5.3): the tool in use's options (stamp,
 // shapes, pen widths, opacity, text format, signatures, colours) and the form's actions.
 import { PlatformBridge } from "../platform.slint";
 import { Slider, ListView } from "std-widgets.slint";
@@ -15,7 +15,9 @@ component GroupGap inherits Rectangle {
     Divider { x: 8px; }
 }
 
-export component ReaderOptionsBar inherits PopoverFrame {
+export component ReaderOptionsBar inherits Rectangle {
+    background: Theme.chrome;
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.hairline; }
     property <bool> confirm-clear;
     in property <ToolTab> tab;
     in property <int> id;

@@ -19,6 +19,8 @@ import { AiBridge } from "../ai.slint";
 import { ReaderPanel } from "reader-panel.slint";
 import { ReaderToolbar } from "reader-toolbar.slint";
 import { ReaderOptionsBar } from "reader-options.slint";
+import { ReaderRail } from "reader-rail.slint";
+import { ReaderInspector } from "reader-inspector.slint";
 import { FormFieldBox, FieldPropsCard, FieldsArrangeCard, ObjectsArrangeCard } from "reader-form.slint";
 import { SignatureSheet, PrintSheet, PropertiesSheet, BackgroundSheet, VersionsSheet, FolderSearchSheet, AccessibilitySheet, VoicesSheet, HelpSheet } from "reader-sheets.slint";
 import { ProductionSheet } from "reader-production.slint";
@@ -60,6 +62,46 @@ export component ReaderScreen inherits Rectangle {
     }
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     property <bool> narrow: root.width < 1150px;
+    // The mode (DESIGN §5.3): 0 Read, 1 Annotate, 2 Edit, 3 Fill & Sign, 4 Organize, 5 Redact,
+    // 6 Measure. A mode shows its rail and docks the options bar; Organize is the page grid.
+    // The tool in use follows the mode and the mode follows the tool (a letter typed, a menu item).
+    in-out property <int> mode;
+    property <int> tool: root.tab.reader.tool;
+    property <bool> grid: root.tab.reader.spread == 3;
+    property <bool> selected-annot: root.tab.reader.selected-annot;
+    function tool-mode(t: int) -> int {
+        return t == 0 ? 0 : (t == 7 || t == 8) ? 2 : (t == 9 || t == 14) ? 3 : t == 15 ? 6 : 1;
+    }
+    changed tool => {
+        if root.tool != 0 && root.tool-mode(root.tool) != root.mode {
+            root.mode = root.tool-mode(root.tool);
+            if root.grid { ReaderBridge.toggle-grid(root.id); }
+        }
+    }
+    changed grid => {
+        if root.grid && root.mode != 4 { root.mode = 4; }
+        if !root.grid && root.mode == 4 { root.mode = 0; }
+    }
+    // A comment picked while reading: its properties are Annotate's.
+    changed selected-annot => { if root.selected-annot && root.mode == 0 { root.mode = 1; } }
+    // A click on the selected mode, or Escape with nothing selected, returns to Read.
+    function set-mode(m: int) {
+        if (m == root.mode || m == 0) {
+            if root.grid { ReaderBridge.toggle-grid(root.id); }
+            root.mode = 0;
+            if root.tab.reader.tool != 0 { ReaderBridge.set-tool(root.id, 0); }
+        } else {
+            if root.tab.reader.tool != 0 && root.tool-mode(root.tab.reader.tool) != m { ReaderBridge.set-tool(root.id, 0); }
+            if (m == 4) != root.grid { ReaderBridge.toggle-grid(root.id); }
+            root.mode = m;
+        }
+        keys.focus();
+    }
+    // The inspector column (⌃⌘I): closed until asked for; its width while this window lives.
+    property <bool> inspector-open;
+    property <length> inspector-width: Theme.inspector-default;
+    // The options bar docks under the toolbar while a mode is on and the tool has options.
+    property <bool> options-shown: !root.bare && root.mode != 0 && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature);
     // The text being typed is checked for spelling (not a choice list, a link or a length).
     property <bool> spell-kind: root.tab.reader.note.kind != 5 && root.tab.reader.note.kind != 8 && root.tab.reader.note.kind != 9 && root.tab.reader.note.kind != 12;
     // The menu bar's commands this screen runs itself (main.slint): `menu-seq` bumped runs
@@ -387,6 +429,11 @@ export component ReaderScreen inherits Rectangle {
             toggle-full-screen => { root.full-screen(!root.is-full-screen); root.presenting = false; }
             hand: root.hand;
             toggle-hand => { root.hand = !root.hand; }
+            mode: root.mode;
+            set-mode(m) => { root.set-mode(m); }
+            inspector-open: root.inspector-open;
+            toggle-inspector => { root.inspector-open = !root.inspector-open; keys.focus(); }
+            sidebar-right: root.tab.reader.panel-open ? root.panel-width : 0px;
         }
         // A flexbox so that right to left (Preferences ▸ Interface ▸ Direction) puts the side panel
         // on the right of the pages (Slint's rows have no direction of their own).
@@ -414,8 +461,27 @@ export component ReaderScreen inherits Rectangle {
                 focus-pages => { keys.focus(); }
                 search-again(text) => { toolbar.search-for(text); }
             }
+            // ---- mode rail --------------------------------------------------------------------
+            if root.mode != 0 && !root.bare: ReaderRail {
+                tab: root.tab;
+                id: root.id;
+                mode: root.mode;
+                focus-pages => { keys.focus(); }
+            }
 
-            // ---- pages ------------------------------------------------------------------------
+            // ---- the canvas column: the docked options bar, then the pages ----------------------
+            VerticalLayout {
+            horizontal-stretch: 1;
+            // Options of the tool in use and the form's actions: docked under the toolbar across
+            // the canvas (DESIGN §5.3). Nothing floats over the pages but the selection bar.
+            if root.options-shown: ReaderOptionsBar {
+                tab: root.tab;
+                id: root.id;
+                light-colours: root.light-colours;
+                ink-colours: root.ink-colours;
+                light-tool: root.light-tool;
+                focus-pages => { keys.focus(); }
+            }
             pages-area := Rectangle {
                 // Split view: the first half's size (the divider dragged; Rust keeps the share).
                 property <float> frac: root.tab.split-frac > 0 ? root.tab.split-frac : 0.5;
@@ -1303,23 +1369,6 @@ export component ReaderScreen inherits Rectangle {
                         }
                     }
                 }
-                // Options of the tool in use and the form's actions: a bar floating over the top of
-                // the pages (PDF Expert's tool options), so the toolbar fits a small window and the
-                // pages never move when a tool is picked.
-                if !root.bare && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature): ReaderOptionsBar {
-                    // Right to left it floats at the top right of the pages, at its full width: when it
-                    // is wider than the pages, the pages' clip cuts its far (left) end, as left to right
-                    // cuts its right one (a reversed flexbox too narrow would overflow on the right).
-                    x: PlatformBridge.rtl ? parent.width - self.width - 12px : 12px;
-                    y: 8px;
-                    width: PlatformBridge.rtl ? self.bar-width : min(parent.width - 24px, self.bar-width);
-                    tab: root.tab;
-                    id: root.id;
-                    light-colours: root.light-colours;
-                    ink-colours: root.ink-colours;
-                    light-tool: root.light-tool;
-                    focus-pages => { keys.focus(); }
-                }
                 if root.tab.viewer-status != "": Text {
                     y: 40px;
                     width: parent.width;
@@ -1341,6 +1390,20 @@ export component ReaderScreen inherits Rectangle {
                         color: Theme.info;
                     }
                 }
+            }
+            }
+            // ---- inspector --------------------------------------------------------------------
+            if root.inspector-open && !root.bare: ReaderInspector {
+                z: 1;
+                tab: root.tab;
+                id: root.id;
+                mode: root.mode;
+                panel-width <=> root.inspector-width;
+                light-colours: root.light-colours;
+                ink-colours: root.ink-colours;
+                light-tool: root.light-tool;
+                close => { root.inspector-open = false; keys.focus(); }
+                focus-pages => { keys.focus(); }
             }
         }
     }
@@ -1364,7 +1427,7 @@ export component ReaderScreen inherits Rectangle {
     }
     if AiBridge.open && AiBridge.tab == root.tab.id: AiPanel {
         x: parent.width - self.width;
-        y: 46px;
+        y: Theme.toolbar-height;
         width: min(380px, parent.width - 24px);
         height: parent.height - self.y;
         id: root.tab.id;
@@ -1372,7 +1435,7 @@ export component ReaderScreen inherits Rectangle {
     }
     if root.tab.reader.ocr-review-open: OcrReviewPanel {
         x: parent.width - self.width;
-        y: 46px;
+        y: Theme.toolbar-height;
         width: min(360px, parent.width - 24px);
         height: parent.height - self.y;
         tab: root.tab;
@@ -1491,6 +1554,14 @@ export component ReaderScreen inherits Rectangle {
                 // PDF Expert's shortcuts: ⌘0 100 %, ⌘9 fit width, ⌘8 fit page, ⌃⌘F full screen,
                 // ⇧⌘[ ⇧⌘] previous / next tab, ⌥⌘G go to page, ⌥⌘0 left panel.
                 if e.text == "0" && e.modifiers.alt && !PlatformBridge.rebound[21] /* panel */ { ReaderBridge.toggle-panel(root.id); return accept; }
+                // ⌘1 … ⌘6: the modes (DESIGN §5.3); ⌃⌘I the inspector.
+                if e.text == "1" && !e.modifiers.alt { root.set-mode(1); return accept; }
+                if e.text == "2" && !e.modifiers.alt { root.set-mode(2); return accept; }
+                if e.text == "3" && !e.modifiers.alt { root.set-mode(3); return accept; }
+                if e.text == "4" && !e.modifiers.alt { root.set-mode(4); return accept; }
+                if e.text == "5" && !e.modifiers.alt { root.set-mode(5); return accept; }
+                if e.text == "6" && !e.modifiers.alt { root.set-mode(6); return accept; }
+                if (e.text == "i" || e.text == "I") && e.modifiers.meta { root.inspector-open = !root.inspector-open; return accept; }
                 // ⌥⌘2: one column → two pages → cover alone (⌥2 types ™ on a Mac keyboard).
                 if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
                 if e.text == "0" && !PlatformBridge.rebound[18] /* actual-size */ { ReaderBridge.zoom-fit(root.id, 2); return accept; }
@@ -1562,6 +1633,8 @@ export component ReaderScreen inherits Rectangle {
             if root.presenting && (e.text == Key.LeftArrow || e.text == Key.UpArrow || e.text == Key.PageUp) { ReaderBridge.page-step(root.id, -1); return accept; }
             if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
             if e.text == Key.Escape && root.hand { root.hand = false; return accept; }
+            // Escape with nothing selected and the Select tool: back to Read.
+            if e.text == Key.Escape && root.mode != 0 && root.tab.reader.tool == 0 && !root.tab.reader.has-selection && !root.tab.reader.selected-annot && !root.tab.reader.has-picked && !root.tab.reader.selected-image { root.set-mode(0); return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }
             // ⌃⌘T in PDF Expert hides the toolbar; here T alone with ⇧ (no ⌘ shortcuts left free).
             if e.text == "T" || (e.text == "t" && e.modifiers.shift) { root.bare = !root.bare; return accept; }

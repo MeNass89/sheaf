@@ -103,8 +103,8 @@ REAL0=$(real_profile)
 
 # Toolbar controls reached by position (1280×800 window), kept here: update them when the toolbar
 # changes (a capture of the toolbar shows where they went).
-# One page-theme button instead of three (BAMA on every platform, 29/10): the zoom figure at 750, its arrow at 778.
-ZOOM_X=750; ZOOM_MENU_X=778; WRENCH_X=1222
+# Redesign W3 (29/10): the zoom field at 132–204 (figure 160, arrow 190), the Tools segment of the mode bar at 784.
+ZOOM_X=160; ZOOM_MENU_X=190; WRENCH_X=784
 
 # The next file dialog's answer (debug builds read it instead of showing the dialog); empty: none.
 answer() { printf '%s' "$1" > "$OUT/dialog-answer"; }

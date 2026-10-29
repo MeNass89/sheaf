@@ -38,10 +38,10 @@ answer "$PWD/$OUT/blank.pdf"; xdotool mousemove 120 230 click 3; sleep 0.8; BF=$
 check "Insert a file's pages before page 1 (${BF:-no item}; $(npages $OUT/before.pdf) pages, page 2: $(first_text "$OUT/before.pdf" 2))" "[ -z \"\$(first_text $OUT/before.pdf 1)\" ] && [ \"\$(first_text $OUT/before.pdf 2)\" = 'Page 1' ]"
 quit
 
-# 83. A text box typed in place, then another tool picked in the toolbar (the Pen, 234,61): the text is added, not
+# 83. A text box typed in place, then another tool picked in the rail (the Pen, 282,348): the text is added, not
 # thrown away (Sol, 26/10).
 cp "$OUT/text.pdf" "$OUT/switch.pdf"; launch "$OUT/switch.pdf"; sleep 1
-key t; sleep 0.5; click 700 500 0.8; xdotool type --delay 20 "Kept on switch"; click 234 61 1; key ctrl+s; sleep 1.5
+key t; sleep 0.5; click 700 500 0.8; xdotool type --delay 20 "Kept on switch"; click 282 348 1; key ctrl+s; sleep 1.5
 check "text typed in place is kept when another tool is picked" "qpdf --qdf --object-streams=disable $OUT/switch.pdf - 2>/dev/null | grep -aq 'Kept on switch'"
 quit
 
@@ -936,7 +936,7 @@ ai_mock() { ai_stop; rm -f "$OUT/ai-port" "$OUT/ai-requests.jsonl" "$OUT/profile
 ai_stop() { [ -n "${AI_MOCK:-}" ] && kill "$AI_MOCK" 2>/dev/null; AI_MOCK=; prefs_set "p.pop('ai', None)"; }
 # ✦ AI Assistant, left of the wrench in the reader's toolbar.
 # (the pointer then leaves the button, so its tooltip does not cover the panel)
-ai_open() { click 1204 61 0.3; xdotool mousemove 600 450; sleep 1.2; }
+ai_open() { click 1090 61 0.3; xdotool mousemove 600 450; sleep 1.2; }
 ai_text() { ocr 380x700+900+100; }
 ai_wait() { for _ in $(seq 1 30); do ai_text | grep -q "$1" && break; sleep 0.5; done; }
 # Clicks the first word of $1 seen in the panel, else its other words ("Main points": Main, then points).
@@ -1474,18 +1474,8 @@ quit; scanner_restore
 # 335. iLovePDF's complete PDF/A selector: a Unicode profile produces the selected identifier,
 # not a b-level file with the wrong success label. Pictures contain no unmapped text.
 pdfa_reader_tool() {
-    # Custom tools adds a 32 px button. Find the wrench by its tooltip in either layout;
-    # the old coordinate opened AI Assistant after earlier steps saved a custom toolbox.
-    local x tip
-    for x in $WRENCH_X 1236 1268; do
-        xdotool mousemove "$x" 61; sleep 0.4
-        tip=$(ocr 500x30+780+80)
-        if echo "$tip" | grep -q 'Use a tool'; then
-            click "$x" 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
-            return 0
-        fi
-    done
-    return 1
+    # The Tools segment of the mode bar (its place never moves: custom tools live in More since W3).
+    click $WRENCH_X 61 1.2; xdotool type --delay 20 "pdfa"; key Return; sleep 2
 }
 convert -size 120x80 xc:'#2a9d4b' "$OUT/unicode-archive.pdf"
 launch "$OUT/unicode-archive.pdf"; sleep 1

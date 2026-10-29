@@ -292,8 +292,8 @@ click 420 200 1; LE=$(ocr 320x130+300+200 | tr -s ' '); shot 19-link-existing
 key ctrl+a; xdotool type --delay 20 "example.org"; key Return; sleep 1; key ctrl+s; sleep 2
 LK=$(qpdf --qdf --object-streams=disable "$OUT/link.pdf" - 2>/dev/null | grep -ac "/Subtype /Link"); LU=$(qpdf --qdf --object-streams=disable "$OUT/link.pdf" - 2>/dev/null | grep -ao "/URI (https://example.org)")
 check "Link tool: a box linked to page 2 ($LE), changed to an address, saved ($LK link, $LU)" "echo \"\$LE\" | grep -q 'Remove link' && [ \"$LK\" = 1 ] && [ -n \"$LU\" ]"
-click 413 61 0.8; RX=$(at Redact 300x200+398+80); [ -n "$RX" ] && click $RX 3; RD=$(ocr 1280x40+0+0 | tr -s ' ')
-check "the edit group's Redact button opens Redact PDF ($RD)" "echo \"$RD\" | grep -qE 'Redact ?PDF'"
+click 688 61 0.8; click 282 148 3; RD=$(ocr 1280x40+0+0 | tr -s " ")
+check "the Redact mode's rail opens Redact PDF ($RD)" "echo \"$RD\" | grep -qE 'Redact ?PDF'"
 quit
 
 # 19b. A link from selected text (⌘K, as the selection bar's Link): "quick brown" linked to page 3, saved with
