@@ -133,7 +133,8 @@ for line in sys.stdin:
         r, g, b = map(int, m.groups()); p = 205 <= r <= 228 and 205 <= b <= 234 and abs(r - g) < 6
         runs += p and not inside; inside = p
 print(max(runs - 1, 0))'; }
-N0=$(ntabs); NM=$(ocr 150x36+1095+4 | tr -d ' '); xdotool mousemove 1160 21 click 2; sleep 1; N1=$(ntabs)
+# The active tab's name alone (its icon and × beside it made tesseract read m12 as ml2).
+N0=$(ntabs); NM=$(ocr 70x30+1125+5 | tr -d ' '); xdotool mousemove 1160 21 click 2; sleep 1; N1=$(ntabs)
 check "twelve tabs share the bar, the active keeps its name, a middle click closes it ($N0 → $N1, $NM)" "[ \"$N0\" = 12 ] && [ \"$N1\" = 11 ] && echo \"$NM\" | grep -q '12'"
 quit
 
