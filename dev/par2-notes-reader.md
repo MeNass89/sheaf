@@ -168,3 +168,33 @@ widgets only (SidebarTabs, ToolbarButton, Chip, Checkbox, Button, SortCombo, Men
   size slider (inspector, W3: set the grid's zoom), the Organize rail, "n of 7 selected" (W3's inspector),
   rubber-band selection in the grid. At 480 one letter-size thumbnail (448 × 580) fills the column, so "two numbers
   readable" from the plan cannot hold with `width − 32`.
+## Page themes: cream Sepia, pictures kept, Night inverts only black and white (29/10/2026, Opus)
+
+Nassim, 29/10: Sepia ("crème") looked like a dull veil; Night is right but must not flip images, nor colours,
+"only black and white basically". PDF Expert's Night keeps photos (smart invert); its Sepia tints paper and text.
+
+- Sepia (reader.rs): paper #F8F1E3 (Apple Books' cream, was 244,236,216), ink #4A3B2A (was 91,70,54); contrast
+  9.4:1 (test ≥ 7:1). `backdrop(Sepia)` is `None`: the canvas around the pages is the reader's own (or the
+  backdrop chosen in Preferences), no more beige 226,216,192. Colours keep their hue as before.
+- Night: grey pixels (paper, black and grey text, lines) are inverted as before (paper 30,30,32, ink
+  222,222,220); a coloured pixel keeps its own colour. The mix is by chroma (`max - min`): below 24 inverted,
+  from 96 kept, smoothstep between, so anti-aliased edges of coloured strokes have no step. Known limit:
+  black text under a yellow highlight turns light on the kept yellow (the highlight is kept, its text is grey).
+- Pictures: `render_bytes` and the new `render_page_themed` read the page's image objects (top level and inside
+  Form XObjects, their matrices applied) under the pdfium lock, map them to render pixels with pdfium's own
+  `points_to_pixels` for the same config, and `tint_except` leaves those rectangles as drawn
+  (`reader::kept_pictures`). One-bit images (stencil masks, black-and-white scans) are ink: themed.
+  A scan is themed whole: when the kept pictures add up to ≥ 90 % of the page (`SCAN_COVER`), nothing is
+  kept, as PDF Expert inverts scanned text pages; a full-page photo is themed too then. The picture's bounding
+  box is kept, not its clip path: a photo clipped to a circle keeps its corners' paper un-themed.
+  Pixels: `points_to_pixels` rounds to whole pixels and left the photo's top and right edges a pixel short (a
+  light hairline at night, Greenberg p. 122); the exact map is built from `pixels_to_points` of three bitmap
+  corners, inverted, and rounded outwards as pdfium draws the picture over every pixel it touches.
+- Speed (debug build, Greenberg's Handbook, 1,982 pages, 1,200 px wide, best of 5): reading the pictures costs
+  0.06–0.12 ms a page (0 to 2 images); `tint_except` with a rectangle 100–105 ms against 110–113 ms for the
+  whole-page tint (debug, unoptimised sheaf-app; the tint loop was already this cost). Day 90–125 ms, Night
+  200–257 ms per page including opening the 1,982-page file each time, before and after alike.
+- Tests: reader.rs `sepia_is_a_light_cream_…`, `night_inverts_black_and_white_and_keeps_colours`,
+  `pictures_keep_their_pixels_…`, `a_scan_is_themed_whole_…`; renders.rs `themes_keep_photos_and_theme_ink_and_scans`
+  (a PDF with a photo, the photo inside a form, a 1-bit mask, and a full-page scan). No GUI smoke step asserted
+  theme colours. **All platforms**.

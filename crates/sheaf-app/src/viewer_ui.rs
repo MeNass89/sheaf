@@ -555,8 +555,7 @@ fn request_for(ui: &AppWindow, tab_id: i32, pane: bool) {
         q.submit(key, move || {
             let px = match &source {
                 Some(bytes) => viewer::render_bytes(bytes, input.password.as_deref(), key.page, key.width, look),
-                None => viewer::render_page(&input, key.page, key.width).and_then(|mut px| {
-                    sheaf_app::reader::tint(px.make_mut_bytes(), look.theme);
+                None => viewer::render_page_themed(&input, key.page, key.width, look.theme).and_then(|mut px| {
                     if let Some(display) = &look.display { display.apply(px.make_mut_bytes())?; }
                     Ok(px)
                 }),

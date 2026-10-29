@@ -271,13 +271,86 @@ pub fn boxes_of(pages: &[render::PageInfo]) -> Vec<PageBox> {
 /// against about 200 MB for pdfium across all 301 pages of a 43-copy merge. The page boxes the
 /// overlays are mapped with still come from PdfCraft ([`page_boxes`]), as do the redactions.
 pub fn render_page(input: &sheaf_core::pages::Input, page: usize, width: u32) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
+    render_page_themed(input, page, width, crate::reader::PageTheme::Day)
+}
+
+/// [`render_page`] recoloured for `theme`, the page's pictures left as drawn ([`crate::reader::kept_pictures`]).
+pub fn render_page_themed(input: &sheaf_core::pages::Input, page: usize, width: u32, theme: crate::reader::PageTheme) -> Result<slint::SharedPixelBuffer<slint::Rgba8Pixel>, String> {
     use pdfium_render::prelude::PdfRenderConfig;
     let _g = sheaf_core::engine::pdfium_lock();
     let doc = input.open().map_err(|e| e.to_string())?;
     let p = doc.pages().get(page as i32).map_err(|e| e.to_string())?;
-    let bmp = p.render_with_config(&PdfRenderConfig::new().set_target_width(width as i32)).map_err(|e| e.to_string())?;
+    let config = PdfRenderConfig::new().set_target_width(width as i32);
+    let bmp = p.render_with_config(&config).map_err(|e| e.to_string())?;
     let (w, h) = (bmp.width() as u32, bmp.height() as u32);
-    Ok(slint::SharedPixelBuffer::clone_from_slice(&bmp.as_rgba_bytes(), w, h))
+    let mut px = slint::SharedPixelBuffer::clone_from_slice(&bmp.as_rgba_bytes(), w, h);
+    if theme != crate::reader::PageTheme::Day {
+        let keep = crate::reader::kept_pictures(&pictures(&p, &config, w, h), w, h);
+        drop(bmp);
+        drop(p);
+        drop(doc);
+        drop(_g);
+        crate::reader::tint_except(px.make_mut_bytes(), w as usize, theme, &keep);
+    }
+    Ok(px)
+}
+
+/// The pictures page `p` draws (its image objects, inside Form XObjects too), in the pixels of a
+/// render `w` × `h` made with `config`, upright (before Rotate View turns it).
+fn pictures(p: &pdfium_render::prelude::PdfPage, config: &pdfium_render::prelude::PdfRenderConfig, w: u32, h: u32) -> Vec<crate::reader::Picture> {
+    use pdfium_render::prelude::*;
+    // A Form XObject's objects are bounded in its own space: `chain` maps them to the page's,
+    // innermost matrix first.
+    fn walk(object: PdfPageObject<'_>, chain: &mut Vec<PdfMatrix>, out: &mut Vec<(PdfQuadPoints, bool)>) {
+        if let Some(image) = object.as_image_object() {
+            let Ok(mut q) = object.bounds() else { return };
+            for m in chain.iter().rev() {
+                q = q.transform(*m);
+            }
+            out.push((q, image.bits_per_pixel().is_ok_and(|b| b == 1)));
+        } else if let Some(form) = object.as_x_object_form_object()
+            && chain.len() < 8
+            && let Ok(m) = form.matrix()
+        {
+            chain.push(m);
+            for i in form.as_range() {
+                if let Ok(child) = form.get(i) {
+                    walk(child, chain, out);
+                }
+            }
+            chain.pop();
+        }
+    }
+    let mut found = Vec::new();
+    for object in p.objects().iter() {
+        if matches!(object.object_type(), PdfPageObjectType::Image | PdfPageObjectType::XObjectForm) {
+            walk(object, &mut Vec::new(), &mut found);
+        }
+    }
+    // pdfium's points_to_pixels rounds to whole pixels, which left a photo's top and right edges a
+    // pixel short (a light hairline, its edge tinted, at night). The exact map instead: the page
+    // points of three bitmap corners (pixels_to_points gives fractions), inverted.
+    let (w, h) = (w as f32, h as f32);
+    let at = |x: f32, y: f32| p.pixels_to_points(x as i32, y as i32, config).ok().map(|(x, y)| (x.value, y.value));
+    let (Some(o), Some(right), Some(down)) = (at(0.0, 0.0), at(w, 0.0), at(0.0, h)) else { return Vec::new() };
+    let (ux, uy, vx, vy) = (right.0 - o.0, right.1 - o.1, down.0 - o.0, down.1 - o.1);
+    let det = ux * vy - uy * vx;
+    if det.abs() < 1e-6 {
+        return Vec::new();
+    }
+    let to_pixels = |x: PdfPoints, y: PdfPoints| {
+        let (dx, dy) = (x.value - o.0, y.value - o.1);
+        ((dx * vy - dy * vx) / det * w, (ux * dy - uy * dx) / det * h)
+    };
+    found
+        .into_iter()
+        .map(|(q, one_bit)| {
+            let corners = [(q.x1(), q.y1()), (q.x2(), q.y2()), (q.x3(), q.y3()), (q.x4(), q.y4())].map(|(x, y)| to_pixels(x, y));
+            let (xs, ys) = (corners.iter().map(|c| c.0), corners.iter().map(|c| c.1));
+            let rect = [xs.clone().fold(f32::MAX, f32::min), ys.clone().fold(f32::MAX, f32::min), xs.fold(f32::MIN, f32::max), ys.fold(f32::MIN, f32::max)];
+            crate::reader::Picture { rect, one_bit }
+        })
+        .collect()
 }
 
 /// How the reader draws its pages: recoloured for `theme`; `comments` false leaves annotations out;
@@ -323,6 +396,7 @@ pub fn render_bytes(bytes: &[u8], password: Option<&str>, page: usize, width: u3
     let bmp = p.render_with_config(&config).map_err(|e| e.to_string())?;
     let (w, h) = (bmp.width() as u32, bmp.height() as u32);
     let mut rgba = bmp.as_rgba_bytes();
+    let keep = if theme == crate::reader::PageTheme::Day { Vec::new() } else { crate::reader::kept_pictures(&pictures(&p, &config, w, h), w, h) };
     drop(bmp);
     drop(p);
     drop(doc);
@@ -330,7 +404,7 @@ pub fn render_bytes(bytes: &[u8], password: Option<&str>, page: usize, width: u3
     if grid {
         over_grid(&mut rgba, w);
     }
-    crate::reader::tint(&mut rgba, theme);
+    crate::reader::tint_except(&mut rgba, w as usize, theme, &keep);
     if let Some(display) = display { display.apply(&mut rgba)?; }
     if turn.is_multiple_of(360) {
         return Ok(slint::SharedPixelBuffer::clone_from_slice(&rgba, w, h));
@@ -461,6 +535,54 @@ mod tests {
         assert_eq!(grid(10, 190), [255, 0, 0, 255]);
     }
 
+    /// Night and Sepia leave a page's photos as drawn (on the page and inside a Form XObject),
+    /// theme a one-bit picture with the ink, and theme a scan whole.
+    #[test]
+    fn themes_keep_photos_and_theme_ink_and_scans() {
+        use crate::reader::PageTheme;
+        use lopdf::{Document, Object, Stream, dictionary};
+        let pdf = |content: &[u8]| {
+            let mut d = Document::with_version("1.7");
+            let pages = d.new_object_id();
+            let photo = d.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 1, "Height" => 1, "ColorSpace" => "DeviceRGB", "BitsPerComponent" => 8 }, vec![120, 110, 100]));
+            let ink = d.add_object(Stream::new(dictionary! { "Type" => "XObject", "Subtype" => "Image", "Width" => 8, "Height" => 1, "ImageMask" => true, "BitsPerComponent" => 1, "Decode" => vec![1.into(), 0.into()] }, vec![0xff]));
+            let form = d.add_object(Stream::new(
+                dictionary! { "Type" => "XObject", "Subtype" => "Form", "BBox" => vec![0.into(), 0.into(), 40.into(), 40.into()], "Resources" => dictionary! { "XObject" => dictionary! { "Im0" => photo } } },
+                b"q 40 0 0 40 0 0 cm /Im0 Do Q".to_vec(),
+            ));
+            let content = d.add_object(Stream::new(dictionary! {}, content.to_vec()));
+            let resources = dictionary! { "XObject" => dictionary! { "Im0" => photo, "Im1" => ink, "Fm0" => form } };
+            let page = d.add_object(dictionary! { "Type" => "Page", "Parent" => pages, "MediaBox" => vec![0.into(), 0.into(), 200.into(), 200.into()], "Resources" => resources, "Contents" => content });
+            d.objects.insert(pages, Object::Dictionary(dictionary! { "Type" => "Pages", "Kids" => vec![page.into()], "Count" => 1 }));
+            let cat = d.add_object(dictionary! { "Type" => "Catalog", "Pages" => pages });
+            d.trailer.set("Root", cat);
+            let mut bytes = Vec::new();
+            d.save_to(&mut bytes).unwrap();
+            bytes
+        };
+        let px = |bytes: &[u8], theme| {
+            let b = render_bytes(bytes, None, 0, 200, PageLook { theme, ..Default::default() }).unwrap();
+            let w = b.width() as usize;
+            let s = b.as_slice().to_vec();
+            move |x: usize, y: usize| { let p = s[y * w + x]; [p.r, p.g, p.b] }
+        };
+        // A muted photo (Night would invert it, being nearly grey) top left, the same photo in a form bottom right, black ink top right.
+        let page = pdf(b"q 50 0 0 50 20 130 cm /Im0 Do Q q 1 0 0 1 120 20 cm /Fm0 Do Q 0 g q 50 0 0 50 120 130 cm /Im1 Do Q");
+        for theme in [PageTheme::Night, PageTheme::Sepia] {
+            let at = px(&page, theme);
+            assert_eq!(at(45, 45), [120, 110, 100], "{theme:?}: the photo");
+            assert_eq!(at(140, 160), [120, 110, 100], "{theme:?}: the photo in a form");
+            assert_ne!(at(5, 5), [255, 255, 255], "{theme:?}: the paper");
+            assert_ne!(at(145, 45), [0, 0, 0], "{theme:?}: the ink");
+        }
+        assert_eq!(px(&page, PageTheme::Night)(5, 5), [30, 30, 32]);
+        assert_eq!(px(&page, PageTheme::Night)(145, 45), [222, 222, 220]);
+        assert_eq!(px(&page, PageTheme::Day)(145, 45), [0, 0, 0]);
+        // A scan: the picture over the whole page is themed.
+        let scan = pdf(b"q 200 0 0 200 0 0 cm /Im0 Do Q");
+        assert_ne!(px(&scan, PageTheme::Night)(100, 100), [120, 110, 100]);
+    }
+
     #[test]
     fn the_cache_pops_its_oldest_entry_for_the_byte_budget() {
         let mut c: Lru<u32, usize> = Lru::new(10);
@@ -513,5 +635,4 @@ mod tests {
         assert_eq!(managed.as_bytes()[3], 255);
         assert_eq!(bytes, before);
     }
-
 }
