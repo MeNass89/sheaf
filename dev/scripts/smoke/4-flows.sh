@@ -1230,7 +1230,8 @@ quit
 # First-launch rendering can outlast launch()'s initial draw. Wait for the actual Actions
 # header before using its controls; repeating the navigation click is safe and idempotent.
 # Actions' title row holds New action, New custom tool and Run on PDFs… (redesign W2): the rows under it
-# are 42 px higher than before; the crops and clicks of 350–356 follow.
+# are 42 px higher than before; the crops and clicks of 350–356 follow (not those under a scroll to the editor's
+# end, nor the run report at the page's foot: they keep their places).
 batch_actions() {
     local point
     for _ in $(seq 1 20); do
@@ -1358,7 +1359,8 @@ check "353 labelled mark controls preserve text, range, appearance, order and pe
 xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
 answer "$PWD/$OUT/353-source.pdf"
 RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 1
-CT=$(at Continue 600x450+340+200); [ -n "$CT" ] && click $CT 2
+# The step's prompt comes once the run has started: looked for until it shows.
+CT=; for _ in 1 2 3 4 5 6; do CT=$(at Continue 600x450+340+200); [ -n "$CT" ] && break; sleep 0.5; done; [ -n "$CT" ] && click $CT 2
 for _ in $(seq 1 20); do [ -f "$OUT/353-source-353.pdf" ] && break; sleep 0.5; done
 shot 353-wizard-output
 check "353 saved multistep action prompts then marks only selected pages (${CT:-no Continue})" "pdfinfo \"$OUT/353-source-353.pdf\" 2>/dev/null | grep -q '^Title:.*Wizard result' && pdftotext -f 2 -l 3 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review' && ! pdftotext -f 1 -l 1 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review'"
@@ -1382,7 +1384,7 @@ answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.p
 RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 2
 for _ in $(seq 1 20); do [ -f "$OUT/354-valid-354.pdf" ] && break; sleep 0.5; done
 sleep 1; shot 354-run-report
-RS=$(ocr 1060x240+210+508)
+RS=$(ocr 1060x240+210+550)
 check "354 saved action reports one output and both per-file failures (${RN:-no Run})" "[ -f \"$OUT/354-valid-354.pdf\" ] && echo \"$RS\" | grep -q '1 of 3' && echo \"$RS\" | grep -q '2 failed' && echo \"$RS\" | grep -q '354-broken' && echo \"$RS\" | grep -q '354-missing' && cmp -s \"$OUT/text.pdf\" \"$OUT/354-valid.pdf\""
 quit
 
@@ -1432,9 +1434,9 @@ batch_actions
 answer "$PWD/$OUT/356-folder-action.json"
 IM=$(at Import 140x60+220+138); [ -n "$IM" ] && click $IM
 xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
-IN=$(at Include 790x440+460+248); [ -n "$IN" ] && click $IN 0.3
+IN=$(at Include 790x440+460+290); [ -n "$IN" ] && click $IN 0.3
 answer "$PWD/$OUT/356-input"
-RF=$(at Run 740x80+500+598); [ -n "$RF" ] && click $RF 2
+RF=$(at Run 740x80+500+640); [ -n "$RF" ] && click $RF 2
 for _ in $(seq 1 20); do [ -f "$OUT/356-input/nested/second-356.pdf" ] && break; sleep 0.5; done
 shot 356-folder-results
 check "356 recursive folder intake processes both PDFs into new copies (${IN:-no Include}; ${RF:-no Run})" "pdfinfo \"$OUT/356-input/first-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && pdfinfo \"$OUT/356-input/nested/second-356.pdf\" 2>/dev/null | grep -q '^Title:.*Folder result' && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/first.pdf\" && cmp -s \"$OUT/text.pdf\" \"$OUT/356-input/nested/second.pdf\""
