@@ -95,7 +95,7 @@ key Escape; key v
 # Page 1 at ⌘9 in the 1280×800 window, Fill & Sign still on (its rail): the signature picked, its options bar
 # docks and the page sits 944/612 px a point from 320,134, so screen = (320 + 1.5425·x, 1355.5 − 1.5425·y)
 # for PDF (x, y). (Before the pick, with no bar, the page top is at 98: see 2b'' below.)
-R0=$(inks "$OUT/text.pdf"); click 700 651 0.8
+R0=$(inks "$OUT/text.pdf"); click 700 614 0.8   # the second signature (PDF y ≈ 457) with no bar docked: page top 98
 set -- $(python3 -c '
 rs = [list(map(float, r.split())) for r in "'"$R0"'".split(";")]
 sx = lambda x: 320 + 1.5425 * x; sy = lambda y: 1355.5 - 1.5425 * y
