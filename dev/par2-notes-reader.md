@@ -150,7 +150,11 @@ geometry with the Fill & Sign rail on: 944/612 px a point from 320,134), 2d and 
 Edit-mode geometry), 3-flows 23 (the search field's text read at x 926), 50 (the sixth dot at 664,100, the palette's orange
 at 618,135), 54 (the dialog's Cancel read on its own row: the Edit text card has one too), 61 (the zoomed word measured on
 the canvas, not in the thumbnails), 4-flows 84 (the Shapes rows from y 80), 352 (custom tools through More ▸ More tools…),
-367 (the AI panel's Translate row found by its Classify button: W1's placeholders are too light for OCR), 1-reader 6g (Fit page row at
+367 (the AI panel's Translate row found by its Classify button: W1's placeholders are too light for OCR), 2c (the ⇧-square
+drag starts at x 340: at 260 it sat on the resize handle and widened the panel for every later step), 6c / 6c'0 / 6c''
+(the first rectangle 70 lower, the stamp list's rows at 361,136 / 361,304, the Fill row dots at y 100), 6d (two Escapes back
+to Read before measuring the gap at x 767), the Notes filter (rows 28 tall since W1: Stamps at y 334) and the reply's bin
+(x 232 in the 260 panel), 300 (OCR may read the Fill chip "Fil"), 1-reader 6g (Fit page row at
 y 311), the options-bar clicks of 1-reader 2d/2e/9/10/11 and 2-documents 16 and 3-flows 53/58/63 (y 110 → 100,
 x + 44: the bar is docked at 82–118 from x 316), 2-documents 18 (Redact: the Redact segment 688,61 then the
 rail's second item 282,148), 4-flows 83 (the Pen in the rail at 282,348), `ai_open` (1090,61), `pdfa_reader_tool`
