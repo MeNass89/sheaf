@@ -36,8 +36,8 @@ export component SpellingSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Check spelling while typing"); selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
-        Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Don't check spelling"); selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
+        Segment { width: self.fit-width; text: @tr("Check spelling while typing"); selected: PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(true); } }
+        Segment { width: self.fit-width; text: @tr("Don't check spelling"); selected: !PlatformBridge.spell-on; clicked => { PlatformBridge.set-spell-on(false); } }
     }
     // Preview's Check Grammar With Spelling: repeated words, a capital after a full stop, double
     // spaces, "a" or "an".
@@ -46,8 +46,8 @@ export component SpellingSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Check grammar too"); selected: PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(true); } }
-        Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Spelling only"); selected: !PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(false); } }
+        Segment { width: self.fit-width; text: @tr("Check grammar too"); selected: PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(true); } }
+        Segment { width: self.fit-width; text: @tr("Spelling only"); selected: !PlatformBridge.grammar-on; clicked => { PlatformBridge.set-grammar-on(false); } }
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
@@ -234,8 +234,8 @@ export component InterfaceSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Show every tool"); selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
-        Segment { width: Theme.mac ? self.fit-width : 254px; text: @tr("Hide tools that can't run here"); selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
+        Segment { width: self.fit-width; text: @tr("Show every tool"); selected: !PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(false); } }
+        Segment { width: self.fit-width; text: @tr("Hide tools that can't run here"); selected: PlatformBridge.hide-unavailable; clicked => { PlatformBridge.set-hide-unavailable(true); } }
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
@@ -251,7 +251,7 @@ export component InterfaceSection inherits Card {
         alignment: LayoutAlignment.start;
         spacing: 8px;
         for label[i] in [@tr("As the system's language"), @tr("Left to right"), @tr("Right to left")]: Segment {
-            width: Theme.mac ? self.fit-width : 190px;
+            width: self.fit-width;
             text: label;
             selected: PlatformBridge.direction == i;
             clicked => { PlatformBridge.set-direction(i); }
@@ -266,9 +266,9 @@ export component InterfaceSection inherits Card {
         alignment: LayoutAlignment.start;
         spacing: 8px;
         // Each language named in itself, as iLovePDF lists them (src/i18n.rs LANGUAGES' order).
-        Segment { width: Theme.mac ? self.fit-width : 190px; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
+        Segment { width: self.fit-width; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
         for name[i] in ["English", "Français", "Deutsch", "Español", "Italiano", "Português"]: Segment {
-            width: Theme.mac ? self.fit-width : 112px;
+            width: self.fit-width;
             text: name;
             selected: PlatformBridge.language == i + 1;
             clicked => { PlatformBridge.set-language(i + 1); }

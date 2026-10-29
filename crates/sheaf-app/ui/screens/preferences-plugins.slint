@@ -105,8 +105,8 @@ export component PluginsSection inherits Card {
                 flex-wrap: FlexboxLayoutWrap.no-wrap;
                 alignment: LayoutAlignment.start;
                 spacing: 8px;
-                Segment { width: 90px; text: @tr("On"); selected: p.enabled; clicked => { PluginBridge.set-enabled(p.id, true); } }
-                Segment { width: 90px; text: @tr("Off"); selected: !p.enabled; clicked => { PluginBridge.set-enabled(p.id, false); } }
+                Segment { width: self.fit-width; text: @tr("On"); selected: p.enabled; clicked => { PluginBridge.set-enabled(p.id, true); } }
+                Segment { width: self.fit-width; text: @tr("Off"); selected: !p.enabled; clicked => { PluginBridge.set-enabled(p.id, false); } }
                 // Removing deletes the plugin's folder: a second click confirms it.
                 SecondaryButton {
                     text: root.removing == p.id ? @tr("Click again to remove") : @tr("Remove");

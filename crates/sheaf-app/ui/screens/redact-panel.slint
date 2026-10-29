@@ -207,24 +207,10 @@ export component RedactPanel inherits VerticalLayout {
         font-size: Theme.fs-caption;
         color: Theme.text-muted;
     }
-    // Whole pages: the one shown, or a range typed (Acrobat's Redact Pages). On macOS the button
-    // has its own row, the field under it (side by side, the button's words were squeezed); Linux
-    // keeps one row, where the smoke steps read the list below.
+    // Whole pages: the one shown, or a range typed (Acrobat's Redact Pages). The button has its
+    // own row, the field under it (side by side, the button's words were squeezed).
     property <string> page-range;
-    if !PlatformBridge.mac: HorizontalLayout {
-        spacing: 6px;
-        Segment {
-            text: root.page-range == "" ? @tr("Mark whole page {}", (root.tab.viewer-current + 1)) : @tr("Mark pages");
-            clicked => { root.mark-pages(); }
-        }
-        TextField {
-            width: 110px;
-            text <=> root.page-range;
-            placeholder: @tr("Pages: 2-4, 7");
-            accepted => { root.mark-pages(); }
-        }
-    }
-    if PlatformBridge.mac: VerticalLayout {
+    VerticalLayout {
         spacing: 6px;
         Segment {
             text: root.page-range == "" ? @tr("Mark whole page {}", (root.tab.viewer-current + 1)) : @tr("Mark pages");

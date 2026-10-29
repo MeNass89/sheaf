@@ -102,7 +102,7 @@ launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 click 223 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 72x26+978+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
+SF=$(ocr 60x26+1004+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
 check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
 quit
 
@@ -577,7 +577,7 @@ TW=$(at Two 900x700+190+60); [ -n "$TW" ] && click $TW 0.4
 FL=$(at Full 900x700+190+60); [ -n "$FL" ] && click $FL 0.4
 # Save (white on red) is 71 px right of Cancel, on the sheet's bottom row (read on a small strip: the dimmed
 # page around confuses tesseract).
-CN=$(at Cancel 240x44+640+722); SV=${CN:+$(set -- $CN; echo $(( $1 + 71 )) $2)}; [ -n "$SV" ] && click $SV 1; key ctrl+s; sleep 1.5; shot 62-initial-view
+CN=$(at Cancel 460x50+410+720); SV=${CN:+$(set -- $CN; echo $(( $1 + 71 )) $2)}; [ -n "$SV" ] && click $SV 1; key ctrl+s; sleep 1.5; shot 62-initial-view
 IV=$(qpdf --qdf --object-streams=disable "$OUT/initial.pdf" - 2>/dev/null)
 quit
 cp "$OUT/initial.pdf" "$OUT/initial-copy.pdf"; launch "$OUT/initial-copy.pdf"; sleep 2; IO=$(ocr 1020x700+255+90)
@@ -608,16 +608,17 @@ cp "$OUT/text.pdf" "$OUT/initials.pdf"; launch "$OUT/initials.pdf"; sleep 1; key
 IN=$(at Initials 1280x40+0+90); [ -n "$IN" ] && click $IN 0.5; click 640 500 1.2; shot 65-initials-pad
 # The field's placeholder is too faint to read: it sits 37 px under "or type them".
 TT=$(at type 900x700+190+60); TF=${TT:+$(set -- $TT; echo $1 $(( $2 + 37 )))}; [ -n "$TF" ] && { click $TF 0.4; xdotool type --delay 30 "AL"; sleep 0.6; }
-# Use (white on red, unread by OCR) is 66 px right of Cancel, on the row about 200 px under "or type them"
-# (read again: the styles typed push the pad up), read on that strip alone.
-TT=$(at type 900x700+190+60); CN=${TT:+$(set -- $TT; at Cancel 240x44+$(( $1 + 180 ))+$(( $2 + 180 )))}; US=${CN:+$(set -- $CN; echo $(( $1 + 66 )) $2)}; [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
+# Use (white on red, unread by OCR) is 66 px right of Cancel, on the pad's last row (the styles typed push the
+# pad up and its row down), read on the pad's lower part (x 430–890, y 400–700).
+shot 65b-initials-typed
+CN=$(at Cancel 460x300+430+400); US=${CN:+$(set -- $CN; echo $(( $1 + 66 )) $2)}; [ -n "$US" ] && click $US 1.2; key v; key ctrl+s; sleep 1.5
 IP=$(secure_marks | python3 -c 'import json, sys; i = json.load(sys.stdin).get("initials"); print("kept" if i and i[1] == "AL" else "none")' 2>/dev/null)
 IW=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | python3 -c '
 import re, sys
 d = sys.stdin.buffer.read().decode("latin-1")
 r = [[float(n) for n in m.group(1).split()] for o in re.split(r"\nendobj", d) if "PCFillSign" in o or "/Subtype /Stamp" in o for m in [re.search(r"/Rect \[\s*([-0-9.\s]+)\]", o)] if m]
 print(" ".join(str(round(x[2] - x[0])) for x in r))')
-check "Initials are made on their own pad, kept apart and placed 60 pt wide (${IN:-no Initials}; $IP; widths $IW)" "[ \"$IP\" = kept ] && echo \" $IW \" | grep -q ' 60 '"
+check "Initials are made on their own pad, kept apart and placed 60 pt wide (${IN:-no Initials}; field ${TF:-?}, Use ${US:-?}; $IP; widths $IW)" "[ \"$IP\" = kept ] && echo \" $IW \" | grep -q ' 60 '"
 # Every page (the Signature tool again): one click puts the initials on all four pages.
 key s; sleep 0.5; EP=$(at Every 1280x40+0+90); [ -n "$EP" ] && click $EP 0.5; click 640 600 1.5; key v; key ctrl+s; sleep 1.5
 EV=$(qpdf --qdf --object-streams=disable "$OUT/initials.pdf" - 2>/dev/null | grep -ac 'PCFillSign')

@@ -45,9 +45,9 @@ quit
 
 # 84. Shapes (R) ▸ "- -" (Acrobat's Dashed line style): a rectangle drawn is saved dashed (/BS /S /D).
 cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 1
-# "- -" sits just left of the opacity's "100 %" (tesseract reads it merged with the width dots before it);
-# the Shapes options take two rows.
-OP=$(at 100 1280x90+0+90); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 46 )) $2"); [ -n "$DD" ] && click $DD 0.4
+# "- -" sits just left of the opacity's "100 %" (tesseract reads it merged with the width dots before it, and
+# the opacity as "100" or "10%"); the Shapes options take two rows.
+OP=$(at 10 1280x90+0+90); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 48 )) $2"); [ -n "$DD" ] && click $DD 0.4
 xdotool mousemove 520 420 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 520 + i * 30 )) $(( 420 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 DQ=$(qpdf --qdf --object-streams=disable "$OUT/dashed.pdf" - 2>/dev/null)
 check "a dashed rectangle is saved dashed (${DD:-no button})" "echo \"\$DQ\" | grep -aq '/S /D'"
@@ -401,12 +401,13 @@ quit
 cp "$OUT/text.pdf" "$OUT/split4.pdf"; launch "$OUT/split3.pdf" "$OUT/split4.pdf"; sleep 3
 WI=$(layout_item with); sleep 1.5
 # The other pane's name: a small chip (white on dark) 12 px into the pane's top-left corner, read as one line
-# (the whole strip with its red page and buttons does not OCR).
-chip() { import -window root -crop "100x34+$1+88" png:- 2>/dev/null | convert - +repage -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr '\n' ' '; }
+# (the whole strip with its red page and buttons does not OCR; nor does the grey canvas beside the page: the chip
+# alone, 80 × 26 px).
+chip() { import -window root -crop "80x26+$(( $1 + 10 ))+92" png:- 2>/dev/null | convert - +repage -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr '\n' ' '; }
 D0=$(c8 1020); N0=$(chip 767)
 click 1020 420 1.5
 D1=$(c8 1020); L1=$(c8 510); N1=$(chip 250)
-check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"$N1\" | grep -q 'split4'"
+check "split with another document, then its tab forward with this one beside it ($WI; $D0 '$(echo "$N0" | cut -c1-20)' → $L1 $D1 '$(echo "$N1" | cut -c1-20)')" "reddish '${D0:-#000000}' && echo \"\$N0\" | grep -q 'split3' && reddish '${D1:-#000000}' && ! reddish '${L1:-#FF0000}' && echo \"\$N1\" | grep -q 'split4'"
 quit
 
 # 210. Edit ▸ one object picked ▸ Order ▸ To front (Acrobat's Arrange ▸ Bring to Front): a red square under a blue
@@ -442,13 +443,13 @@ quit
 
 # 211. Edit ▸ a paragraph open ▸ U and • (Acrobat's Underline and Bulleted list) apply to it, not only to new text:
 # applied (⌘↩) and saved, the page draws a line under it and the paragraph starts with a bullet. U and • follow
-# Mono in the row (U 113, • 147 px right of Mono, as step 2c's places).
+# Mono in the row (U 129, • 183 px right of Mono, as step 2c's places).
 # Lines (… l, then S) the file draws: counted before and after.
 strokes() { qpdf --qdf --object-streams=disable "$1" - 2>/dev/null | grep -acE '[0-9.-]+ [0-9.-]+ l( S)?$'; }
 cp "$OUT/text.pdf" "$OUT/underline.pdf"; UL0=$(strokes "$OUT/underline.pdf"); launch "$OUT/underline.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
-MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); MX=${MX:-421}
-click $(( MX + 113 )) 110 0.4; click $(( MX + 147 )) 110 0.4; key ctrl+Return; sleep 1.5; key Escape; key v; key ctrl+s; sleep 1.5
+MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); MX=${MX:-409}
+click $(( MX + 129 )) 110 0.4; click $(( MX + 183 )) 110 0.4; key ctrl+Return; sleep 1.5; key Escape; key v; key ctrl+s; sleep 1.5
 UL=$(strokes "$OUT/underline.pdf")
 UB=$(pdftotext -f 1 -l 1 "$OUT/underline.pdf" - 2>/dev/null | grep -c '•')
 check "U and • underline and bullet the paragraph open (${QK:-no paragraph}; $UL0 → $UL lines, $UB bullets)" "[ \"$UL\" -gt \"$UL0\" ] && [ \"$UB\" -ge 1 ]"
@@ -641,8 +642,8 @@ key F7; sleep 1.2
 # underlined word do not OCR; the comment it is in and Change to do).
 for _ in 1 2 3 4 5 6; do CW=$(ocr 1020x700+250+90); echo "$CW" | grep -q 'Change' && break; sleep 0.5; done; shot 227-dialog
 TH=$(at_word the); [ -n "$TH" ] && click $TH 0.4
-# Change All, the button before Change (the word All is only on it).
-CH=$(at All 1020x700+250+90); [ -n "$CH" ] && click $CH 1.2; shot 227-after-change
+# Change All, the button before Change: 96 px right of Ignore (its 13 px "All" OCRs glued, "Changeall").
+CH=$(at Ignore 1020x700+250+90); CH=${CH:+$(set -- $CH; echo $(( $1 + 96 )) $2)}; [ -n "$CH" ] && click $CH 1.2; shot 227-after-change
 CD=$(ocr 1020x700+250+90)
 DN=$(at Done 1020x700+250+90); [ -n "$DN" ] && click $DN 0.6
 key ctrl+s; sleep 1.5
@@ -675,7 +676,8 @@ cp "$OUT/text.pdf" "$OUT/js-console.pdf"; launch "$OUT/js-console.pdf"; key ctrl
 JS_SOURCE_X=500; JS_SOURCE_Y=230
 click "$JS_SOURCE_X" "$JS_SOURCE_Y"; key ctrl+a
 xdotool type --clearmodifiers --delay 4 "console.println('JSCONSOLEPASS');"
-JR=$(at Run 700x500+290+100); [ -n "$JR" ] && click $JR 2
+# Run (white on red) does not OCR, "Run selection" does: Run is 203 px left of Scripts.
+JR=$(at Scripts 700x500+290+100); JR=${JR:+$(set -- $JR; echo $(( $1 - 203 )) $2)}; [ -n "$JR" ] && click $JR 2
 JO=$(ocr 680x200+300+425)
 check "JavaScript console runs against the active PDF and shows its output (${JR:-no Run})" "echo \"$JO\" | grep -q JSCONSOLEPASS"
 quit
@@ -711,7 +713,8 @@ answer "$PWD/$OUT/portfolio-source.pdf"
 PC=$(at Create 1050x260+220+35); [ -n "$PC" ] && click $PC 1
 # The dialog's bottom row (OCR reads its buttons on that strip only).
 PA=$(at Add 700x44+295+504); [ -n "$PA" ] && click $PA 1.5
-PW=$(at Save 700x44+295+504); [ -n "$PW" ] && click $PW 3
+# Save portfolio… (white on red) does not OCR: 149 px right of Add files…'s "Add".
+PW=${PA:+$(set -- $PA; echo $(( $1 + 149 )) $2)}; [ -n "$PW" ] && click $PW 3
 check "Create portfolio bundles the original instead of merging (${PC:-no Create}; ${PA:-no Add}; ${PW:-no Save})" "qpdf --qdf --object-streams=disable \"$OUT/portfolio-source (1).pdf\" - 2>/dev/null | grep -aq '/Collection' && cmp -s \"$OUT/text.pdf\" \"$OUT/portfolio-source.pdf\""
 quit
 check "kept marks exist in authenticated local storage" "has_secure_marks"
@@ -856,13 +859,19 @@ cp "$OUT/text.pdf" "$OUT/certsrc.pdf"; rm -f "$OUT/certenc.pdf"; launch "$OUT/ce
 click 1108 61 0.8; click 1008 659 0.8
 for i in 1 2 3 4 5 6; do xdotool mousemove 1000 500 click 5; sleep 0.1; done; sleep 0.5
 EC=$(at Encrypt 300x700+880+80); [ -n "$EC" ] && click $EC 1.2
-# The sheet is 760 × 680 in the middle of the window: its buttons are at fixed places.
-click 705 189 0.4; xdotool type --delay 20 smokepw
-answer "$CD/me.p12"; click 507 187 1.5
-answer "$CD/colleague.pem"; click 348 187 1
+# The sheet is 760 px wide in the middle of the window, as tall as its content: its first row 81 px under its
+# title (the password field at x 705, Add my digital ID… 507, Add certificate… 348); Save encrypted copy… 131 px
+# right of Close, found once the recipients are listed.
+read _ ETY <<< "$(at Encrypt 760x740+260+60)"; ETY=${ETY:-215}
+click 705 $(( ETY + 81 )) 0.4; xdotool type --delay 20 smokepw
+answer "$CD/me.p12"; click 507 $(( ETY + 81 )) 1.5
+read _ ETY <<< "$(at Encrypt 760x740+260+60)"; ETY=${ETY:-215}
+answer "$CD/colleague.pem"; click 348 $(( ETY + 81 )) 1
+read _ ETY <<< "$(at Encrypt 760x740+260+60)"; ETY=${ETY:-215}
 shot 320-recipients
-RL=$(ocr 760x420+260+79)
-answer "$PWD/$OUT/certenc.pdf"; click 908 725 4; answer ""
+RL=$(ocr 760x420+260+$(( ETY - 8 )))
+read CLX CLY <<< "$(at Close 300x560+700+240)"   # (the whole sheet stops being read above its last rows)
+answer "$PWD/$OUT/certenc.pdf"; [ -n "$CLX" ] && click $(( CLX + 131 )) $CLY 4; answer ""
 quit
 ENV=$(python3 -c 'import re, sys; b = open(sys.argv[1], "rb").read(); m = re.search(rb"/Recipients\s*\[(.*?)\]", b, re.S); print(len(re.findall(rb"<", m.group(1))) if m and b"Adobe.PubSec" in b else 0)' "$OUT/certenc.pdf" 2>/dev/null)
 launch "$OUT/certenc.pdf"; sleep 2
@@ -931,7 +940,7 @@ ai_wait() { for _ in $(seq 1 30); do ai_text | grep -q "$1" && break; sleep 0.5;
 # Clicks the first word of $1 seen in the panel, else its other words ("Main points": Main, then points).
 ai_chip() { local c w; for w in $1; do c=$(at "$w" 380x700+900+100); [ -n "$c" ] && break; done; [ -n "$c" ] && click $c 0.5; echo "${c:-no $1}"; }
 # The last word starting with $1 in the panel (a message's button, under its text).
-ai_last() { import -window root -crop 380x700+900+100 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" 'index($12, w) == 1 { p = sprintf("%d %d", 900 + ($7 + $9 / 2) / 2, 100 + ($8 + $10 / 2) / 2) } END { print p }'; }
+ai_last() { import -window root -crop 380x700+900+100 png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t) } index($12, w) == 1 || index(t, w) == 1 { p = sprintf("%d %d", 900 + ($7 + $9 / 2) / 2, 100 + ($8 + $10 / 2) / 2) } END { print p }'; }
 ai_requests() { wc -l < "$OUT/ai-requests.jsonl" 2>/dev/null || echo 0; }
 
 # 360. The AI panel (C-ai-001, C-ai-002; PDF Expert's AI Copilot, Acrobat's AI Assistant): ✦ in the toolbar opens it
@@ -1029,14 +1038,14 @@ P1=$(settings_val 'p["settings"]["print"]')
 quit
 cp "$OUT/text.pdf" "$OUT/printdef.pdf"; launch "$OUT/printdef.pdf"; sleep 1
 key ctrl+p; sleep 1; shot 301-print-defaults
-# White on red does not OCR: the buttons are found from Make default's place (Grey and Colour 38 px above it,
-# two-sided On 120 px above).
-read MX MY <<< "$(at Make 1280x700+0+60)"
+# The chosen buttons are a tint with red labels (BAMA `on`): Grey, two-sided On, Colour and Make default are
+# found by their words.
+read MX MY <<< "$(at Make 1280x700+0+60)"; read GX GY <<< "$(at Grey 1280x700+0+60)"
+read OX OY <<< "$(at On 1280x700+0+60)"; read CX CY <<< "$(at Colour 1280x700+0+60)"
 GR=no; OR=no
-if [ -n "$MX" ]; then
-    GX=$(( MX + 25 )); GY=$(( MY - 38 )); OX=$(( MX - 8 )); OY=$(( MY - 120 ))
-    red_at $GX $GY && GR=yes; red_at $OX $OY && OR=yes
-    CL="$(( MX - 43 )) $GY"; click $CL 0.4; MD="$MX $MY"; click $MD 0.6
+if [ -n "$MX" ] && [ -n "$GX" ] && [ -n "$CX" ]; then
+    red_at $GX $GY && GR=yes; [ -n "$OX" ] && red_at $OX $OY && OR=yes
+    CL="$CX $CY"; click $CL 0.4; MD="$MX $MY"; click $MD 0.6
 fi
 P2=$(settings_val 'p["settings"]["print"]["gray"]')
 key Escape; sleep 0.3
@@ -1067,10 +1076,10 @@ quit; settings_reset
 # 303. Preferences ▸ Startup (C-preferences-012, iLovePDF's "Open iLovePDF automatically after you log into the
 # computer"): Open Sheaf writes the login item (XDG autostart, pointing at the app), Don't open it removes it.
 launch; key ctrl+comma; sleep 0.8
-# The section's last line ("Sheaf works offline: …") found, the choices are 109 px above it: Open Sheaf 14 px left
-# of "offline:", Don't open it 143 px right.
-read FX FY <<< "$(pref_find offline)"; shot 303-startup; OS=; DO=
-[ -n "$FX" ] && OS="$(( FX - 14 )) $(( FY - 109 ))" && DO="$(( FX + 143 )) $(( FY - 109 ))"
+# The row's label ("When I log into the computer") found by "log", the choices 34 px under it: Open Sheaf 5 px left
+# of "log", Don't open it 112 px right.
+read FX FY <<< "$(pref_find log)"; shot 303-startup; OS=; DO=
+[ -n "$FX" ] && OS="$(( FX - 5 )) $(( FY + 34 ))" && DO="$(( FX + 112 )) $(( FY + 34 ))"
 [ -n "$OS" ] && click $OS 0.8
 AUTO="$OUT/profile/config/autostart/sheaf.desktop"; A1=$(grep -c "^Exec=.*sheaf-app-under-test" "$AUTO" 2>/dev/null)
 [ -n "$DO" ] && click $DO 0.8
@@ -1086,7 +1095,8 @@ HX=$(at Help 700x34+0+0); [ -n "$HX" ] && click $HX 0.8
 RI=$(at Report 420x300+0+24); [ -n "$RI" ] && click $RI 1
 xdotool type --delay 20 "Saving freezes on big files"; sleep 0.4; shot 304-report
 answer "$PWD/$OUT/report.zip"
-SR=$(at Save 1280x800+0+0); [ -n "$SR" ] && click $SR 1.5
+# Save report… read on the dialog's lower half (the whole screen's OCR misses its button row).
+SR=$(at Save 580x350+350+400); [ -n "$SR" ] && click $SR 1.5
 answer ""
 RT=$(unzip -p "$OUT/report.zip" report.txt 2>/dev/null | tr '\n' ' ')
 check "Report an Issue saves the report as a zip (${RI:-no menu item}; $(echo "$RT" | cut -c1-90))" "echo \"$RT\" | grep -q 'Report a problem: Saving freezes on big files' && echo \"$RT\" | grep -q 'Sheaf [0-9]'"
@@ -1217,7 +1227,7 @@ batch_actions() {
     for _ in $(seq 1 20); do
         point=$(at Import 140x60+220+180)
         [ -n "$point" ] && return 0
-        point=$(at Actions 190x80+0+200)
+        point=$(at Actions 190x220+0+40)
         [ -n "$point" ] && click $point 0.5
         sleep 0.3
     done
@@ -1233,7 +1243,7 @@ batch_actions
 answer "$PWD/$OUT/350-pipeline.json"
 IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM 1
 answer "$PWD/$OUT/350-export.json"
-EX=$(at Export 200x50+1080+230); [ -n "$EX" ] && click $EX 1
+EX=$(at Export 200x50+1080+215); [ -n "$EX" ] && click $EX 1
 shot 350-stirling-naming
 check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
 quit
@@ -1243,27 +1253,27 @@ quit
 launch
 batch_actions
 # The placeholder is deliberately pale; target the calibrated field after the header is ready.
-SH="330 345"; click $SH 0.3
+SH="330 322"; click $SH 0.3
 xdotool type --clearmodifiers --delay 10 "confidential watermark"; sleep 0.5
-QS=$(ocr 220x370+220+370)
+QS=$(ocr 220x400+220+335)
 check "351 suggested-action search matches words in its name and description (${SH:-no Search})" "echo \"$QS\" | grep -q 'Confidential' && ! echo \"$QS\" | grep -q 'Distribution'"
-CA=$(at Mark 220x370+220+370); [ -n "$CA" ] && click $CA
-SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
+CA=$(at Mark 220x400+220+335); [ -n "$CA" ] && click $CA
+SA=$(at Save 320x100+450+470); [ -n "$SA" ] && click $SA 1
 shot 351-suggested-copy
 check "351 Save a copy keeps the suggested watermark configuration (${CA:-no suggestion}; ${SA:-no Save})" "python3 -c 'import json; a=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert any(x[\"name\"] == \"Mark as Confidential (2)\" and x[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\" for x in a)'"
 # A populated search field no longer shows its placeholder; reuse its observed position.
 # A suggestion's full limitations stay readable, rather than hidden in a one-line description.
 [ -n "$SH" ] && click $SH 0.3
 key ctrl+a; xdotool type --clearmodifiers --delay 10 "accessibility"; sleep 0.5
-AS=$(at Accessibility 220x370+220+370); [ -n "$AS" ] && click $AS 0.8
+AS=$(at Accessibility 220x400+220+335); [ -n "$AS" ] && click $AS 0.8
 DS=$(ocr 790x100+460+375); shot 351-suggestion-description
 check "351 suggestion description shows its refusal and certification limits (${AS:-no suggestion})" "echo \"$DS\" | grep -q 'Refuses' && echo \"$DS\" | grep -q 'certification'"
 quit
 launch
 batch_actions
 # The list filter is the first combobox in the left column; Home then Down twice selects Saved.
-click 340 305; key Home; key Down; key Down; key Return
-LS=$(ocr 220x370+220+370); shot 351-saved-filter
+click 340 286; key Home; key Down; key Down; key Return
+LS=$(ocr 220x400+220+335); shot 351-saved-filter
 check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
 quit
 
@@ -1334,7 +1344,7 @@ batch_field Opacity "0.35"
 batch_field Rotation "-30"
 shot 353-labelled-settings
 xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
-SA=$(at Save 320x100+450+490); [ -n "$SA" ] && click $SA 1
+SA=$(at Save 320x100+450+470); [ -n "$SA" ] && click $SA 1
 check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
 xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
 answer "$PWD/$OUT/353-source.pdf"
@@ -1462,7 +1472,7 @@ pdfa_reader_tool() {
     # Custom tools adds a 32 px button. Find the wrench by its tooltip in either layout;
     # the old coordinate opened AI Assistant after earlier steps saved a custom toolbox.
     local x tip
-    for x in 1236 1268; do
+    for x in $WRENCH_X 1236 1268; do
         xdotool mousemove "$x" 61; sleep 0.4
         tip=$(ocr 500x30+780+80)
         if echo "$tip" | grep -q 'Use a tool'; then
@@ -1527,7 +1537,8 @@ for dir in 1 2; do
     launch; sleep 0.5
     HX=$(at Help 1280x34+0+0); [ -n "$HX" ] && click $HX 0.8
     RI=$(at Report 1280x300+0+24); [ -n "$RI" ] && click $RI 1
-    read IX IY <<< "$(at Include 1280x800+0+0)"; GX=; [ -n "$IX" ] && GX=$(tick_x $IX $IY)
+    # Read on the dialog's lower half (the whole screen's OCR misses its last rows).
+    read IX IY <<< "$(at Include 580x350+350+400)"; GX=; [ -n "$IX" ] && GX=$(tick_x $IX $IY)
     [ $dir = 1 ] && { LX=$IX; LG=$GX; shot 305a-check-ltr; } || { RX=$IX; RG=$GX; shot 305b-check-rtl; }
     quit
 done
@@ -1669,7 +1680,8 @@ launch "$OUT/cardsign.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "sign"; key Return; sleep 2
 # The panel (x 1004–1252): a typed name, placed with a click on the page, then the digital ID below.
 click 1127 281 0.4; xdotool type --delay 20 "Ada"; sleep 0.5; click 500 400 1
-UD=$(at Use 280x700+1000+90); [ -n "$UD" ] && click $UD 0.8
+# "Use a digital ID…" (its 13 px "Use" OCRs as "use"): the row clicked on "digital".
+UD=$(at digital 280x700+1000+90); [ -n "$UD" ] && click $UD 0.8
 CH=$(at Smoke 280x700+1000+90); [ -n "$CH" ] && click $CH 0.6
 # The PIN field is below the panel's fold.
 xdotool mousemove 1130 500 click 5 click 5 click 5 click 5; sleep 0.6
@@ -1700,7 +1712,7 @@ PA=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["allowed"]
 key ctrl+comma; sleep 0.8
 # The plugin's row is the page's last: once found, the page goes on to its end so its buttons show too.
 PR=$(pref_find "Reviewed"); xdotool mousemove 700 500 click 5 click 5 click 5 click 5 click 5; sleep 0.8
-PR=$(pref_find "Reviewed"); OF=; [ -n "$PR" ] && { read _ RY <<< "$PR"; OF=$(at Off 1020x200+250+$(( RY - 10 ))); }
+PR=$(pref_find "Reviewed"); OF=; [ -n "$PR" ] && { read _ RY <<< "$PR"; OF=$(at Off 1020x200+250+$(( RY - 10 ))); [ -n "$OF" ] || OF=$(at off 1020x200+250+$(( RY - 10 ))); }   # its 13 px label may OCR "off"
 [ -n "$OF" ] && click $OF 0.8; shot 307b-plugins-prefs
 PD=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["disabled"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
 TL=$(at Tools 250x300+0+40); [ -n "$TL" ] && click $TL 0.8
@@ -1721,8 +1733,9 @@ print(*red, *white)'; }
 cp "$OUT/image.pdf" "$OUT/p3.pdf"; launch "$OUT/p3.pdf"; sleep 1; read RX RY R0 G0 B0 WX WY W0 _ <<< "$(red_white)"; quit
 python3 dev/scripts/smoke/set-icc.py dev/scripts/smoke/display-p3.icc
 launch; key ctrl+comma; sleep 0.8
-# Use the system's profile is the third of the row whose first is Choose monitor ICC… (segments 222 px apart).
-read CX CY <<< "$(pref_find Choose)"; US=; [ -n "$CX" ] && US="$(( CX + 444 + 20 )) $CY" && click $US 0.8
+# Use the system's profile, the third of the row whose first is Choose monitor ICC… (segments sized to their
+# labels): found by its word "system's" (not "system": Appearance's bold "System" can OCR so).
+US=$(pref_find "system's"); [ -n "$US" ] && click $US 0.8
 DS=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("display_system"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
 quit
 launch "$OUT/p3.pdf"; sleep 1.5; shot 308-display-p3

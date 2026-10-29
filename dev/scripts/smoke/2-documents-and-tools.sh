@@ -34,7 +34,8 @@ check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"S
 # + opens Home ▸ Tools with the search taking the keyboard: typed without clicking the field.
 TB0=$(ocr 1280x30+0+6); click 90 112 0.8; click 90 72 0.5; click 90 112 0.8
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "pdf to"; sleep 0.6; key Down; key Return; sleep 1.5; shot 09b-tool-search
-TB1=$(ocr 1280x30+0+6)
+# The tab's 13 px bold title can OCR badly ("ppFtoword"): the options panel's title is read too.
+TB1="$(ocr 1280x30+0+6) $(ocr 290x40+990+47)"
 # OCR drops spaces: compare without them.
 check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" | tr -d ' ' | grep -qi 'PDFtoWord' && ! echo \"$TB0\" | tr -d ' ' | grep -qi 'PDFtoWord'"
 # The star on Compress's card (shown on hover, at 233,318): saved as a favourite, a Favourites row on top.
@@ -81,17 +82,18 @@ read _ LOWY2 <<< "$(at Low 280x500+1000+40)"; LOW2=$(cardbg "${LOWY2:-0}")
 check "Run again from Tasks History reopens Compress with its file ($H / $RA)" "[ -n \"$RA\" ] && echo \"$RR\" | grep -q 'tool.pdf' && echo \"$RP\" | grep -qi 'Recommended'"
 check "Run again starts from the options the task ran with (Low: $LOW0 → $LOW1, again $LOW2)" "[ -n \"$LOWY\" ] && [ \"$LOW1\" != \"$LOW0\" ] && [ \"$LOW2\" = \"$LOW1\" ]"
 # Add watermark from the reader tab (tool.pdf, 230,21): the preview of page 1, pinned above the options
-# (1004–1252 × 106–336), turns red once "DRAFT" is typed (text field 1130,432) at 120 pt (size 1060,546) in red
-# (1165,615).
+# (1004–1252 × 106–336), turns red once "DRAFT" is typed (text field 31 px above the "Font" label) at 120 pt (the
+# size field 71 px below it) in red (found by its word).
 red() { import -window root -crop 248x230+1004+106 png:- 2>/dev/null | convert - -fx '(r>0.6&&g<0.4&&b<0.4)?1:0' -format '%[fx:mean*10000]' info: | cut -d. -f1; }
 click 230 21 1; click $WRENCH_X 61 1.5; xdotool type --delay 20 "watermark"; key Return; sleep 2.5; R0=$(red)
-click 1130 432 0.4; xdotool type --delay 30 "DRAFT"; click 1060 546 0.4; xdotool type --delay 30 "120"; click 1165 615 0.3; sleep 2.5
+read _ FY <<< "$(at Font 280x700+1000+80)"; FY=${FY:-455}; RC=$(at Red 280x700+1000+80)
+click 1130 $(( FY - 31 )) 0.4; xdotool type --delay 30 "DRAFT"; click 1060 $(( FY + 71 )) 0.4; xdotool type --delay 30 "120"; [ -n "$RC" ] && click $RC 0.3; sleep 2.5
 shot 10c-watermark-preview; R1=$(red)
 check "the watermark preview shows the mark as typed, in its colour ($R0 → $R1)" "[ \"\${R1:-0}\" -gt \$(( \${R0:-0} + 50 )) ]"
 # Run (1140,755): DRAFT is stamped. Watermark again on that file with Remove (the third mode): it is gone.
 click 1140 755 4; quit
 launch "$OUT/tool-watermarked.pdf"; click $WRENCH_X 61 1.5; xdotool type --delay 20 "watermark"; key Return; sleep 2.5
-RMV="1221 365"; click $RMV 0.8; click 1140 755 4   # Remove, the third mode beside Place Image
+RMV=$(at Remove 280x400+1000+80); [ -n "$RMV" ] && click $RMV 0.8; click 1140 755 4   # Remove, the third mode beside Place Image
 check "Watermark ▸ Remove takes out the watermark placed (${RMV:-no Remove})" "pdftotext $OUT/tool-watermarked.pdf - | grep -q DRAFT && [ -f $OUT/tool-watermarked-watermarked.pdf ] && ! pdftotext $OUT/tool-watermarked-watermarked.pdf - | grep -q DRAFT"
 quit
 
@@ -209,7 +211,7 @@ XML
     OT=$(ocr 400x30+100+8); OP=$(ocr 980x200+20+150 | grep -o '1 page' | wc -l); shot 15-office-cards
     read A0 _ <<< "$(at abc 980x260+20+40)"; read T0 _ <<< "$(at 10.docx 980x260+20+40)"
     click 928 150 1; read A1 _ <<< "$(at abc 980x260+20+40)"; read T1 _ <<< "$(at 10.docx 980x260+20+40)"
-    check "Word files opened from outside open Word to PDF, each with its page count ($OT, $OP)" "echo \"$OT\" | grep -q 'Word to PDF' && [ $OP -ge 3 ]"
+    check "Word files opened from outside open Word to PDF, each with its page count ($OT, $OP)" "echo \"$OT\" | tr -d ' ' | grep -q 'WordtoPDF' && [ $OP -ge 3 ]"
     check "the order button sorts the files A to Z (abc ${A0:-?} > file 10 ${T0:-?} → abc ${A1:-?} < file 10 ${T1:-?})" "[ -n \"$A1\" ] && [ -n \"$T1\" ] && [ $A0 -gt $T0 ] && [ $A1 -lt $T1 ]"
     click 1133 755 1; for _ in $(seq 1 60); do [ -f "$OUT/office/file 10.pdf" ] && [ -f "$OUT/office/abc.pdf" ] && break; sleep 0.5; done; sleep 1
     check "converted next to the originals, headings as bookmarks" "[ \$(ls \"$OUT\"/office/*.pdf | wc -l) -eq 3 ] && qpdf --qdf --object-streams=disable \"$OUT/office/abc.pdf\" - 2>/dev/null | grep -aq '/Outlines'"
@@ -277,7 +279,8 @@ quit
 
 # 19. Link tool (L), as PDF Expert's Edit ▸ Link: drag a box, type a page number, ↩; click the link with the
 # tool, change it to an address, ↩; saved, the file has one /Link to https://example.org. Then the edit group's
-# Redact button (509,61) opens the document in Redact PDF.
+# Redact… (folded below 1320 px: its button at 413,61, then the item found by its word) opens the document in
+# Redact PDF.
 cp "$OUT/text.pdf" "$OUT/link.pdf"
 launch "$OUT/link.pdf"; key ctrl+9; sleep 1; key l
 xdotool mousemove 330 190 mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $((330 + i * 40)) $((190 + i * 4)); sleep 0.05; done; xdotool mouseup 1; sleep 1
@@ -285,8 +288,8 @@ xdotool type --delay 30 "2"; key Return; sleep 1.5
 click 420 200 1; LE=$(ocr 320x130+300+200 | tr -s ' '); shot 19-link-existing
 key ctrl+a; xdotool type --delay 20 "example.org"; key Return; sleep 1; key ctrl+s; sleep 2
 LK=$(qpdf --qdf --object-streams=disable "$OUT/link.pdf" - 2>/dev/null | grep -ac "/Subtype /Link"); LU=$(qpdf --qdf --object-streams=disable "$OUT/link.pdf" - 2>/dev/null | grep -ao "/URI (https://example.org)")
-check "Link tool: a box linked to page 2 ($LE), changed to an address, saved ($LK link, $LU)" "echo \"$LE\" | grep -q 'Remove link' && [ \"$LK\" = 1 ] && [ -n \"$LU\" ]"
-click 509 61 3; RD=$(ocr 1280x40+0+0 | tr -s ' ')
+check "Link tool: a box linked to page 2 ($LE), changed to an address, saved ($LK link, $LU)" "echo \"\$LE\" | grep -q 'Remove link' && [ \"$LK\" = 1 ] && [ -n \"$LU\" ]"
+click 413 61 0.8; RX=$(at Redact 300x200+398+80); [ -n "$RX" ] && click $RX 3; RD=$(ocr 1280x40+0+0 | tr -s ' ')
 check "the edit group's Redact button opens Redact PDF ($RD)" "echo \"$RD\" | grep -qE 'Redact ?PDF'"
 quit
 

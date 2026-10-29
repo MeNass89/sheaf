@@ -158,20 +158,13 @@ export component SmallButton inherits Rectangle {
     callback clicked();
     property <bool> solid: root.primary && root.enabled;
     height: 26px;
-    // Measured in the demibold face whatever the weight drawn, so the Linux layout (smoke steps
-    // click at fixed points) keeps its widths; macOS takes the label's own width.
-    width: (PlatformBridge.mac ? lbl.preferred-width : measure.preferred-width) + 20px;
+    // The label's own width.
+    width: lbl.preferred-width + 20px;
     border-radius: Theme.radius-button;
     // Hover and press only ever darken the rest colour, never lighten it.
     background: root.solid ? (t.pressed ? Theme.accent-hover.darker(10%) : t.has-hover ? Theme.accent-hover : Theme.accent)
         : root.on ? Theme.accent.transparentize(t.pressed ? 70% : t.has-hover ? 78% : 85%)
         : (t.pressed ? Theme.pill-bg.darker(12%) : t.has-hover && root.enabled ? Theme.pill-bg.darker(5%) : Theme.pill-bg);
-    measure := Text {
-        visible: false;
-        text: root.text;
-        font-size: Theme.fs-label;
-        font-weight: Theme.weight-demibold;
-    }
     lbl := Text {
         text: root.text;
         font-size: Theme.fs-label;
