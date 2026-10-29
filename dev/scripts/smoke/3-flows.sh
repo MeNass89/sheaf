@@ -523,25 +523,26 @@ check "Detect fields on a drawn page and a scanned one finds both's ($(echo "$MQ
 quit
 
 # 54. Closing what would be lost asks first: a paragraph retyped in Edit text and not applied ("Save changes to
-# …?"), and Redact's marks not applied ("Close … without redacting?", its own tab's × at 466,21); Cancel keeps
-# the tab.
+# …?"), and Redact's marks not applied ("Close … without redacting?", its own tab's × at 582,21); Cancel keeps
+# the tab. Tabs are 240 wide after the 120-wide Home tab, their × 18 px from their right edge: the one
+# document tab's × at 342, the second tab's at 582.
 cp "$OUT/text.pdf" "$OUT/retype.pdf"; launch "$OUT/retype.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
-xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"; sleep 0.8; click 296 21 1
+xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"; sleep 0.8; click 342 21 1
 RT=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
 check "closing with a paragraph retyped asks first, Cancel keeps it (${RT:0:60}; $(ntabs) document tab)" "echo \"$RT\" | grep -q 'Save changes' && [ \"\$(ntabs)\" = 1 ]"
 key Escape; quit
 # The same with only its format changed (Bold, 470,110, in the format row): asked about too.
 cp "$OUT/text.pdf" "$OUT/reformat.pdf"; launch "$OUT/reformat.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
-click 470 110 0.8; click 296 21 1
+click 470 110 0.8; click 342 21 1
 RF=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
 check "closing with a paragraph only made bold asks first (${RF:0:60})" "echo \"$RF\" | grep -q 'Save changes'"
 key Escape; quit
 cp "$OUT/text.pdf" "$OUT/redact2.pdf"; launch "$OUT/redact2.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
 P=$(at Page 820x700+140+60); [ -n "$P" ] && { set -- $P; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
-click 466 21 1; RC=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
+click 582 21 1; RC=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
 check "closing Redact with marks not applied asks first (${RC:0:60})" "echo \"$RC\" | grep -q 'without redacting'"
 quit
 
@@ -799,10 +800,11 @@ SC=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/screenshot.pdf" 2>/dev/null | convert -
 check "From screenshot makes a PDF of the area taken and opens it (${FS:-no button}; $SC; $(ntabs) tabs)" "[ \"\$(npages $OUT/screenshot.pdf 2>/dev/null)\" = 1 ] && echo \"$SC\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"
 quit
 
-# 76. Tabs (browsers', PDF Expert's): a note added and not saved turns the active tab's × (its last 40 px) into a
+# 76. Tabs (browsers', PDF Expert's): a note added and not saved turns the active tab's × (its last 40 px, 560–600
+# for the second of two 240-wide tabs) into a
 # dot; ⌃Tab goes to the other tab; ⌘O on Home opens the file dialog (answered: text.pdf opens, a third tab).
 cp "$OUT/text.pdf" "$OUT/tab1.pdf"; cp "$OUT/text.pdf" "$OUT/tab2.pdf"; launch "$OUT/tab1.pdf" "$OUT/tab2.pdf"; sleep 1.5
-corner() { import -window root -crop 40x24+440+9 png:- 2>/dev/null | md5sum | cut -c1-8; }
+corner() { import -window root -crop 40x24+560+9 png:- 2>/dev/null | md5sum | cut -c1-8; }
 xdotool mousemove 640 500; sleep 0.4; C0=$(corner)
 key n; click 640 400 0.8; xdotool type --delay 10 "dot"; key ctrl+Return; sleep 0.8; xdotool mousemove 640 500; sleep 0.4; C1=$(corner)
 key ctrl+Tab; sleep 0.8; C2=$(corner)
@@ -817,8 +819,10 @@ click $WRENCH_X 61 1.5; xdotool type --delay 20 "redact"; key Return; sleep 3
 Q=$(at quick 820x700+140+60); [ -n "$Q" ] && { set -- $Q; xdotool mousemove $1 $2 click --repeat 2 --delay 120 1; sleep 1; }
 # Scrolled away by the wheel (Redact's view takes no End key).
 xdotool mousemove 500 400; for _ in $(seq 1 40); do xdotool click 5; sleep 0.02; done; sleep 1; V0=$(ocr 820x700+140+60)
-# The row's "Page 1", under "Marked for redaction" (the intro above says "quickly").
-ROW=$(at Page 280x300+1000+480); [ -n "$ROW" ] && click $ROW 1.2; V1=$(ocr 820x700+140+60)
+# The row's "Page 1", under "Marked for redaction" (the intro above says "quickly"; the page-range field above
+# the heading reads "Pages: 2-4, 7"): looked for from the heading down.
+read _ MY <<< "$(at Marked 280x400+1000+400)"
+ROW=$(at Page "280x300+1000+${MY:-480}"); [ -n "$ROW" ] && click $ROW 1.2; V1=$(ocr 820x700+140+60)
 check "a mark's row in Redact's list shows it on its page (${ROW:-no row}; $(echo $V0 | cut -c1-20) → $(echo $V1 | cut -c1-20))" "! echo \"$V0\" | grep -q 'Page 1' && echo \"$V1\" | grep -q 'Page 1'"
 quit
 
