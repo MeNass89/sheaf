@@ -571,9 +571,11 @@ quit
 # sidebar moves to the window's right edge, back on the left with Left to right.
 launch; settings 0
 RL=$(pref_find Right); [ -n "$RL" ] && click $RL 0.8
-read RX _ <<< "$(at Recents 1280x300+0+40)"
+# Read in the window's outer 250 px on each side: Home's Recents page shows its title "Recents" beside the
+# Settings window (on the right's side of the content when right to left).
+read RX _ <<< "$(at Recents 250x300+1030+40)"
 LR=$(at Left "$SG"); [ -n "$LR" ] && click $LR 0.8
-read LX _ <<< "$(at Recents 1280x300+0+40)"
+read LX _ <<< "$(at Recents 250x300+0+40)"
 check "right to left puts Home's sidebar on the right, left to right back on the left (Recents at x ${RX:-?}, then ${LX:-?})" "[ \"${RX:-0}\" -gt 1050 ] && [ \"${LX:-9999}\" -lt 250 ]"
 quit; platform_reset
 
@@ -610,11 +612,12 @@ quit; platform_reset
 # All, Copy, then Paste at its end makes "AdaAda" (read in the field). Settings is its own window since the
 # redesign (W5): the main window's menu bar acts on the main window's fields.
 menu() { local m; read m _ <<< "$(at "$1" 700x34+0+0)"; [ -n "$m" ] && click $m 14 0.8; local it; it=$(at "$2" 320x520+$(( ${m:-20} - 20 ))+24); [ -n "$it" ] && click $it 0.8; echo "${it:-no $2}"; }
-# Home ▸ Tools from a document (the Home tab, then Tools in its sidebar): the Tools search has the keyboard. TS: the
-# search field's centre, found by its placeholder before typing; TSF: the field itself (not in a subshell: it sets
-# both).
+# Home ▸ All Tools from a document (the Home tab, then All Tools in its sidebar): the Tools search has the keyboard.
+# TS: the search field's centre, on the title row's Custom Tools… button (the field's light placeholder does not OCR)
+# at the field's own x (TOOLS_SEARCH, 240 wide on the trailing edge); TSF: the field itself (not in a subshell: it
+# sets both).
 tools_search() { local h t f; read h _ <<< "$(at Home 400x40+0+28)"; click "${h:-50}" 49 0.8; read t f <<< "$(at Tools 250x300+0+60)"; [ -n "$t" ] && click $t $f 1
-    read t f <<< "$(at Search 1280x200+0+60)"; TSF="300x36+$(( ${t:-900} - 40 ))+$(( ${f:-100} - 18 ))"; [ -n "$t" ] && click $t $f 0.4; TS="${t:-?} ${f:-?}"; }
+    read t f <<< "$(at Custom 1280x200+0+60)"; [ -n "$f" ] && read t _ <<< "$TOOLS_SEARCH"; TSF="240x36+$(( ${t:-1128} - 120 ))+$(( ${f:-100} - 18 ))"; [ -n "$f" ] && click $t $f 0.4; TS="${t:-?} ${f:-?}"; }
 export SHEAF_TEST_MENU_BAR=1
 cp "$OUT/text.pdf" "$OUT/editmenu.pdf"; launch "$OUT/editmenu.pdf"; sleep 1
 echo -n | xclip -selection clipboard >/dev/null 2>&1
@@ -694,8 +697,9 @@ quit
 launch
 LI=$(at Library 210x400+0+30); [ -n "$LI" ] && click $LI
 answer "$PWD/$OUT/text.pdf"
-# "Add files…" is the primary button, white on the accent.
-LA=$(at_on_accent Add 1000x160+220+35); [ -n "$LA" ] && click $LA 2
+# "Add to Library…" is the primary button, white on the accent, read on the title row's trailing half (the big
+# "Library" title in the same crop throws tesseract's layout off).
+LA=$(at_on_accent Add 700x60+580+50); [ -n "$LA" ] && click $LA 2
 answer "$PWD/$OUT/library-export.pdf"
 LE=$(at Save 600x300+650+100); [ -n "$LE" ] && click $LE
 check "Library keeps a private copy and exports it (${LA:-no Add}; ${LE:-no Save copy})" "cmp -s \"$OUT/text.pdf\" \"$OUT/library-export.pdf\" && python3 -c 'import pathlib,json; root=pathlib.Path(\"$OUT/profile/data/Sheaf/library\"); items=[json.loads(p.read_text()) for p in root.glob(\"*/entry.json\")]; assert any(e[\"name\"] == \"text.pdf\" and len(e[\"versions\"]) == 1 for e in items)'"

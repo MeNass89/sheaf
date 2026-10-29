@@ -113,7 +113,9 @@ check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_P
 # It opens in Repair PDF, ready to rebuild it; Home (60,21) again for the theme checks.
 RP=$(ocr 1280x30+0+5); check "a damaged PDF opens in Repair PDF (${RP:0:60})" "echo \"$RP\" | grep -q 'Repair'"
 click 60 21 1
-lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
+# The window's own colour, read on the source list's empty stretch between All Tools and Help (Home's
+# Recent files cards show white pages at 600,700 in both themes).
+lum() { import -window root -crop 40x40+60+420 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
 settings 1
 DK=$(at Dark "$SG"); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark
 LT=$(at Light "$SG"); [ -n "$LT" ] && click $LT 1.2; L2=$(lum)
