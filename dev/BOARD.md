@@ -1,42 +1,34 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 315 · closed 315, open 10, out 6
+331 components · at parity (≥9): 323 · closed 323, open 2, out 6
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
 | 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | notarisation out of scope (DECISIONS 28/10); regrade the native builds without it |
-| 2 | C-optimize-006 | strong | OCR a scanned PDF | ilovepdf | 9 · 9 · 8 → **8** | onnxruntime for the recognition model (Nassim, DECISIONS 28/10) |
-| 3 | C-platform-001 | normal | Check for updates | ilovepdf | 0 · 0 · 0 → **0** | updates from GitHub releases (Nassim, DECISIONS 28/10) |
-| 4 | C-preferences-003 | normal | Choose interface language | ilovepdf | 8 · 8 · 8 → **8** | localisation (after core) |
-| 5 | C-sign-004 | normal | Signature from image or camera | preview | 8 · 9 · 9 → **8** | background removal |
-| 6 | C-sign-015 | light | Time stamp a document | acrobat | 0 · 0 · 0 → **0** | engine timestamp_document |
-| 7 | C-files-018 | light | Scan or capture into a PDF | ilovepdf | 7 · 9 · 9 → **7** | light |
-| 8 | C-platform-007 | light | OS automation of PDF actions | preview | 8 · 7 · 8 → **7** | CLI and MCP cover scripting |
-| 9 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
-| 10 | C-ai-007 | light | Classify documents with AI | stirling | 9 · 8 · 9 → **8** | light |
+| 2 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
-| ai | 7 | 8.6 | 4 |
+| ai | 7 | 8.7 | 5 |
 | annotate | 38 | 8.8 | 37 |
 | batch | 9 | 9.0 | 9 |
 | compare | 7 | 9.0 | 7 |
 | convert | 20 | 9.0 | 20 |
 | edit | 29 | 9.0 | 29 |
-| files | 19 | 8.4 | 17 |
+| files | 19 | 8.5 | 18 |
 | forms | 17 | 8.5 | 16 |
-| optimize | 15 | 8.9 | 14 |
+| optimize | 15 | 9.0 | 15 |
 | organize | 27 | 9.0 | 27 |
 | output | 15 | 9.0 | 15 |
-| platform | 14 | 7.4 | 10 |
-| preferences | 14 | 8.9 | 13 |
+| platform | 14 | 8.2 | 12 |
+| preferences | 14 | 9.0 | 14 |
 | reader | 64 | 9.0 | 64 |
 | security | 18 | 9.0 | 18 |
-| sign | 18 | 8.1 | 15 |
+| sign | 18 | 8.6 | 17 |
 
 ## Closed
 | id | component | overall | last proof |
@@ -45,6 +37,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-ai-002 | Ask AI about the document | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
 | C-ai-003 | Summarize with AI | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
 | C-ai-004 | Translate with AI | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
+| C-ai-007 | Classify documents with AI | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: category chips with counts) and Sol AGREE 9 (rev40, 29/10) |
 | C-annotate-001 | Show annotation toolbar | 9 | Joint 9: Opus (F-014 annotation gaps) and Sol AGREE 9 (re-review b19-annot, 26/10) |
 | C-annotate-002 | Highlight selected text | 9 | Highlight: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file |
 | C-annotate-003 | Underline selected text | 9 | Underline: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file |
@@ -163,6 +156,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-files-015 | Manage a tool's input files | 9 | 4e08ff3: Sol AGREE 9 (round 4 25/10); F-013 round 4 |
 | C-files-016 | Unlock password-protected input | 9 | Joint 9: Opus (round 6, eca24df) and Sol AGREE 9 (re-review b13a-round6, 25/10) |
 | C-files-017 | System integration and default app | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10) |
+| C-files-018 | Scan or capture into a PDF | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: Continuity Camera capture and ImageKit scanner) and Sol AGREE 9 (rev40, 29/10) |
 | C-files-019 | Unreadable file feedback | 9 | files::open_error one wording reader+tools, unit test, gui-smoke damaged PDF refused, app stays open; joint review (commit 43f1fff) |
 | C-forms-001 | Fill form fields | 9 | Text fields edited on the field (↩ fills, Tab/⇧Tab to the next text field, check boxes untouched), check boxes, radios, combo lists; values saved and read back with qpdf (dev/re/evidence/F-004/01–04) |
 | C-forms-002 | Clear a form | 9 | 85666fe: Sol AGREE 9 (round 1 25/10, /tmp/f5/solrv/b8-round1.out); see dev/features/F-011..F-013 |
@@ -185,6 +179,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-optimize-003 | Compress to a target size | 9 | Joint 9: Opus (Built earlier, first joint review (9d585a0)) and Sol AGREE 9 (re-review b25-built, 26/10) |
 | C-optimize-004 | Batch compress files | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27b-round22, 26/10) |
 | C-optimize-005 | Advanced optimization | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
+| C-optimize-006 | OCR a scanned PDF | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: OCR on onnxruntime, 1.41 s/page on MICI against Tesseract 2.3) and Sol AGREE 9 (rev40, 29/10) |
 | C-optimize-007 | Choose OCR language and level | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35B, 27/10) |
 | C-optimize-008 | OCR multiple files | 9 | OCR takes several files, per-file progress and cancel (jobs.rs each()); Joint 9/10: toolbox audit (interim reviewer) against iLovePDF's QML, agreed |
 | C-optimize-009 | Correct recognized text | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
@@ -236,11 +231,13 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-output-013 | Notify when a task finishes | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27c-round22, 26/10) |
 | C-output-014 | Revert, versions and undo history | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b24-round20b, 26/10) |
 | C-output-015 | Rename or trash the document | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27c-round22, 26/10) |
+| C-platform-001 | Check for updates | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: Check for Updates from GitHub releases) and Sol AGREE 9 (rev40, 29/10) |
 | C-platform-002 | Onboarding and help guides | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
 | C-platform-003 | Send feedback or report issue | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
 | C-platform-004 | Accessibility check and RTL | 9 | Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10) |
 | C-platform-005 | Run JavaScript | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
 | C-platform-006 | Manage plugins | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
+| C-platform-007 | OS automation of PDF actions | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: AppleScript dictionary for Shortcuts) and Sol AGREE 9 (rev40, 29/10) |
 | C-platform-009 | Command-line interface | 9 | Help on every option and value (args::help_tests every_option_and_value_has_help, page_number_help_reads_as_written); {page}/{pages} placeholders; joint review |
 | C-platform-010 | MCP server for AI agents | 9 | Joint 9: Opus (round 6–7 and earlier, eca24df/70417de) and Sol AGREE 9 (re-review b13c-round6, 25/10) |
 | C-platform-011 | Open files from the system | 9 | Joint 9: Opus (round 22) and Sol AGREE 9 (re-review b27c-round22, 26/10) |
@@ -248,6 +245,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-platform-014 | Native menu bar and shortcuts | 9 | Joint 9: Opus (round 38, 8f150fd: macOS menu conventions; MBP checks in dev/par2-notes-ui.md) and Sol AGREE 9 (rev38b, 28/10) |
 | C-preferences-001 | Open preferences | 9 | ⌘, from anywhere (Home, tool tabs, documents, their fields) opens Preferences, leaving full screen and a presentation; Home sidebar entry. gui-smoke: from a tool tab and a document. Joint 9/10: independent Opus reviewer (interim for Sol, see DECISIONS) agreed in round 3 |
 | C-preferences-002 | Choose theme and colours | 9 | Joint 9: Opus (round 6, eca24df) and Sol AGREE 9 (re-review b13a-round6, 25/10) |
+| C-preferences-003 | Choose interface language | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: six interface languages) and Sol AGREE 9 (rev40, 29/10) |
 | C-preferences-004 | Set default view on open | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
 | C-preferences-005 | Tune rendering quality | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-preferences-006 | Set page display options | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35A, 27/10) |
@@ -344,6 +342,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-sign-001 | Open the sign tool | 9 | Sign tool (S) in the reader toolbar, PDF Expert's Fill & Sign place; gui-smoke.sh 'a drawn signature is placed and saved' PASS |
 | C-sign-002 | Draw a signature | 9 | Pad with 3 inks and 3 widths shown while drawing, smoothed strokes; up to 4 kept signatures with their own pen, picked or forgotten from thumbnails in their ink; gui-smoke checks ink and width in the saved file. Joint 9/10: interim reviewer agreed in round 3 (screenshots 02b, 02e, 03b) |
 | C-sign-003 | Type a signature | 9 | Four handwriting fonts (Dancing Script, Great Vibes, Satisfy, Caveat; sheaf-core/src/script.rs, Cyrillic/Greek fallback), live 2×2 previews on the pad, kept per signature, Sign tool and CLI --script-font; script::tests, tests/sign.rs a_typed_name_takes_its_handwriting_font + same ink visual/digital for every font, history compat test, gui-smoke typed signature in Great Vibes; Stirling offers no script fonts; joint review 2 rounds |
+| C-sign-004 | Signature from image or camera | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: camera and iPhone signatures) and Sol AGREE 9 (rev40, 29/10) |
 | C-sign-005 | Place a signature on the page | 9 | Select a placed signature, drag its corner handle: scales from its top-left with proportions kept (pull projected on the diagonal); several placements per run with the kept signature. gui-smoke checks the saved Ink Rect; dev/re/evidence/F-002/41-signature-resized.png |
 | C-sign-006 | Add initials | 9 | Joint 9: Opus (Built earlier, first joint review (9d585a0)) and Sol AGREE 9 (re-review b25-built, 26/10) |
 | C-sign-007 | Repeat a signature on several pages | 9 | Joint 9: Opus (round 32) and Sol AGREE 9 (re-review rev32, 27/10) |
@@ -353,6 +352,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-sign-012 | Sign with a digital certificate | 9 | Joint 9: Sol (author, batch sol-*, pass 4 grade 9/9/9) and Opus (counterpart review AGREE 9, /tmp/f5/par/review-sol-*-2.txt); landed e83625e, suite ALL GREEN 27/10 |
 | C-sign-013 | Manage digital IDs | 9 | Joint 9: Opus (round 34) and Sol AGREE 9 (re-review rev36a, 28/10) |
 | C-sign-014 | Certify a document | 9 | Joint 9: Opus (round 24) and Sol AGREE 9 (re-review b29b-round24, 27/10) |
+| C-sign-015 | Time stamp a document | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: RFC 3161 document and signature time stamps) and Sol AGREE 9 (rev40, 29/10) |
 | C-sign-016 | Validate signatures | 9 | Joint 9: Opus (rounds 28-33) and Sol AGREE 9 (re-review rev35C, 27/10) |
 | C-sign-017 | Inspect signature and certificate details | 9 | Joint 9: Opus (Rounds 20–21 (9d585a0)) and Sol AGREE 9 (re-review b24-round20b, 26/10) |
 | C-sign-018 | Clear a certificate signature | 9 | Joint 9: Opus (round 23) and Sol AGREE 9 (re-review b28d-round23, 26/10) |

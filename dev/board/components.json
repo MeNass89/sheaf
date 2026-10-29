@@ -601,13 +601,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -652,6 +652,17 @@
      "overall": 8
     },
     "proof": "Sol AGREE 9 (rev34ai); author a8: the category filter is a plain list"
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: category chips with counts) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -12952,14 +12963,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 7,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 7
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -12982,6 +12993,17 @@
      "overall": 7
     },
     "proof": "Sol b28b-round23 26/10: Le scan depuis le téléphone reste non réalisé, et From scanner échoue systématiquement sous macOS : dev/features/F-013-sol-rereview-fixes.md:786 ; crates/sheaf-app/src/run.rs:859."
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: Continuity Camera capture and ImageKit scanner) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -15169,12 +15191,12 @@
   "grade": {
    "function": 9,
    "aesthetics": 9,
-   "performance": 8,
-   "overall": 8
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "onnxruntime for the recognition model (Nassim, DECISIONS 28/10)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -15230,6 +15252,17 @@
      "overall": 8
     },
     "proof": "Sol rev35B 27/10: Sans packs Tesseract installés, le parcours normal conserve le moteur RTEN dont le dernier temps mesuré était 15,5 s/page contre 11,75 ; la fermeture de cet écart reste non démontrée, le benchmark correspondant étant ignoré : crates/sheaf-core/src/ocr.rs:172, third_party/pdfcraft-ocr/src/latin.rs:97, crates/sheaf-core/tests/ocr.rs:263, dev/par2-notes-optimize.md:24."
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: OCR on onnxruntime, 1.41 s/page on MICI against Tesseract 2.3) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -20193,14 +20226,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "updates from GitHub releases (Nassim, DECISIONS 28/10)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20212,6 +20245,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: Check for Updates from GitHub releases) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -20647,14 +20691,14 @@
    250
   ],
   "grade": {
-   "function": 8,
-   "aesthetics": 7,
-   "performance": 8,
-   "overall": 7
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "CLI and MCP cover scripting",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -20688,6 +20732,17 @@
      "overall": 7
     },
     "proof": "Sol rev35A 27/10: Les signets sont maintenant automatisables, mais seules les commandes CLI/MCP sont exposées : aucune action Shortcuts ni interface AppleScript ; crates/sheaf-cli/src/actions.rs:1, crates/sheaf-cli/src/args.rs:719 ; test actions_are_listed_and_search_finds_the_pages couvre uniquement la CLI ; limite confirmée dans dev/features/F-015-parallel-batches.md:399."
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: AppleScript dictionary for Shortcuts) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -21388,14 +21443,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 8,
-   "aesthetics": 8,
-   "performance": 8,
-   "overall": 8
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "localisation (after core)",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -21429,6 +21484,17 @@
      "overall": 8
     },
     "proof": "Sol rev36a 28/10: The cited French preview/search messages are translated now, but the previously named language-choice limit remains: only English and French are available, with other system languages falling back to English; crates/sheaf-app/src/i18n.rs:14, crates/sheaf-app/src/i18n.rs:26; test languages_follow_the_choice_or_the_system_and_texts_fall_back_to_english explicitly checks German falling back (crates/sheaf-app/src/i18n.rs:235)."
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: six interface languages) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -31178,14 +31244,14 @@
    142
   ],
   "grade": {
-   "function": 8,
+   "function": 9,
    "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "background removal",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -31219,6 +31285,17 @@
      "overall": 8
     },
     "proof": "Sol b26-built 26/10: L’import d’image existe, mais aucune capture de signature par caméra n’est proposée ; crates/sheaf-app/ui/screens/sign-panel.slint:157."
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: camera and iPhone signatures) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
@@ -32280,14 +32357,14 @@
   ],
   "ours": [],
   "grade": {
-   "function": 0,
-   "aesthetics": 0,
-   "performance": 0,
-   "overall": 0
+   "function": 9,
+   "aesthetics": 9,
+   "performance": 9,
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "engine timestamp_document",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -32299,6 +32376,17 @@
      "overall": 0
     },
     "proof": "phase 4 baseline: dev/board/ours.json rows []"
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Joint 9: Opus (rounds 39-40, e1b8b82: RFC 3161 document and signature time stamps) and Sol AGREE 9 (rev40, 29/10)"
    }
   ]
  },
