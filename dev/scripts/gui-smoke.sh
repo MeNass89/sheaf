@@ -143,22 +143,24 @@ quit() { kill "$APP_PID" 2>/dev/null; wait "$APP_PID" 2>/dev/null; APP_PID=; }
 click() { xdotool mousemove $(( $1 + 4 )) $(( $2 + 4 )); sleep 0.05; xdotool mousemove "$1" "$2" mousedown 1; sleep 0.08; xdotool mouseup 1; sleep "${3:-0.5}"; }
 # Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
-# The reader shows its Thumbnails tab: its page actions bar's hairline at y 748 across the sidebar.
+# The side the reader's Thumbnails tab shows on (its page actions bar's hairline at y 748 across the sidebar): L, R
+# (right to left), or nothing.
 grey_at() { import -window root -crop "1x1+$1+$2" png:- 2>/dev/null | convert - -format "%[fx:int(255*p{0,0}.intensity)]" info: 2>/dev/null; }
-thumbs_shown() { local a b; a=$(grey_at 124 748); b=$(grey_at 124 760); [ -n "$a" ] && [ -n "$b" ] && [ $(( a > b ? a - b : b - a )) -ge 10 ]; }
-# The x bound left of which a word found by `at` / `span` is skipped (0: none). A fixture's 28 pt words are readable
+hairline_at() { local a b; a=$(grey_at "$1" 748); b=$(grey_at "$1" 760); [ -n "$a" ] && [ -n "$b" ] && [ $(( a > b ? a - b : b - a )) -ge 10 ]; }
+thumbs_side() { if hairline_at 124; then echo L; elif hairline_at 1156; then echo R; fi; }
+# The x range of the thumbnail strip for `at` / `span` ("lo hi"; "0 0": none). A fixture's 28 pt words are readable
 # in a thumbnail now that thumbnails are the sidebar's width less 32 (DESIGN §5.4): when the Thumbnails tab shows and
-# the area reaches past x 400 (it looks at the pages), a word in the thumbnail strip (x < 248, y 165-747) is not the
-# one looked for. Areas on the sidebar alone (its rows, menus, chips) and other screens are read as they are.
-skip_x() { local w=${1%%x*} ox=${1#*+}; ox=${ox%%+*}; if [ $(( ox + w )) -gt 400 ] && [ "$ox" -lt 248 ] && thumbs_shown; then echo 248; else echo 0; fi; }
+# the area is wider than the sidebar, a word found in the strip (y 165-747) is taken only when the area holds no other
+# one (a menu over the strip still answers; the page's own words come first).
+strip_x() { local w=${1%%x*}; [ "$w" -gt 400 ] || { echo "0 0"; return; }; case $(thumbs_side) in L) echo "0 248";; R) echo "1032 1280";; *) echo "0 0";; esac; }
 # The screen centre "x y" of the first word starting with $1 (OCR at 200 %, its box halved; OCR may glue
 # punctuation to it, before it too: a 13 px bold tab title read " mirrored.pdf") in the area $2 (WxH+X+Y, default the whole screen), empty when not seen.
-at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; local sx; sx=$(skip_x "$g"); import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" -v sx="$sx" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t); cx = ox + ($7 + $9 / 2) / 2; cy = oy + ($8 + $10 / 2) / 2 } cx < sx && cy > 165 && cy < 748 { next } index($12, w) == 1 || index(t, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
+at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; local sl sh; read sl sh <<< "$(strip_x "$g")"; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" -v sl="$sl" -v sh="$sh" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t) } index($12, w) == 1 || index(t, w) == 1 { cx = ox + ($7 + $9 / 2) / 2; cy = oy + ($8 + $10 / 2) / 2; r = sprintf("%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2); if (cx >= sl && cx < sh && cy > 165 && cy < 748) { if (f == "") f = r; next } printf "%s", r; done = 1; exit } END { if (!done && f != "") printf "%s", f }'; }
 # As `at`, for a word drawn white on the accent (a primary button: tesseract misses it as drawn): the area
 # thresholded and negated first, so light text on any fill reads dark.
 at_on_accent() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -colorspace gray -threshold 70% -negate -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t) } index($12, w) == 1 || index(t, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
 # The screen "left right y" of the first word starting with $1 in the area $2 (as `at`), empty when not seen.
-span() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; local sx; sx=$(skip_x "$g"); import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" -v sx="$sx" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t); cx = ox + ($7 + $9 / 2) / 2; cy = oy + ($8 + $10 / 2) / 2 } cx < sx && cy > 165 && cy < 748 { next } index($12, w) == 1 || index(t, w) == 1 { printf "%d %d %d\n", ox + $7 / 2, ox + ($7 + $9) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
+span() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; local sl sh; read sl sh <<< "$(strip_x "$g")"; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" -v sl="$sl" -v sh="$sh" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t) } index($12, w) == 1 || index(t, w) == 1 { cx = ox + ($7 + $9 / 2) / 2; cy = oy + ($8 + $10 / 2) / 2; r = sprintf("%d %d %d\n", ox + $7 / 2, ox + ($7 + $9) / 2, oy + ($8 + $10 / 2) / 2); if (cx >= sl && cx < sh && cy > 165 && cy < 748) { if (f == "") f = r; next } printf "%s", r; done = 1; exit } END { if (!done && f != "") printf "%s", f }'; }
 # Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
 ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
 # ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧

@@ -146,6 +146,21 @@ widgets only (SidebarTabs, ToolbarButton, Chip, Checkbox, Button, SortCombo, Men
   the number (8 under the page, 18 tall), 40 margin, left-aligned. Numbers under every page, selected ones framed with
   an accent badge, a 2 px accent insertion bar in the gap's middle (`ReaderState::grid-cells / grid-bar`, replacing
   the old kind-12 rings). Turning the grid on closes the sidebar when it showed Thumbnails; it reopens on exit.
+- viewer_ui `resize`: down a column too, a width change keeps the page read at the top (the search column opening
+  and closing re-fitted the pages and slid from page 3 to page 2: smoke step 4). The resize test now asserts it.
+- RTL: every row of the sidebar is a direction-aware FlexboxLayout (platform test `right_to_left_screens…`).
+- Smoke recalibrated (measured on the self-snapshots, OCR where there is a word): 1-reader 3 (bar at y 774: Duplicate
+  134, Delete 170, Insert 98; drag 35 px a step: thumbnails are taller), 6c-notes (Annotations 142,106; ⋯ 224,146 ▸
+  Hide all 60,178, ▸ `at Remove`; chips dragged slowly to Stamps, first card 120,290, `at Reply`, status list by
+  `span Reply`, `at Accepted`), 6c-outline (71,106; + 224,146; rename 120,183); 3-flows 23 (options 1226,102, "fox"
+  1100,292, count in the column's header), 25 / 52 (Attachments 177,106; Find 120,187; rows from 219, 28 apart;
+  rename before delete: the Find field goes at three files), 30 / 44 (⋯ 206,774 ▸ Extract… 250,706; checkboxes
+  23,654 / 686; Extract 196,718), 31 (thumbnails 216 → 316), 32 (142,106), 35 (⋯ ▸ Number pages… 250,734; style list
+  120,645 then 40,670; Number 196,715), 38 / 104 (`first_x … 0`: the grid closes the Thumbnails sidebar), 51
+  (71,106; + 224,146; rows 183 / 211, ⋯ 228; drag 211 → 170), 68 (`at All` in the column; field 36 above), 87
+  (strip's last row y 718), 108 (Layers 212,106; ⋯ ▸ `at Show`), 86 (Outline 71,106; row 183, ⋯ 228), 311 (options ▸
+  `at Folder`). gui-smoke.sh `at` / `span`: with the Thumbnails tab shown (the bar's hairline at y 748), a lookup over
+  the pages skips words in the thumbnail strip (the fixtures' 28 pt text is readable in a 216-wide thumbnail).
 - Not done here (other streams' files): ⌥⌘1…6 and Go ▸ Add Bookmark ⌘D (menu bar / reader keys, W3), the thumb
   size slider (inspector, W3: set the grid's zoom), the Organize rail, "n of 7 selected" (W3's inspector),
   rubber-band selection in the grid. At 480 one letter-size thumbnail (448 × 580) fills the column, so "two numbers
