@@ -92,12 +92,12 @@ key ctrl+z; key ctrl+s; sleep 1.5
 key Escape; key v
 
 # 2b'. Select that signature, pull its corner handle: it grows, keeping its proportions and top-left.
-# Page 1 at ⌘9 in the 1280×800 window, Fill & Sign still on (its rail, the docked bar): the page is drawn
-# 944/612 px a point from 320,134, so screen = (314.5 + 1.5425·x, 1349 − 1.5425·y) for PDF (x, y).
+# Page 1 at ⌘9 in the 1280×800 window, Fill & Sign still on (its rail; no options bar with the Select tool):
+# the page is drawn 944/612 px a point from 320,98, so screen = (320 + 1.5425·x, 1319.5 − 1.5425·y) for PDF (x, y).
 R0=$(inks "$OUT/text.pdf"); click 700 651 0.8
 set -- $(python3 -c '
 rs = [list(map(float, r.split())) for r in "'"$R0"'".split(";")]
-sx = lambda x: 314.5 + 1.5425 * x; sy = lambda y: 1349 - 1.5425 * y
+sx = lambda x: 320 + 1.5425 * x; sy = lambda y: 1319.5 - 1.5425 * y
 r = min(rs, key=lambda r: abs(sx((r[0] + r[2]) / 2) - 700) + abs(sy((r[1] + r[3]) / 2) - 651))
 print(round(sx(r[2])), round(sy(r[1])))')
 HX=$1; HY=$2
@@ -118,7 +118,7 @@ raise SystemExit(0 if ok else 1)'"
 set -- $(python3 -c '
 new = set("'"$R1"'".split(";")) - set("'"$R0"'".split(";"))
 r = list(map(float, new.pop().split()))
-print(round(314.5 + 1.5425 * (r[0] + 12)), round(1349 - 1.5425 * (r[1] + r[3]) / 2))')
+print(round(320 + 1.5425 * (r[0] + 12)), round(1319.5 - 1.5425 * (r[1] + r[3]) / 2))')
 key Escape; click $1 $2 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
 R2=$(inks "$OUT/text.pdf")
 check "a selected signature is deleted with the Delete key" "[ \$(echo \"$R2\" | tr ';' '\\n' | grep -c .) -eq \$(( \$(echo \"$R1\" | tr ';' '\\n' | grep -c .) - 1 )) ]"
