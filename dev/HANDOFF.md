@@ -21,20 +21,15 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
-## Last landing (28/10/2026, round 36)
+## Last landing (29/10/2026, rounds 39–40)
 
-Verdict: ALL GREEN (bash scripts/test.sh, full run, round 36, 1375 s). macOS scanner (ImageKit panel, scan_mac.rs),
-local pictures through LibreOffice 26, craft fonts in every build (.cargo/config.toml); macOS unit layer green on
-the MBP (ssh nassimlecornet@mbpn, ~/sheaf-ci; tight disk: build with CARGO_PROFILE_DEV_DEBUG=0, delete test
-binaries after; its charger gives 68 W: a 12-job build drained the battery to shutdown on 28/10, so build with
--j4 and only above 30 %). Pinch checked on the MBP with synthetic magnify events (CGEvent type 29, round 37 notes).
-Next: Sol reviews the scanner trio and C-reader-010; BAMA pass.
-Open: the `pages` test binary dies by SIGSEGV about one full run in five, never alone (100 runs under 4×16
-threads, 15 under 120–400 MB caps: none). dmesg: four crashes, threads a_page_changed_in_size…,
-pages_change_size…, a_flipped_page…: all through pages::resize/flip (FPDFPage_Flatten then transform_with_clip,
-under pdfium_lock); one ip inside libpdfium.so +0x39859d, three ip = fault address (error 15: a jump through a
-freed pointer). Suspect pdfium-render's reload after Flatten (PdfPageIndexCache keyed by page handle). Next step:
-cores (apport drops them; set core_pattern for the suite), or reload the page by index after flatten().
+Verdict: ALL GREEN (bash scripts/test.sh, full run, round 40, 3772 s). Eight branches merged (int/r39): six
+interface languages; macOS iPhone/iPad capture (Continuity Camera), camera signatures, AppleScript dictionary;
+OCR on onnxruntime (1.41 s/page on MICI, Tesseract 2.3); RFC 3161 document time stamps; Check for Updates from
+GitHub releases; AI natural voices, bold non-Latin titles, category chips; BAMA design pass on every platform
+(theme, widgets, reader; smoke recalibrated). Linux needs glibc 2.39 (DECISIONS 29/10).
+Next: Sol reviews optimize-006, sign-015, platform-001, ai-005, ai-007, files-018, sign-004, platform-007,
+preferences-003; platform-012 regrade with the release builds; .dmg on the MBP.
 
 ## Where things are
 

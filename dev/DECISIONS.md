@@ -658,3 +658,11 @@ counted when it starts (no retry loop offline), a small notice bottom right, nev
 Version silences the notice for that version only. Download opens the file (else the release page) in the browser;
 Sheaf installs nothing. **Would change it.** Signed builds with an in-place updater, or Nassim wanting update reach
 over the offline promise.
+
+## 2026-10-29 · Linux packages need glibc 2.39; BAMA design on every platform
+
+**Decisions (Nassim, 29/10).** (1) onnxruntime's static library needs glibc 2.38+: the Linux release is built
+on Ubuntu 24.04 and needs Ubuntu 24.04, Debian 13, Fedora 40 or newer. (2) The BAMA pass (Apple's macOS design
+rules: 13 pt text, 28 pt controls, 4 pt grid…) applies on every platform; only true platform conventions stay
+macOS-only (menu placement, ⌘ symbols, the system accent colour, Continuity Camera, AppleScript).
+**Would change it.** Users on older distributions (ship Microsoft's libonnxruntime.so instead).
