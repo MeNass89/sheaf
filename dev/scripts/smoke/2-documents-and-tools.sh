@@ -445,8 +445,8 @@ launch "$OUT/mixed.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
 P=$(at Payment 1020x700+255+90)
 if [ -n "$P" ]; then
     set -- $P; xdotool mousemove $1 $2 keydown shift click 1 keyup shift; sleep 0.8
-    # Page 2 by its thumbnail (Page Down only scrolls page 1 at this zoom).
-    key ctrl+c; sleep 1.5; click 124 474 1.5; key ctrl+v; sleep 2; shot 20e-pasted; key ctrl+s; sleep 2
+    # Page 2 by its thumbnail (Page Down only scrolls page 1 at this zoom): the second cell, from y 488.
+    key ctrl+c; sleep 1.5; click 124 560 1.5; key ctrl+v; sleep 2; shot 20e-pasted; key ctrl+s; sleep 2
 fi
 F2=$(pdffonts -f 2 -l 2 "$OUT/mixed.pdf" 2>/dev/null | tail -n +3 | awk '{print $1}' | tr '\n' ' ')
 T2=$(pdftotext -f 2 -l 2 "$OUT/mixed.pdf" - 2>/dev/null | tr '\n' ' ' | tr -s ' ')
