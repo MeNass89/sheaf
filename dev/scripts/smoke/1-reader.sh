@@ -119,8 +119,10 @@ raise SystemExit(0 if ok else 1)'"
 set -- $(python3 -c '
 new = set("'"$R1"'".split(";")) - set("'"$R0"'".split(";"))
 r = list(map(float, new.pop().split()))
-print(round(320 + 1.5425 * (r[0] + 12)), round(1319.5 - 1.5425 * (r[1] + r[3]) / 2))')
-key Escape; click $1 $2 0.8; shot 02g-signature-to-delete; key Delete; sleep 1; key ctrl+s; sleep 1.5
+print(round(276 + 1.6144 * (r[0] + 12)), round(1376.6 - 1.6144 * (r[1] + r[3]) / 2))')
+# Two Escapes: the first drops the selection (or leaves Fill & Sign when there is none), the second leaves the
+# mode. Back in Read the page is drawn 988/612 px a point from 276,98.
+key Escape; key Escape; sleep 0.5; click $1 $2 0.8; shot 02g-signature-to-delete; key Delete; sleep 1; key ctrl+s; sleep 1.5
 R2=$(inks "$OUT/text.pdf")
 check "a selected signature is deleted with the Delete key" "[ \$(echo \"$R2\" | tr ';' '\\n' | grep -c .) -eq \$(( \$(echo \"$R1\" | tr ';' '\\n' | grep -c .) - 1 )) ]"
 key Escape
@@ -268,7 +270,8 @@ quit
 # oval (317,109), arrow (376,109), Fill (413,109), opacity (550,109, a menu).
 launch "$OUT/shapes.pdf"; key ctrl+9
 drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(($1 + i * $3 / 5)) $(($2 + i * $4 / 5)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; }
-key r; drag 500 300 180 120
+key r; drag 500 370 180 120   # 70 lower than before W3: the docked Shapes bar (69 tall) moved the page down, and the
+                              # rectangle sat over the title line, which 6h reads by OCR
 # ⇧ held at the press: a rectangle dragged 160 × 50 is saved square. From x 340: a press at 260 lands on the
 # sidebar's resize handle (W1, 256–264) and widened the panel for every later step (run 4, 29/10).
 xdotool keydown shift; drag 340 650 160 50; xdotool keyup shift
@@ -293,7 +296,7 @@ check "the Shapes tool keeps its style for next time (opacity 75 % in the prefer
 # 6c'0. The first rectangle (unfilled) selected by a click inside it: the Fill row shows for it, its first
 # colour (the yellow dot, found by its colour: OCR misses the small "Fill") fills it at once (Acrobat's Properties
 # bar): saved, two shapes have /IC.
-key v; click 590 330 0.8; shot 06c0-selected   # inside the rectangle whether or not the Shapes bar (69 tall) is docked
+key v; click 590 400 0.8; shot 06c0-selected   # inside the rectangle whether or not the Shapes bar (69 tall) is docked
 YX=$(import -window root -crop 600x1+300+100 txt:- 2>/dev/null | grep -m1 'srgb(255,219,64)' | cut -d, -f1); FY=${YX:+100}
 [ -n "$FY" ] && click $(( 300 + YX + 6 )) $FY 1; key ctrl+s; sleep 1.5
 NIC=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/IC \[')
@@ -332,10 +335,10 @@ QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "Remove all comments leaves none in the file" "[ -n \"\$QD\" ] && ! echo \"\$QD\" | grep -aqE '/Subtype /(Square|Circle|Line|Ink|Stamp|Text|FreeText|Highlight)\$'"
 key ctrl+z; key ctrl+s; sleep 1.5
 check "⌘Z brings them all back" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Subtype /Stamp'"
-# The filter (64,186 ▸ Stamps at 40,350) lists only stamps; deleting the first row deletes a stamp,
+# The filter (64,186 ▸ Stamps at 40,334: rows 28 tall from 222 since W1) lists only stamps; deleting the first row deletes a stamp,
 # not what sat at that row's place in the full list; back to All (40,230).
 NST=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/Subtype /Stamp$')
-click 64 186 0.8; click 40 350 1; click 120 240 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+click 64 186 0.8; click 40 334 1; click 120 240 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "Notes filter: the first row of Stamps deletes a stamp ($NST → one less), shapes kept" "[ \$(echo \"\$QD\" | grep -ac '/Subtype /Stamp\$') -eq \$(( NST - 1 )) ] && echo \"\$QD\" | grep -aq '/Subtype /Square\$'"
 click 64 186 0.8; click 40 230 1
@@ -369,7 +372,9 @@ click 37 106 0.8
 # 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
 mid() { import -window root -crop 6x200+767+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
-M1=$(mid); key ctrl+alt+2; sleep 2.5; M2=$(mid); key ctrl+alt+2; sleep 2.5; key ctrl+alt+2; sleep 2.5; M3=$(mid); shot 06d-spread
+# Back to Read first (two Escapes: selection, then the mode): the canvas is then 260–1280 and the gap at 770,
+# as it is when the document reopens (6f).
+key Escape; key Escape; sleep 0.8; M1=$(mid); key ctrl+alt+2; sleep 2.5; M2=$(mid); key ctrl+alt+2; sleep 2.5; key ctrl+alt+2; sleep 2.5; M3=$(mid); shot 06d-spread
 check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
 # 6e. Keyboard paging: End, Home, → and Space; ⌘A ⌘C copies the page in view, which tells which it is.
 inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
