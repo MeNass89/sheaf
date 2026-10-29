@@ -84,7 +84,10 @@ export component SettingsWindow inherits Window {
         VerticalLayout {
             Rectangle {
                 height: 52px;
-                HorizontalLayout {
+                FlexboxLayout {
+                    // The topics read from the right, right to left.
+                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                    flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: center;
                     spacing: Space.xs;
                     padding-top: 2px;

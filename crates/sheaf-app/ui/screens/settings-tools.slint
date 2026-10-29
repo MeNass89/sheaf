@@ -9,7 +9,7 @@ import { PopupButton, Radio, Checkbox } from "../widgets/controls.slint";
 import { TextField } from "../widgets/text-field.slint";
 import { SecuritySection } from "preferences-more.slint";
 import { PluginsSection } from "preferences-plugins.slint";
-import { Prefs, SettingsCard, SettingsRow, SettingsBlock, SettingsSwitch, RowNote } from "settings-form.slint";
+import { Prefs, SettingsCard, SettingsRow, SettingsBlock, SettingsSwitch, RowNote, Flow } from "settings-form.slint";
 
 // iLovePDF's Printer preferences and Acrobat's print defaults: how the print sheet opens (its own
 // "Make default" sets them too).
@@ -73,7 +73,7 @@ component PrintingCard inherits SettingsCard {
 }
 
 // A name with its trailing buttons, in a list inside a card.
-component ListRow inherits HorizontalLayout {
+component ListRow inherits Flow {
     in property <string> text;
     height: Theme.control-height;
     spacing: Space.sm;
@@ -100,13 +100,13 @@ component SignaturesCard inherits SettingsCard {
             text: d;
             Button { text: @tr("Remove"); clicked => { Prefs.signature-prefs(1, k); } }
         }
-        HorizontalLayout {
+        Flow {
             alignment: start;
             spacing: Space.sm;
             Button { text: @tr("Add a digital ID…"); clicked => { Prefs.signature-prefs(0, 0); } }
             Button { text: @tr("Add a smart card or token…"); clicked => { Prefs.signature-prefs(4, 0); } }
         }
-        HorizontalLayout {
+        Flow {
             alignment: start;
             Button { text: @tr("Create a digital ID…"); clicked => { root.creating-id = !root.creating-id; } }
         }
@@ -121,7 +121,7 @@ component SignaturesCard inherits SettingsCard {
             id-password := TextField { label: @tr("Password (6 characters or more)"); password: true; allow-reveal: true; }
             id-confirm := TextField { label: @tr("Confirm password"); password: true; }
             id-encrypt := Checkbox { text: @tr("Use it for certificate encryption too"); checked: true; }
-            HorizontalLayout {
+            Flow {
                 alignment: start;
                 Button {
                     text: @tr("Create and save…");
@@ -137,7 +137,7 @@ component SignaturesCard inherits SettingsCard {
             text: c;
             Button { text: @tr("Remove"); clicked => { Prefs.signature-prefs(3, k); } }
         }
-        HorizontalLayout {
+        Flow {
             alignment: start;
             Button { text: @tr("Trust a certificate…"); clicked => { Prefs.signature-prefs(2, 0); } }
         }
@@ -152,7 +152,7 @@ component SignaturesCard inherits SettingsCard {
             if k > 0: Button { text: @tr("Make default"); clicked => { Picked.tsa-prefs(2, k, ""); } }
             Button { text: @tr("Remove"); clicked => { Picked.tsa-prefs(1, k, ""); } }
         }
-        HorizontalLayout {
+        Flow {
             spacing: Space.sm;
             tsa-url := TextField { horizontal-stretch: 1; placeholder: "https://freetsa.org/tsr"; }
             Button {

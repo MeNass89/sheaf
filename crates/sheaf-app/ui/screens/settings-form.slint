@@ -193,6 +193,13 @@ export component RowValue inherits Text {
     max-width: 180px;
 }
 
+// A row of buttons or a list item in a block, mirrored right to left.
+export component Flow inherits FlexboxLayout {
+    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+    flex-wrap: FlexboxLayoutWrap.no-wrap;
+    spacing: Space.sm;
+}
+
 // A note in a block, under what it explains.
 export component RowNote inherits Text {
     horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;

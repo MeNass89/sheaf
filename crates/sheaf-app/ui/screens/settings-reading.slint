@@ -5,7 +5,7 @@ import { PlatformBridge } from "../platform.slint";
 import { Button } from "../widgets/button.slint";
 import { PopupButton, Radio, Checkbox } from "../widgets/controls.slint";
 import { TextField } from "../widgets/text-field.slint";
-import { Prefs, SettingsCard, SettingsRow, SettingsBlock, SettingsSwitch, RowNote } from "settings-form.slint";
+import { Prefs, SettingsCard, SettingsRow, SettingsBlock, SettingsSwitch, RowNote, Flow } from "settings-form.slint";
 
 export component SettingsReading inherits VerticalLayout {
     spacing: Space.xl;
@@ -97,7 +97,7 @@ export component SettingsReading inherits VerticalLayout {
         if PlatformBridge.dictionaries.length > 1: SettingsBlock {
             rule: PlatformBridge.learned.length > 0;
             RowNote { text: @tr("Dictionaries (ticked ones are used, in this order; none: your system's language)"); }
-            for d in PlatformBridge.dictionaries: HorizontalLayout {
+            for d in PlatformBridge.dictionaries: Flow {
                 height: Theme.control-height;
                 spacing: Space.sm;
                 Checkbox {
