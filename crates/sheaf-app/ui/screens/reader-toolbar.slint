@@ -114,6 +114,7 @@ export component ReaderToolbar inherits Rectangle {
     leading := HorizontalLayout {
         x: Space.sm;
         y: (parent.height - Theme.toolbar-button) / 2;
+        width: self.preferred-width;
         height: Theme.toolbar-button;
         spacing: Space.xs;
         ToolbarButton { icon: @image-url("../icons/panel-left.svg"); on: root.tab.reader.panel-open; tip: @tr("Show or hide the sidebar"); shortcut: PlatformBridge.key-labels[21]; clicked => { ReaderBridge.toggle-panel(root.id); } }
@@ -254,7 +255,7 @@ export component ReaderToolbar inherits Rectangle {
             ModeSegment { width: root.segment; icon: @image-url("../icons/signature.svg"); selected: root.mode == 3; tip: @tr("Fill & Sign"); shortcut: root.mode-keys("3"); clicked => { root.set-mode(3); } }
             ModeSegment { width: root.segment; icon: @image-url("../icons/layout-grid.svg"); selected: root.mode == 4; tip: @tr("Organize"); shortcut: root.mode-keys("4"); clicked => { root.set-mode(4); } }
             ModeSegment { width: root.segment; icon: @image-url("../icons/eye-off.svg"); selected: root.mode == 5; tip: @tr("Redact"); shortcut: root.mode-keys("5"); clicked => { root.set-mode(5); } }
-            ModeSegment { width: root.segment; icon: @image-url("../icons/maximize.svg"); selected: root.mode == 6; tip: @tr("Measure"); shortcut: root.mode-keys("6"); clicked => { root.set-mode(6); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/ruler.svg"); selected: root.mode == 6; tip: @tr("Measure"); shortcut: root.mode-keys("6"); clicked => { root.set-mode(6); } }
             ModeSegment { width: root.segment; icon: @image-url("../icons/wrench.svg"); tip: @tr("All tools"); shortcut: root.mode-keys("K"); clicked => { ReaderBridge.to-tools(root.id); } }
         }
     }
@@ -263,6 +264,7 @@ export component ReaderToolbar inherits Rectangle {
     trailing := HorizontalLayout {
         x: root.width - self.width - Space.sm;
         y: (parent.height - Theme.toolbar-button) / 2;
+        width: self.preferred-width;
         height: Theme.toolbar-button;
         spacing: Space.xs;
         // Page theme "Aa": Day · Sepia · Night, reflow. Folded below 1180 into More.

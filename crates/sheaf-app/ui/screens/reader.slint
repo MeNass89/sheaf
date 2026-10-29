@@ -100,8 +100,9 @@ export component ReaderScreen inherits Rectangle {
     // The inspector column (⌃⌘I): closed until asked for; its width while this window lives.
     property <bool> inspector-open;
     property <length> inspector-width: Theme.inspector-default;
-    // The options bar docks under the toolbar while a mode is on and the tool has options.
-    property <bool> options-shown: !root.bare && root.mode != 0 && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature);
+    // The options bar docks under the toolbar while a mode is on and the tool has options (and for
+    // a form's or a kept signature's actions, which a reader uses without a mode).
+    property <bool> options-shown: !root.bare && (root.mode != 0 || root.tab.reader.has-form || root.tab.reader.has-signature) && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature);
     // The text being typed is checked for spelling (not a choice list, a link or a length).
     property <bool> spell-kind: root.tab.reader.note.kind != 5 && root.tab.reader.note.kind != 8 && root.tab.reader.note.kind != 9 && root.tab.reader.note.kind != 12;
     // The menu bar's commands this screen runs itself (main.slint): `menu-seq` bumped runs
@@ -1561,7 +1562,8 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "4" && !e.modifiers.alt { root.set-mode(4); return accept; }
                 if e.text == "5" && !e.modifiers.alt { root.set-mode(5); return accept; }
                 if e.text == "6" && !e.modifiers.alt { root.set-mode(6); return accept; }
-                if (e.text == "i" || e.text == "I") && e.modifiers.meta { root.inspector-open = !root.inspector-open; return accept; }
+                // ⌃⌘I on macOS, Ctrl+Alt+I elsewhere (Slint's `meta` is the Super key there).
+                if (e.text == "i" || e.text == "I") && (e.modifiers.meta || (!Theme.mac && e.modifiers.alt)) { root.inspector-open = !root.inspector-open; return accept; }
                 // ⌥⌘2: one column → two pages → cover alone (⌥2 types ™ on a Mac keyboard).
                 if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
                 if e.text == "0" && !PlatformBridge.rebound[18] /* actual-size */ { ReaderBridge.zoom-fit(root.id, 2); return accept; }

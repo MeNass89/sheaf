@@ -180,13 +180,13 @@ check "a page image's corner pulled out makes it bigger, proportions kept (red h
 import sys
 a, b = [list(map(int, v.split()[:2])) for v in sys.argv[1:]]
 sys.exit(0 if b[0] > a[0] + 15 and abs(b[0] / b[1] - a[0] / a[1]) < 0.05 else 1)' \"$S0\" \"$S1\""
-# The image bar: rotate left, rotate right, flip, replace, save as, delete at x 287, 322, 355, 388, 423, 458 (y 110).
-click 355 110 1.2; key ctrl+s; sleep 1.5; FR=$(centre "$(saved '#ff0000')"); FB=$(centre "$(saved '#0000ff')")
+# The image bar (docked under the toolbar since W3): rotate left, rotate right, flip, replace, save as, delete at x 331, 366, 399, 432, 467, 502 (y 100).
+click 399 100 1.2; key ctrl+s; sleep 1.5; FR=$(centre "$(saved '#ff0000')"); FB=$(centre "$(saved '#0000ff')")
 check "Flip puts the red half on the right ($FR | $FB)" "[ \"\${FR%% *}\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) + 20 else 1)' \${FR%% *} \${FB%% *}"
-click 322 110 1.2; key ctrl+s; sleep 1.5; TR=$(centre "$(saved '#ff0000')"); TB=$(centre "$(saved '#0000ff')")
+click 366 100 1.2; key ctrl+s; sleep 1.5; TR=$(centre "$(saved '#ff0000')"); TB=$(centre "$(saved '#0000ff')")
 check "Rotate right turns it a quarter clockwise: red (right) goes down ($TR / $TB)" "[ \"\${TR#* }\" ] && python3 -c 'import sys; sys.exit(0 if float(sys.argv[1]) > float(sys.argv[2]) + 20 else 1)' \${TR#* } \${TB#* }"
 # Save image as… (Acrobat's): the picture written in its own format (a PNG here, 60 × 40 px turned: 40 × 60).
-answer "$PWD/$OUT/saved-image.png"; click 423 110 1.5; answer ""; SI=$(identify -format '%m %w %h' "$OUT/saved-image.png" 2>/dev/null)
+answer "$PWD/$OUT/saved-image.png"; click 467 100 1.5; answer ""; SI=$(identify -format '%m %w %h' "$OUT/saved-image.png" 2>/dev/null)
 check "Save image as writes the picture to a file ($SI)" "echo \"$SI\" | grep -qE '^PNG (40 60|60 40)$'"
 key Delete; sleep 1; key ctrl+s; sleep 1.5; S2=$(saved '#ff0000'); G2=$(saved '#00ff00')
 check "Delete removes the selected image and only it (red: $S2, green: ${G2%% +*})" "! echo \"$S2\" | grep -qE '^[0-9]{2,}' && echo \"$G2\" | grep -qE '^[0-9]{2,} [0-9]{2,}'"

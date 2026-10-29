@@ -68,10 +68,10 @@ print(ChaCha20Poly1305((p / "signatures.key").read_bytes()).decrypt(b[len(h):len
 PYSECURE
 }
 sigs() { secure_marks | python3 -c 'import json, sys; p = json.load(sys.stdin); print(len(p.get("signatures", [])), "".join(map(str, p.get("current", [[], None, [0, 0], 0])[2])))'; }
-S1=$(sigs); click 412 109 0.8; click 700 620 1
+S1=$(sigs); click 456 100 0.8; click 700 620 1
 xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
 # The second one in black (the pad's first ink, 448,314); the first kept its blue.
-click 448 314 0.3; click 818 555 1.2; S2=$(sigs); shot 02e-two-signatures; click 382 109 0.8; S3=$(sigs)
+click 448 314 0.3; click 818 555 1.2; S2=$(sigs); shot 02e-two-signatures; click 426 100 0.8; S3=$(sigs)
 blue() { qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -a -B30 PCFillSign | tr -s ' \n' ' ' | grep -o '/C \[ 0.1 0.32 0.85' | wc -l; }
 BL0=$(blue); click 760 700 1.2; key ctrl+s; sleep 1.5; BL1=$(blue)
 check "a signature picked again is placed in its own ink (blue: $BL0 → $BL1)" "[ $BL1 -gt $BL0 ]"
@@ -272,10 +272,10 @@ xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
 # Opacity opens its slider and quick values: 75 % picked.
 # The opacity button found by its "100 %" (the bar's width depends on the shape's options).
 # The oval (317,109), then its Fill found by its word (the bar's width depends on its options).
-click 317 109 0.8; FL=$(at Fill 800x40+260+90); [ -z "$FL" ] && { click 317 109 1; FL=$(at Fill 800x40+260+90); }
+click 361 100 0.8; FL=$(at Fill 800x40+304+82); [ -z "$FL" ] && { click 361 100 1; FL=$(at Fill 800x40+304+82); }
 [ -n "$FL" ] && click $FL 0.5; OP=$(at 100 800x40+380+90); [ -n "$OP" ] && click $OP 0.6
 P75=$(at 75 600x160+400+120); [ -n "$P75" ] && click $P75 0.5; drag 500 600 200 100
-click 376 109; drag 900 300 150 -100
+click 420 100; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
@@ -304,10 +304,10 @@ key v
 
 # 6c''. Stamps (M): the default (Approved) with a click; a dated one (Received, seventh in the list at
 # 317,330 once the list at 350,109 is open, after the four marks) says who and when.
-key m; click 900 300 1.2; click 350 109 0.8; click 317 330 0.8; click 700 600 1.2
+key m; click 900 300 1.2; click 394 100 0.8; click 317 330 0.8; click 700 600 1.2
 # A checkmark (first in the list, 317,150) placed beside them.
 # In blue (the colour row shows for marks, 540,109): Acrobat's Fill & Sign marks take a colour.
-click 350 109 0.8; click 317 150 0.8; click 540 109 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
+click 394 100 0.8; click 317 150 0.8; click 584 100 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
 check "a checkmark is placed (Fill & Sign mark)" "echo \"\$SH\" | grep -aq 'PCFillSign' && echo \"\$SH\" | grep -aq '(Checkmark)'"
