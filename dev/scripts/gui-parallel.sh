@@ -18,7 +18,7 @@ if [ "$(nproc)" -ge 8 ]; then
 else
     shards=("$S/1-reader.sh $S/2-documents-and-tools.sh" "$S/3-flows.sh" "$S/4-flows.sh")
 fi
-# Displays 140–145: low numbers belong to others on this machine (the class recorder's Xvfb is :99;
+# Displays from 140: low numbers belong to others on this machine (the class recorder's Xvfb is :99;
 # a shard on it killed a class's recording, 27/10). During a class being recorded, a machine under
 # 8 cores waits; a larger one runs at the lowest priority, leaving the recording its share.
 if pgrep -f '[j]oin_teams\.py' >/dev/null; then
@@ -28,10 +28,22 @@ if pgrep -f '[j]oin_teams\.py' >/dev/null; then
         renice -n 19 $$ >/dev/null
     fi
 fi
+# Another worktree's run may hold 140–145 (gui-smoke.sh stops an Xvfb found on its display): the
+# first block of ten whose displays no live process holds.
+base=140
+while :; do
+    busy=0
+    for i in "${!shards[@]}"; do
+        l=/tmp/.X$((base + i))-lock
+        [ -f "$l" ] && kill -0 "$(tr -d ' ' <"$l")" 2>/dev/null && busy=1
+    done
+    [ "$busy" -eq 0 ] && break
+    base=$((base + 10))
+done
 pids=()
 for i in "${!shards[@]}"; do
     # Every shard but the first starts from the preferences the earlier parts leave.
-    SMOKE_SEED=$([ "$i" -gt 0 ] && echo 1) SMOKE_DISPLAY=$((140 + i)) SMOKE_OUT="dev/.tmp/smoke-$i" SMOKE_PARTS="${shards[$i]}" \
+    SMOKE_SEED=$([ "$i" -gt 0 ] && echo 1) SMOKE_DISPLAY=$((base + i)) SMOKE_OUT="dev/.tmp/smoke-$i" SMOKE_PARTS="${shards[$i]}" \
         bash dev/scripts/gui-smoke.sh > "dev/.tmp/gui-shard-$i.log" 2>&1 &
     pids+=($!)
     sleep 2   # the displays start one after the other

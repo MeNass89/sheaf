@@ -58,7 +58,7 @@ export component ReaderOptionsBar inherits PopoverFrame {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
-            spacing: 0px;
+            spacing: 4px;
             ToolButton { icon: @image-url("../icons/square.svg"); tip: @tr("Rectangle"); active: root.tab.reader.shape-kind == 0; clicked => { ReaderBridge.shape-option(root.id, 0, 0); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/circle.svg"); tip: @tr("Oval"); active: root.tab.reader.shape-kind == 1; clicked => { ReaderBridge.shape-option(root.id, 0, 1); root.focus-pages(); } }
             ToolButton { icon: @image-url("../icons/slash.svg"); tip: @tr("Line"); active: root.tab.reader.shape-kind == 2; clicked => { ReaderBridge.shape-option(root.id, 0, 2); root.focus-pages(); } }
@@ -234,23 +234,23 @@ export component ReaderOptionsBar inherits PopoverFrame {
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Sans"); on: root.tab.reader.text-family == 0 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 0); } }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Serif"); on: root.tab.reader.text-family == 1 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 1); } }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("Mono"); on: root.tab.reader.text-family == 2 && root.tab.reader.text-font == ""; clicked => { ReaderBridge.text-format(root.id, 1, 2); } }
-            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("B"); on: root.tab.reader.text-bold; clicked => { ReaderBridge.text-format(root.id, 2, 0); } }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("I"); on: root.tab.reader.text-italic; clicked => { ReaderBridge.text-format(root.id, 3, 0); } }
             // Text added on the page, or the paragraph open: underlined, a bulleted list (Acrobat's Edit
             // PDF format panel).
             if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: @tr("U"); on: root.tab.reader.text-underline; clicked => { ReaderBridge.text-format(root.id, 6, 0); } }
-            if PlatformBridge.mac && root.tab.reader.tool == 7: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            if root.tab.reader.tool == 7: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "•"; on: root.tab.reader.text-bullets; clicked => { ReaderBridge.text-format(root.id, 7, 0); } }
             if root.tab.reader.tool == 7: SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "1."; on: root.tab.reader.text-numbers; clicked => { ReaderBridge.text-format(root.id, 10, 0); } }
-            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             for icon[k] in [@image-url("../icons/align-left.svg"), @image-url("../icons/align-center.svg"), @image-url("../icons/align-right.svg")]: ToolButton {
                 icon: icon;
                 tip: [@tr("Align left"), @tr("Centre"), @tr("Align right")][k];
                 active: root.tab.reader.text-align == k;
                 clicked => { ReaderBridge.text-format(root.id, 4, k); }
             }
-            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "−"; clicked => { ReaderBridge.text-format(root.id, 0, -1); } }
             // The size: − and + step through the presets; any size can be typed (↩).
             Rectangle {
@@ -281,15 +281,13 @@ export component ReaderOptionsBar inherits PopoverFrame {
                 }
             }
             SmallButton { cross-axis-self-alignment: CrossAxisAlignment.center; text: "+"; clicked => { ReaderBridge.text-format(root.id, 0, 1); } }
-            if PlatformBridge.mac: GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
+            GroupGap { cross-axis-self-alignment: CrossAxisAlignment.center; }
             // Last in the row, so the buttons before it keep their places.
             // One of the computer's fonts, for the paragraph open, new text or a text box
             // (Acrobat's font list).
             Rectangle {
-                // Its own width on macOS (the preferred width read short and the next control
-                // overlapped it); Linux keeps the old one, so the colours after it stay where the
-                // smoke steps click.
-                width: PlatformBridge.mac ? font-button.width : font-button.preferred-width;
+                // Its own width (the preferred width read short and the next control overlapped it).
+                width: font-button.width;
                 font-button := SmallButton {
                     y: 2px;
                     text: root.tab.reader.text-font == "" ? @tr("More fonts…") : root.tab.reader.text-font;
@@ -540,7 +538,7 @@ export component ReaderOptionsBar inherits PopoverFrame {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
             alignment: LayoutAlignment.stretch;
-            spacing: 0px;
+            spacing: 4px;
             padding-left: 6px;
             // Clicked out vertex by vertex, a double-click to end (Acrobat's Polygon, Cloud, Polygonal Line);
             // hidden while measuring, so the scale and Calibrate fit (a shape icon brings them back).

@@ -278,3 +278,80 @@ notice's text was elided at 440 px: widened to 540 px.
 
 **Self-grade.** F 9 · A 8 · P 9. A 8: the dialog and notice read well, but the menu item on a Mac is unseen and
 there is no GUI smoke step in the suite yet.
+
+## BAMA on every platform (29/10/2026, Opus)
+
+Nassim (29/10): the BAMA design pass applies on every platform, not only macOS. The `Theme.mac ? a : b` and
+`PlatformBridge.mac ? a : b` conditions that only kept the Linux smoke's click coordinates are gone: the Mac value
+is the value everywhere. `SHEAF_TEST_MAC_THEME` is removed (nothing left to show: the metrics are the same
+everywhere, and the system accent is read only on macOS).
+
+Now on every platform:
+- Type scale: fs-body, fs-menu, fs-button, fs-tab, fs-card 13 px; fs-section 15 px; fs-page-title 22 px.
+- Heights: buttons, fields, combos and segments 28 px; menu items 30 px; actions 36 px. Grid spacing 20 px,
+  card-tile-top 12 px, menu-gap 12 px; preferences Section padding 20 px.
+- Check box labels too long for the panel end in an ellipsis.
+- Preferences segments sized to their labels (`fit-width`), including the two rows added after the pass
+  (Startup ▸ Updates, Plugins On/Off).
+- Encrypt with certificates sheet as tall as its content.
+- Reader toolbar: folds the edit group below 1320 px and shows one page-theme button (at 1280 px Save was cut off
+  on Linux too). SmallButton takes its label's own width.
+- Grey canvas behind the pages (#E6E6EB light, #1C1C21 dark), page shadow 6 px #00000040.
+- Text format bar: the hairlines between its groups; the font chip's own width.
+- Print sheet: the button row spans the card under the preview; labels trailing-aligned at 74 px, 6 px apart.
+- Redact panel: Mark whole page on its own row, the pages field under it.
+
+Changed while checking (real bugs the smoke showed):
+- Segment: never narrower than its label + 8 px, 12 px a side when the row has room (`preferred-width`). With a
+  hard +24 px minimum, Watermark's Place Text | Place Image | Remove ran past the 248 px options panel ("Rem"
+  clipped) and Layer's "Below the content" past its edge; on macOS too with a long translation.
+- Reader toolbar `z: 1`: the grey canvas, drawn after the toolbar, hid the tips hanging below its buttons ("Use a
+  tool on this PDF").
+- Shapes options rows: 4 px between buttons (Fill, Loupe, Mask, Article and Polygon, Cloud, Polyline touched).
+- Document Properties ▸ When opened: labels 56 px ("Window" was clipped at 48 px).
+
+`mac` conditions kept, and why:
+- main.slint menus: Quit, Preferences… and Check for Updates… in the app menu on a Mac (mac_menu.rs), in File, Edit
+  and Help elsewhere; Minimize and Zoom in Window on a Mac only; Import from iPhone or iPad / Scanner in File (Mac
+  features).
+- reader.slint: the Done button's tip "⌘↩" / "Ctrl+Enter" (key symbols).
+- Theme.mac: only `follows-system` (the system accent, macOS `controlAccentColor`; Sheaf red elsewhere) and the first
+  accent swatch in Preferences showing the system accent.
+- Continuity Camera: recents.slint (From iPhone or iPad), sign-panel.slint (Camera and iPhone row and its hint),
+  reader-panel.slint (Insert from iPhone or iPad…).
+
+Smoke recalibrated (positions measured on the new screenshots, else found by OCR):
+- gui-smoke.sh: ZOOM_X 705 → 750, ZOOM_MENU_X 736 → 778 (one page-theme button); `at` and `span` also match a
+  word OCR read with punctuation before it (" mirrored.pdf", "(Podcast", "[Remove]", "(off").
+- gui-parallel.sh: picks the first free block of displays from 140 (another worktree's run on 140–143 would have
+  had its Xvfb stopped by ours).
+- 1-reader: 2c text format row (Mono-relative places for Serif, B, +, and the text box's I, align right, size);
+  6g zoom read at ZOOM_X.
+- 2-documents: tool search and Word files opened read the panel's title / compare without spaces (13 px bold tab
+  titles OCR badly); watermark preview's text, size and Red found from the "Font" label and by word; Watermark ▸
+  Remove by word; the Link card check reads $LE inside the eval (OCR's "$e" broke it under `set -u`); the edit
+  group's Redact… through the folded edit button (413,61) and its menu.
+- 3-flows: recent searches read the 88 px search field; When opened's Cancel read on a wider strip; the initials
+  pad's Cancel read on the pad's lower part, whatever the styles typed push (label shows field and Use; a shot
+  65b-initials-typed).
+- 4-flows: dashed button from "10"/"100" (−48 px); U and • from Mono (+129, +183); split chip read on the chip
+  alone (80 × 26) and N0/N1 inside the eval; Check Spelling's Change All from Ignore (+96); JavaScript console's
+  Run from Scripts (−203); portfolio's Save from Add (+149); Actions page (sidebar crop, search field 330,322,
+  filter 340,286, lists read from y 335, Save action strip); Encrypt with certificates (rows from the title, Save
+  from Close read on a column strip); print defaults (Grey, On, Colour, Make default by word); Startup row from
+  "log"; Report an Issue's Save read on the dialog's lower half; tick boxes' Include likewise; the card ID's "Use
+  a digital ID" by "digital"; plugins' Off also as "off"; system display profile by "system's"; PDF/A tries the
+  wrench at WRENCH_X first.
+
+Screenshots looked at (1280 × 800, Xvfb): Home (Recents), Tools, Compress options, Preferences light and dark,
+the reader with its toolbar (light and dark), the text format bar and the text box row, the edit group's menu,
+Shapes options, Watermark options, Redact PDF, Print sheet, Encrypt with certificates, Document Properties,
+Initials pad, Check spelling, JavaScript console, Create PDF Portfolio, Report an issue, AI panel, Actions page,
+Startup and Plugins preferences. Seen, not changed: a right-edge tool tip runs past the window ("Use a tool on
+this PDF" cut at x 1280); Check spelling's Stop sits on its own row; the AI panel's Import space… wraps under New
+space.
+
+Verified: `bash scripts/test.sh gui` "PASS gui" / "GREEN (layers: gui; not a full run) (972s)" (five shards, displays
+150–154 picked beside another worktree's run); `cargo.sh clippy -p sheaf-app --all-targets -- -D warnings` and
+`cargo.sh test -p sheaf-app` green. "a bookmark is renamed in place" failed once while clippy and the tests ran
+beside the GUI run, passed alone and in the last run (load, not the change).

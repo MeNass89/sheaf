@@ -68,13 +68,15 @@ export component Segment inherits Rectangle {
     in property <bool> label-italic;
     in property <bool> label-underline;
     callback clicked();
-    // Its label's width with padding: rows that size segments to their labels (macOS) use it.
+    // Its label's width with padding: rows that size segments to their labels use it.
     out property <length> fit-width: max(seg-label.preferred-width + 24px, 44px);
 
     height: Theme.segment-height;
-    // Never narrower than its label (a translation longer than the English one is not clipped);
-    // elsewhere than macOS only a label that would be clipped widens it (smoke coordinates).
-    min-width: seg-label.preferred-width + (Theme.mac ? 24px : 8px);
+    // Its label with 12 px each side where the row has room; never narrower than its label + 8 px
+    // (a translation longer than the English one is not clipped, and a row of three in a 248 px
+    // options panel still fits: Place Text, Place Image, Remove).
+    min-width: seg-label.preferred-width + 8px;
+    preferred-width: seg-label.preferred-width + 24px;
     border-radius: Theme.radius-button;
     border-width: root.selected ? 0 : 1px;
     border-color: touch.has-hover ? Theme.text-secondary : Theme.option-border;

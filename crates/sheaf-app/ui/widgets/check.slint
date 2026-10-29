@@ -27,10 +27,10 @@ export component Check inherits Rectangle {
     }
     // Box and label placed by hand, the box on the right right to left (Preferences ▸ Interface ▸
     // Direction; iLovePDF's mirrored checkboxes).
-    // macOS: a label too long for a narrow panel ends in an ellipsis instead of widening the row
-    // past it. (Wrapping it loops in Slint 1.18: a FlexboxLayout row cannot follow a height that
-    // follows the width.) Elsewhere the row keeps its label's width: the smoke clicks at fixed places.
-    min-width: Theme.mac ? 24px + min(label.preferred-width, 96px) : label.preferred-width + 24px;
+    // A label too long for a narrow panel ends in an ellipsis instead of widening the row past it.
+    // (Wrapping it loops in Slint 1.18: a FlexboxLayout row cannot follow a height that follows
+    // the width.)
+    min-width: 24px + min(label.preferred-width, 96px);
     preferred-width: label.preferred-width + 24px;
     Rectangle {
             x: PlatformBridge.rtl ? parent.width - self.width : 0;
@@ -56,7 +56,7 @@ export component Check inherits Rectangle {
             font-size: Theme.fs-label;
             color: Theme.text;
             vertical-alignment: center;
-            overflow: Theme.mac ? TextOverflow.elide : TextOverflow.clip;
+            overflow: TextOverflow.elide;
     }
     TouchArea {
         enabled: root.enabled;

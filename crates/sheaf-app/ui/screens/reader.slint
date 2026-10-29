@@ -361,6 +361,9 @@ export component ReaderScreen inherits Rectangle {
 
     VerticalLayout {
         toolbar := ReaderToolbar {
+            // Over the pages: a button's tip hangs below the toolbar, and the grey canvas drawn after
+            // it hid the tip.
+            z: 1;
             tab: root.tab;
             id: root.id;
             is-full-screen: root.is-full-screen;
@@ -404,9 +407,9 @@ export component ReaderScreen inherits Rectangle {
                 property <length> first-w: round((self.width - 1px) * self.frac / 1px) * 1px;
                 property <length> first-h: round((self.height - 1px) * self.frac / 1px) * 1px;
                 horizontal-stretch: 1;
-                // macOS: no backdrop chosen, the pages sit on a grey canvas (Preview's), not on the
+                // No backdrop chosen: the pages sit on a grey canvas (Preview's), not on the
                 // window's own white, so their edges read.
-                background: PlatformBridge.mac && root.tab.reader.backdrop.alpha == 0 ? (Theme.dark ? #1C1C21 : #E6E6EB) : root.tab.reader.backdrop;
+                background: root.tab.reader.backdrop.alpha == 0 ? (Theme.dark ? #1C1C21 : #E6E6EB) : root.tab.reader.backdrop;
                 clip: true;
                 // Trackpad pinch (macOS) and touch screens zoom around the fingers. Under the pages:
                 // everything else passes through to them.
@@ -464,8 +467,8 @@ export component ReaderScreen inherits Rectangle {
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
                         // No shadow on a page wider than the window: the software renderer blurs the
                         // whole page's size for it (seconds a frame at 400 %), and its edges are out of view.
-                        drop-shadow-blur: p.w > 1600px ? 0px : PlatformBridge.mac ? 6px : 8px;
-                        drop-shadow-color: p.w > 1600px ? transparent : PlatformBridge.mac ? #00000040 : Theme.thumb-shadow;
+                        drop-shadow-blur: p.w > 1600px ? 0px : 6px;
+                        drop-shadow-color: p.w > 1600px ? transparent : #00000040;
                         drop-shadow-offset-y: 1px;
                         if p.ready: Image {
                             width: parent.width;
@@ -999,8 +1002,8 @@ export component ReaderScreen inherits Rectangle {
                         width: p.w;
                         height: p.h;
                         background: root.tab.reader.theme == 1 ? #1E1E20 : root.tab.reader.theme == 2 ? #F4ECD8 : white;
-                        drop-shadow-blur: p.w > 1600px ? 0px : PlatformBridge.mac ? 6px : 8px;
-                        drop-shadow-color: p.w > 1600px ? transparent : PlatformBridge.mac ? #00000040 : Theme.thumb-shadow;
+                        drop-shadow-blur: p.w > 1600px ? 0px : 6px;
+                        drop-shadow-color: p.w > 1600px ? transparent : #00000040;
                         drop-shadow-offset-y: 1px;
                         if p.ready: Image {
                             width: parent.width;

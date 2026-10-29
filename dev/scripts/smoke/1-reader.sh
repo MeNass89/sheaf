@@ -129,18 +129,20 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Added by s
 key Escape; key v; key ctrl+s; sleep 1.5
 check "text added with the Edit tool is in the page content" "pdftotext -f 1 -l 1 $OUT/text.pdf - | grep -q 'Added by smoke'"
 # The format row: Serif, bold, two sizes up → the page gains Times-Bold.
-# The row (from its left, x 272): Sans 299, Serif 359, Mono 421, B 470, I 502, U 534, • 568, 1. 602,
-# align left 635 / centre 670 / right 704, − 738, the size field 782, + 825 (y 110). A click on the size
-# field would keep the keyboard: the + is found from Mono (OCR reads it; the red Sans it does not).
-key e; sleep 0.8; MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); DX=$(( ${MX:-421} - 421 ))
-click $(( 359 + DX )) 110 0.3; click $(( 470 + DX )) 110 0.3; click $(( 825 + DX )) 110 0.3; click $(( 825 + DX )) 110 0.3
+# The row (from its left, x 272; hairlines between its groups): Sans 297, Serif 352, Mono 409, B 476, I 507,
+# U 538, • 592, 1. 627, align left 684 / centre 718 / right 752, − 807, the size field 851, + 894 (y 110). A
+# click on the size field would keep the keyboard: the + is found from Mono (OCR reads it; the red Sans it
+# does not).
+key e; sleep 0.8; MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); DX=$(( ${MX:-409} - 409 ))
+click $(( 352 + DX )) 110 0.3; click $(( 476 + DX )) 110 0.3; click $(( 894 + DX )) 110 0.3; click $(( 894 + DX )) 110 0.3
 click 640 680 0.8; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Serif bold"; key ctrl+Return; sleep 1.2
 key Escape; key v; key ctrl+s; sleep 1.5; shot 02c-text-format
 check "added text takes the chosen font (Times-Bold)" "pdffonts -f 1 -l 1 $OUT/text.pdf 2>/dev/null | grep -q 'Times-Bold'"
 # A text box in the same row's format plus italic (the row is shared): Times Bold Italic. Then
 # selected (the row takes its format), Mono, aligned right, 30 pt typed: redrawn in Courier Bold
-# Oblique, wrapped on two lines in a box grown to keep them, still one box.
-key t; sleep 0.6; click 502 110 0.3; click 1000 520 0.8
+# Oblique, wrapped on two lines in a box grown to keep them, still one box. The text box's row has no U
+# nor lists: I 507, align right 628, the size field 727 (from Mono 409).
+key t; sleep 0.6; MX=$(at Mono 1280x40+0+90 | cut -d' ' -f1); DX=$(( ${MX:-409} - 409 )); click $(( 507 + DX )) 110 0.3; click 1000 520 0.8
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Boxtest in a font"; sleep 0.5
 # Typed on the page where the box goes (Acrobat, PDF Expert), not in a card: the words at the click.
 # Read just below the note's icon (it sits above the box's corner and spoils the first letter).
@@ -150,8 +152,8 @@ key ctrl+Return; sleep 1.2
 key v; key ctrl+s; sleep 1.5; shot 02c2-text-box-font
 check "a text box takes the format row's font (Times Bold Italic)" "qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -aq '/BaseFont /Times-BoldItalic'"
 NB=$(qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -ac '/Subtype /FreeText$')
-BX=$(at Boxtest); [ -n "$BX" ] && click $BX 0.8; click 421 110 1; click 602 110 1
-click 680 110 0.3; key ctrl+a; xdotool type --delay 20 "30"; key Return; sleep 1.2
+BX=$(at Boxtest); [ -n "$BX" ] && click $BX 0.8; click $(( 409 + DX )) 110 1; click $(( 628 + DX )) 110 1
+click $(( 727 + DX )) 110 0.3; key ctrl+a; xdotool type --delay 20 "30"; key Return; sleep 1.2
 shot 02c3-text-box-restyled; click 1150 300 0.5; key ctrl+s; sleep 1.5
 QB=$(qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null)
 check "a selected text box takes a new font, alignment and a typed size, and grows ($BX)" "echo \"\$QB\" | grep -aq '/BaseFont /Courier-BoldOblique' && echo \"\$QB\" | grep -aq '/CoBO 30 Tf' && echo \"\$QB\" | grep -aq '/Q 2' && echo \"\$QB\" | grep -aq '(a font) Tj' && [ \$(echo \"\$QB\" | grep -ac '/Subtype /FreeText\$') -eq $NB ]"
@@ -380,7 +382,7 @@ key Escape
 # 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ sets 200 %; Fit page from its list (ZOOM_MENU_X,61 ▸ 41 px
 # left of it, 330) sets a smaller zoom that shows the whole page. The figure is read from the field: with the
 # side panel open the page already covers the view's left edge at 163 %, so the edge said nothing (28/10).
-zoomread() { import -window root -crop 80x26+668+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
+zoomread() { import -window root -crop 80x26+$((ZOOM_X - 37))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
 click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(zoomread)
 # The arrow takes its click once the pointer has rested on it (a click arriving with the move did nothing
 # after the field had been typed in, 28/10).

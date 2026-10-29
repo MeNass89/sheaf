@@ -69,11 +69,11 @@ export component PrintDefaultsSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 110px; text: @tr("One-sided"); selected: !SettingsBridge.print-two-sided; clicked => { root.set(false, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: Theme.mac ? self.fit-width : 110px; text: @tr("Two-sided"); selected: SettingsBridge.print-two-sided; clicked => { root.set(true, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("One-sided"); selected: !SettingsBridge.print-two-sided; clicked => { root.set(false, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("Two-sided"); selected: SettingsBridge.print-two-sided; clicked => { root.set(true, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
         Rectangle { width: 12px; }
-        Segment { width: Theme.mac ? self.fit-width : 90px; text: @tr("Colour"); selected: !SettingsBridge.print-gray; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, false, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: Theme.mac ? self.fit-width : 90px; text: @tr("Grey"); selected: SettingsBridge.print-gray; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, true, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("Colour"); selected: !SettingsBridge.print-gray; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, false, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("Grey"); selected: SettingsBridge.print-gray; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, true, SettingsBridge.print-comments, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
     }
     Caption { text: @tr("Scale and comments"); }
     FlexboxLayout {
@@ -81,11 +81,11 @@ export component PrintDefaultsSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 120px; text: @tr("Fit to paper"); selected: SettingsBridge.print-fit; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, true, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: Theme.mac ? self.fit-width : 120px; text: @tr("Actual size"); selected: !SettingsBridge.print-fit; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, false, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("Fit to paper"); selected: SettingsBridge.print-fit; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, true, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("Actual size"); selected: !SettingsBridge.print-fit; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, false, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
         Rectangle { width: 12px; }
-        Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("With comments"); selected: SettingsBridge.print-comments; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, true, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
-        Segment { width: Theme.mac ? self.fit-width : 170px; text: @tr("Without comments"); selected: !SettingsBridge.print-comments; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, false, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("With comments"); selected: SettingsBridge.print-comments; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, true, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
+        Segment { width: self.fit-width; text: @tr("Without comments"); selected: !SettingsBridge.print-comments; clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, false, SettingsBridge.print-fit, SettingsBridge.print-orientation, SettingsBridge.print-layout); } }
     }
     Caption { text: @tr("Orientation"); }
     FlexboxLayout {
@@ -94,7 +94,7 @@ export component PrintDefaultsSection inherits Card {
         alignment: LayoutAlignment.start;
         spacing: 8px;
         for label[i] in [@tr("Auto"), @tr("Portrait"), @tr("Landscape")]: Segment {
-            width: Theme.mac ? self.fit-width : 110px;
+            width: self.fit-width;
             text: label;
             selected: SettingsBridge.print-orientation == i;
             clicked => { root.set(SettingsBridge.print-two-sided, SettingsBridge.print-paper, SettingsBridge.print-gray, SettingsBridge.print-comments, SettingsBridge.print-fit, i, SettingsBridge.print-layout); }
@@ -138,8 +138,8 @@ export component SecuritySection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 90px; text: @tr("On"); selected: SettingsBridge.enhanced; clicked => { SettingsBridge.set-trust(true, SettingsBridge.web, SettingsBridge.other-apps); } }
-        Segment { width: Theme.mac ? self.fit-width : 90px; text: @tr("Off"); selected: !SettingsBridge.enhanced; clicked => { SettingsBridge.set-trust(false, SettingsBridge.web, SettingsBridge.other-apps); } }
+        Segment { width: self.fit-width; text: @tr("On"); selected: SettingsBridge.enhanced; clicked => { SettingsBridge.set-trust(true, SettingsBridge.web, SettingsBridge.other-apps); } }
+        Segment { width: self.fit-width; text: @tr("Off"); selected: !SettingsBridge.enhanced; clicked => { SettingsBridge.set-trust(false, SettingsBridge.web, SettingsBridge.other-apps); } }
     }
     Note { text: SettingsBridge.enhanced ? @tr("Documents outside the trusted locations ask before opening a web page, and never open a site you blocked.") : @tr("Documents open their web links without asking (sites you blocked stay blocked)."); }
     Caption { text: @tr("Web links in documents"); }
@@ -149,7 +149,7 @@ export component SecuritySection inherits Card {
         alignment: LayoutAlignment.start;
         spacing: 8px;
         for label[i] in [@tr("Ask for each site"), @tr("Allow every site"), @tr("Block every site")]: Segment {
-            width: Theme.mac ? self.fit-width : 170px;
+            width: self.fit-width;
             text: label;
             selected: SettingsBridge.web == i;
             clicked => { SettingsBridge.set-trust(SettingsBridge.enhanced, i, SettingsBridge.other-apps); }
@@ -161,8 +161,8 @@ export component SecuritySection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 230px; text: @tr("Open in their app, after asking"); selected: SettingsBridge.other-apps; clicked => { SettingsBridge.set-trust(SettingsBridge.enhanced, SettingsBridge.web, true); } }
-        Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Never open them"); selected: !SettingsBridge.other-apps; clicked => { SettingsBridge.set-trust(SettingsBridge.enhanced, SettingsBridge.web, false); } }
+        Segment { width: self.fit-width; text: @tr("Open in their app, after asking"); selected: SettingsBridge.other-apps; clicked => { SettingsBridge.set-trust(SettingsBridge.enhanced, SettingsBridge.web, true); } }
+        Segment { width: self.fit-width; text: @tr("Never open them"); selected: !SettingsBridge.other-apps; clicked => { SettingsBridge.set-trust(SettingsBridge.enhanced, SettingsBridge.web, false); } }
     }
     Caption { text: @tr("Trusted locations"); }
     if SettingsBridge.locations.length == 0: Note { text: @tr("None: documents in a folder or file added here open their links without asking."); }
@@ -203,8 +203,8 @@ export component StartupSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Open Sheaf"); selected: SettingsBridge.open-at-login; clicked => { SettingsBridge.set-open-at-login(true); } }
-        Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Don't open it"); selected: !SettingsBridge.open-at-login; clicked => { SettingsBridge.set-open-at-login(false); } }
+        Segment { width: self.fit-width; text: @tr("Open Sheaf"); selected: SettingsBridge.open-at-login; clicked => { SettingsBridge.set-open-at-login(true); } }
+        Segment { width: self.fit-width; text: @tr("Don't open it"); selected: !SettingsBridge.open-at-login; clicked => { SettingsBridge.set-open-at-login(false); } }
     }
     if SettingsBridge.login-error != "": Text { horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left; text: SettingsBridge.login-error; font-size: Theme.fs-caption; color: Theme.danger; wrap: word-wrap; }
     Caption { text: @tr("Quitting while a task runs"); }
@@ -213,8 +213,8 @@ export component StartupSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Ask first"); selected: SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(true); } }
-        Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Quit at once"); selected: !SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(false); } }
+        Segment { width: self.fit-width; text: @tr("Ask first"); selected: SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(true); } }
+        Segment { width: self.fit-width; text: @tr("Quit at once"); selected: !SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(false); } }
     }
     // iLovePDF's and Acrobat's automatic update check, off unless the user turns it on (DECISIONS
     // 28/10/2026): Sheaf goes online only when asked.
@@ -224,8 +224,8 @@ export component StartupSection inherits Card {
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.start;
         spacing: 8px;
-        Segment { width: 150px; text: @tr("Only when I ask"); selected: !UpdateBridge.auto; clicked => { UpdateBridge.set-auto(false); } }
-        Segment { width: 150px; text: @tr("Once a day"); selected: UpdateBridge.auto; clicked => { UpdateBridge.set-auto(true); } }
+        Segment { width: self.fit-width; text: @tr("Only when I ask"); selected: !UpdateBridge.auto; clicked => { UpdateBridge.set-auto(false); } }
+        Segment { width: self.fit-width; text: @tr("Once a day"); selected: UpdateBridge.auto; clicked => { UpdateBridge.set-auto(true); } }
         SecondaryButton { text: @tr("Check Now"); clicked => { UpdateBridge.check(); } }
     }
     Note { text: @tr("Sheaf works offline. It asks GitHub for its latest release only when you check, or once a day at launch if you choose it, and never goes through a proxy."); }

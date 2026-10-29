@@ -103,8 +103,8 @@ REAL0=$(real_profile)
 
 # Toolbar controls reached by position (1280×800 window), kept here: update them when the toolbar
 # changes (a capture of the toolbar shows where they went).
-# Moved left when the AI button joined the toolbar (28/10): the zoom figure at 705, its arrow at 736.
-ZOOM_X=705; ZOOM_MENU_X=736; WRENCH_X=1222
+# One page-theme button instead of three (BAMA on every platform, 29/10): the zoom figure at 750, its arrow at 778.
+ZOOM_X=750; ZOOM_MENU_X=778; WRENCH_X=1222
 
 # The next file dialog's answer (debug builds read it instead of showing the dialog); empty: none.
 answer() { printf '%s' "$1" > "$OUT/dialog-answer"; }
@@ -144,10 +144,10 @@ click() { xdotool mousemove $(( $1 + 4 )) $(( $2 + 4 )); sleep 0.05; xdotool mou
 # Keys go to the app window: focus it first (Xvfb has no window manager to keep it).
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
 # The screen centre "x y" of the first word starting with $1 (OCR at 200 %, its box halved; OCR may glue
-# punctuation to it) in the area $2 (WxH+X+Y, default the whole screen), empty when not seen.
-at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" 'index($12, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
+# punctuation to it, before it too: a 13 px bold tab title read " mirrored.pdf") in the area $2 (WxH+X+Y, default the whole screen), empty when not seen.
+at() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t) } index($12, w) == 1 || index(t, w) == 1 { printf "%d %d\n", ox + ($7 + $9 / 2) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
 # The screen "left right y" of the first word starting with $1 in the area $2 (as `at`), empty when not seen.
-span() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" 'index($12, w) == 1 { printf "%d %d %d\n", ox + $7 / 2, ox + ($7 + $9) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
+span() { local g="${2:-1280x800+0+0}"; local ox=${g#*+}; ox=${ox%%+*}; local oy=${g##*+}; import -window root -crop "$g" png:- 2>/dev/null | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v w="$1" -v ox="$ox" -v oy="$oy" '{ t = $12; sub(/^[^A-Za-z0-9]+/, "", t) } index($12, w) == 1 || index(t, w) == 1 { printf "%d %d %d\n", ox + $7 / 2, ox + ($7 + $9) / 2, oy + ($8 + $10 / 2) / 2; exit }'; }
 # Text on screen, read by tesseract (the tab bar and page titles have no other handle under Xvfb).
 ocr() { import -window root -crop "$1" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '; }
 # ⇧ + a letter, ⇧ held first: xdotool's "shift+t" can deliver the letter before the app has seen ⇧

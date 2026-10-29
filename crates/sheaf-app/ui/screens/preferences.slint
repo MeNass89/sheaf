@@ -41,7 +41,7 @@ component Section inherits Rectangle {
     background: Theme.card;
     height: lay.preferred-height;
     lay := VerticalLayout {
-        padding: Theme.mac ? 20px : 18px;
+        padding: 20px;
         spacing: 12px;
         Text {
             horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
@@ -201,7 +201,7 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     for label[i] in [@tr("System"), @tr("Light"), @tr("Dark")]: Segment {
-                        width: Theme.mac ? self.fit-width : 88px;
+                        width: self.fit-width;
                         text: label;
                         selected: root.theme-pref == i;
                         clicked => { root.set-theme(i); }
@@ -242,7 +242,7 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     for label[i] in [@tr("Smooth text"), @tr("Smooth line art"), @tr("Smooth images")]: Segment {
-                        width: Theme.mac ? self.fit-width : 140px;
+                        width: self.fit-width;
                         text: label;
                         selected: root.smooth[i];
                         clicked => { root.set-smoothing(i, !root.smooth[i]); }
@@ -254,8 +254,8 @@ export component PreferencesScreen inherits Rectangle {
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Show art, trim and bleed boxes"); selected: root.show-boxes; clicked => { root.set-page-display(0, !root.show-boxes); } }
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Page numbers as printed (iv)"); selected: !root.physical-numbers; clicked => { root.set-page-display(1, !root.physical-numbers); } }
+                    Segment { width: self.fit-width; text: @tr("Show art, trim and bleed boxes"); selected: root.show-boxes; clicked => { root.set-page-display(0, !root.show-boxes); } }
+                    Segment { width: self.fit-width; text: @tr("Page numbers as printed (iv)"); selected: !root.physical-numbers; clicked => { root.set-page-display(1, !root.physical-numbers); } }
                 }
                 // Acrobat's Show transparency grid.
                 FlexboxLayout {
@@ -263,7 +263,7 @@ export component PreferencesScreen inherits Rectangle {
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Show transparency grid"); selected: root.transparency-grid; clicked => { root.set-page-display(2, !root.transparency-grid); } }
+                    Segment { width: self.fit-width; text: @tr("Show transparency grid"); selected: root.transparency-grid; clicked => { root.set-page-display(2, !root.transparency-grid); } }
                 }
                 // Acrobat's Colour Management: the monitor ICC, after PDFium's sRGB rendering.
                 Text { text: @tr("Display colour profile"); font-size: Theme.fs-label; color: Theme.text-secondary; }
@@ -272,9 +272,9 @@ export component PreferencesScreen inherits Rectangle {
                     flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     spacing: 8px;
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Choose monitor ICC…"); clicked => { root.choose-display-profile(); } }
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Use sRGB"); selected: root.display-profile == "sRGB"; clicked => { root.reset-display-profile(); } }
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Use the system's profile"); selected: SettingsBridge.display-system; clicked => { SettingsBridge.use-system-display(); } }
+                    Segment { width: self.fit-width; text: @tr("Choose monitor ICC…"); clicked => { root.choose-display-profile(); } }
+                    Segment { width: self.fit-width; text: @tr("Use sRGB"); selected: root.display-profile == "sRGB"; clicked => { root.reset-display-profile(); } }
+                    Segment { width: self.fit-width; text: @tr("Use the system's profile"); selected: SettingsBridge.display-system; clicked => { SettingsBridge.use-system-display(); } }
                 }
                 // Acrobat's Use 2D GPU acceleration.
                 FlexboxLayout {
@@ -282,8 +282,8 @@ export component PreferencesScreen inherits Rectangle {
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Use the graphics card"); selected: root.gpu; clicked => { root.set-gpu(true); } }
-                    Segment { width: Theme.mac ? self.fit-width : 214px; text: @tr("Draw with the processor"); selected: !root.gpu; clicked => { root.set-gpu(false); } }
+                    Segment { width: self.fit-width; text: @tr("Use the graphics card"); selected: root.gpu; clicked => { root.set-gpu(true); } }
+                    Segment { width: self.fit-width; text: @tr("Draw with the processor"); selected: !root.gpu; clicked => { root.set-gpu(false); } }
                 }
             }
             Section {
@@ -358,7 +358,7 @@ export component PreferencesScreen inherits Rectangle {
                     flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
-                    Segment { width: Theme.mac ? self.fit-width : 260px; text: @tr("Open PDFs with Sheaf by default"); clicked => { root.make-default(); } }
+                    Segment { width: self.fit-width; text: @tr("Open PDFs with Sheaf by default"); clicked => { root.make-default(); } }
                 }
                 Text {
                     horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
@@ -372,7 +372,7 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     for label[i] in [@tr("Fit width"), @tr("Fit page"), @tr("Actual size")]: Segment {
-                        width: Theme.mac ? self.fit-width : 104px;
+                        width: self.fit-width;
                         text: label;
                         selected: root.default-zoom == i;
                         clicked => { root.set-default-zoom(i); }
@@ -384,7 +384,7 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     for label[i] in [@tr("One page"), @tr("Two pages"), @tr("Two, cover alone")]: Segment {
-                        width: Theme.mac ? self.fit-width : 136px;
+                        width: self.fit-width;
                         text: label;
                         selected: root.default-spread == i;
                         clicked => { root.set-default-spread(i); }
@@ -401,8 +401,8 @@ export component PreferencesScreen inherits Rectangle {
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
-                    Segment { width: Theme.mac ? self.fit-width : 180px; text: @tr("Where I left off"); selected: !root.open-first-page; clicked => { root.set-open-first-page(false); } }
-                    Segment { width: Theme.mac ? self.fit-width : 180px; text: @tr("On the first page"); selected: root.open-first-page; clicked => { root.set-open-first-page(true); } }
+                    Segment { width: self.fit-width; text: @tr("Where I left off"); selected: !root.open-first-page; clicked => { root.set-open-first-page(false); } }
+                    Segment { width: self.fit-width; text: @tr("On the first page"); selected: root.open-first-page; clicked => { root.set-open-first-page(true); } }
                 }
                 Text {
                     horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
@@ -416,7 +416,7 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     for label[i] in [@tr("2:05 pm, Oct 25, 2026"), "25/10/2026 14:05", "2026-10-25 14:05"]: Segment {
-                        width: Theme.mac ? self.fit-width : 168px;
+                        width: self.fit-width;
                         text: label;
                         selected: root.stamp-date == i;
                         clicked => { root.set-stamp-date(i); }
@@ -434,8 +434,8 @@ export component PreferencesScreen inherits Rectangle {
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 8px;
-                    Segment { width: Theme.mac ? self.fit-width : 140px; text: @tr("Inches"); selected: !root.metric; clicked => { root.set-metric(false); } }
-                    Segment { width: Theme.mac ? self.fit-width : 140px; text: @tr("Centimetres"); selected: root.metric; clicked => { root.set-metric(true); } }
+                    Segment { width: self.fit-width; text: @tr("Inches"); selected: !root.metric; clicked => { root.set-metric(false); } }
+                    Segment { width: self.fit-width; text: @tr("Centimetres"); selected: root.metric; clicked => { root.set-metric(true); } }
                 }
                 // Acrobat's Guide colour.
                 Text {
@@ -450,7 +450,7 @@ export component PreferencesScreen inherits Rectangle {
                     alignment: start;
                     spacing: 8px;
                     for c[k] in [{ name: @tr("Cyan"), col: #00A6D6 }, { name: @tr("Magenta"), col: #E0218A }, { name: @tr("Green"), col: #2EA043 }, { name: @tr("Orange"), col: #F08C00 }]: Segment {
-                        width: Theme.mac ? self.fit-width : 100px;
+                        width: self.fit-width;
                         text: c.name;
                         selected: root.guide-colour == k;
                         clicked => { root.set-guide-colour(k); }

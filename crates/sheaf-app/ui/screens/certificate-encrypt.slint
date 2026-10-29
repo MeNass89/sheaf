@@ -18,9 +18,8 @@ export component CertificateEncryptSheet inherits Rectangle {
     TouchArea { }
     Rectangle {
         width: min(760px, root.width - 32px);
-        // macOS: as tall as its content (an empty band under few recipients otherwise). Elsewhere
-        // 680 px: the GUI smoke clicks the sheet's buttons at fixed places.
-        height: Theme.mac ? min(sheet.preferred-height, 680px, root.height - 32px) : min(680px, root.height - 32px);
+        // As tall as its content (an empty band under few recipients otherwise).
+        height: min(sheet.preferred-height, 680px, root.height - 32px);
         border-radius: Theme.radius-card;
         background: Theme.card;
         sheet := VerticalLayout {

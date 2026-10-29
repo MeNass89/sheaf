@@ -724,10 +724,9 @@ pub fn install(ui: &AppWindow) {
     load_dictionary(ui);
     let g = ui.global::<PlatformBridge>();
     g.set_mac(cfg!(target_os = "macos"));
-    // Mac metrics and the system accent (ui/theme.slint). Debug builds show the Mac metrics on
-    // another system with SHEAF_TEST_MAC_THEME=1, to check them in a snapshot.
+    // The system accent on macOS (ui/theme.slint); the metrics are the same everywhere.
     let theme = ui.global::<sheaf_app::Theme>();
-    theme.set_mac(cfg!(target_os = "macos") || (cfg!(debug_assertions) && std::env::var_os("SHEAF_TEST_MAC_THEME").is_some()));
+    theme.set_mac(cfg!(target_os = "macos"));
     #[cfg(target_os = "macos")]
     if let Some(accent) = system_accent() {
         theme.set_system_accent(accent);

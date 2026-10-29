@@ -14,13 +14,14 @@ export component ReaderToolbar inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     in property <bool> is-full-screen;
-    // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
+    // A small window: the zoom buttons go (⌘+ / ⌘− stay).
     in property <bool> narrow;
     in property <length> view-height: 600px;
     // Too narrow for every tool: the edit group folds into one button (900 px, the window's least,
     // up to where it all fits).
-    // macOS folds earlier: its wider title-bar text cut Save off at 1280 px (BAMA pass 28/10).
-    property <bool> fold-edit: root.width < (PlatformBridge.mac ? 1320px : 1180px);
+    // Folds below 1320 px: the wider title-bar text of macOS cut Save off at 1280 px (BAMA pass
+    // 28/10), and every platform keeps the same toolbar.
+    property <bool> fold-edit: root.width < 1320px;
     in-out property <bool> bare;
     // What the search field holds (the side panel lists its results).
     out property <string> search-text: search-in.text;
@@ -263,11 +264,8 @@ export component ReaderToolbar inherits Rectangle {
             alignment: end;
             padding-top: 8px;
             padding-bottom: 8px;
-            if !root.narrow && !PlatformBridge.mac: ToolButton { icon: @image-url("../icons/sun.svg"); tip: @tr("Day"); active: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
-            if !root.narrow && !PlatformBridge.mac: ToolButton { icon: @image-url("../icons/book-open.svg"); tip: @tr("Sepia"); active: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
-            if !root.narrow && !PlatformBridge.mac: ToolButton { icon: @image-url("../icons/moon.svg"); tip: @tr("Night"); active: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
-            // Day → Sepia → Night → Day (always one button on macOS: the three cost the toolbar its room).
-            if root.narrow || PlatformBridge.mac: ToolButton {
+            // Day → Sepia → Night → Day (one button: the three cost the toolbar its room).
+            ToolButton {
                 icon: root.tab.reader.theme == 0 ? @image-url("../icons/sun.svg") : root.tab.reader.theme == 2 ? @image-url("../icons/book-open.svg") : @image-url("../icons/moon.svg");
                 tip: @tr("Page theme");
                 clicked => { ReaderBridge.set-theme(root.id, root.tab.reader.theme == 0 ? 2 : root.tab.reader.theme == 2 ? 1 : 0); }

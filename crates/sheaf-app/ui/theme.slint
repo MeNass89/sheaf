@@ -9,8 +9,8 @@ export global Theme {
     in-out property <string> serif-family: "serif";
     in-out property <string> mono-family: "monospace";
     out property <bool> dark: mode == 2 || (mode == 0 && Palette.color-scheme == ColorScheme.dark);
-    // Running on macOS (set from Rust): Mac-only metrics follow Apple's (smaller controls, 13 px
-    // text). Elsewhere they keep the sizes the GUI smoke's click coordinates were measured on.
+    // Running on macOS (set from Rust): only the system accent follows it; the metrics below are
+    // Apple's (13 px text, 28 px controls) on every platform.
     in property <bool> mac;
     // macOS's accent colour (System Settings ▸ Appearance), read once at start in sRGB.
     in property <color> system-accent: #007AFF;
@@ -97,18 +97,18 @@ export global Theme {
     // Type scale
     out property <length> fs-caption: 11px;
     out property <length> fs-label: 13px;
-    out property <length> fs-body: mac ? 13px : 14px;
+    out property <length> fs-body: 13px;
     out property <length> fs-body-large: 16px;
     out property <length> fs-subtitle: 18px;
     out property <length> fs-title: 24px;
     out property <length> fs-title-large: 28px;
-    // Component text sizes (taste gate 15/10); macOS: Apple's 13 px body and smaller headings.
-    out property <length> fs-menu: mac ? 13px : 14px;
-    out property <length> fs-section: mac ? 15px : 17px;
-    out property <length> fs-card: mac ? 13px : 13.5px;
-    out property <length> fs-page-title: mac ? 22px : 26px;
-    out property <length> fs-button: mac ? 13px : 14px;
-    out property <length> fs-tab: mac ? 13px : 14px;
+    // Component text sizes (taste gate 15/10): Apple's 13 px body and smaller headings.
+    out property <length> fs-menu: 13px;
+    out property <length> fs-section: 15px;
+    out property <length> fs-card: 13px;
+    out property <length> fs-page-title: 22px;
+    out property <length> fs-button: 13px;
+    out property <length> fs-tab: 13px;
     out property <int> weight-demibold: 600;
     out property <int> weight-bold: 700;
 
@@ -122,24 +122,24 @@ export global Theme {
     out property <length> sidebar-margin: 8px;
     // Below this window width the task menu shows icons only.
     out property <length> sidebar-collapse-below: 1000px;
-    out property <length> menu-item-height: mac ? 30px : 38px;
+    out property <length> menu-item-height: 30px;
     out property <length> menu-icon: 16px;
-    out property <length> menu-gap: mac ? 12px : 14px;
+    out property <length> menu-gap: 12px;
     out property <length> content-padding: 20px;
     out property <length> card-width: 112px;
     out property <length> card-height: 112px;
     out property <length> card-tile: 40px;
-    out property <length> card-tile-top: mac ? 12px : 14px;
+    out property <length> card-tile-top: 12px;
     out property <length> card-icon: 22px;
     out property <length> card-label-gap: 12px;
-    out property <length> grid-spacing: mac ? 20px : 22px;
+    out property <length> grid-spacing: 20px;
     out property <length> section-header-height: 44px;
-    // macOS-only metrics below: Apple's regular control height is 28 px.
-    out property <length> button-height: mac ? 28px : 34px;
+    // Apple's regular control height is 28 px.
+    out property <length> button-height: 28px;
     out property <length> dropzone-height: 120px;
     out property <length> combo-width: 104px;
-    out property <length> combo-height: mac ? 28px : 32px;
-    out property <length> segment-height: mac ? 28px : 32px;
+    out property <length> combo-height: 28px;
+    out property <length> segment-height: 28px;
     // Tool flow
     out property <length> panel-width: 292px;  // 248 px of options + the scrollbar gutter
     out property <length> panel-padding: 16px;
@@ -149,9 +149,9 @@ export global Theme {
     out property <length> file-thumb-width: 60px;
     out property <length> file-thumb-height: 84px;
     out property <length> fab-size: 40px;
-    out property <length> action-height: mac ? 36px : 56px;
+    out property <length> action-height: 36px;
     out property <length> radio-card-height: 44px;
-    out property <length> field-height: mac ? 28px : 36px;
+    out property <length> field-height: 28px;
     out property <length> tool-tab-width: 168px;
     out property <length> continue-width: 200px;
     out property <length> continue-row: 40px;
