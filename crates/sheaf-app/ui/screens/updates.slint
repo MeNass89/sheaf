@@ -108,7 +108,8 @@ export component UpdateDialog inherits Modal {
 // The daily check's notice: bottom right, small, until read or dismissed. It never opens a dialog
 // by itself.
 export component UpdateNotice inherits Rectangle {
-    width: 440px;
+    // Wide enough for "Sheaf 10.10.10 est disponible." beside its two buttons (440 elided it).
+    width: 540px;
     height: 60px;
     border-radius: Theme.radius-card;
     background: Theme.card;

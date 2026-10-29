@@ -186,4 +186,13 @@ the item after About, still there after a menu rebuild, opening the dialog). No 
 hand, below). The real GitHub address is not called by any test (no release published yet: it would say "No
 release has been published yet").
 
-**Self-grade.** F 9 · A 8 · P 9 (see the final report of this round for the evidence and gaps).
+**Run by hand (Xvfb :157, debug build).** A mock GitHub (python http.server answering v9.1.0 with a
+linux-x64 tarball) at `SHEAF_TEST_UPDATES_URL`, prefs with the daily check on: at launch one GET
+`/repos/MeNass89/sheaf/releases/latest` with User-Agent `Sheaf/0.2.1`, `last_check` written; the notice "Sheaf 9.1.0
+is available." bottom right with Not Now / See What's New; See What's New opens the dialog: "Sheaf 9.1.0 is
+available", "You have version 0.2.1.", the notes as text (headings, bullets), "Download opens
+Sheaf-9.1.0-linux-x64.tar.gz (58 MB) in your browser", the tick box on, Skip This Version / Later / Download. The
+notice's text was elided at 440 px: widened to 540 px.
+
+**Self-grade.** F 9 · A 8 · P 9. A 8: the dialog and notice read well, but the menu item on a Mac is unseen and
+there is no GUI smoke step in the suite yet.
