@@ -75,6 +75,8 @@ component PrintingCard inherits SettingsCard {
 // A name with its trailing buttons, in a list inside a card.
 component ListRow inherits Flow {
     in property <string> text;
+    // The name takes the room left (horizontal-stretch); the buttons keep theirs.
+    alignment: stretch;
     height: Theme.control-height;
     spacing: Space.sm;
     Text {
@@ -153,7 +155,7 @@ component SignaturesCard inherits SettingsCard {
             Button { text: @tr("Remove"); clicked => { Picked.tsa-prefs(1, k, ""); } }
         }
         Flow {
-            spacing: Space.sm;
+            alignment: stretch;
             tsa-url := TextField { horizontal-stretch: 1; placeholder: "https://freetsa.org/tsr"; }
             Button {
                 text: @tr("Add server");

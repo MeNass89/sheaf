@@ -610,17 +610,18 @@ quit; platform_reset
 # All, Copy, then Paste at its end makes "AdaAda" (read in the field). Settings is its own window since the
 # redesign (W5): the main window's menu bar acts on the main window's fields.
 menu() { local m; read m _ <<< "$(at "$1" 700x34+0+0)"; [ -n "$m" ] && click $m 14 0.8; local it; it=$(at "$2" 320x520+$(( ${m:-20} - 20 ))+24); [ -n "$it" ] && click $it 0.8; echo "${it:-no $2}"; }
-# Home ▸ Tools from a document (the Home tab, then Tools in its sidebar): the Tools search has the keyboard. TSF:
-# the strip of the window holding the search field (found by its placeholder, read before typing).
+# Home ▸ Tools from a document (the Home tab, then Tools in its sidebar): the Tools search has the keyboard. TS: the
+# search field's centre, found by its placeholder before typing; TSF: the field itself (not in a subshell: it sets
+# both).
 tools_search() { local h t f; read h _ <<< "$(at Home 400x40+0+28)"; click "${h:-50}" 49 0.8; read t f <<< "$(at Tools 250x300+0+60)"; [ -n "$t" ] && click $t $f 1
-    read t f <<< "$(at Search 1280x200+0+60)"; TSF="1040x36+240+$(( ${f:-100} - 18 ))"; [ -n "$t" ] && click $t $f 0.4; echo "${t:-?} ${f:-?}"; }
+    read t f <<< "$(at Search 1280x200+0+60)"; TSF="300x36+$(( ${t:-900} - 40 ))+$(( ${f:-100} - 18 ))"; [ -n "$t" ] && click $t $f 0.4; TS="${t:-?} ${f:-?}"; }
 export SHEAF_TEST_MENU_BAR=1
 cp "$OUT/text.pdf" "$OUT/editmenu.pdf"; launch "$OUT/editmenu.pdf"; sleep 1
 echo -n | xclip -selection clipboard >/dev/null 2>&1
 E1=$(menu Edit Select); E2=$(menu Edit Copy); sleep 0.4
 CP=$(xclip -o -selection clipboard 2>/dev/null | head -1)
 # Home ▸ Tools (its search takes the keyboard), found by its word in Home's sidebar under the menu bar.
-TS=$(tools_search); xdotool type --delay 20 "Ada"; sleep 0.3
+tools_search; xdotool type --delay 20 "Ada"; sleep 0.3
 E3=$(menu Edit Select); E4=$(menu Edit Copy); key End; E5=$(menu Edit Paste); sleep 0.6
 AU=$(ocr "$TSF" | tr -d ' ')
 check "Edit ▸ Select All, Copy, Paste act on the pages and on a text field ($E1 $E2 $E5; clipboard '$(echo "$CP" | cut -c1-20)'; field '$AU' at ${TS:-?})" "echo \"$CP\" | grep -q 'quick brown fox' && echo \"$AU\" | grep -q AdaAda"
@@ -775,7 +776,7 @@ quit
 # added then Edit ▸ Undo takes the note away (saved: no note). The menu shows Undo's Ctrl+Z.
 export SHEAF_TEST_MENU_BAR=1
 launch
-YN=$(tools_search); read YX YY <<< "$YN"; xdotool type --delay 20 "Ada"; sleep 0.4
+tools_search; read YX YY <<< "$TS"; xdotool type --delay 20 "Ada"; sleep 0.4
 read MX _ <<< "$(at Edit 700x34+0+0)"; [ -n "$MX" ] && click $MX 14 0.8
 UM=$(ocr 420x520+$(( ${MX:-20} - 20 ))+24); key Escape; sleep 0.3
 # The field again has the keyboard (Escape closed the menu), then Edit ▸ Undo.
@@ -806,7 +807,8 @@ quit; platform_reset
 # (Rulers measure in: Centimetres left of Inches), and the reader's tool options bar sits at the top right of the
 # pages with its options reversed (Shapes: Fill on the right of the bar's left half, the bar past the middle).
 prefs_set 'p.setdefault("platform", {})["direction"] = 2'
-launch; settings 2
+# Right to left the tab bar reads from the right too: Reading is the fourth tab from the left (index 3).
+launch; settings 3
 CM=$(pref_find Centimetres); read CX _ <<< "$CM"; read IX _ <<< "$(at Inches "$SG")"
 quit
 cp "$OUT/text.pdf" "$OUT/rtlbar.pdf"; launch "$OUT/rtlbar.pdf"; sleep 1
@@ -1066,7 +1068,8 @@ Q2=$(ocr 700x300+290+250)
 quit
 mkdir -p "$OUT/trusted"; answer "$PWD/$OUT/trusted"
 launch; settings 3
-AF=$(pref_find "folder…"); [ -z "$AF" ] && AF=$(pref_find Add); [ -n "$AF" ] && click $AF 1
+# Add a folder…: the first Add under "Trusted locations" (its note also says "folder").
+read _ TL <<< "$(pref_find locations)"; AF=; [ -n "$TL" ] && AF=$(at Add ${SWW}x90+$SX+$(( TL + 8 ))); [ -n "$AF" ] && click $AF 1
 LOC=$(settings_val 'p["settings"]["trust"]["locations"]'); shot 302b-trusted
 answer ""
 check "a web link asks first, a blocked site stays blocked, a trusted folder is kept ($(echo "$Q1" | cut -c1-50); Remember ${R:-?}, Block ${B:-?}: $BL; then $(echo "$Q2" | cut -c1-30); $LOC)" "echo \"$Q1\" | grep -q 'example.org' && echo \"$BL\" | grep -q \"'example.org'\" && ! echo \"$Q2\" | grep -q 'Open a page' && echo \"$LOC\" | grep -q 'trusted'"

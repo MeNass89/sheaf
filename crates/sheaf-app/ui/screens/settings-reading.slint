@@ -98,6 +98,7 @@ export component SettingsReading inherits VerticalLayout {
             rule: PlatformBridge.learned.length > 0;
             RowNote { text: @tr("Dictionaries (ticked ones are used, in this order; none: your system's language)"); }
             for d in PlatformBridge.dictionaries: Flow {
+                alignment: stretch;
                 height: Theme.control-height;
                 spacing: Space.sm;
                 Checkbox {
