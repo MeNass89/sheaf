@@ -92,12 +92,13 @@ key ctrl+z; key ctrl+s; sleep 1.5
 key Escape; key v
 
 # 2b'. Select that signature, pull its corner handle: it grows, keeping its proportions and top-left.
-# Page 1 at ⌘9 in the 1280×800 window, Fill & Sign still on (its rail; no options bar with the Select tool):
-# the page is drawn 944/612 px a point from 320,98, so screen = (320 + 1.5425·x, 1319.5 − 1.5425·y) for PDF (x, y).
+# Page 1 at ⌘9 in the 1280×800 window, Fill & Sign still on (its rail): the signature picked, its options bar
+# docks and the page sits 944/612 px a point from 320,134, so screen = (320 + 1.5425·x, 1355.5 − 1.5425·y)
+# for PDF (x, y). (Before the pick, with no bar, the page top is at 98: see 2b'' below.)
 R0=$(inks "$OUT/text.pdf"); click 700 651 0.8
 set -- $(python3 -c '
 rs = [list(map(float, r.split())) for r in "'"$R0"'".split(";")]
-sx = lambda x: 320 + 1.5425 * x; sy = lambda y: 1319.5 - 1.5425 * y
+sx = lambda x: 320 + 1.5425 * x; sy = lambda y: 1355.5 - 1.5425 * y
 r = min(rs, key=lambda r: abs(sx((r[0] + r[2]) / 2) - 700) + abs(sy((r[1] + r[3]) / 2) - 651))
 print(round(sx(r[2])), round(sy(r[1])))')
 HX=$1; HY=$2
@@ -268,8 +269,9 @@ quit
 launch "$OUT/shapes.pdf"; key ctrl+9
 drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(($1 + i * $3 / 5)) $(($2 + i * $4 / 5)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; }
 key r; drag 500 300 180 120
-# ⇧ held at the press: a rectangle dragged 160 × 50 is saved square.
-xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
+# ⇧ held at the press: a rectangle dragged 160 × 50 is saved square. From x 340: a press at 260 lands on the
+# sidebar's resize handle (W1, 256–264) and widened the panel for every later step (run 4, 29/10).
+xdotool keydown shift; drag 340 650 160 50; xdotool keyup shift
 # Opacity opens its slider and quick values: 75 % picked.
 # The opacity button found by its "100 %" (the bar's width depends on the shape's options).
 # The oval (317,109), then its Fill found by its word (the bar's width depends on its options).

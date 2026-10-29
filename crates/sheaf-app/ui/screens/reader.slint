@@ -82,8 +82,8 @@ export component ReaderScreen inherits Rectangle {
         if root.grid && root.mode != 4 { root.mode = 4; }
         if !root.grid && root.mode == 4 { root.mode = 0; }
     }
-    // A comment picked while reading: its properties are Annotate's.
-    changed selected-annot => { if root.selected-annot && root.mode == 0 { root.mode = 1; } }
+    // A comment picked while reading stays in Read (the floating selection bar holds its colours; the
+    // inspector its properties): the page never moves under a click.
     // A click on the selected mode, or Escape with nothing selected, returns to Read.
     function set-mode(m: int) {
         if (m == root.mode || m == 0) {
