@@ -18,10 +18,10 @@ use crate::viewer::{view_to_pdf, PageBox};
 pub enum PageTheme {
     #[default]
     Day,
-    /// Pages inverted: white paper becomes near-black, black text near-white. Pictures invert
-    /// too, as in PDF Expert's Night theme.
+    /// Pages inverted: white paper becomes near-black, black text near-white. Pictures keep their
+    /// own colours, as in PDF Expert's Night theme ([`kept_pictures`]).
     Night,
-    /// Warm paper, brown ink.
+    /// Cream paper, dark brown ink; pictures as they are.
     Sepia,
 }
 
@@ -44,18 +44,32 @@ impl PageTheme {
 
 /// Paper and ink of the Night and Sepia themes (RGB). White maps to paper, black to ink, and
 /// every grey in between along the line joining them; colours keep their hue relative to it.
+/// Sepia is Apple Books' cream (#F8F1E3) with a dark brown ink (#4A3B2A, contrast 9.4:1): the
+/// older beige paper and lighter ink (244,236,216 / 91,70,54) read as a dull veil (Nassim, 29/10).
 const NIGHT_PAPER: [f32; 3] = [30.0, 30.0, 32.0];
 const NIGHT_INK: [f32; 3] = [222.0, 222.0, 220.0];
-const SEPIA_PAPER: [f32; 3] = [244.0, 236.0, 216.0];
-const SEPIA_INK: [f32; 3] = [91.0, 70.0, 54.0];
+const SEPIA_PAPER: [f32; 3] = [248.0, 241.0, 227.0];
+const SEPIA_INK: [f32; 3] = [74.0, 59.0, 42.0];
+
+/// Night keeps a pixel's own colour from this chroma (`max - min`) up, and inverts it below
+/// [`NIGHT_GREY`], with a smooth ramp between so the anti-aliased edge of a coloured line blends.
+const NIGHT_COLOUR: i32 = 96;
+const NIGHT_GREY: i32 = 24;
 
 /// Recolours an RGBA render in place for `theme`.
 ///
-/// Night inverts the lightness only (HSL: hue and saturation kept): each pixel's lightness
-/// `l = (max + min) / 2` goes to the other end of the paper–ink line and its offset from that grey
-/// (`c - l`) is kept, so a yellow highlight stays yellow and a teal heading stays teal (a plain
-/// inversion turns them blue and red). Sepia maps the grey scale onto warm paper and brown ink.
+/// Night inverts black and white only (Nassim, 29/10: "colours shouldn't get flipped"): a grey
+/// pixel's lightness `l = (max + min) / 2` goes to the other end of the paper–ink line; a coloured
+/// one ([`NIGHT_COLOUR`]) keeps its own colour, so a yellow highlight, a red heading or a blue link
+/// stay as drawn; in between the two are mixed by chroma. Sepia maps the grey scale onto cream
+/// paper and brown ink, every colour keeping its offset from its grey (`c - l`), so its hue.
 pub fn tint(rgba: &mut [u8], theme: PageTheme) {
+    tint_except(rgba, 1, theme, &[]);
+}
+
+/// [`tint`], except inside `keep` (pixel rectangles `[x0, y0, x1, y1)` of a render `width` pixels
+/// wide), whose pixels stay as drawn: the page's pictures ([`kept_pictures`]).
+pub fn tint_except(rgba: &mut [u8], width: usize, theme: PageTheme, keep: &[[u32; 4]]) {
     let (paper, ink) = match theme {
         PageTheme::Day => return,
         PageTheme::Night => (NIGHT_PAPER, NIGHT_INK),
@@ -63,29 +77,107 @@ pub fn tint(rgba: &mut [u8], theme: PageTheme) {
     };
     // Per channel, the grey for each lightness: 255 (white) → paper, 0 (black) → ink. Night's paper
     // is dark and its ink light, which is the inversion.
-    let mut grey = [[0i32; 256]; 3];
-    for (c, table) in grey.iter_mut().enumerate() {
+    let mut lut = Lut { grey: [[0; 256]; 3], own: [0; 256] };
+    for (c, table) in lut.grey.iter_mut().enumerate() {
         for (y, out) in table.iter_mut().enumerate() {
             let t = y as f32 / 255.0;
             *out = (ink[c] + (paper[c] - ink[c]) * t).round() as i32;
         }
     }
-    for px in rgba.as_chunks_mut::<4>().0 {
+    if theme == PageTheme::Night {
+        for (chroma, own) in lut.own.iter_mut().enumerate() {
+            let t = ((chroma as f32 - NIGHT_GREY as f32) / (NIGHT_COLOUR - NIGHT_GREY) as f32).clamp(0.0, 1.0);
+            *own = (t * t * (3.0 - 2.0 * t) * 256.0).round() as i32;
+        }
+    }
+    let px = rgba.as_chunks_mut::<4>().0;
+    if keep.is_empty() {
+        return tint_pixels(px, &lut);
+    }
+    let width = width.max(1);
+    let mut spans: Vec<(usize, usize)> = Vec::with_capacity(keep.len());
+    for (y, row) in px.chunks_mut(width).enumerate() {
+        spans.clear();
+        spans.extend(keep.iter().filter(|k| (k[1] as usize..k[3] as usize).contains(&y)).map(|k| (k[0] as usize, k[2] as usize)));
+        if spans.is_empty() {
+            tint_pixels(row, &lut);
+            continue;
+        }
+        spans.sort_unstable();
+        let mut x = 0;
+        for &(a, b) in &spans {
+            let a = a.min(row.len());
+            if a > x {
+                tint_pixels(&mut row[x..a], &lut);
+            }
+            x = x.max(b.min(row.len()));
+        }
+        tint_pixels(&mut row[x..], &lut);
+    }
+}
+
+/// [`tint_except`]'s tables: the themed grey per channel and lightness, and per chroma how much
+/// of the pixel's own colour is kept (0 to 256).
+struct Lut {
+    grey: [[i32; 256]; 3],
+    own: [i32; 256],
+}
+
+fn tint_pixels(px: &mut [[u8; 4]], lut: &Lut) {
+    for px in px {
         let (r, g, b) = (px[0] as i32, px[1] as i32, px[2] as i32);
-        let l = (r.max(g).max(b) + r.min(g).min(b)) / 2;
-        let off = [r - l, g - l, b - l];
-        for c in 0..3 {
-            px[c] = (grey[c][l as usize] + off[c]).clamp(0, 255) as u8;
+        let (hi, lo) = (r.max(g).max(b), r.min(g).min(b));
+        let l = (hi + lo) / 2;
+        let own = lut.own[(hi - lo) as usize];
+        for (c, v) in [r, g, b].into_iter().enumerate() {
+            let themed = (lut.grey[c][l as usize] + v - l).clamp(0, 255);
+            px[c] = ((themed * (256 - own) + v * own + 128) >> 8) as u8;
         }
     }
 }
 
-/// The background shown around pages for `theme` (RGB), so the gaps match the paper.
+/// A picture drawn on a page: its bounds in render pixels `[x0, y0, x1, y1]`, and whether it is
+/// one bit per pixel (a stencil or a black-and-white scan: ink, not a photo).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Picture {
+    pub rect: [f32; 4],
+    pub one_bit: bool,
+}
+
+/// The rectangles of a `width` × `height` render that [`tint_except`] leaves as drawn: the page's
+/// photos, as PDF Expert's Night and Sepia keep them. One-bit pictures are ink and are themed.
+/// A scan is themed whole, as PDF Expert inverts scanned text pages: when the pictures cover
+/// [`SCAN_COVER`] of the page or more, nothing is kept (a full-page photo is themed too then).
+pub fn kept_pictures(pictures: &[Picture], width: u32, height: u32) -> Vec<[u32; 4]> {
+    let (w, h) = (width as f32, height as f32);
+    let rects: Vec<[u32; 4]> = pictures
+        .iter()
+        .filter(|p| !p.one_bit)
+        .filter_map(|p| {
+            let [x0, y0, x1, y1] = p.rect;
+            // pdfium draws a picture over every pixel it touches: rounded outwards (a hundredth of a
+            // pixel of slack, so an edge on a pixel boundary does not take the next one).
+            let r = [(x0 + 0.01).floor(), (y0 + 0.01).floor(), (x1 - 0.01).ceil(), (y1 - 0.01).ceil()].map(|v| v.max(0.0));
+            let r = [r[0].min(w), r[1].min(h), r[2].min(w), r[3].min(h)];
+            (r[2] > r[0] && r[3] > r[1]).then(|| r.map(|v| v as u32))
+        })
+        .collect();
+    let area: f64 = rects.iter().map(|r| f64::from(r[2] - r[0]) * f64::from(r[3] - r[1])).sum();
+    if area >= f64::from(SCAN_COVER) * f64::from(width) * f64::from(height) {
+        return Vec::new();
+    }
+    rects
+}
+
+/// How much of a page its pictures cover for it to be read as a scan (and themed whole).
+pub const SCAN_COVER: f32 = 0.9;
+
+/// The background shown around pages for `theme` (RGB), so the gaps match the paper. Sepia keeps
+/// the reader's own canvas: a beige one around the pages read as a veil (Nassim, 29/10).
 pub fn backdrop(theme: PageTheme) -> Option<[u8; 3]> {
     match theme {
-        PageTheme::Day => None,
+        PageTheme::Day | PageTheme::Sepia => None,
         PageTheme::Night => Some([18, 18, 20]),
-        PageTheme::Sepia => Some([226, 216, 192]),
     }
 }
 
@@ -1159,15 +1251,103 @@ mod tests {
         assert_eq!(&px[4..7], &[222, 222, 220]);
         let mut px = [255, 255, 255, 255, 0, 0, 0, 255];
         tint(&mut px, PageTheme::Sepia);
-        assert_eq!(&px[..3], &[244, 236, 216]);
-        assert_eq!(&px[4..7], &[91, 70, 54]);
+        assert_eq!(&px[..3], &[248, 241, 227]);
+        assert_eq!(&px[4..7], &[74, 59, 42]);
         let mut px = [12, 34, 56, 255];
         tint(&mut px, PageTheme::Day);
         assert_eq!(px, [12, 34, 56, 255]);
-        // A yellow highlight stays yellow at night: red and green above blue.
-        let mut px = [255, 219, 64, 255];
+    }
+
+    #[test]
+    fn night_inverts_black_and_white_and_keeps_colours() {
+        // Saturated colours stay as drawn: a yellow highlight, a red heading, a blue link.
+        for c in [[255, 219, 64], [200, 30, 40], [20, 60, 220]] {
+            let mut px = [c[0], c[1], c[2], 255];
+            tint(&mut px, PageTheme::Night);
+            assert_eq!(&px[..3], &c, "{c:?}");
+        }
+        // A grey is inverted along the paper–ink line, as black and white are.
+        let mut px = [64, 64, 64, 255];
         tint(&mut px, PageTheme::Night);
-        assert!(px[0] > px[2] + 100 && px[1] > px[2] + 100, "{px:?}");
+        assert_eq!(&px[..3], &[174, 174, 173]);
+        // Between them the mix follows the chroma: an anti-aliased edge has no step.
+        let mut last: Option<[u8; 4]> = None;
+        for k in 0..=40 {
+            let mut px = [255, 255 - k * 5, 255 - k * 5, 255];
+            tint(&mut px, PageTheme::Night);
+            if let Some(l) = last {
+                assert!((0..3).all(|c| px[c].abs_diff(l[c]) <= 24), "{k}: {l:?} → {px:?}");
+            }
+            last = Some(px);
+        }
+    }
+
+    /// WCAG contrast ratio of two sRGB colours.
+    fn contrast(a: [u8; 3], b: [u8; 3]) -> f64 {
+        let lum = |c: [u8; 3]| {
+            let lin = |v: u8| {
+                let v = f64::from(v) / 255.0;
+                if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
+            };
+            0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2])
+        };
+        let (x, y) = (lum(a), lum(b));
+        (x.max(y) + 0.05) / (x.min(y) + 0.05)
+    }
+
+    #[test]
+    fn sepia_is_a_light_cream_with_readable_ink_and_no_veil_around_the_pages() {
+        let mut px = [255, 255, 255, 255, 0, 0, 0, 255];
+        tint(&mut px, PageTheme::Sepia);
+        let (paper, ink) = ([px[0], px[1], px[2]], [px[4], px[5], px[6]]);
+        assert!(contrast(paper, ink) >= 7.0, "{}", contrast(paper, ink));
+        // Light and warm: red over green over blue, all high.
+        assert!(paper[0] >= 240 && paper[0] > paper[1] && paper[1] > paper[2] && paper[2] >= 220, "{paper:?}");
+        assert_eq!(backdrop(PageTheme::Sepia), None);
+        assert_eq!(backdrop(PageTheme::Day), None);
+        assert!(backdrop(PageTheme::Night).is_some());
+        // A red stays red.
+        let mut px = [220, 30, 30, 255];
+        tint(&mut px, PageTheme::Sepia);
+        assert!(px[0] > px[1] + 100 && px[0] > px[2] + 100, "{px:?}");
+    }
+
+    #[test]
+    fn pictures_keep_their_pixels_and_the_rest_is_themed() {
+        // A 4 × 3 white render with a photo over x 1..3, y 1..2.
+        let mut px = [255u8; 4 * 3 * 4];
+        tint_except(&mut px, 4, PageTheme::Night, &[[1, 1, 3, 2]]);
+        for (i, p) in px.chunks(4).enumerate() {
+            let (x, y) = (i % 4, i / 4);
+            let inside = (1..3).contains(&x) && y == 1;
+            assert_eq!(&p[..3], if inside { &[255, 255, 255] } else { &[30, 30, 32] }, "({x}, {y})");
+        }
+        // Overlapping and out-of-bounds rectangles.
+        let mut px = [0u8; 4 * 2 * 4];
+        tint_except(&mut px, 4, PageTheme::Sepia, &[[0, 0, 2, 1], [1, 0, 9, 1]]);
+        assert!(px[..16].iter().all(|&v| v == 0));
+        assert_eq!(&px[16..19], &[74, 59, 42]);
+        // No rectangle: the same as tint.
+        let (mut a, mut b) = ([12u8, 200, 90, 255, 3, 4, 5, 255], [12u8, 200, 90, 255, 3, 4, 5, 255]);
+        tint(&mut a, PageTheme::Night);
+        tint_except(&mut b, 2, PageTheme::Night, &[]);
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn a_scan_is_themed_whole_and_one_bit_pictures_are_ink() {
+        let photo = |rect| Picture { rect, one_bit: false };
+        // A photo on a quarter of the page is kept, clipped to the render and rounded outwards.
+        assert_eq!(kept_pictures(&[photo([10.4, 20.6, 60.2, 70.0])], 100, 100), vec![[10, 20, 61, 70]]);
+        assert_eq!(kept_pictures(&[photo([-5.0, 50.0, 40.0, 130.0])], 100, 100), vec![[0, 50, 40, 100]]);
+        // A scan: one picture over 90 % of the page or more, or strips adding up to it.
+        assert!(kept_pictures(&[photo([0.0, 0.0, 100.0, 100.0])], 100, 100).is_empty());
+        assert!(kept_pictures(&[photo([0.0, 0.0, 100.0, 50.0]), photo([0.0, 50.0, 100.0, 95.0])], 100, 100).is_empty());
+        assert_eq!(kept_pictures(&[photo([0.0, 0.0, 100.0, 89.0])], 100, 100).len(), 1);
+        // A black-and-white picture is ink, themed with the text.
+        assert!(kept_pictures(&[Picture { rect: [10.0, 10.0, 50.0, 50.0], one_bit: true }], 100, 100).is_empty());
+        // Empty or outside the render: nothing.
+        assert!(kept_pictures(&[photo([120.0, 0.0, 150.0, 50.0]), photo([5.0, 5.0, 5.0, 9.0])], 100, 100).is_empty());
     }
 
     fn item(title: &str, page: usize, open: bool, children: Vec<OutlineItem>) -> OutlineItem {
