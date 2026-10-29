@@ -76,8 +76,9 @@ RL=$(ocr 1240x500+20+260); shot 09e-recent-search
 check "a recent file is starred and the search finds it alone (${RY:-no card}; prefs: $PN; list: $(echo "$RL" | cut -c1-60))" "[ \"\${PN:-0}\" -ge 1 ] && echo \"$RL\" | grep -q 'tool-compressed' && ! echo \"$RL\" | grep -q 'text.pdf'"
 # Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf, Low compression chosen
 # again (its card's background as when it was picked, not as before).
-H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at again); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
-RR=$(ocr 960x700+20+60); RP=$(ocr 280x300+1000+40)   # the file area (below the tab bar, which names tool.pdf too), the options
+# Run again found by its first word (in the accent blue tesseract reads it "Runagain").
+H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at Run 1080x700+200+40); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
+RR=$(ocr 940x680+30+70); RP=$(ocr 280x300+1000+40)   # the file area inside its dashed edge (below the tab bar, which names tool.pdf too; the dashes on the darker canvas garble the card), the options
 read _ LOWY2 <<< "$(at Low 280x500+1000+40)"; LOW2=$(cardbg "${LOWY2:-0}")
 check "Run again from Tasks History reopens Compress with its file ($H / $RA)" "[ -n \"$RA\" ] && echo \"$RR\" | grep -q 'tool.pdf' && echo \"$RP\" | grep -qi 'Recommended'"
 check "Run again starts from the options the task ran with (Low: $LOW0 → $LOW1, again $LOW2)" "[ -n \"$LOWY\" ] && [ \"$LOW1\" != \"$LOW0\" ] && [ \"$LOW2\" = \"$LOW1\" ]"

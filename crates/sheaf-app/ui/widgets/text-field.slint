@@ -35,7 +35,8 @@ export component TextField inherits VerticalLayout {
             visible: input.text == "";
             text: root.placeholder;
             font-size: Theme.fs-label;
-            color: Theme.text-disabled;
+            // Placeholders are `text-3` (DESIGN §4): `text-disabled` is for controls that do not apply.
+            color: Theme.text-3;
             vertical-alignment: center;
         }
         input := TextInput {

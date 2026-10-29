@@ -700,7 +700,8 @@ quit
 launch
 LI=$(at Library 210x400+0+30); [ -n "$LI" ] && click $LI
 answer "$PWD/$OUT/text.pdf"
-LA=$(at Add 1000x160+220+35); [ -n "$LA" ] && click $LA 2
+# "Add files…" is the primary button, white on the accent.
+LA=$(at_on_accent Add 1000x160+220+35); [ -n "$LA" ] && click $LA 2
 answer "$PWD/$OUT/library-export.pdf"
 LE=$(at Save 600x300+650+100); [ -n "$LE" ] && click $LE
 check "Library keeps a private copy and exports it (${LA:-no Add}; ${LE:-no Save copy})" "cmp -s \"$OUT/text.pdf\" \"$OUT/library-export.pdf\" && python3 -c 'import pathlib,json; root=pathlib.Path(\"$OUT/profile/data/Sheaf/library\"); items=[json.loads(p.read_text()) for p in root.glob(\"*/entry.json\")]; assert any(e[\"name\"] == \"text.pdf\" and len(e[\"versions\"]) == 1 for e in items)'"
@@ -1699,8 +1700,11 @@ MK=; for _ in $(seq 1 25); do MK=$(at Mark 1080x710+200+90); [ -n "$MK" ] && bre
 [ -n "$MK" ] && click $MK 1
 WQ=$(ocr 700x340+290+230); shot 307a-plugin-warning
 answer "$PWD/$OUT/plug.pdf"
-# Allow and run (white on red, not read by OCR) is right of Don’t run, their centres 135 px apart.
-read DX DY <<< "$(at Don 1280x800+0+0)"; AL=; [ -n "$DX" ] && AL="$(( DX + 135 )) $DY" && click $AL 1
+# Allow and run, found by its word on the dialog's lower part (460 wide, centred; the body's "Allow it only…"
+# sits above y 400), else right of Don’t run, their centres 135 px apart.
+read AX AY <<< "$(at Allow 460x160+410+400)"; AL=; [ -n "$AX" ] && AL="$AX $AY"
+[ -z "$AL" ] && { read DX DY <<< "$(at Don 1280x800+0+0)"; [ -n "$DX" ] && AL="$(( DX + 135 )) $DY"; }
+[ -n "$AL" ] && click $AL 1
 for _ in $(seq 1 40); do [ -s "$OUT/plug - Mark as reviewed.pdf" ] && break; sleep 0.25; done; sleep 0.5; answer ""
 PT=$(pdfinfo "$OUT/plug - Mark as reviewed.pdf" 2>/dev/null | awk '/^Title:/ { print $2 }')
 PA=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["allowed"])' "$PWD/$OUT/profile/data/Sheaf/plugins/plugins.json" 2>/dev/null)
