@@ -666,3 +666,10 @@ on Ubuntu 24.04 and needs Ubuntu 24.04, Debian 13, Fedora 40 or newer. (2) The B
 rules: 13 pt text, 28 pt controls, 4 pt grid…) applies on every platform; only true platform conventions stay
 macOS-only (menu placement, ⌘ symbols, the system accent colour, Continuity Camera, AppleScript).
 **Would change it.** Users on older distributions (ship Microsoft's libonnxruntime.so instead).
+
+## 2026-10-29 · Podcast voices out of scope
+
+**Decision (Nassim, 29/10).** Generating a spoken podcast from a PDF is out of scope for a PDF app; the work on
+natural Linux voices (Piper) stops. C-ai-005 is judged on the slide deck, whose last gap (bold titles in
+non-Latin scripts) Sol found fixed in rev40; Sol's only remaining objection was the Linux voices. The existing
+podcast feature stays as it is (system voices, eSpeak on Linux). **Would change it.** Users asking for audio.

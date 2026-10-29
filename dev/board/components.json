@@ -437,13 +437,13 @@
   "ours": [],
   "grade": {
    "function": 9,
-   "aesthetics": 8,
+   "aesthetics": 9,
    "performance": 9,
-   "overall": 8
+   "overall": 9
   },
-  "status": "open",
+  "status": "closed",
   "feature": null,
-  "next": "light",
+  "next": "—",
   "history": [
    {
     "date": "2026-10-20",
@@ -488,6 +488,17 @@
      "overall": 8
     },
     "proof": "Sol AGREE 9 (rev34ai); author a8: eSpeak voices robotic, non-Western decks without bold titles"
+   },
+   {
+    "date": "2026-10-29",
+    "feature": null,
+    "grade": {
+     "function": 9,
+     "aesthetics": 9,
+     "performance": 9,
+     "overall": 9
+    },
+    "proof": "Slide deck at parity (Sol rev40: non-Latin bold titles fixed); podcast voices out of scope (Nassim, DECISIONS 29/10), Sol's only remaining objection"
    }
   ]
  },

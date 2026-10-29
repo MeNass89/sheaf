@@ -1,19 +1,18 @@
 # Parity board
 
 Inspirations: Adobe Acrobat (Reader + Pro tools) (), PDF Expert (Readdle) (), iLovePDF Desktop (2.3.0), Stirling-PDF (), macOS Preview ()
-331 components · at parity (≥9): 323 · closed 323, open 2, out 6
+331 components · at parity (≥9): 324 · closed 324, out 6, open 1
 Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do not edit by hand.
 
 ## Queue (next first)
 | # | id | weight | component | main | F · A · P → overall | next |
 |---|---|---|---|---|---|---|
 | 1 | C-platform-012 | strong | Native desktop builds | ours | 7 · 7 · 9 → **7** | notarisation out of scope (DECISIONS 28/10); regrade the native builds without it |
-| 2 | C-ai-005 | light | Generate podcast or presentation | acrobat | 9 · 8 · 9 → **8** | light |
 
 ## By domain
 | domain | components | avg overall | at ≥9 |
 |---|---|---|---|
-| ai | 7 | 8.7 | 5 |
+| ai | 7 | 8.9 | 6 |
 | annotate | 38 | 8.8 | 37 |
 | batch | 9 | 9.0 | 9 |
 | compare | 7 | 9.0 | 7 |
@@ -37,6 +36,7 @@ Rendered by `dev/scripts/board.py render` from `dev/board/components.json`. Do n
 | C-ai-002 | Ask AI about the document | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
 | C-ai-003 | Summarize with AI | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
 | C-ai-004 | Translate with AI | 9 | Joint 9: Opus ai (9/9/9, round 33 notes) and Sol AGREE 9 (rev34ai, 28/10); landed 995534f |
+| C-ai-005 | Generate podcast or presentation | 9 | Slide deck at parity (Sol rev40: non-Latin bold titles fixed); podcast voices out of scope (Nassim, DECISIONS 29/10), Sol's only remaining objection |
 | C-ai-007 | Classify documents with AI | 9 | Joint 9: Opus (rounds 39-40, e1b8b82: category chips with counts) and Sol AGREE 9 (rev40, 29/10) |
 | C-annotate-001 | Show annotation toolbar | 9 | Joint 9: Opus (F-014 annotation gaps) and Sol AGREE 9 (re-review b19-annot, 26/10) |
 | C-annotate-002 | Highlight selected text | 9 | Highlight: 1,982-page 70 MB book (reader_doc::tests::edit_cost_on_a_big_file): engine 0.19 s per edit (was 2.1 s), drawn at once provisionally; gui-smoke saves and checks the file |
