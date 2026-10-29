@@ -463,7 +463,9 @@ Tools for you tile's star, the recent card's star 138 above its name, search fal
 ⌘,), 45/45b/75 (`home_new`). 4-flows: 81/90/100/101/330 (`home_new`, tile Merge), 3xx wrench searches, 306
 (French source list reads "outils" and "Favoris", English "Tools" and "Favourites": Preferences has no row),
 300 (the RTL title row read in its own 44 px band: a whole-width strip OCRs as noise), 350–356 (Actions' rows 42 px
-higher: New action, New custom tool and Run on PDFs… joined the title row). `tile_star X Y`: a tile's star from its
+higher: New action, New custom tool and Run on PDFs… joined the title row; the crops under a scroll to the editor's end and
+the run report at the foot keep their places; 353 reads the prompt's Continue, now its primary button, with
+`at_on_accent`, and waits for it). `tile_star X Y`: a tile's star from its
 name, by the 168 pitch (a two-word name's first word is off the tile's centre).
 
 Screenshots /tmp/f5/W2/ (self-snapshots, Xvfb :131): home light/dark 1280 and 1024, All Tools, Customize,

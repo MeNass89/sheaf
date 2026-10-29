@@ -1360,7 +1360,8 @@ xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; slee
 answer "$PWD/$OUT/353-source.pdf"
 RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 1
 # The step's prompt comes once the run has started: looked for until it shows.
-CT=; for _ in 1 2 3 4 5 6; do CT=$(at Continue 600x450+340+200); [ -n "$CT" ] && break; sleep 0.5; done; [ -n "$CT" ] && click $CT 2
+# Continue is the prompt's primary button (white on the accent): read on the accent.
+CT=; for _ in 1 2 3 4 5 6; do CT=$(at_on_accent Continue 600x450+340+200); [ -n "$CT" ] && break; sleep 0.5; done; [ -n "$CT" ] && click $CT 2
 for _ in $(seq 1 20); do [ -f "$OUT/353-source-353.pdf" ] && break; sleep 0.5; done
 shot 353-wizard-output
 check "353 saved multistep action prompts then marks only selected pages (${CT:-no Continue})" "pdfinfo \"$OUT/353-source-353.pdf\" 2>/dev/null | grep -q '^Title:.*Wizard result' && pdftotext -f 2 -l 3 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review' && ! pdftotext -f 1 -l 1 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review'"

@@ -326,7 +326,7 @@ export component ActionPrompt inherits Modal {
         HorizontalLayout {
             spacing: 8px;
             Button { text: @tr("Cancel action"); clicked => { ActionBridge.answer(false); } }
-            Button { text: @tr("Continue"); clicked => { ActionBridge.answer(true); } }
+            Button { text: @tr("Continue"); kind: ButtonKind.primary; clicked => { ActionBridge.answer(true); } }
         }
     }
 }
