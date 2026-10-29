@@ -119,7 +119,9 @@ export component Checkbox inherits Rectangle {
     callback toggled(bool);
     property <bool> clicked-focus;
     height: Theme.control-height;
-    preferred-width: 14px + 8px + lbl.preferred-width;
+    // Never squeezed under its label (a short row overlapped the labels).
+    min-width: 14px + 8px + lbl.preferred-width;
+    preferred-width: self.min-width;
     accessible-role: checkbox;
     accessible-label: root.text;
     accessible-checked: root.checked;
@@ -171,7 +173,9 @@ export component Radio inherits Rectangle {
     callback clicked();
     property <bool> clicked-focus;
     height: Theme.control-height;
-    preferred-width: 14px + 8px + lbl.preferred-width;
+    // Never squeezed under its label (a short row overlapped the labels).
+    min-width: 14px + 8px + lbl.preferred-width;
+    preferred-width: self.min-width;
     accessible-role: radio-button;
     accessible-label: root.text;
     accessible-checked: root.checked;

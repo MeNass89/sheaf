@@ -823,7 +823,7 @@ quit; platform_reset
 # top of the pages says it is a preview of notes.txt (C-reader-064, Sol's gap: no preview banner).
 printf 'Shopping list\nMilk and bread\n' > "$OUT/notes.txt"
 launch "$OUT/notes.txt"; sleep 3
-TB=$(ocr 1280x80+0+0); PG=$(ocr 900x500+190+90); PB=$(import -window root -crop 700x40+400+86 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr "\n" " ")
+TB=$(ocr 1280x80+0+0); PG=$(ocr 900x500+190+90); PB=$(import -window root -crop 700x40+400+86 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr "\n" " ")
 shot 310-text-preview
 check "a preview says so on the page ($(echo "$PB" | grep -o 'Preview of[^:]*' | head -1))" "echo \"$PB\" | grep -q 'Preview of notes.txt'"
 check "a .txt opens in the reader (tab: $(echo "$TB" | grep -o 'notes[^ ]*' | head -1); page: $(echo "$PG" | grep -o 'Shopping list' | head -1))" "echo \"$PG\" | grep -q 'Shopping list' && echo \"$PG\" | grep -q 'Milk' && ls \"$OUT\"/profile/tmp/sheaf-previews/*/notes.txt.pdf >/dev/null 2>&1 && [ \"\$(cat \"$OUT/notes.txt\")\" = \"\$(printf 'Shopping list\nMilk and bread')\" ]"
@@ -1027,8 +1027,9 @@ quit; platform_reset
 # Make default writes colour back.
 settings_val() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); print(eval(sys.argv[2]))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" "$1" 2>/dev/null; }
 settings_reset() { python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p.pop("settings", None); json.dump(p, open(sys.argv[1], "w"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null; }
-# Red (Sheaf's accent, a selected button) anywhere in a 40×10 box left of a word's centre.
-red_at() { import -window root -crop "40x10+$(( $1 - 30 ))+$(( $2 - 5 ))" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | python3 -c 'import sys; sys.exit(0 if any(int(c[1:3], 16) > 180 and int(c[3:5], 16) < 90 for c in sys.stdin.read().split()) else 1)'; }
+# The accent (a selected button's accent text; Sheaf blue by default since the redesign, W1 29/10/2026)
+# anywhere in a 40×10 box left of a word's centre.
+red_at() { import -window root -crop "40x10+$(( $1 - 30 ))+$(( $2 - 5 ))" -depth 8 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}' | python3 -c 'import sys; sys.exit(0 if any(int(c[5:7], 16) > 150 and int(c[1:3], 16) < 90 and int(c[3:5], 16) < 130 for c in sys.stdin.read().split()) else 1)'; }
 launch; key ctrl+comma; sleep 0.8
 G=$(pref_find Grey); [ -n "$G" ] && click $G 0.6
 T=$(at Two-sided 1020x700+250+90); [ -n "$T" ] && click $T 0.6
@@ -1525,11 +1526,11 @@ if [ -f "$OUT/pdfa-actions-before.json" ]; then mv "$OUT/pdfa-actions-before.jso
 
 # 305. Right to left on tick boxes (C-platform-004; iLovePDF's mirrored interface): in Report an Issue, the ticked
 # box of "Include this computer's details" sits right of its label, left of it left to right.
-# The x of the accent-red (ticked) pixels in the 300 px either side of a word's centre, their mean
-# (tick boxes take the accent colour since the BAMA pass, 28/10/2026).
+# The x of the accent (ticked) pixels in the 300 px either side of a word's centre, their mean
+# (tick boxes take the accent colour since the BAMA pass, 28/10/2026; the accent is blue by default since W1).
 tick_x() { import -window root -crop "600x1+$(( $1 - 300 ))+$2" -depth 8 txt:- 2>/dev/null | python3 -c '
 import re, sys
-xs = [int(m.group(1)) for m in re.finditer(r"^(\d+),\d+: \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M) if int(m.group(2)) > 180 and int(m.group(3)) < 100 and int(m.group(4)) < 100]
+xs = [int(m.group(1)) for m in re.finditer(r"^(\d+),\d+: \(\s*(\d+),\s*(\d+),\s*(\d+)", sys.stdin.read(), re.M) if int(m.group(4)) > 180 and int(m.group(2)) < 100 and int(m.group(3)) < 150]
 print(sum(xs) // len(xs) + int(sys.argv[1]) - 300 if xs else "")' "$1"; }
 export SHEAF_TEST_MENU_BAR=1
 for dir in 1 2; do

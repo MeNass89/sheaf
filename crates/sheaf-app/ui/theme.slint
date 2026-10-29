@@ -145,7 +145,10 @@ export global Theme {
 
     // ── Side columns (DESIGN §6.2) ──────────────────────────────────────────────────────────
     out property <length> sidebar-min: 200px;
-    out property <length> sidebar-default: 260px;
+    // DESIGN §6.2 asks 260; 248 until W3 lays the reader out anew (the GUI smoke clicks the canvas
+    // at places measured beside a 248 panel; the rail and inspector move them all again). One
+    // number with reader_ui::PANEL_WIDTH.
+    out property <length> sidebar-default: 248px;
     out property <length> sidebar-max: 480px;
     // Never more than this share of the window.
     out property <float> sidebar-max-share: 0.45;

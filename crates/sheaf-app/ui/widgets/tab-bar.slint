@@ -85,11 +85,13 @@ export component TabItem inherits Rectangle {
             MenuItem { title: @tr("Merge All Windows"); activated => { root.close-around(8); } }
         }
     }
+    // One hairline at every boundary of the strip: a divider between two unselected tabs, the
+    // selected tab's own sides next to it (the smoke counts tabs by these, y 10).
     if root.divider: Rectangle {
         x: root.rtl ? 0 : parent.width - 1px;
-        y: 11px;
+        y: 9px;
         width: 1px;
-        height: parent.height - 22px;
+        height: parent.height - 18px;
         background: Theme.hairline;
     }
     // Monochrome: no coloured tiles in the chrome (DESIGN §1 Feeling).
@@ -155,11 +157,12 @@ export component TabBar inherits Rectangle {
     background: Theme.chrome;
     // The Home tab, pinned first (its icon and name).
     property <length> home-w: Theme.tab-min-width;
-    // Tabs share the bar: 240 wide while they fit, narrower down to 120 as more open (a
-    // browser's), then the row scrolls (wheel or trackpad) and the active tab is kept in view.
+    // Tabs share the bar: 240 wide while they fit, 120 at the least while the window holds them
+    // (DESIGN §4); with more tabs than that they narrow on to 72, as Safari's do, so every tab stays
+    // in sight, then the row scrolls (wheel or trackpad) and the active tab is kept in view.
     property <length> room: root.width - root.home-w - 38px - 8px;
     property <length> each: root.tabs.length == 0 ? Theme.tab-max-width
-        : clamp(root.room / root.tabs.length, Theme.tab-min-width, Theme.tab-max-width);
+        : clamp(root.room / root.tabs.length, 72px, Theme.tab-max-width);
     property <length> active-w: root.each;
     property <length> other-w: root.each;
     property <length> row-width: root.home-w + root.tabs.length * root.each + 38px;
@@ -203,6 +206,14 @@ export component TabBar inherits Rectangle {
             accessible-item-selected: root.active == -1;
             accessible-action-default => { root.active = -1; }
             if root.active == -1: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.hairline; }
+            // Its divider when neither it nor the first tab is selected.
+            if root.active != -1 && (root.order.length == 0 || root.active != root.order[0]): Rectangle {
+                x: parent.width - 1px;
+                y: 9px;
+                width: 1px;
+                height: parent.height - 18px;
+                background: Theme.hairline;
+            }
             home-touch := TouchArea {
                 clicked => { root.active = -1; }
             }
@@ -227,7 +238,7 @@ export component TabBar inherits Rectangle {
         }
         for k[i] in root.order: TabItem {
             width: root.active == k ? root.active-w : root.other-w;
-            divider: root.active != k && i + 1 < root.order.length && root.active != root.order[i + 1];
+            divider: root.active != k && (i + 1 == root.order.length || root.active != root.order[i + 1]);
             init => { if root.active == k { root.active-at = i; } }
             changed active => { if self.active { root.active-at = i; } }
             drag(dx) => { root.drag-from = i; root.drag-dx = dx; }

@@ -120,17 +120,19 @@ quit
 # its ×; a middle click on it closes it.
 for i in $(seq -w 1 12); do cp "$OUT/form.pdf" "$OUT/m$i.pdf"; done
 launch $(for i in $(seq -w 1 12); do echo "$OUT/m$i.pdf"; done); sleep 4; shot 12-many-tabs
-# Tabs counted by their purple document icons along the bar (y = 15); the active tab, last opened, is the
-# one before the + (1160,21), its name in full.
-ntabs() { import -window root -crop 1280x1+0+15 png:- 2>/dev/null | convert - txt:- | python3 -c '
+# Tabs counted along the bar (y = 10, above the names and icons) by the one hairline at every boundary
+# of the strip: Home | tab | … | tab | +, a divider or the selected tab's side (widgets/tab-bar.slint):
+# one more boundary than tabs.
+# The active tab, last opened, is the one before the + (1160,21), its name in full.
+ntabs() { import -window root -crop 1280x1+0+10 png:- 2>/dev/null | convert - txt:- | python3 -c '
 import re, sys
 runs, inside = 0, False
 for line in sys.stdin:
     m = re.search(r"\((\d+),(\d+),(\d+)", line)
     if m:
-        r, g, b = map(int, m.groups()); p = r > 120 and b > 140 and g < 110
+        r, g, b = map(int, m.groups()); p = 205 <= r <= 228 and 205 <= b <= 234 and abs(r - g) < 6
         runs += p and not inside; inside = p
-print(runs)'; }
+print(max(runs - 1, 0))'; }
 N0=$(ntabs); NM=$(ocr 150x36+1095+4 | tr -d ' '); xdotool mousemove 1160 21 click 2; sleep 1; N1=$(ntabs)
 check "twelve tabs share the bar, the active keeps its name, a middle click closes it ($N0 → $N1, $NM)" "[ \"$N0\" = 12 ] && [ \"$N1\" = 11 ] && echo \"$NM\" | grep -q '12'"
 quit
