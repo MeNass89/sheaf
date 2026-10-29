@@ -38,6 +38,7 @@ pub mod scripting;
 pub mod scripting_mac;
 pub mod security_policies;
 pub mod store_file;
+pub mod updates;
 pub mod sign_preview;
 mod signature_store;
 pub mod viewer;

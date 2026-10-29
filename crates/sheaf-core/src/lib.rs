@@ -54,5 +54,6 @@ pub mod text;
 pub mod timestamp;
 pub mod textdocs;
 pub mod tools;
+pub mod updates;
 pub mod watermark;
 pub use error::{OpdfError, Result};

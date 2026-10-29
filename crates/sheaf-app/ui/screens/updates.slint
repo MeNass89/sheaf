@@ -1,0 +1,135 @@
+// Check for Updates… (iLovePDF's Help ▸ Check for updates, Acrobat's Help ▸ Check for Updates; on
+// a Mac in the app menu): the latest release on GitHub, its notes, and Download, which opens the
+// file in the browser; Sheaf installs nothing by itself. The quiet notice after a daily check
+// (Preferences ▸ Startup, off unless the user turns it on). Behaviour: src/updates_ui.rs.
+import { ScrollView } from "std-widgets.slint";
+import { Theme } from "../theme.slint";
+import { SecondaryButton, Modal } from "dialogs.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { Check } from "../widgets/check.slint";
+import { PlatformBridge } from "../platform.slint";
+
+export global UpdateBridge {
+    in-out property <bool> open;
+    // 0 checking, 1 up to date, 2 a newer version, 3 the check failed.
+    in property <int> state;
+    // The dialog's title and its sentence (made in Rust, translated), the new version's notes as
+    // plain text, and what Download opens ("" when Download opens the release page).
+    in property <string> heading;
+    in property <string> message;
+    in property <string> notes;
+    in property <string> download;
+    // Check once a day at launch (Preferences ▸ Startup).
+    in property <bool> auto;
+    // The quiet notice of a newer version found by the daily check, and its text.
+    in property <bool> notice;
+    in property <string> notice-text;
+    callback check();
+    callback download-it();
+    callback skip();
+    callback set-auto(bool);
+    callback see-notice();
+    callback dismiss-notice();
+}
+
+export component UpdateDialog inherits Modal {
+    card-width: 520px;
+    Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: UpdateBridge.heading;
+        font-size: Theme.fs-body-large;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+        wrap: word-wrap;
+    }
+    if UpdateBridge.message != "": Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: UpdateBridge.message;
+        font-size: Theme.fs-label;
+        color: UpdateBridge.state == 3 ? Theme.danger : Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    if UpdateBridge.state == 2 && UpdateBridge.notes != "": Rectangle {
+        height: min(260px, notes.preferred-height + 20px);
+        border-radius: Theme.radius-small;
+        border-width: 1px;
+        border-color: Theme.input-border;
+        background: Theme.input-bg;
+        ScrollView {
+            x: 1px;
+            y: 1px;
+            width: parent.width - 2px;
+            height: parent.height - 2px;
+            VerticalLayout {
+                padding: 9px;
+                notes := Text {
+                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                    text: UpdateBridge.notes;
+                    font-size: Theme.fs-label;
+                    color: Theme.text;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+    if UpdateBridge.state == 2: Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: UpdateBridge.download != "" ? @tr("Download opens {} in your browser. Install it as you installed Sheaf.", UpdateBridge.download) : @tr("This release has no download for this computer: Download opens its page.");
+        font-size: Theme.fs-caption;
+        color: Theme.text-secondary;
+        wrap: word-wrap;
+    }
+    auto := Check {
+        text: @tr("Check for updates automatically, once a day");
+        checked: UpdateBridge.auto;
+        toggled => { UpdateBridge.set-auto(self.checked); }
+    }
+    Text {
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        text: @tr("Sheaf asks GitHub for its latest release only when you check, or once a day when this is ticked. It sends nothing about you or your files, and installs nothing by itself.");
+        font-size: Theme.fs-caption;
+        color: Theme.text-muted;
+        wrap: word-wrap;
+    }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
+        spacing: 8px;
+        if UpdateBridge.state == 2: SecondaryButton { text: @tr("Skip This Version"); clicked => { UpdateBridge.skip(); } }
+        if UpdateBridge.state == 3: SecondaryButton { text: @tr("Try Again"); clicked => { UpdateBridge.check(); } }
+        Rectangle { horizontal-stretch: 1; }
+        if UpdateBridge.state == 2: SecondaryButton { text: @tr("Later"); clicked => { UpdateBridge.open = false; } }
+        if UpdateBridge.state == 2: PrimaryButton { text: @tr("Download"); clicked => { UpdateBridge.download-it(); } }
+        if UpdateBridge.state != 2: PrimaryButton { text: UpdateBridge.state == 0 ? @tr("Cancel") : @tr("OK"); clicked => { UpdateBridge.open = false; } }
+    }
+}
+
+// The daily check's notice: bottom right, small, until read or dismissed. It never opens a dialog
+// by itself.
+export component UpdateNotice inherits Rectangle {
+    // Wide enough for "Sheaf 10.10.10 est disponible." beside its two buttons (440 elided it).
+    width: 540px;
+    height: 60px;
+    border-radius: Theme.radius-card;
+    background: Theme.card;
+    drop-shadow-blur: 12px;
+    drop-shadow-color: #00000030;
+    lay := FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.stretch;
+        padding: 12px;
+        spacing: 10px;
+        Text {
+            cross-axis-self-alignment: CrossAxisAlignment.center;
+            text: UpdateBridge.notice-text;
+            font-size: Theme.fs-label;
+            color: Theme.text;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        SecondaryButton { text: @tr("Not Now"); clicked => { UpdateBridge.dismiss-notice(); } }
+        PrimaryButton { text: @tr("See What's New"); clicked => { UpdateBridge.see-notice(); } }
+    }
+}

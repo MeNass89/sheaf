@@ -736,7 +736,8 @@ pub fn install(ui: &AppWindow) {
     g.on_minimize(move || if let Some(ui) = weak.upgrade() { ui.window().set_minimized(true) });
     let weak = ui.as_weak();
     g.on_zoom(move || if let Some(ui) = weak.upgrade() { ui.window().set_maximized(!ui.window().is_maximized()) });
-    // A Mac's app menu: Settings… (⌘,) after About, put back each time Slint rebuilds the menu bar.
+    // A Mac's app menu: Check for Updates… and Settings… (⌘,) after About, put back each time
+    // Slint rebuilds the menu bar.
     #[cfg(target_os = "macos")]
     {
         let weak = ui.as_weak();
@@ -748,6 +749,22 @@ pub fn install(ui: &AppWindow) {
         });
         // AppleScript and Shortcuts (Run AppleScript): the dictionary's commands (macos/Sheaf.sdef).
         sheaf_app::scripting_mac::install();
+        let weak_check = ui.as_weak();
+        sheaf_app::mac_menu::install(
+            &sheaf_app::i18n::tr("Settings…"),
+            move || {
+                if let Some(ui) = weak.upgrade() {
+                    let g = ui.global::<PlatformBridge>();
+                    g.set_preferences_asked(g.get_preferences_asked() + 1);
+                }
+            },
+            &sheaf_app::i18n::tr("Check for Updates…"),
+            move || {
+                if let Some(ui) = weak_check.upgrade() {
+                    ui.global::<sheaf_app::UpdateBridge>().invoke_check();
+                }
+            },
+        );
     }
     // Checks on a Mac (debug builds): screen capture is refused over ssh, so the window draws itself.
     // A name written to $SHEAF_TEST_SNAPSHOT/request becomes $SHEAF_TEST_SNAPSHOT/<name>.png.

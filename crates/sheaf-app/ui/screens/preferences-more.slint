@@ -7,6 +7,7 @@ import { PrimaryButton } from "../widgets/button.slint";
 import { Check } from "../widgets/check.slint";
 import { PlatformBridge } from "../platform.slint";
 import { SettingsBridge } from "../settings.slint";
+import { UpdateBridge } from "updates.slint";
 
 // A white card with a title, as the page's other sections.
 component Card inherits Rectangle {
@@ -193,7 +194,7 @@ export component SecuritySection inherits Card {
 }
 
 // iLovePDF's "Open iLovePDF automatically after you log into the computer" and its Processing
-// warning. Sheaf checks for no updates and needs no proxy: it never goes online.
+// warning, and its update check. Sheaf needs no proxy.
 export component StartupSection inherits Card {
     title: @tr("Startup");
     Caption { text: @tr("When I log into the computer"); }
@@ -215,7 +216,19 @@ export component StartupSection inherits Card {
         Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Ask first"); selected: SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(true); } }
         Segment { width: Theme.mac ? self.fit-width : 150px; text: @tr("Quit at once"); selected: !SettingsBridge.quit-warning; clicked => { SettingsBridge.set-quit-warning(false); } }
     }
-    Note { text: @tr("Sheaf works offline: it never checks for updates or goes through a proxy."); }
+    // iLovePDF's and Acrobat's automatic update check, off unless the user turns it on (DECISIONS
+    // 28/10/2026): Sheaf goes online only when asked.
+    Caption { text: @tr("Updates"); }
+    FlexboxLayout {
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: LayoutAlignment.start;
+        spacing: 8px;
+        Segment { width: 150px; text: @tr("Only when I ask"); selected: !UpdateBridge.auto; clicked => { UpdateBridge.set-auto(false); } }
+        Segment { width: 150px; text: @tr("Once a day"); selected: UpdateBridge.auto; clicked => { UpdateBridge.set-auto(true); } }
+        SecondaryButton { text: @tr("Check Now"); clicked => { UpdateBridge.check(); } }
+    }
+    Note { text: @tr("Sheaf works offline. It asks GitHub for its latest release only when you check, or once a day at launch if you choose it, and never goes through a proxy."); }
 }
 
 // Acrobat's security warning when a document opens a web page: allow or block, remembered for

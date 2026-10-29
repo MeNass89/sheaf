@@ -120,6 +120,7 @@ cargo run -p sheaf-app          # the GUI (sh dev/scripts/build-safe.sh build -p
 | `platform.rs`, `platform_ui.rs` | The menu bar's commands and their shortcuts (the user's, Preferences ▸ Keyboard shortcuts), check spelling while typing (the card under an editor), tools hidden when they cannot run here, the right-to-left interface; the `PlatformBridge` global (`ui/platform.slint`). |
 | `settings.rs`, `settings_ui.rs` | Preferences ▸ Printing (the print sheet's defaults), Security (enhanced security, web link question, trusted locations, remembered sites) and Startup (open at login, quit warning); the `SettingsBridge` global (`ui/settings.slint`), sections in `ui/screens/preferences-more.slint`. |
 | `feedback.rs`, `feedback_ui.rs` | Help ▸ Report an Issue…: the report (subject, message, files, details) saved as a zip, copied or opened as a new issue in the browser; `ui/screens/feedback.slint` (`FeedbackBridge`). |
+| `updates.rs`, `updates_ui.rs` | Check for Updates… (Help; a Mac's app menu, `mac_menu.rs`): GitHub's latest release (core `updates.rs`: version compare, this computer's download, `SHEAF_TEST_UPDATES_URL` in debug builds), Download opening it in the browser, Skip This Version, the daily check (off by default) and its notice; `ui/screens/updates.slint` (`UpdateBridge`). |
 
 ## Where to change what
 

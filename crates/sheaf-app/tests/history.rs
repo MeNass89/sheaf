@@ -150,6 +150,7 @@ fn prefs_round_trip_and_corrupt_means_default() {
             trust: sheaf_app::settings::TrustPrefs { web: 2, locations: vec![PathBuf::from("/docs/trusted")], ..Default::default() },
             open_at_login: true,
             no_quit_warning: true,
+            updates: sheaf_app::updates::UpdatePrefs { auto: true, last_check: Some(1_761_649_200), skipped: Some("0.3.0".into()) },
         },
         trap_presets: vec![sheaf_core::trap::TrapPreset { name: "Coated sheetfed".into(), width_pt: 0.2, step: 0.15, ..Default::default() }],
     };
