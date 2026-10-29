@@ -197,10 +197,10 @@ for _ in 1 2 3 4 5 6 7 8 9 10; do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done
 check "Close Other Tabs asks about unsaved edits, Don't Save closes it ($(echo $PQ | cut -c1-60); $(ntabs) tab)" "echo \"$PQ\" | grep -q cb.pdf && [ \"\$(ntabs)\" = 1 ]"
 quit
 
-# 30. Thumbnails bar ▸ ⋯ (206,774) ▸ Extract… (250,706) opens its options strip, Acrobat's: one file per page,
+# 30. Thumbnails bar ▸ Extract… (170,774: at W3's default 260 the bar holds all seven) opens its options strip, Acrobat's: one file per page,
 # delete the pages after. Deleting the only page is refused before any file is asked for.
 qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"; launch "$OUT/single.pdf"; sleep 1
-click 206 774 0.8; click 250 706 0.8; XS=$(ocr 248x110+0+630)
+click 170 774 0.8; XS=$(ocr 248x110+0+630)
 click 23 686 0.3; click 196 718 0.6   # "Delete pages after extracting", then Extract
 XT=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
 check "Extract offers one file per page and deleting the pages ($XS)" "echo \"$XS\" | grep -q 'One file per page' && echo \"$XS\" | grep -q 'Delete pages'"
@@ -249,10 +249,10 @@ P2=$(pdftoppm -r 10 -f 2 -l 2 -png "$OUT/four.pdf" 2>/dev/null | convert - -resi
 check "pages copied from one document are pasted into another ($(npages $OUT/four.pdf) pages, page 2 ${P2:-?})" "[ \"\$(npages $OUT/four.pdf)\" = 5 ] && reddish '${P2:-#000000}'"
 quit
 
-# 35. Thumbnails bar ▸ ⋯ (206,774) ▸ Number pages… (250,734): page 1 selected, "i, ii, iii" (the style list at
+# 35. Thumbnails bar ▸ Number pages… (206,774: at W3's default 260 the bar holds all seven): page 1 selected, "i, ii, iii" (the style list at
 # 120,645, then its second entry, 40,670: the list is pushed up to end at the window's edge), Number (196,715): the saved file labels its pages i to iv (/PageLabels, /r).
 cp "$OUT/text.pdf" "$OUT/numbered.pdf"; launch "$OUT/numbered.pdf"; sleep 1
-click 120 230 0.6; click 206 774 0.8; click 250 734 0.8; click 120 645 0.8; click 40 670 0.6   # the style list, then "i, ii, iii"
+click 120 230 0.6; click 206 774 0.8; click 120 645 0.8; click 40 670 0.6   # the style list, then "i, ii, iii"
 NB="196 715"; click $NB 1; key ctrl+s; sleep 1.5
 check "Number pages labels the pages in the style chosen (${NB:-no Number button})" "qpdf --qdf --object-streams=disable $OUT/numbered.pdf - 2>/dev/null | grep -aq '/S /r'"
 quit
@@ -402,7 +402,7 @@ quit
 # as "<name> - page 1.pdf" in it; a file of that name already there is kept, the page goes to "… (1).pdf".
 mkdir -p "$OUT/each"; cp "$OUT/text.pdf" "$OUT/four-pages.pdf"; launch "$OUT/four-pages.pdf"; sleep 1
 echo mine > "$OUT/each/four-pages - page 1.pdf"
-click 120 230 0.6; click 206 774 0.8; click 250 706 0.8; click 23 654 0.3
+click 120 230 0.6; click 170 774 0.8; click 23 654 0.3
 answer "$PWD/$OUT/each"; click 196 718 2; answer ""
 check "Extract writes one file per page in the folder chosen, never over a file there ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "grep -qx mine \"$OUT/each/four-pages - page 1.pdf\" && qpdf --check \"$OUT/each/four-pages - page 1 (1).pdf\" >/dev/null 2>&1"
 quit
@@ -654,11 +654,11 @@ for v in json.load(sys.stdin)["qpdf"][1].values():
 check "a colour from the palette draws the stroke ($OC)" "echo \"$OC\" | grep -qE '0\.94[0-9]*, 0\.54[0-9]*, 0\.15'"
 quit
 
-# 51. Outline (71,106): + (224,146) on page 1 then on page 3; the second moved up (hover, ⋯ at the row's right
-# 228,211 ▸ Move up) comes first in the file's outline.
+# 51. Outline (73,106): + (236,146: the title row's action, 260 panel) on page 1 then on page 3; the second moved up
+# (hover, ⋯ at the row's right 240,211 ▸ Move up) comes first in the file's outline.
 cp "$OUT/text.pdf" "$OUT/marks.pdf"; launch "$OUT/marks.pdf"; key ctrl+9; sleep 1
-click 71 106 0.8; click 224 146 1; key End; sleep 1; key Up; key Up; sleep 0.8; click 224 146 1
-xdotool mousemove 150 211; sleep 0.5; click 228 211 0.8; MU=$(at Move 260x200+0+220); [ -n "$MU" ] && click $MU 1; key ctrl+s; sleep 1.5; shot 51-bookmarks
+click 73 106 0.8; click 236 146 1; key End; sleep 1; key Up; key Up; sleep 0.8; click 236 146 1
+xdotool mousemove 150 211; sleep 0.5; click 240 211 0.8; MU=$(at Move 260x200+0+220); [ -n "$MU" ] && click $MU 1; key ctrl+s; sleep 1.5; shot 51-bookmarks
 OT=$(qpdf --json=2 "$OUT/marks.pdf" | python3 -c 'import json, sys
 o = json.load(sys.stdin)["qpdf"][1]
 get = lambda r: o.get("obj:" + r, {}).get("value", {})
@@ -683,13 +683,13 @@ print(" ".join(t.replace("u:", "") for t in titles))')
 check "a bookmark dragged above another goes before it ($OT → $OT2)" "echo \"$OT2\" | grep -qE '^Page 1 Page [34]'"
 quit
 
-# 52. Attachments tab (177,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
-# Attachments pane). Rows from y 219, 28 apart, in name order: annex, budget, contract, notes; trash at 228,
-# pencil at 206. budget.txt renamed money.txt first (four rows: the Find field above them), then notes.txt (still
+# 52. Attachments tab (187,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
+# Attachments pane). Rows from y 219, 28 apart, in name order: annex, budget, contract, notes; trash at 240,
+# pencil at 218 (the 260 panel's right edge less 20 and 42). budget.txt renamed money.txt first (four rows: the Find field above them), then notes.txt (still
 # the fourth row) deleted; + adds one to the document.
-cp "$OUT/withatt.pdf" "$OUT/att2.pdf"; launch "$OUT/att2.pdf"; click 177 106 1
-xdotool mousemove 120 247; sleep 0.4; click 206 247 0.6; key ctrl+a; xdotool type --delay 20 "money.txt"; key Return; sleep 1
-xdotool mousemove 120 303; sleep 0.4; click 228 303 1
+cp "$OUT/withatt.pdf" "$OUT/att2.pdf"; launch "$OUT/att2.pdf"; click 187 106 1
+xdotool mousemove 120 247; sleep 0.4; click 218 247 0.6; key ctrl+a; xdotool type --delay 20 "money.txt"; key Return; sleep 1
+xdotool mousemove 120 303; sleep 0.4; click 240 303 1
 key ctrl+s; sleep 1.5; shot 52-attachments
 AL=$(qpdf --list-attachments "$OUT/att2.pdf" 2>/dev/null | tr '\n' ' ')
 check "an attachment is deleted and another renamed ($AL)" "! echo \"$AL\" | grep -q notes.txt && echo \"$AL\" | grep -q money.txt && ! echo \"$AL\" | grep -q budget.txt && echo \"$AL\" | grep -q contract.txt"

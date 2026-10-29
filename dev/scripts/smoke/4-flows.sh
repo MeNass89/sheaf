@@ -65,9 +65,10 @@ quit
 # 86. A bookmark's ⋯ menu ▸ Bold, then ▸ Set destination to this view at 200 % (Acrobat's bookmark Appearance and Set
 # Destination): saved, its /F holds bold (2) and its /Dest is /XYZ with a zoom of 2.
 cp "$OUT/text.pdf" "$OUT/markstyle.pdf"; launch "$OUT/markstyle.pdf"; key ctrl+9; sleep 1
-click 71 106 0.8; click 224 146 1
-xdotool mousemove 150 183; sleep 0.5; click 228 183 0.8; BO=$(at Bold 260x400+0+180); [ -n "$BO" ] && click $BO 1
-key ctrl+0; sleep 0.8; xdotool mousemove 150 183; sleep 0.5; click 228 183 0.8; SD=$(at Set 260x400+0+180); [ -n "$SD" ] && click $SD 1
+# Outline 73,106; its + 236,146 and a row's ⋯ 240 (the 260 panel's right edge less 24 and 20).
+click 73 106 0.8; click 236 146 1
+xdotool mousemove 150 183; sleep 0.5; click 240 183 0.8; BO=$(at Bold 260x400+0+180); [ -n "$BO" ] && click $BO 1
+key ctrl+0; sleep 0.8; xdotool mousemove 150 183; sleep 0.5; click 240 183 0.8; SD=$(at Set 260x400+0+180); [ -n "$SD" ] && click $SD 1
 key ctrl+s; sleep 1.5
 BQ=$(qpdf --qdf --object-streams=disable "$OUT/markstyle.pdf" - 2>/dev/null | python3 -c '
 import re, sys
@@ -93,13 +94,14 @@ quit
 # Windows (macOS's Window menu): the second window hands its document over and quits; two tabs here again.
 cp "$OUT/text.pdf" "$OUT/mover.pdf"; cp "$OUT/text.pdf" "$OUT/stayer.pdf"; launch "$OUT/stayer.pdf" "$OUT/mover.pdf"; sleep 1.5
 read AX _ <<< "$(at mover 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-MW=$(at New 1280x400+0+0); [ -n "$MW" ] && click $MW 0.5
+# The menu read alone, from the pointer (over W3's toolbar and a large page the whole-strip OCR lost its rows).
+MW=$(at New "320x340+$(( ${AX:-0} - 20 ))+20"); [ -n "$MW" ] && click $MW 0.5
 for _ in $(seq 1 40); do [ "$(xdotool search --name '^Sheaf$' 2>/dev/null | wc -l)" -ge 2 ] && break; sleep 0.25; done; sleep 1.5
 NW=$(xdotool search --name '^Sheaf$' 2>/dev/null | wc -l); MP=$(pgrep -f "mover.pdf" | grep -v "^$APP_PID$" | head -1); NT=$(ntabs)
 check "Move to New Window opens the file in a second window and closes its tab (${MW:-no item}; $NW windows, $NT tab left)" "[ \"$NW\" -ge 2 ] && [ -n \"$MP\" ] && [ \"$NT\" = 1 ]"
 xdotool windowraise "$W"; sleep 0.5
 read AX _ <<< "$(at stayer 1280x40+0+0)"; xdotool mousemove "${AX:-0}" 21 click 3; sleep 0.8
-MG=$(at Merge 1280x400+0+0); [ -n "$MG" ] && click $MG 0.5
+MG=$(at Merge "320x340+$(( ${AX:-0} - 20 ))+20"); [ -n "$MG" ] && click $MG 0.5
 for _ in $(seq 1 40); do [ -z "$MP" ] || ! kill -0 "$MP" 2>/dev/null && break; sleep 0.25; done; sleep 1
 GONE=$( [ -n "$MP" ] && ! kill -0 "$MP" 2>/dev/null && echo quit )
 check "Merge All Windows brings the other window's document here and closes it (${MG:-no item}; ${GONE:-still open}; $(ntabs) tabs)" "[ \"$GONE\" = quit ] && [ \"\$(ntabs)\" = 2 ]"

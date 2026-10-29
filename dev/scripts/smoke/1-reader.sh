@@ -184,12 +184,12 @@ for _ in $(seq 1 12); do sleep 0.5; PV2=$(ocr 1000x500+260+90); echo "$PV2" | gr
 key Escape; key v
 check "an edited paragraph shows on the page before ⌘↩, Escape takes it back" "echo \"$PV1\" | grep -q zebra && ! echo \"$PV2\" | grep -q zebra && ! pdftotext $OUT/text.pdf - | grep -q zebra"
 
-# 3. Page operations from the sidebar's Thumbnails bar (DESIGN §5.4: 36 apart from x 8, y 774; at the default 248 it
-# holds Rotate left 26, Rotate right 62, Insert 98, Duplicate 134, Delete 170 and ⋯ 206 with Extract and Number pages).
+# 3. Page operations from the sidebar's Thumbnails bar (DESIGN §5.4: 36 apart from x 8, y 774; at the default 260 (W3)
+# it holds all seven: Rotate left 26, Rotate right 62, Insert 98, Duplicate 134, Extract 170, Number pages 206, Delete 242).
 click 120 230; click 134 774 1.2      # select page 1, Duplicate
 key ctrl+s; sleep 1.5
 check "duplicate adds a page" "[ \"\$(npages $OUT/text.pdf)\" = 5 ]"
-click 120 230; click 170 774 1.2      # Delete
+click 120 230; click 242 774 1.2      # Delete
 key ctrl+s; sleep 1.5
 check "delete removes it" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
 click 120 230; click 98 774 1.2       # Insert blank page after page 1
