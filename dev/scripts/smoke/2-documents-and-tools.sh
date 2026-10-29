@@ -24,23 +24,24 @@ launch "$OUT/text.pdf" "$OUT/form.pdf"; sleep 1
 copied() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null; }
 T1=$(copied); key ctrl+shift+bracketleft; sleep 0.8; T2=$(copied); shot 08-tabs
 check "two files open in two tabs, ⇧⌘[ switches (${T1:0:12} → ${T2:0:12})" "[ -n \"$T1\" ] && [ -n \"$T2\" ] && [ \"$T1\" != \"$T2\" ]"
-# 9. Home ▸ Preferences ▸ Identity ▸ Your name: what is typed is kept.
+# 9. Preferences (⌘, from Home: no row in Home's source list) ▸ Identity ▸ Your name: what is typed is kept.
 # The field sits 30 px below its "Your name" label.
-click 50 21 0.8; PF=$(at Preferences 196x400+0+40); [ -n "$PF" ] && click $PF 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
+click 50 21 0.8; key ctrl+comma; sleep 0.8; AN=$(at Your 900x700+200+90); [ -n "$AN" ] && click $(echo $AN | awk '{ print $1 + 200, $2 + 30 }') 0.5
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 10 "Smoke Author"; sleep 0.8; shot 09-preferences
 check "the author name typed in Preferences is kept" "grep -rqs '\"author\": \"Smoke Author\"' $OUT/profile"
 # Tools search: + opens Tools with the search focused; "pdf to", ↓, ↩ opens the second result.
 
-# + opens Home ▸ Tools with the search taking the keyboard: typed without clicking the field.
-TB0=$(ocr 1280x30+0+6); click 90 112 0.8; click 90 72 0.5; click 90 112 0.8
+# Home ▸ All Tools opens with the search taking the keyboard: typed without clicking the field.
+TB0=$(ocr 1280x30+0+6); click $ALL_TOOLS_ROW 0.8; click $RECENTS_ROW 0.5; click $ALL_TOOLS_ROW 0.8
 xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "pdf to"; sleep 0.6; key Down; key Return; sleep 1.5; shot 09b-tool-search
 # The tab's 13 px bold title can OCR badly ("ppFtoword"): the options panel's title is read too.
 TB1="$(ocr 1280x30+0+6) $(ocr 290x40+990+47)"
 # OCR drops spaces: compare without them.
 check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" | tr -d ' ' | grep -qi 'PDFtoWord' && ! echo \"$TB0\" | tr -d ' ' | grep -qi 'PDFtoWord'"
-# The star on Compress's card (shown on hover, at 233,318): saved as a favourite, a Favourites row on top.
+# The star on Compress's tile (shown on hover, at the tile's top left corner: tile_star): saved as a favourite, a Favourites row on top.
 # The search still holds "pdf to" (the page was not left): cleared with Escape in the field first.
-click 40 21 0.8; click 90 112 0.8; click 990 76 0.4; key Escape; sleep 0.5; shot 09c-before-star; xdotool mousemove 270 350; sleep 0.4; click 233 318 1
+click 40 21 0.8; click $ALL_TOOLS_ROW 0.8; click $TOOLS_SEARCH 0.4; key Escape; sleep 0.5; shot 09c-before-star
+read CX CY <<< "$(at Compress 1028x652+252+140)"; [ -n "$CY" ] && tile_star $CX $CY
 check "starring a tool puts it in the preferences' favourites" "grep -rqs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # ⌘, opens Preferences from a tool tab and from a document (keys go up to the app).
 key ctrl+comma; sleep 1; PT1=$(ocr 500x60+200+40)
@@ -60,24 +61,26 @@ cardbg() { import -window root -crop "1x1+1232+$1" txt:- 2>/dev/null | tail -1 |
 read _ LOWY <<< "$(at Low 280x500+1000+40)"; LOW0=$(cardbg "${LOWY:-0}"); [ -n "$LOWY" ] && click 1100 $LOWY 0.6; LOW1=$(cardbg "${LOWY:-0}")
 click 1140 755 4; shot 10-tool-result
 check "a tool run from the reader writes its output (Compress)" "qpdf --check $OUT/tool-compressed.pdf >/dev/null 2>&1"
-# The same star on Home ▸ Recents' Recent tools (Compress just ran: its card is the first, star at 233,266; starred above).
-click 40 21 0.8; click 90 72 0.8; xdotool mousemove 270 300; sleep 0.4; shot 09d-recent-tools; click 233 266 1
-check "unstarring from Home's Recent tools takes it out of the favourites" "! grep -qs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
+# The same star on Home ▸ Recents' Tools for you (Compress is the sixth tile; starred above, so its star shows).
+click 40 21 0.8; click $RECENTS_ROW 0.8; read CX CY <<< "$(at Compress 1028x200+252+250)"; shot 09d-recent-tools
+[ -n "$CY" ] && tile_star $CX $CY
+check "unstarring from Home's Tools for you takes it out of the favourites (${CY:-no tile})" "! grep -qs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # Recent files' star (PDF Expert's Favorites), on the card of tool-compressed.pdf found by its name: starred in
 # the preferences; the search field ("compressed") keeps it alone in the list.
 read RX RY <<< "$(at tool-compressed 1280x760+0+40)"
-if [ -n "$RY" ]; then xdotool mousemove $RX $(( RY - 60 )); sleep 0.4; click $RX $(( RY - 96 )) 0.8; fi
+# The star sits at the card's top centre, 138 px above its name.
+if [ -n "$RY" ]; then xdotool mousemove $RX $(( RY - 60 )); sleep 0.4; click $RX $(( RY - 138 )) 0.8; fi
 PN=$(grep -c 'tool-compressed.pdf' $OUT/profile/data/Sheaf/prefs.json 2>/dev/null)
 # The field found by its placeholder's "recent" (the top bar has a Search of its own).
-# A faint placeholder may not be read: then the field is the 200 px left of the order list ("Newest").
-SR=$(at recent 1280x760+0+40); [ -z "$SR" ] && { read NX NY <<< "$(at Newest 1280x760+0+40)"; SR=${NY:+$(( NX - 170 )) $NY}; }
+# A faint placeholder may not be read: then the field is the 200 px left of the order popup ("Newest").
+SR=$(at recents 1280x760+0+40); [ -z "$SR" ] && { read NX NY <<< "$(at Newest 1280x760+0+40)"; SR=${NY:+$(( NX - 140 )) $NY}; }
 [ -n "$SR" ] && { click $SR 0.3; xdotool type --delay 20 "compressed"; sleep 0.8; }
 RL=$(ocr 1240x500+20+260); shot 09e-recent-search
 check "a recent file is starred and the search finds it alone (${RY:-no card}; prefs: $PN; list: $(echo "$RL" | cut -c1-60))" "[ \"\${PN:-0}\" -ge 1 ] && echo \"$RL\" | grep -q 'tool-compressed' && ! echo \"$RL\" | grep -q 'text.pdf'"
 # Tasks History ▸ Run again on the Compress row: a new Compress tab holding tool.pdf, Low compression chosen
 # again (its card's background as when it was picked, not as before).
 # Run again found by its first word (in the accent blue tesseract reads it "Runagain").
-H=$(at History); [ -n "$H" ] && click $H 1; RA=$(at Run 1080x700+200+40); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
+H=$(at Tasks 220x400+0+40); [ -n "$H" ] && click $H 1; RA=$(at Run 1080x700+200+40); [ -n "$RA" ] && click $RA 1.5; shot 10b-rerun
 RR=$(ocr 940x680+30+70); RP=$(ocr 280x300+1000+40)   # the file area inside its dashed edge (below the tab bar, which names tool.pdf too; the dashes on the darker canvas garble the card), the options
 read _ LOWY2 <<< "$(at Low 280x500+1000+40)"; LOW2=$(cardbg "${LOWY2:-0}")
 check "Run again from Tasks History reopens Compress with its file ($H / $RA)" "[ -n \"$RA\" ] && echo \"$RR\" | grep -q 'tool.pdf' && echo \"$RP\" | grep -qi 'Recommended'"
@@ -111,7 +114,7 @@ check "a damaged PDF is refused in one line, the app stays open" "kill -0 $APP_P
 RP=$(ocr 1280x30+0+5); check "a damaged PDF opens in Repair PDF (${RP:0:60})" "echo \"$RP\" | grep -q 'Repair'"
 click 60 21 1
 lum() { import -window root -crop 40x40+600+700 png:- 2>/dev/null | convert - -colorspace Gray -format '%[fx:mean]' info:; }
-PR=$(at Preferences 250x300+0+40); [ -n "$PR" ] && click $PR 1
+key ctrl+comma; sleep 1; PR=$(at Preferences 600x80+220+40)
 DK=$(at Dark); [ -n "$DK" ] && click $DK 1.2; L1=$(lum); shot 11-dark
 LT=$(at Light); [ -n "$LT" ] && click $LT 1.2; L2=$(lum)
 check "Preferences ▸ Dark then Light switch the window ($L1 → $L2)" "python3 -c 'import sys; sys.exit(0 if $L1 < 0.3 and $L2 > 0.7 else 1)'"

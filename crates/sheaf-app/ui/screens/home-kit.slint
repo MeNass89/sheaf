@@ -1,0 +1,656 @@
+// Home's parts (DESIGN §5.1): its metrics, the source list row, the page title row, section
+// headers, the file card, the tile with its star, the grids that place them, and the Open area.
+// Built on W1's tokens and widgets (ToolTile, Button, ContextMenu, MenuRow, DashedBox); nothing
+// here carries a colour or a size of its own.
+import { Theme, Motion, Space } from "../theme.slint";
+import { PlatformBridge } from "../platform.slint";
+import { Button, ButtonKind, IconButton } from "../widgets/button.slint";
+import { ToolTile } from "../widgets/home-parts.slint";
+import { ToolCard } from "../widgets/tool-card.slint";
+import { DashedBox } from "../widgets/dashed-box.slint";
+import { Thumb } from "../widgets/file-card.slint";
+import { ContextMenu, MenuRow, MenuSeparatorLine } from "../widgets/surfaces.slint";
+import { TipArea, TooltipBridge } from "../widgets/tooltip.slint";
+import { RecentFile } from "../history-types.slint";
+
+// Home's metrics: the source list, the page margins, the cards and tiles (DESIGN §5.1).
+export global HomeMetrics {
+    out property <length> source-width: 220px;
+    // Icons only below this window width: at 1024 the content keeps five cards a row (DESIGN §5.1),
+    // the reader's sidebar docks from the same width (§5 adaptation).
+    out property <length> source-collapsed: 52px;
+    out property <length> collapse-below: 1120px;
+    out property <length> source-row-pitch: 30px;
+    out property <length> source-icon-x: 16px;
+    out property <length> source-label-x: 48px;
+    // The page: 32 left and right, 28 on top (the title row's centre at y 80 in the window, the
+    // Open area at 110: the mock); sections 32 apart, a header 8 above its content.
+    out property <length> margin: Space.section;
+    out property <length> top: Space.xxl + Space.xs;
+    out property <length> section-gap: Space.section;
+    out property <length> header-gap: Space.sm;
+    out property <length> header-height: Theme.control-height;
+    // The title row is as tall as its buttons (the large title's 32 leading overhangs it evenly).
+    out property <length> title-height: Theme.control-height;
+    out property <length> open-area-height: 100px;
+    out property <length> gap: Space.lg;
+    out property <length> tile-width: 152px;
+    // A tile never narrower than this (the row of six shrinks before it wraps).
+    out property <length> tile-min-width: 104px;
+    out property <length> tile-height: 108px;
+    out property <length> card-width: 152px;
+    out property <length> card-height: 180px;
+    out property <length> card-thumb-width: 96px;
+    out property <length> card-thumb-height: 124px;
+    out property <length> search-width: 200px;
+    out property <length> empty-glyph: 48px;
+}
+
+// One row of the source list: 28 tall, inset 8 from the list's edges, the icon at 16 and the
+// label at 48 from the list's edge; selected = `fill-2`, the icon in the accent (macOS sidebars).
+// Collapsed (narrow windows): the icon alone, its name in a tooltip to the right.
+export component SourceRow inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <bool> selected;
+    in property <bool> collapsed;
+    callback clicked();
+    height: Theme.row-height;
+    border-radius: Theme.r-row;
+    background: root.selected ? Theme.fill-2 : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    accessible-role: list-item;
+    accessible-label: root.text;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { root.clicked(); }
+    property <length> inset: HomeMetrics.source-icon-x - Space.sm;
+    Image {
+        x: root.collapsed ? (parent.width - self.width) / 2
+            : PlatformBridge.rtl ? parent.width - root.inset - self.width : root.inset;
+        width: Theme.icon-md;
+        height: Theme.icon-md;
+        source: root.icon;
+        colorize: root.selected ? Theme.accent : Theme.text-2;
+    }
+    if !root.collapsed: Text {
+        x: PlatformBridge.rtl ? Space.sm : HomeMetrics.source-label-x - Space.sm;
+        width: parent.width - HomeMetrics.source-label-x;
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        vertical-alignment: center;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        overflow: elide;
+    }
+    ta := TipArea {
+        tip: root.collapsed ? root.text : "";
+        side: true;
+        clicked => { root.clicked(); }
+    }
+}
+
+// A page's title row: the large title on the left, its actions (`@children`) on the right.
+export component PageTitle inherits FlexboxLayout {
+    // Right to left the row reads from the right: the title there, the controls on the left.
+    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+    flex-wrap: FlexboxLayoutWrap.no-wrap;
+    alignment: LayoutAlignment.stretch;
+    in property <string> text;
+    height: HomeMetrics.title-height;
+    spacing: Space.sm;
+    Text {
+        horizontal-stretch: 1;
+        text: root.text;
+        font-size: Theme.fs-large-title;
+        color: Theme.text;
+        vertical-alignment: center;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        overflow: elide;
+        accessible-role: AccessibleRole.text;
+    }
+    @children
+}
+
+// A section header ("Tools for you", "Recent files"): `fs-title-2` on the left, controls right.
+export component SectionHeader inherits FlexboxLayout {
+    // Right to left the row reads from the right: the title there, the controls on the left.
+    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+    flex-wrap: FlexboxLayoutWrap.no-wrap;
+    alignment: LayoutAlignment.stretch;
+    in property <string> text;
+    height: HomeMetrics.header-height;
+    spacing: Space.sm;
+    Text {
+        horizontal-stretch: 1;
+        text: root.text;
+        font-size: Theme.fs-title-2;
+        font-weight: Theme.weight-demibold;
+        color: Theme.text;
+        vertical-alignment: center;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        overflow: elide;
+    }
+    @children
+}
+
+// "View All": an accent link at the end of a section header.
+export component LinkButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    width: label.preferred-width;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { root.clicked(); }
+    label := Text {
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: ta.pressed ? Theme.accent-pressed : Theme.accent-text;
+        vertical-alignment: center;
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// An empty section or page: a 48 glyph in `text-3`, one line, and an optional first action.
+export component EmptyState inherits VerticalLayout {
+    in property <image> icon;
+    in property <string> text;
+    in property <string> action;
+    callback act();
+    alignment: center;
+    spacing: Space.md;
+    padding-top: Space.xxl;
+    padding-bottom: Space.xxl;
+    HorizontalLayout {
+        alignment: center;
+        Image {
+            width: HomeMetrics.empty-glyph;
+            height: HomeMetrics.empty-glyph;
+            source: root.icon;
+            colorize: Theme.text-3;
+        }
+    }
+    Text {
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: Theme.text-2;
+        horizontal-alignment: center;
+        wrap: word-wrap;
+    }
+    if root.action != "": HorizontalLayout {
+        alignment: center;
+        Button { text: root.action; clicked => { root.act(); } }
+    }
+}
+
+// A tool tile with its star (Favourites): W1's ToolTile, the star on hover and always once starred.
+// "Soon" on a tool not yet available, which does not open.
+export component LibraryTile inherits Rectangle {
+    in property <ToolCard> tool;
+    // The search's chosen result (↑↓ move it, ↩ opens it): the accent frame.
+    in property <bool> highlighted;
+    callback clicked(string);
+    callback star(string);
+    width: HomeMetrics.tile-width;
+    height: HomeMetrics.tile-height;
+    border-radius: Theme.r-md;
+    opacity: root.tool.enabled ? 1 : 0.5;
+    // The parent area stays hovered while the pointer is over the tile or its star.
+    hover := TouchArea {
+        enabled: root.tool.enabled;
+        ToolTile {
+            width: parent.width;
+            height: parent.height;
+            icon: root.tool.icon;
+            text: root.tool.name;
+            clicked => { if root.tool.enabled { root.clicked(root.tool.id); } }
+        }
+        if root.highlighted: Rectangle {
+            border-radius: Theme.r-md;
+            border-width: 2px;
+            border-color: Theme.accent;
+        }
+        if !root.tool.enabled: Rectangle {
+            x: parent.width - self.width - Space.sm;
+            y: Space.sm;
+            width: soon.preferred-width + 2 * Space.sm;
+            height: Theme.lh-subhead + Space.xs;
+            border-radius: self.height / 2;
+            background: Theme.fill-2;
+            soon := Text {
+                text: @tr("Soon");
+                font-size: Theme.fs-subhead;
+                color: Theme.text-2;
+            }
+        }
+        // Always there (not created on hover): a star that came and went with the hover lost its click.
+        Rectangle {
+            x: Space.xs;
+            y: Space.xs;
+            width: Theme.control-height;
+            height: Theme.control-height;
+            border-radius: Theme.r-sm;
+            opacity: root.tool.enabled && (hover.has-hover || root.tool.favourite) ? 1 : 0;
+            background: st.has-hover ? Theme.fill-2 : transparent;
+            accessible-role: button;
+            accessible-label: root.tool.favourite ? @tr("Remove from Favourites") : @tr("Add to Favourites");
+            accessible-action-default => { root.star(root.tool.id); }
+            Image {
+                width: Theme.icon-sm;
+                height: Theme.icon-sm;
+                source: @image-url("../icons/star.svg");
+                colorize: root.tool.favourite ? Theme.accent : Theme.text-2;
+            }
+            st := TouchArea {
+                enabled: root.tool.enabled;
+                mouse-cursor: pointer;
+                clicked => { root.star(root.tool.id); }
+                changed has-hover => {
+                    if self.has-hover {
+                        TooltipBridge.hover(parent.absolute-position.x, parent.absolute-position.y, parent.width, parent.height, root.tool.favourite ? @tr("Remove from Favourites") : @tr("Add to Favourites"), "", false);
+                    } else {
+                        TooltipBridge.leave();
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Tiles in rows: as many columns of `tile-width` as fit, 16 apart; with `one-row`, the tiles narrow
+// (down to `tile-min-width`) to keep the row whole (Tools for you's six).
+export component TileGrid inherits Rectangle {
+    in property <[ToolCard]> tools;
+    in property <bool> one-row;
+    in property <int> chosen: -1;
+    callback open-tool(string);
+    callback star(string);
+    property <length> gap: HomeMetrics.gap;
+    property <length> fit: (self.width - (root.tools.length - 1) * gap) / max(1, root.tools.length);
+    property <length> w: root.one-row ? max(HomeMetrics.tile-min-width, min(HomeMetrics.tile-width, floor(fit / 1px) * 1px)) : HomeMetrics.tile-width;
+    property <int> cols: max(1, floor((self.width + gap) / (w + gap)));
+    property <int> rows: ceil(root.tools.length / cols);
+    height: root.rows * (HomeMetrics.tile-height + gap) - (root.rows > 0 ? gap : 0);
+    for t[i] in root.tools: LibraryTile {
+        property <int> column: Math.mod(i, root.cols);
+        x: PlatformBridge.rtl ? root.width - (column + 1) * root.w - column * root.gap : column * (root.w + root.gap);
+        y: floor(i / root.cols) * (HomeMetrics.tile-height + root.gap);
+        width: root.w;
+        tool: t;
+        highlighted: i == root.chosen;
+        clicked(id) => { root.open-tool(id); }
+        star(id) => { root.star(id); }
+    }
+}
+
+// A recent file (DESIGN §4 FileCard): 152×180, the page at the top (96×124 at 16), the name in one
+// line and its pages and age under it. Hover: `fill-1`, with Show in Folder and Remove at the top
+// corners and the star; keyboard focus: the accent frame. Right click: its menu.
+export component HomeFileCard inherits Rectangle {
+    in property <RecentFile> file;
+    callback open();
+    callback reveal();
+    callback remove();
+    callback pin();
+    width: HomeMetrics.card-width;
+    height: HomeMetrics.card-height;
+    border-radius: Theme.r-md;
+    background: touch.has-hover ? Theme.fill-1 : Theme.window;
+    border-width: focus.has-focus ? 2px : 1px;
+    border-color: focus.has-focus ? Theme.accent : Theme.hairline;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.file.name;
+    accessible-description: root.file.info;
+    accessible-action-default => { root.open(); }
+    focus := FocusScope {
+        key-pressed(e) => {
+            if e.text == Key.Return { root.open(); return accept; }
+            if e.text == Key.Delete || e.text == Key.Backspace { root.remove(); return accept; }
+            reject
+        }
+    }
+    Rectangle {
+        y: Space.lg;
+        height: HomeMetrics.card-thumb-height;
+        if root.file.kind == 2: Image {
+            width: HomeMetrics.empty-glyph;
+            height: HomeMetrics.empty-glyph;
+            source: @image-url("../icons/file-text.svg");
+            colorize: Theme.text-3;
+        }
+        if root.file.kind != 2: Thumb {
+            thumb: root.file.thumb;
+            has-thumb: root.file.has-thumb;
+            max-w: HomeMetrics.card-thumb-width;
+            max-h: HomeMetrics.card-thumb-height;
+        }
+    }
+    Text {
+        x: Space.sm;
+        y: Space.lg + HomeMetrics.card-thumb-height + Space.sm;
+        width: parent.width - 2 * Space.sm;
+        height: Theme.lh-body;
+        text: root.file.name;
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    Text {
+        x: Space.sm;
+        y: Space.lg + HomeMetrics.card-thumb-height + Space.sm + Theme.lh-body;
+        width: parent.width - 2 * Space.sm;
+        height: Theme.lh-subhead;
+        text: root.file.info == "" ? root.file.when : root.file.info + " · " + root.file.when;
+        font-size: Theme.fs-subhead;
+        color: Theme.text-2;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { focus.focus(); root.open(); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.right {
+                TooltipBridge.cancel();
+                menu.show();
+            }
+        }
+        changed has-hover => {
+            if self.has-hover {
+                TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.file.name, "", false);
+            } else {
+                TooltipBridge.leave();
+            }
+        }
+        // Inside the area so hovering them keeps the card hovered.
+        if touch.has-hover: IconButton {
+            x: Space.xs;
+            y: Space.xs;
+            icon: @image-url("../icons/folder-open.svg");
+            tip: PlatformBridge.mac ? @tr("Show in Finder") : @tr("Show in Folder");
+            clicked => { root.reveal(); }
+        }
+        if touch.has-hover: IconButton {
+            x: parent.width - self.width - Space.xs;
+            y: Space.xs;
+            icon: @image-url("../icons/x.svg");
+            tip: @tr("Remove from Recents");
+            clicked => { root.remove(); }
+        }
+        // The star: on hover, and always once starred.
+        Rectangle {
+            x: (parent.width - self.width) / 2;
+            y: Space.xs;
+            width: Theme.control-height;
+            height: Theme.control-height;
+            border-radius: Theme.r-sm;
+            opacity: touch.has-hover || root.file.pinned ? 1 : 0;
+            background: pt.has-hover ? Theme.fill-2 : transparent;
+            accessible-role: button;
+            accessible-label: root.file.pinned ? @tr("Remove from Favourites") : @tr("Add to Favourites");
+            accessible-action-default => { root.pin(); }
+            Image {
+                width: Theme.icon-sm;
+                height: Theme.icon-sm;
+                source: @image-url("../icons/star.svg");
+                colorize: root.file.pinned ? Theme.accent : Theme.text-2;
+            }
+            pt := TouchArea { mouse-cursor: pointer; clicked => { root.pin(); } }
+        }
+    }
+    menu := PopupWindow {
+        x: touch.mouse-x;
+        y: touch.mouse-y;
+        ContextMenu {
+            MenuRow { text: @tr("Open"); activated => { root.open(); } }
+            MenuRow { text: PlatformBridge.mac ? @tr("Show in Finder") : @tr("Show in Folder"); activated => { root.reveal(); } }
+            MenuSeparatorLine {}
+            MenuRow { text: root.file.pinned ? @tr("Remove from Favourites") : @tr("Add to Favourites"); activated => { root.pin(); } }
+            MenuRow { text: @tr("Remove from Recents"); activated => { root.remove(); } }
+        }
+    }
+}
+
+// Recent files in rows: as many 152 columns as fit, 16 apart.
+export component FileGrid inherits Rectangle {
+    in property <[RecentFile]> files;
+    // Only the first `limit` files (the starred ones lead the list: Favourites); -1 = all.
+    in property <int> limit: -1;
+    callback open(int);
+    callback reveal(int);
+    callback remove(int);
+    callback pin(int);
+    property <length> gap: HomeMetrics.gap;
+    property <int> cols: max(1, floor((self.width + gap) / (HomeMetrics.card-width + gap)));
+    property <int> shown: root.limit < 0 ? root.files.length : min(root.limit, root.files.length);
+    property <int> rows: ceil(root.shown / cols);
+    height: root.rows * (HomeMetrics.card-height + gap) - (root.rows > 0 ? gap : 0);
+    for f[i] in root.files: HomeFileCard {
+        property <int> column: Math.mod(i, root.cols);
+        visible: i < root.shown;
+        x: PlatformBridge.rtl ? root.width - (column + 1) * self.width - column * root.gap : column * (self.width + root.gap);
+        y: floor(i / root.cols) * (HomeMetrics.card-height + root.gap);
+        file: f;
+        open => { root.open(i); }
+        reveal => { root.reveal(i); }
+        remove => { root.remove(i); }
+        pin => { root.pin(i); }
+    }
+}
+
+// Home's Open area (DESIGN §5.1): the dashed accent box, "Open Files" and the "New" menu side by
+// side, "or drop any files here" under them. Files dragged over the window light it.
+export component OpenArea inherits Rectangle {
+    in property <bool> drag-over;
+    callback open-files();
+    callback new-blank();
+    callback new-from-clipboard();
+    callback new-from-screenshot();
+    callback new-from-scanner();
+    callback new-from-iphone();
+    height: HomeMetrics.open-area-height;
+    border-radius: Theme.r-xl;
+    background: Theme.accent.transparentize(root.drag-over ? 88% : 94%);
+    border-width: root.drag-over ? 1.5px : 0px;
+    border-color: Theme.accent;
+    if !root.drag-over: DashedBox {
+        width: parent.width;
+        height: parent.height;
+        corner: Theme.r-xl;
+        thickness: 1.5px;
+        dash: 6px;
+        gap: 4px;
+        dash-color: Theme.accent.transparentize(50%);
+        background: transparent;
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: Space.sm;
+        HorizontalLayout {
+            alignment: center;
+            spacing: Space.sm;
+            Button { text: @tr("Open Files"); kind: ButtonKind.large; tip: PlatformBridge.mac ? "⌘O" : "Ctrl+O"; clicked => { root.open-files(); } }
+            // On the accent tint a `fill-2` button reads muddy: the field's white, as the mock.
+            new-button := Rectangle {
+                width: new-label.preferred-width + Space.sm + Space.xs + 12px + Space.sm;
+                height: Theme.control-height;
+                border-radius: Theme.r-sm;
+                background: Theme.field;
+                border-width: 1px;
+                border-color: Theme.hairline;
+                accessible-role: button;
+                accessible-label: @tr("New");
+                accessible-description: @tr("Make a new PDF");
+                accessible-action-default => { new-menu.show(); }
+                Rectangle {
+                    border-radius: parent.border-radius;
+                    background: nt.pressed ? Theme.fill-2 : nt.has-hover ? Theme.fill-1 : transparent;
+                    animate background { duration: Motion.hover; }
+                }
+                new-label := Text {
+                    x: Space.sm;
+                    text: @tr("New");
+                    font-size: Theme.fs-body;
+                    color: Theme.text;
+                    vertical-alignment: center;
+                }
+                Image {
+                    x: parent.width - Space.sm - self.width;
+                    width: 12px;
+                    height: 12px;
+                    source: @image-url("../icons/chevron-down.svg");
+                    colorize: Theme.text-2;
+                }
+                nt := TipArea {
+                    tip: @tr("Make a new PDF");
+                    clicked => { new-menu.show(); }
+                }
+                new-menu := PopupWindow {
+                    x: 0;
+                    y: parent.height + Space.xs;
+                    ContextMenu {
+                        MenuRow { text: @tr("Blank Document"); activated => { root.new-blank(); } }
+                        MenuRow { text: @tr("From Clipboard"); activated => { root.new-from-clipboard(); } }
+                        MenuRow { text: @tr("From Screenshot"); activated => { root.new-from-screenshot(); } }
+                        MenuRow { text: @tr("From Scanner…"); activated => { root.new-from-scanner(); } }
+                        if PlatformBridge.mac: MenuRow { text: @tr("From iPhone or iPad…"); activated => { root.new-from-iphone(); } }
+                    }
+                }
+            }
+        }
+        Text {
+            text: @tr("or drop any files here");
+            font-size: Theme.fs-callout;
+            color: Theme.text-2;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// A search field (DESIGN §4 SearchField): 28 tall, `field` with a hairline, the magnifier 14 and
+// the placeholder in `text-3`; the focus ring while it has the keyboard. Keys the field does not
+// use itself (↑ ↓ Escape) go to `key` first, for a list chosen from the field.
+export component SearchField inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text;
+    out property <bool> has-focus: input.has-focus;
+    callback edited(string);
+    callback accepted();
+    callback key(KeyEvent) -> EventResult;
+    public function take-focus() { input.focus(); }
+    height: Theme.control-height;
+    border-radius: Theme.r-sm;
+    background: Theme.field;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    property <length> lead: Space.sm + 14px + Space.sm;
+    if input.has-focus: Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: Theme.r-sm + 3px;
+        border-width: 2px;
+        border-color: Theme.focus-ring;
+    }
+    Image {
+        x: PlatformBridge.rtl ? parent.width - Space.sm - self.width : Space.sm;
+        width: 14px;
+        height: 14px;
+        source: @image-url("../icons/search.svg");
+        colorize: Theme.text-3;
+    }
+    if root.text == "": Text {
+        x: PlatformBridge.rtl ? Space.sm : root.lead;
+        width: parent.width - root.lead - Space.sm;
+        text: root.placeholder;
+        font-size: Theme.fs-body;
+        color: Theme.text-3;
+        vertical-alignment: center;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        overflow: elide;
+    }
+    input := TextInput {
+        // Tools' own keys wait while a field has the keyboard.
+        changed has-focus => { PlatformBridge.typing = self.has-focus; }
+        x: PlatformBridge.rtl ? Space.sm : root.lead;
+        width: parent.width - root.lead - Space.sm;
+        text <=> root.text;
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        vertical-alignment: center;
+        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        single-line: true;
+        accessible-label: root.placeholder;
+        edited => { root.edited(self.text); }
+        accepted => { root.accepted(); }
+        key-pressed(e) => { root.key(e) }
+    }
+}
+
+// The order popup of Recent files: Newest, Name, Size with a check on the current one, then
+// Clear Recents in a group of its own (DESIGN §5.1).
+export component SortMenu inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> current: 0;
+    in property <string> extra;
+    callback selected(int);
+    callback extra-chosen();
+    height: Theme.control-height;
+    width: max(88px, label.preferred-width + Space.sm + Space.xs + 12px + Space.sm);
+    border-radius: Theme.r-sm;
+    background: ta.pressed || ta.has-hover ? Theme.fill-3 : Theme.fill-2;
+    animate background { duration: Motion.hover; }
+    accessible-role: combobox;
+    accessible-label: @tr("Order");
+    accessible-value: root.options[root.current];
+    accessible-action-default => { popup.show(); }
+    label := Text {
+        x: Space.sm;
+        text: root.options[root.current];
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        vertical-alignment: center;
+    }
+    Image {
+        x: parent.width - Space.sm - self.width;
+        width: 12px;
+        height: 12px;
+        source: @image-url("../icons/chevron-down.svg");
+        colorize: Theme.text-2;
+    }
+    ta := TouchArea { clicked => { popup.show(); } }
+    popup := PopupWindow {
+        x: 0;
+        y: parent.height + Space.xs;
+        ContextMenu {
+            for o[i] in root.options: Rectangle {
+                height: Theme.row-height;
+                border-radius: Theme.r-xs + 1px;
+                background: ot.has-hover ? Theme.accent : transparent;
+                Image {
+                    x: Space.sm;
+                    width: 12px;
+                    height: 12px;
+                    visible: i == root.current;
+                    source: @image-url("../icons/check.svg");
+                    colorize: ot.has-hover ? Theme.on-accent : Theme.text;
+                }
+                Text {
+                    x: Space.sm + 12px + Space.sm;
+                    text: o;
+                    font-size: Theme.fs-body;
+                    color: ot.has-hover ? Theme.on-accent : Theme.text;
+                    vertical-alignment: center;
+                }
+                ot := TouchArea { clicked => { root.current = i; root.selected(i); } }
+            }
+            if root.extra != "": MenuSeparatorLine {}
+            if root.extra != "": MenuRow { text: root.extra; activated => { root.extra-chosen(); } }
+        }
+    }
+}

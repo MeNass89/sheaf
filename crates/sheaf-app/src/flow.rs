@@ -816,7 +816,7 @@ pub fn home_files(ui: &AppWindow, paths: Vec<PathBuf>) {
         a.home_files.len()
     });
     ui.set_active_tab(-1);
-    ui.set_page(Page::Tools);
+    ui.set_page(Page::AllTools);
     let what = if n == 1 { "your file".to_string() } else { format!("your {n} files") };
     toast(ui, &sheaf_app::i18n::trf("Choose a tool for {}", &[&what]));
 }

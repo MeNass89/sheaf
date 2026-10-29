@@ -7223,3 +7223,131 @@ msgstr "ou largue os ficheiros aqui"
 #: ui/widgets/home-parts.slint
 msgid "Open Files"
 msgstr "Abrir ficheiros"
+
+#: ui/screens/home-kit.slint
+msgid "Add to Favourites"
+msgstr "Adicionar aos favoritos"
+
+#: ui/screens/home-kit.slint
+msgid "Remove from Favourites"
+msgstr "Remover dos favoritos"
+
+#: ui/screens/home-kit.slint
+msgid "Add to Library…"
+msgstr "Adicionar à biblioteca…"
+
+#: ui/screens/home-kit.slint
+msgid "Blank Document"
+msgstr "Documento em branco"
+
+#: ui/screens/home-kit.slint
+msgid "Choose what Home shows"
+msgstr "Escolher o que o Início mostra"
+
+#: ui/screens/home-kit.slint
+msgid "Clear History…"
+msgstr "Limpar histórico…"
+
+#: ui/screens/home-kit.slint
+msgid "Clear Recents"
+msgstr "Limpar recentes"
+
+#: ui/screens/home-kit.slint
+msgid "Custom Tools…"
+msgstr "Ferramentas personalizadas…"
+
+#: ui/screens/home-kit.slint
+msgid "Customize"
+msgstr "Personalizar"
+
+#: ui/screens/home-kit.slint
+msgid "Customize Home"
+msgstr "Personalizar o Início"
+
+#: ui/screens/home-kit.slint
+msgid "Files you open will appear here"
+msgstr "Os ficheiros que abrir aparecerão aqui"
+
+#: ui/screens/home-kit.slint
+msgid "From Clipboard"
+msgstr "Da área de transferência"
+
+#: ui/screens/home-kit.slint
+msgid "From Scanner…"
+msgstr "Do digitalizador…"
+
+#: ui/screens/home-kit.slint
+msgid "From Screenshot"
+msgstr "De uma captura de ecrã"
+
+#: ui/screens/home-kit.slint
+msgid "From iPhone or iPad…"
+msgstr "Do iPhone ou iPad…"
+
+#: ui/screens/home-kit.slint
+msgid "Keep private copies and versions of your files here. Each save in Sheaf keeps a new version."
+msgstr "Guarde aqui cópias privadas e versões dos seus ficheiros. Cada gravação no Sheaf guarda uma nova versão."
+
+#: ui/screens/home-kit.slint
+msgid "Make a new PDF"
+msgstr "Criar um novo PDF"
+
+#: ui/screens/home-kit.slint
+msgid "Make your own tools from saved actions"
+msgstr "Criar as suas próprias ferramentas a partir de ações guardadas"
+
+#: ui/screens/home-kit.slint
+msgid "No recent file matches “{}”"
+msgstr "Nenhum ficheiro recente corresponde a «{}»"
+
+#: ui/screens/home-kit.slint
+msgid "Remove from Recents"
+msgstr "Remover dos recentes"
+
+#: ui/screens/home-kit.slint
+msgid "Restore Defaults"
+msgstr "Repor predefinições"
+
+#: ui/screens/home-kit.slint
+msgid "Runs of your tools will appear here with their results"
+msgstr "As execuções das suas ferramentas aparecerão aqui com os resultados"
+
+#: ui/screens/home-kit.slint
+msgid "Search recents"
+msgstr "Pesquisar recentes"
+
+#: ui/screens/home-kit.slint
+msgid "Sections"
+msgstr "Secções"
+
+#: ui/screens/home-kit.slint
+msgid "Show in Finder"
+msgstr "Mostrar no Finder"
+
+#: ui/screens/home-kit.slint
+msgid "Star a file or a tool to keep it here"
+msgstr "Marque um ficheiro ou uma ferramenta com uma estrela para o guardar aqui"
+
+#: ui/screens/home-kit.slint
+msgid "Tasks"
+msgstr "Tarefas"
+
+#: ui/screens/home-kit.slint
+msgid "Tile {}"
+msgstr "Mosaico {}"
+
+#: ui/screens/home-kit.slint
+msgid "Tools for you"
+msgstr "Ferramentas para si"
+
+#: ui/screens/home-kit.slint
+msgid "View All"
+msgstr "Ver tudo"
+
+#: ui/screens/home-kit.slint
+msgid "Organize Pages"
+msgstr "Organizar páginas"
+
+#: ui/screens/home-kit.slint
+msgid "Compress"
+msgstr "Comprimir"

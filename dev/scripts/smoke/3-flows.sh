@@ -35,7 +35,7 @@ convert -size 300x400 xc:'#3366cc' "$OUT/reo/one.pdf"; convert -size 300x400 xc:
 launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
 # A note left unsaved in two.pdf: it goes in as last saved, and a toast says so.
 key n; click 640 400 0.8; xdotool type --delay 10 "smoke note"; key ctrl+Return; sleep 0.6
-click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; shot 21c-menu
+click 50 21 1; click $ALL_TOOLS_ROW 1; tile Merge; click 494 405 1; shot 21c-menu
 M=$(at Open 400x100+340+440)
 click 460 527 1
 TOAST=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
@@ -49,7 +49,7 @@ quit
 # b.pdf (black grey light) "9" refused (the run waits, the card says why), then "3": the merge is yellow red green light.
 convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' "$OUT/reo/ra.pdf"; convert -size 200x260 xc:'#111111' xc:'#777777' xc:'#bbbbbb' "$OUT/reo/rb.pdf"
 launch "$OUT/reo/ra.pdf" "$OUT/reo/rb.pdf"
-click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
+click 50 21 1; click $ALL_TOOLS_ROW 1; tile Merge; click 494 405 1; click 460 527 2
 click 101 212 0.6; xdotool type --delay 20 "4,1-2"; key Return
 click 237 212 0.6; xdotool type --delay 20 "9"; key Return; sleep 0.3
 BAD=$(ocr 300x20+30+202); RUN=$(import -window root -crop 1x1+1015+740 txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}')
@@ -66,7 +66,7 @@ quit
 # left with its arrow: the merge is pa 2-4, pb 1, pb 3, pb 2.
 cp "$OUT/reo/ra.pdf" "$OUT/reo/pa.pdf"; cp "$OUT/reo/rb.pdf" "$OUT/reo/pb.pdf"
 launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
-click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
+click 50 21 1; click $ALL_TOOLS_ROW 1; tile Merge; click 494 405 1; click 460 527 2
 PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2; shot 21e-pages
 # Page cards are 108 px wide, 124 apart, from x 41, y 79 (162 high); hovered, × at +93,+15 and ← at +15,+143.
 # Seven cards: six in the first row, one below; labels read "pa.pdf · 1" (11 px, read at 3×).
@@ -85,7 +85,7 @@ quit
 # Cards step 128 px from x 41 (gap centre +117), rows 178 px from y 79.
 convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' xc:'#22dddd' xc:'#dd22dd' xc:'#888888' xc:'#111111' xc:'#ff8800' xc:'#0088ff' "$OUT/reo/ten.pdf"
 launch "$OUT/reo/ten.pdf"
-click 50 21 1; click 67 113 1; click 406 197 2; click 494 405 1; click 460 527 3
+click 50 21 1; click $ALL_TOOLS_ROW 1; tile Split 2; click 494 405 1; click 460 527 3
 click 414 160 0.6; click 158 337 0.6; shot 22-split
 # The Ranges field, under its label in the options (its place moves with the cards above it).
 read _ RY <<< "$(at Ranges 280x600+1000+100)"; ranges_now() { ocr 240x60+1006+$(( ${RY:-240} - 5 )) | tr -d ' ' | grep -o '[0-9][0-9,-]*' | head -1; }
@@ -133,7 +133,7 @@ quit
 # 26. Compare's slots offer the documents open in tabs (Original: one.pdf at 330,481 in the menu under Open
 # file 388,411; Changed then lists only two.pdf, 560,481 under 600,411).
 launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
-click 50 21 1; click 67 113 1; click 993 76 0.5; xdotool type --delay 20 "compare"; key Return; sleep 2
+click 50 21 1; click $ALL_TOOLS_ROW 1; click $TOOLS_SEARCH 0.5; xdotool type --delay 20 "compare"; key Return; sleep 2
 click 388 411 1; click 330 481 2; click 600 411 1; click 560 481 2; shot 26-compare
 CS=$(ocr 500x40+300+450)
 check "Compare's slots take open documents ($CS)" "echo \"$CS\" | grep -q 'one.pdf.*two.pdf'"
@@ -166,9 +166,9 @@ quit
 
 # The end of the Preferences page (Documents is below Appearance, Identity and output).
 prefs_end() { xdotool mousemove 700 500 click --repeat 12 5; sleep 0.6; }
-# 28. Preferences ▸ Open new documents at Actual size (Preferences in Home's menu, found by its word: Library
-# and Actions came above it): a file never opened shows at 100 %.
-prefs_open() { read PX PY <<< "$(at Preferences 196x400+0+40)"; click "${PX:-0}" "${PY:-0}" 1; }
+# 28. Preferences ▸ Open new documents at Actual size (Preferences opened with ⌘,: Home's source list has no
+# row for it): a file never opened shows at 100 %.
+prefs_open() { key ctrl+comma; sleep 1; }
 # Preferences scrolled until "Open new documents at"'s row shows (Documents is no longer the last section).
 prefs_documents() { for _ in $(seq 1 20); do [ -n "$(at Actual 900x700+200+90)" ] && return; xdotool mousemove 700 500 click --repeat 2 5; sleep 0.3; done; }
 launch; prefs_open; prefs_documents; AS=$(at Actual 900x700+200+90); [ -n "$AS" ] && click $AS 0.6; quit
@@ -284,7 +284,7 @@ PM=$(for i in 1 2 3 4 5; do echo -n "$(first_text "$OUT/pagemenu.pdf" $i)|"; don
 check "A thumbnail's menu reverses the pages, inserts and replaces from a file ($PM)" "[ \"$PM\" = 'Page 1|Page 1|Page 3|Page 2|Page 1|' ]"
 quit
 
-# 36. Preferences (in Home's menu) ▸ Accent colour blue (the second swatch, 38 px right of the first,
+# 36. Preferences (⌘,) ▸ Accent colour blue (the second swatch, 38 px right of the first,
 # under its label) and Background behind pages black (the fifth): kept in the preferences, and a document
 # opened then shows black around its page (zoomed out, ⌘-).
 launch; prefs_open
@@ -407,15 +407,15 @@ answer "$PWD/$OUT/each"; click 201 734 2; answer ""
 check "Extract writes one file per page in the folder chosen, never over a file there ($(ls $OUT/each 2>/dev/null | tr '\n' ' '))" "grep -qx mine \"$OUT/each/four-pages - page 1.pdf\" && qpdf --check \"$OUT/each/four-pages - page 1 (1).pdf\" >/dev/null 2>&1"
 quit
 
-# 45. Home ▸ New blank PDF: named in the Save dialog (the test seam answers it), one blank page, opened in a tab.
-launch; answer "$PWD/$OUT/blank.pdf"; NB=$(at New 900x120+300+80); [ -n "$NB" ] && click $NB 2.5
+# 45. Home ▸ New ⌄ ▸ Blank Document: named in the Save dialog (the test seam answers it), one blank page, opened in a tab.
+launch; answer "$PWD/$OUT/blank.pdf"; NB=$(home_new Blank 2.5)
 BP=$( [ -f "$OUT/blank.pdf" ] && npages "$OUT/blank.pdf" ); answer ""
 check "New blank PDF writes one blank page and opens it (${NB:-no button}; ${BP:-no file} page; $(ntabs) document tab)" "[ \"$BP\" = 1 ] && [ \"\$(ntabs)\" = 1 ]"
 quit
-# 45b. Home ▸ From clipboard (Acrobat's Create PDF from Clipboard): text put on the clipboard (xclip) becomes a
+# 45b. Home ▸ New ⌄ ▸ From Clipboard (Acrobat's Create PDF from Clipboard): text put on the clipboard (xclip) becomes a
 # new PDF, named in the Save dialog, opened in a tab.
 printf 'Pasted from the clipboard' | xclip -selection clipboard; sleep 0.3
-launch; answer "$PWD/$OUT/clip.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 1; for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
+launch; answer "$PWD/$OUT/clip.pdf"; FC=$(home_new Clipboard); for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
 # ntabs counts document tabs: the new PDF's is the one.
 check "From clipboard makes a PDF of the clipboard's text and opens it (${FC:-no button}; $(ntabs) tabs)" "pdftotext $OUT/clip.pdf - 2>/dev/null | grep -q 'Pasted from the clipboard' && [ \"\$(ntabs)\" = 1 ]"
 quit
@@ -746,7 +746,7 @@ quit
 # 72. Compare ▸ Side by side (Acrobat's side-by-side view): one.pdf against two.pdf, the result one sheet as wide as
 # both pages, the original's colour on the left half and the changed one's on the right.
 launch "$OUT/reo/one.pdf" "$OUT/reo/two.pdf"
-click 50 21 1; click 67 113 1; click 993 76 0.5; xdotool type --delay 20 "compare"; key Return; sleep 2
+click 50 21 1; click $ALL_TOOLS_ROW 1; click $TOOLS_SEARCH 0.5; xdotool type --delay 20 "compare"; key Return; sleep 2
 click 388 411 1; click 330 481 2; click 600 411 1; click 560 481 2
 SB=$(at Side 280x700+1000+90); [ -n "$SB" ] && click $SB 1; answer "$PWD/$OUT/reo/side.pdf"
 for try in 1 2; do
@@ -792,9 +792,9 @@ GV=$(ls -t $OUT/poster-cut*.pdf 2>/dev/null | head -1)
 check "Cut each page into a grid makes sixteen quarter pages (${GR:-no Grid}; ${GV:-no file})" "[ -n \"$GV\" ] && pdfinfo \"$GV\" | grep -q 'Pages: *16'"
 quit
 
-# 75. Home ▸ From screenshot (Acrobat's Create PDF ▸ Screen capture): the area taken (the test seam gives stamp.png,
+# 75. Home ▸ New ⌄ ▸ From Screenshot (Acrobat's Create PDF ▸ Screen capture): the area taken (the test seam gives stamp.png,
 # 80 × 40 px, green) becomes a one-page PDF, named in the Save dialog and opened.
-launch; answer "$PWD/$OUT/screenshot.pdf"; FS=$(at screenshot 900x120+300+80); [ -n "$FS" ] && click $FS 1
+launch; answer "$PWD/$OUT/screenshot.pdf"; FS=$(home_new Screenshot)
 for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
 SC=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/screenshot.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
 check "From screenshot makes a PDF of the area taken and opens it (${FS:-no button}; $SC; $(ntabs) tabs)" "[ \"\$(npages $OUT/screenshot.pdf 2>/dev/null)\" = 1 ] && echo \"$SC\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"

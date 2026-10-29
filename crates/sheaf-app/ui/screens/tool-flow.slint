@@ -1,6 +1,6 @@
 import { PlatformBridge } from "../platform.slint";
 import { ScrollView } from "std-widgets.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Motion, Space } from "../theme.slint";
 import { ToolTab, ToolOptions, FileItem } from "../flow-types.slint";
 import { DashedBox } from "../widgets/dashed-box.slint";
 import { DropZone, AddFab, SortFab } from "../widgets/drop-zone.slint";
@@ -19,31 +19,25 @@ component ActionButton inherits Rectangle {
     in property <string> text;
     in property <bool> enabled;
     callback clicked();
-    height: Theme.action-height;
-    border-radius: Theme.radius-item;
-    background: touch.pressed && root.enabled ? Theme.accent-pressed
-        : touch.has-hover && root.enabled ? Theme.accent-hover : Theme.accent;
-    opacity: root.enabled ? 1 : 0.4;
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: center;
-        spacing: 10px;
-        Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            text: root.text;
-            font-size: Theme.fs-body-large;
-            font-weight: Theme.weight-bold;
-            color: Theme.on-accent;
-            vertical-alignment: center;
-        }
-        Image {
-            cross-axis-self-alignment: CrossAxisAlignment.center;
-            width: 20px;
-            height: 20px;
-            source: @image-url("../icons/circle-arrow-right.svg");
-            colorize: Theme.on-accent;
-        }
+    // The panel's one accent fill (DESIGN §4 Button, primary), 32 tall as the large button.
+    height: 32px;
+    border-radius: Theme.r-sm;
+    background: !root.enabled ? Theme.fill-2
+        : touch.pressed ? Theme.accent-pressed : touch.has-hover ? Theme.accent-hover : Theme.accent;
+    animate background { duration: Motion.quick; }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    Text {
+        width: parent.width - 2 * Space.md;
+        text: root.text;
+        font-size: Theme.fs-body;
+        font-weight: Theme.weight-demibold;
+        color: root.enabled ? Theme.on-accent : Theme.text-disabled;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
     }
     touch := TouchArea {
         enabled: root.enabled;
@@ -539,11 +533,12 @@ export component ToolFlowScreen inherits Rectangle {
     Rectangle {
         x: PlatformBridge.rtl ? parent.width - (parent.width - Theme.panel-width) - self.width : parent.width - Theme.panel-width;
         width: Theme.panel-width;
-        background: Theme.panel-bg;
+        // The inspector's material (DESIGN §5.5): `window`, a hairline on its edge.
+        background: Theme.window;
         Rectangle {
             x: PlatformBridge.rtl ? parent.width - (0) - self.width : 0;
             width: 1px;
-            background: Theme.sidebar-border;
+            background: Theme.hairline;
         }
         VerticalLayout {
             padding: Theme.panel-padding;
@@ -551,14 +546,15 @@ export component ToolFlowScreen inherits Rectangle {
             spacing: 14px;
             Text {
                 text: root.tab.name;
-                font-size: Theme.fs-panel-title;
+                font-size: Theme.fs-title-3;
                 font-weight: Theme.weight-demibold;
                 color: Theme.text;
-                horizontal-alignment: center;
+                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                overflow: elide;
             }
             Rectangle {
                 height: 1px;
-                background: Theme.separator;
+                background: Theme.hairline;
             }
             // Add watermark: the first page it marks, as it will look, kept in view while the
             // options below scroll (redrawn as they change, see wm_preview.rs).

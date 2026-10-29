@@ -422,3 +422,51 @@ the first document tab by place (34), the tab menu read on the menu alone (79), 
 new `at_on_accent` helper in gui-smoke.sh (white on the accent), the plugin's Allow and run on the dialog's lower
 part (307), the print sheet's title on its top row (300), Redact's mark row from its heading down (77).
 GUI runs only under `flock /tmp/f5/gui.lock`. Default panel width stays 248 (W3 switches to 260).
+## Redesign W2: Home / library (29/10/2026, Opus)
+
+DESIGN.md §5.1, DESIGN-PLAN W2. Branch wip/w2-home (from wip/w1-tokens). Matched against
+docs/design/mocks/home.png: same rows, same columns, a few px apart at most.
+
+- `ui/screens/home-kit.slint` (new): `HomeMetrics` (source list 220 / 52, margins 32, top 28, tiles and cards
+  152, gaps 16), `SourceRow`, `PageTitle` and `SectionHeader` (Flexbox rows: right to left they read from the
+  right), `LinkButton` (View All), `EmptyState`, `LibraryTile` (W1's ToolTile + the star + "Soon"),
+  `TileGrid` (as many columns as fit; `one-row` narrows the six of Tools for you down to 104 before wrapping),
+  `HomeFileCard` (152×180, page 96×124, "7 pages · 2 h ago", hover Show in Folder / star / Remove, right-click
+  menu), `FileGrid`, `OpenArea` (dashed accent box, Open Files capsule + New ⌄ menu: Blank Document, From
+  Clipboard, From Screenshot, From Scanner…, From iPhone or iPad… on a Mac), `SearchField`, `SortMenu` (Newest,
+  Name, Size, then Clear Recents).
+- Source list (main.slint `Sidebar`): Recents, Favourites, Library, Tasks, Actions, All Tools; Help at the
+  bottom (opens the guide). No Preferences row: ⌘, (and the menu bar) open it, still as a Home page until W5's
+  window. Icons only under 1120 wide (so 1024 keeps five cards a row, the reader's sidebar docking width).
+  `Page` enum: `tools` → `all-tools`, `favourites` added (Rust `Page::AllTools`; reader_ui/saving.rs's one
+  reference renamed).
+- Recents: title + Customize, Open area, Tools for you (six tiles, View All), Recent files (search, order),
+  Favourites (starred files, then starred tools). Home's old "Recent tools" row is gone (history.rs
+  `recent_tools` deleted with it). Favourites page: files then tools, empty state. Customize sheet: three
+  section checkboxes and six popups; saved in prefs `home_tiles` / `home_hidden`; Restore Defaults.
+  `HomeBridge` global carries tiles, choices, sections, the starred-file count. The Annotate tile is not a
+  catalogue tool: it opens the Open dialog (the reader). Default six: Edit, Annotate, Organize Pages, Convert
+  to PDF (JPG to PDF), Sign, Compress.
+- All Tools: title, Custom Tools…, search 240; category chips; monochrome tiles by category, Favourites first;
+  search results as tiles with the chosen one framed (↑ ↓ ↩ as before).
+- Tasks (was Tasks History), Library, Actions: Home's margins and title row, W1 buttons; Tasks rows are a list
+  with a monochrome glyph; Clear History… confirms in a W1 Sheet.
+- Tool tab: the options panel is the inspector material (`window`, hairline), its title `fs-title-3`, the Run
+  button the panel's one accent fill (32 tall, same place: the smoke's 1140,755 still lands on it).
+- 32 strings in fr/de/es/it/pt (and "Organize Pages", "Compress").
+
+Smoke recalibrated: gui-smoke.sh `RECENTS_ROW`, `ALL_TOOLS_ROW`, `TOOLS_SEARCH`, helpers `tile NAME` (an All
+Tools tile by OCR) and `home_new WORD` (New ⌄ then its item by OCR); `jpg_to_pdf` through them. 2-documents:
+9 (⌘, instead of the Preferences row), 9b/9c (All Tools row, the Compress star found from its name), 10 (the
+Tools for you tile's star, the recent card's star 138 above its name, search fallback 140 left of Newest,
+`at Tasks`), 11 (⌘,). 3-flows: 21c/21d/21e/22 (tile Merge/Split), 26/71 (search field), 28/36 (`prefs_open` =
+⌘,), 45/45b/75 (`home_new`). 4-flows: 81/90/100/101/330 (`home_new`, tile Merge), 3xx wrench searches, 306
+(French source list reads "outils" and "Favoris", English "Tools" and "Favourites": Preferences has no row),
+300 (the RTL title row read in its own 44 px band: a whole-width strip OCRs as noise), 350–356 (Actions' rows 42 px
+higher: New action, New custom tool and Run on PDFs… joined the title row; the crops under a scroll to the editor's end and
+the run report at the foot keep their places; 353 reads the prompt's Continue, now its primary button, with
+`at_on_accent`, and waits for it). `tile_star X Y`: a tile's star from its
+name, by the 168 pitch (a two-word name's first word is off the tile's centre).
+
+Screenshots /tmp/f5/W2/ (self-snapshots, Xvfb :131): home light/dark 1280 and 1024, All Tools, Customize,
+Tasks dark, a tool tab.

@@ -105,12 +105,22 @@ REAL0=$(real_profile)
 # changes (a capture of the toolbar shows where they went).
 # One page-theme button instead of three (BAMA on every platform, 29/10): the zoom figure at 750, its arrow at 778.
 ZOOM_X=750; ZOOM_MENU_X=778; WRENCH_X=1222
+# Home (redesign W2, DESIGN §5.1): the source list's rows are 30 apart from y 54 (Recents 68, Favourites 98,
+# Library 128, Tasks 158, Actions 188, All Tools 218); All Tools' search field ends 32 from the right edge.
+RECENTS_ROW="90 68"; ALL_TOOLS_ROW="90 218"; TOOLS_SEARCH="1128 80"
 
 # The next file dialog's answer (debug builds read it instead of showing the dialog); empty: none.
 answer() { printf '%s' "$1" > "$OUT/dialog-answer"; }
-# Images into JPG to PDF by its Open file (Tools ▸ JPG to PDF ▸ Open file, the dialog answered with them): images
-# opened from outside go to the reader (C-reader-064). Cards at 101/237/373…, 130.
-jpg_to_pdf() { answer "$(printf "$PWD/%s|" "$@" | sed 's/|$//')"; launch; click 50 21 1; click 67 113 1.5; click 271 517 2; click 494 405 1.5; answer ""; }
+# A tile of Home ▸ All Tools found by the first word of its name (OCR over the grid, under the chips), clicked.
+tile() { local p; p=$(at "$1" 1028x652+252+140); [ -n "$p" ] && click $p "${2:-1.5}"; }
+# The star of the Home tile whose name is read at "x y": hovered, then clicked at the tile's top left corner (18 in,
+# 58 above the name's line); tiles are 152 wide on a 168 pitch from x 252 at 1280.
+tile_star() { xdotool mousemove $1 $(( $2 - 30 )); sleep 0.4; click $(( 252 + ($1 - 252) / 168 * 168 + 18 )) $(( $2 - 58 )) 1; }
+# Home ▸ Recents ▸ New ⌄ (the Open area's menu), then its item found by a word of its name; echoes where it was.
+home_new() { local n i; n=$(at New 1000x120+250+80); [ -n "$n" ] && click $n 0.8; i=$(at "$1" 600x260+500+150); [ -n "$i" ] && click $i "${2:-1}"; echo "$i"; }
+# Images into JPG to PDF by its Open file (All Tools ▸ JPG to PDF ▸ Open file, the dialog answered with them): images
+# opened from outside go to the reader (C-reader-064).
+jpg_to_pdf() { answer "$(printf "$PWD/%s|" "$@" | sed 's/|$//')"; launch; click 50 21 1; click $ALL_TOOLS_ROW 1.5; tile JPG 2; click 494 405 1.5; answer ""; }
 
 launch() {
     # A fresh profile: no kept signature, history or preferences from earlier runs.

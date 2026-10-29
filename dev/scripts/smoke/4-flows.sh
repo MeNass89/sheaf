@@ -24,10 +24,10 @@ RP=$(xclip -selection clipboard -o 2>/dev/null | tr '\n' '|')
 check "Copy report puts the properties and the fonts on the clipboard (${CR:-no button}; $(echo "$RP" | cut -c1-60))" "echo \"\$RP\" | grep -q '^report.pdf|' && echo \"\$RP\" | grep -q 'Pages: 4' && echo \"\$RP\" | grep -q 'Helvetica (not embedded)'"
 quit
 
-# 81. Home ▸ From clipboard with PDF files copied (a file manager's Copy: text/uri-list): they make the new PDF, merged.
+# 81. Home ▸ New ⌄ ▸ From Clipboard with PDF files copied (a file manager's Copy: text/uri-list): they make the new PDF, merged.
 qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"   # part 3's one-page fixture, made here for a shard of its own
 printf 'file://%s\r\nfile://%s\r\n' "$PWD/$OUT/text.pdf" "$PWD/$OUT/single.pdf" | xclip -selection clipboard -t text/uri-list; sleep 0.3
-launch; answer "$PWD/$OUT/clipfiles.pdf"; FC=$(at From 900x120+300+80); [ -n "$FC" ] && click $FC 1; for _ in $(seq 1 12); do [ -f "$OUT/clipfiles.pdf" ] && break; sleep 0.5; done; answer ""
+launch; answer "$PWD/$OUT/clipfiles.pdf"; FC=$(home_new Clipboard); for _ in $(seq 1 12); do [ -f "$OUT/clipfiles.pdf" ] && break; sleep 0.5; done; answer ""
 check "From clipboard merges the PDF files copied (${FC:-no button}; $(npages $OUT/clipfiles.pdf 2>/dev/null) pages)" "[ \"\$(npages $OUT/clipfiles.pdf 2>/dev/null)\" = 5 ]"
 quit
 
@@ -116,9 +116,9 @@ CQ=$(qpdf --qdf --object-streams=disable "$OUT/copies.pdf" - 2>/dev/null | grep 
 check "Copies down make separate fields under the one selected (${CP:-no row} ${MK:-no Make}; ${CQ:-0} fields)" "[ \"\${CQ:-0}\" = 3 ]"
 quit
 
-# 90. Home ▸ From scanner (Acrobat's Create PDF ▸ Scanner): the page scanned (the test seam gives stamp.png, green)
+# 90. Home ▸ New ⌄ ▸ From Scanner… (Acrobat's Create PDF ▸ Scanner): the page scanned (the test seam gives stamp.png, green)
 # becomes a one-page PDF, named in the Save dialog and opened.
-convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; launch; answer "$PWD/$OUT/scanned.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
+convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; launch; answer "$PWD/$OUT/scanned.pdf"; FN=$(home_new Scanner)
 for _ in $(seq 1 12); do [ "$(ntabs)" = 1 ] && break; sleep 0.5; done; answer ""
 SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/scanned.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
 check "From scanner makes a PDF of the page scanned and opens it (${FN:-no button}; $SN; $(ntabs) tabs)" "[ \"\$(npages $OUT/scanned.pdf 2>/dev/null)\" = 1 ] && echo \"$SN\" | grep -q 'srgb(42,15[0-9],7[0-9])' && [ \"\$(ntabs)\" = 1 ]"
@@ -204,10 +204,10 @@ for _ in $(seq 1 10); do DT=$(at Documents 900x620+200+90); [ -n "$DT" ] && { se
 check "Preferences makes Sheaf the default PDF app (${MD:-no button})" "[ \"\$(cat $OUT/made-default 2>/dev/null)\" = default ]"
 quit
 
-# 100. Home ▸ From clipboard with a PDF itself on the clipboard (application/pdf, as Preview and Acrobat copy pages):
+# 100. Home ▸ New ⌄ ▸ From Clipboard with a PDF itself on the clipboard (application/pdf, as Preview and Acrobat copy pages):
 # that PDF becomes the new one.
 qpdf "$OUT/text.pdf" --pages . 1 -- "$OUT/single.pdf"; xclip -selection clipboard -t application/pdf < "$OUT/single.pdf"; sleep 0.3
-launch; answer "$PWD/$OUT/clippdf.pdf"; FP=$(at From 900x120+300+80); [ -n "$FP" ] && click $FP 1; for _ in $(seq 1 12); do [ -f "$OUT/clippdf.pdf" ] && break; sleep 0.5; done; answer ""
+launch; answer "$PWD/$OUT/clippdf.pdf"; FP=$(home_new Clipboard); for _ in $(seq 1 12); do [ -f "$OUT/clippdf.pdf" ] && break; sleep 0.5; done; answer ""
 check "From clipboard takes a PDF copied as data (${FP:-no button}; $(npages $OUT/clippdf.pdf 2>/dev/null) pages, $(first_text "$OUT/clippdf.pdf" 1 2>/dev/null))" "[ \"\$(npages $OUT/clippdf.pdf 2>/dev/null)\" = 1 ] && [ \"\$(first_text $OUT/clippdf.pdf 1)\" = 'Page 1' ]"
 quit
 
@@ -215,7 +215,7 @@ quit
 # again: the order made is kept, pb.pdf's pages do not come back (Sol, 26/10: they did).
 mkdir -p "$OUT/reo"; convert -size 200x260 xc:'#dd2222' xc:'#22aa22' xc:'#2222dd' xc:'#dddd22' "$OUT/reo/pa.pdf"; convert -size 200x260 xc:'#111111' xc:'#777777' xc:'#bbbbbb' "$OUT/reo/pb.pdf"
 launch "$OUT/reo/pa.pdf" "$OUT/reo/pb.pdf"
-click 50 21 1; click 67 113 1; click 271 197 1.5; click 494 405 1; click 460 527 2
+click 50 21 1; click $ALL_TOOLS_ROW 1; tile Merge; click 494 405 1; click 460 527 2
 PG=$(at Pages 280x400+1000+60); [ -n "$PG" ] && click $PG 2
 for _ in 1 2 3; do xdotool mousemove $(( 41 + 124 * 4 + 54 )) 140; sleep 0.4; click $(( 41 + 124 * 4 + 93 )) 94 1; done
 FI=$(at Files 280x400+1000+60); [ -n "$FI" ] && click $FI 1.5; PG2=$(at Pages 280x400+1000+60); [ -n "$PG2" ] && click $PG2 2
@@ -1016,7 +1016,8 @@ quit; rm -f "$OUT/dialog-answer"; ai_stop
 prefs_set 'p.setdefault("platform", {})["direction"] = 2'
 launch; sleep 0.5
 TL=$(at Tools 300x300+980+40); [ -n "$TL" ] && click $TL 0.8
-read SX _ <<< "$(at Search 1280x80+0+40)"; read UX _ <<< "$(at Custom 1280x80+0+40)"; shot 300a-rtl-tools
+# The title row band only, left of the source list (a strip across the whole window OCRs as noise).
+read SX _ <<< "$(at Search 1040x44+0+58)"; read UX _ <<< "$(at Custom 1040x44+0+58)"; shot 300a-rtl-tools
 quit
 cp "$OUT/text.pdf" "$OUT/rtlprint.pdf"; launch "$OUT/rtlprint.pdf"; sleep 1
 key ctrl+p; sleep 1; shot 300b-rtl-print
@@ -1112,7 +1113,7 @@ unset SHEAF_TEST_MENU_BAR
 # Locate controls in the actual options scroller, then inspect the produced PDF, not just the UI.
 optimize_option() { local found=; for _ in $(seq 1 16); do found=$(at "$1" 310x640+965+90); [ -n "$found" ] && break; xdotool mousemove 1160 500 click 5 click 5; sleep 0.3; done; echo "$found"; }
 cp "$OUT/text.pdf" "$OUT/web.pdf"; launch "$OUT/web.pdf"; sleep 1
-click $WRENCH_X 61 1; click 990 76 0.4; xdotool type --delay 20 "compress"; key Return; sleep 2
+click $WRENCH_X 61 1; click $TOOLS_SEARCH 0.4; xdotool type --delay 20 "compress"; key Return; sleep 2
 OA=$(optimize_option Advanced); [ -n "$OA" ] && click $OA 0.5
 OF=$(optimize_option Flatten); [ -n "$OF" ] && click $OF 0.5
 OW=$(optimize_option Fast); [ -n "$OW" ] && click $OW 0.5
@@ -1215,7 +1216,7 @@ key Escape; quit
 convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
 convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"
 launch "$OUT/fast-ocr-input.pdf"; sleep 1
-click $WRENCH_X 61 1; click 990 76 0.4; xdotool type --delay 20 "ocr"; key Return; sleep 2
+click $WRENCH_X 61 1; click $TOOLS_SEARCH 0.4; xdotool type --delay 20 "ocr"; key Return; sleep 2
 OR=$(optimize_option Require)
 shot 344-ocr-options
 click 1140 755 4
@@ -1228,10 +1229,13 @@ quit
 # it in a portable file. Inspection checks both the saved action and the exported pipeline.
 # First-launch rendering can outlast launch()'s initial draw. Wait for the actual Actions
 # header before using its controls; repeating the navigation click is safe and idempotent.
+# Actions' title row holds New action, New custom tool and Run on PDFs… (redesign W2): the rows under it
+# are 42 px higher than before; the crops and clicks of 350–356 follow (not those under a scroll to the editor's
+# end, nor the run report at the page's foot: they keep their places).
 batch_actions() {
     local point
     for _ in $(seq 1 20); do
-        point=$(at Import 140x60+220+180)
+        point=$(at Import 140x60+220+138)
         [ -n "$point" ] && return 0
         point=$(at Actions 190x220+0+40)
         [ -n "$point" ] && click $point 0.5
@@ -1247,9 +1251,9 @@ PY350
 launch
 batch_actions
 answer "$PWD/$OUT/350-pipeline.json"
-IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM 1
+IM=$(at Import 140x60+220+138); [ -n "$IM" ] && click $IM 1
 answer "$PWD/$OUT/350-export.json"
-EX=$(at Export 200x50+1080+215); [ -n "$EX" ] && click $EX 1
+EX=$(at Export 200x50+1080+173); [ -n "$EX" ] && click $EX 1
 shot 350-stirling-naming
 check "350 Stirling output naming survives import and export (${IM:-no Import}; ${EX:-no Export})" "python3 -c 'import json; a=json.load(open(\"$OUT/350-export.json\")); b=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert a[\"outputFileName\"] == \"ready-{filename}-Naming review\"; assert any(x[\"output\"][\"prefix\"] == \"ready-\" and x[\"output\"][\"suffix\"] == \"-Naming review\" for x in b)'"
 quit
@@ -1259,27 +1263,27 @@ quit
 launch
 batch_actions
 # The placeholder is deliberately pale; target the calibrated field after the header is ready.
-SH="330 322"; click $SH 0.3
+SH="330 280"; click $SH 0.3
 xdotool type --clearmodifiers --delay 10 "confidential watermark"; sleep 0.5
-QS=$(ocr 220x400+220+335)
+QS=$(ocr 220x400+220+293)
 check "351 suggested-action search matches words in its name and description (${SH:-no Search})" "echo \"$QS\" | grep -q 'Confidential' && ! echo \"$QS\" | grep -q 'Distribution'"
-CA=$(at Mark 220x400+220+335); [ -n "$CA" ] && click $CA
-SA=$(at Save 320x100+450+470); [ -n "$SA" ] && click $SA 1
+CA=$(at Mark 220x400+220+293); [ -n "$CA" ] && click $CA
+SA=$(at Save 320x100+450+428); [ -n "$SA" ] && click $SA 1
 shot 351-suggested-copy
 check "351 Save a copy keeps the suggested watermark configuration (${CA:-no suggestion}; ${SA:-no Save})" "python3 -c 'import json; a=json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")); assert any(x[\"name\"] == \"Mark as Confidential (2)\" and x[\"steps\"][0][\"argument\"] == \"CONFIDENTIAL\" for x in a)'"
 # A populated search field no longer shows its placeholder; reuse its observed position.
 # A suggestion's full limitations stay readable, rather than hidden in a one-line description.
 [ -n "$SH" ] && click $SH 0.3
 key ctrl+a; xdotool type --clearmodifiers --delay 10 "accessibility"; sleep 0.5
-AS=$(at Accessibility 220x400+220+335); [ -n "$AS" ] && click $AS 0.8
-DS=$(ocr 790x100+460+375); shot 351-suggestion-description
+AS=$(at Accessibility 220x400+220+293); [ -n "$AS" ] && click $AS 0.8
+DS=$(ocr 790x100+460+333); shot 351-suggestion-description
 check "351 suggestion description shows its refusal and certification limits (${AS:-no suggestion})" "echo \"$DS\" | grep -q 'Refuses' && echo \"$DS\" | grep -q 'certification'"
 quit
 launch
 batch_actions
 # The list filter is the first combobox in the left column; Home then Down twice selects Saved.
-click 340 286; key Home; key Down; key Down; key Return
-LS=$(ocr 220x400+220+335); shot 351-saved-filter
+click 340 244; key Home; key Down; key Down; key Return
+LS=$(ocr 220x400+220+293); shot 351-saved-filter
 check "351 Saved actions filter restores the copied suggestion after restart" "echo \"$LS\" | grep -q 'Confidential' && ! echo \"$LS\" | grep -q 'Suggested'"
 quit
 
@@ -1325,13 +1329,13 @@ cp "$OUT/text.pdf" "$OUT/353-source.pdf"
 launch
 batch_actions
 answer "$PWD/$OUT/353-wizard.json"
-IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
-ED=$(at Edit 200x250+1040+450); [ -n "$ED" ] && click $ED
+IM=$(at Import 140x60+220+138); [ -n "$IM" ] && click $IM
+ED=$(at Edit 200x250+1040+408); [ -n "$ED" ] && click $ED
 # Labelled fields can be below the editor's fold; scroll only that editor until the label is visible.
 batch_label() {
     local point
     for _ in $(seq 1 30); do
-        point=$(at "$1" 790x360+460+290)
+        point=$(at "$1" 790x360+460+248)
         if [ -n "$point" ]; then echo "$point"; return; fi
         xdotool mousemove 1245 650 click 5; sleep 0.15
     done
@@ -1350,12 +1354,14 @@ batch_field Opacity "0.35"
 batch_field Rotation "-30"
 shot 353-labelled-settings
 xdotool mousemove 1245 450; for _ in $(seq 1 50); do xdotool click 4; done; sleep 0.6
-SA=$(at Save 320x100+450+470); [ -n "$SA" ] && click $SA 1
+SA=$(at Save 320x100+450+428); [ -n "$SA" ] && click $SA 1
 check "353 labelled mark controls preserve text, range, appearance, order and per-step instructions" "python3 -c 'import json; a=next(x for x in json.load(open(\"$OUT/profile/data/Sheaf/actions.json\")) if x[\"name\"] == \"Wizard settings\"); assert a[\"steps\"][0][\"argument\"] == \"24|0.35|-30|0|0|Helvetica|2-3|After | review\"; assert a[\"steps\"][0][\"prompt\"] and a[\"steps\"][0][\"instruction\"] == \"Review each output\"; assert a[\"steps\"][1][\"tool\"] == \"set_title\"'"
 xdotool mousemove 1245 650; for _ in $(seq 1 65); do xdotool click 5; done; sleep 0.8
 answer "$PWD/$OUT/353-source.pdf"
 RN=$(at Run 350x120+900+60); [ -n "$RN" ] && click $RN 1
-CT=$(at Continue 600x450+340+200); [ -n "$CT" ] && click $CT 2
+# The step's prompt comes once the run has started: looked for until it shows.
+# Continue is the prompt's primary button (white on the accent): read on the accent.
+CT=; for _ in 1 2 3 4 5 6; do CT=$(at_on_accent Continue 600x450+340+200); [ -n "$CT" ] && break; sleep 0.5; done; [ -n "$CT" ] && click $CT 2
 for _ in $(seq 1 20); do [ -f "$OUT/353-source-353.pdf" ] && break; sleep 0.5; done
 shot 353-wizard-output
 check "353 saved multistep action prompts then marks only selected pages (${CT:-no Continue})" "pdfinfo \"$OUT/353-source-353.pdf\" 2>/dev/null | grep -q '^Title:.*Wizard result' && pdftotext -f 2 -l 3 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review' && ! pdftotext -f 1 -l 1 \"$OUT/353-source-353.pdf\" - | tr -d '[:space:]' | grep -q 'After|review'"
@@ -1372,7 +1378,7 @@ printf 'Not a PDF' > "$OUT/354-broken.pdf"
 launch
 batch_actions
 answer "$PWD/$OUT/354-run.json"
-IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+138); [ -n "$IM" ] && click $IM
 # Run is at the end of the right editor's scroll area.
 xdotool mousemove 1245 650; for _ in $(seq 1 35); do xdotool click 5; done; sleep 1
 answer "$PWD/$OUT/354-valid.pdf|$PWD/$OUT/354-broken.pdf|$PWD/$OUT/354-missing.pdf"
@@ -1427,7 +1433,7 @@ cp "$OUT/text.pdf" "$OUT/356-input/first.pdf"; cp "$OUT/text.pdf" "$OUT/356-inpu
 launch
 batch_actions
 answer "$PWD/$OUT/356-folder-action.json"
-IM=$(at Import 140x60+220+180); [ -n "$IM" ] && click $IM
+IM=$(at Import 140x60+220+138); [ -n "$IM" ] && click $IM
 xdotool mousemove 1245 650; for _ in $(seq 1 45); do xdotool click 5; done; sleep 0.8
 IN=$(at Include 790x440+460+290); [ -n "$IN" ] && click $IN 0.3
 answer "$PWD/$OUT/356-input"
@@ -1449,7 +1455,7 @@ scanner_driver() {
 }
 scanner_restore() { APP=$SCANNER_APP; export PATH=$SCANNER_PATH; }
 scanner_driver
-launch; answer "$PWD/$OUT/driver-scan.pdf"; FN=$(at scanner 1000x120+250+80); [ -n "$FN" ] && click $FN 1
+launch; answer "$PWD/$OUT/driver-scan.pdf"; FN=$(home_new Scanner)
 for _ in $(seq 1 20); do [ -f "$OUT/driver-scan.pdf" ] && break; sleep 0.5; done; answer ""
 SN=$(pdftoppm -r 20 -f 1 -l 1 -png "$OUT/driver-scan.pdf" 2>/dev/null | convert - -format "%[pixel:p{5,5}]" info: 2>/dev/null)
 shot 330-scanner-driver
@@ -1606,18 +1612,18 @@ check "a Japanese translation is saved as a searchable PDF (translate $TR, save 
 quit; rm -f "$OUT/dialog-answer"; ai_stop
 
 # 306. Preferences ▸ Interface ▸ Language (C-preferences-003, iLovePDF's Language): French chosen, Home reads
-# Outils and Préférences in its sidebar and the Tools page Fusionner des PDF (a name made in Rust); Language ▸
+# Favoris and Tous les outils in its source list and All Tools Fusionner des PDF (a name made in Rust); Language ▸
 # English switches back at once, without restarting.
 prefs_set "p.setdefault('platform', {})['language'] = 2"
 launch; sleep 0.5
 SB=$(ocr 250x300+0+40)
-OT=$(at Outils 250x300+0+40); [ -n "$OT" ] && click $OT 0.8
+click $ALL_TOOLS_ROW 0.8
 TP=$(ocr 1080x700+0+90); shot 306a-french
 key ctrl+comma; sleep 0.8
 EN=$(pref_find English); [ -n "$EN" ] && click $EN 0.8
 SB2=$(ocr 250x300+0+40); shot 306b-english
 LG=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["platform"]["language"])' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null)
-check "the interface switches to French and back (sidebar: $(echo $SB | cut -c1-60); Tools page: $(echo "$TP" | grep -o 'Fusionner[^ ]*' | head -1); then $(echo $SB2 | cut -c1-50); language $LG)" "echo \"$SB\" | grep -q 'Outils' && echo \"$SB\" | grep -q 'Préférences' && echo \"$TP\" | grep -q 'Fusionner' && echo \"$SB2\" | grep -q 'Tools' && echo \"$SB2\" | grep -q 'Preferences' && [ \"$LG\" = 1 ]"
+check "the interface switches to French and back (sidebar: $(echo $SB | cut -c1-60); Tools page: $(echo "$TP" | grep -o 'Fusionner[^ ]*' | head -1); then $(echo $SB2 | cut -c1-50); language $LG)" "echo \"$SB\" | grep -q 'outils' && echo \"$SB\" | grep -q 'Favoris' && echo \"$TP\" | grep -q 'Fusionner' && echo \"$SB2\" | grep -q 'Tools' && echo \"$SB2\" | grep -q 'Favourites' && [ \"$LG\" = 1 ]"
 quit; platform_reset
 
 # 368. The AI panel has its own pane (C-ai-001; PDF Expert's Copilot never covers the page): with it open, the
