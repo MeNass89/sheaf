@@ -475,8 +475,8 @@ quit
 # 213. Shapes (R) ▸ Loupe and Mask (Preview's): an oval dragged with Loupe on becomes a loupe, a rectangle dragged
 # with Mask on a mask; saved, the file holds both (PdfCraft's /PCLoupe and /PCMask comments).
 cp "$OUT/text.pdf" "$OUT/loupe.pdf"; launch "$OUT/loupe.pdf"; sleep 1; key r; sleep 0.5
-LP=$(at Loupe 1280x40+0+90); [ -n "$LP" ] && click $LP 0.5; drag 500 300 120 120
-MK=$(at Mask 1280x40+0+90); [ -n "$MK" ] && click $MK 0.5; drag 450 500 200 100
+LP=$(at Loupe 1280x40+0+82); [ -n "$LP" ] && click $LP 0.5; drag 500 300 120 120
+MK=$(at Mask 1280x40+0+82); [ -n "$MK" ] && click $MK 0.5; drag 450 500 200 100
 key ctrl+s; sleep 1.5
 QL=$(qpdf --qdf --object-streams=disable "$OUT/loupe.pdf" - 2>/dev/null)
 check "Shapes ▸ Loupe and Mask add a loupe and a mask (${LP:-no Loupe button}; ${MK:-no Mask button})" "echo \"\$QL\" | grep -aq '/PCLoupe ' && echo \"\$QL\" | grep -aq '/PCMask '"

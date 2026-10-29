@@ -476,6 +476,7 @@ export component ReaderScreen inherits Rectangle {
             // Options of the tool in use and the form's actions: docked under the toolbar across
             // the canvas (DESIGN §5.3). Nothing floats over the pages but the selection bar.
             if root.options-shown: ReaderOptionsBar {
+                with-rail: root.mode != 0;
                 tab: root.tab;
                 id: root.id;
                 light-colours: root.light-colours;

@@ -19,6 +19,8 @@ export component ReaderOptionsBar inherits Rectangle {
     background: Theme.chrome;
     Rectangle { y: parent.height - 1px; height: 1px; background: Theme.hairline; }
     property <bool> confirm-clear;
+    // A mode is on: the rail sits left of the bar.
+    in property <bool> with-rail;
     in property <ToolTab> tab;
     in property <int> id;
     // The palettes, and which one is shown (see reader.slint).
@@ -41,7 +43,9 @@ export component ReaderOptionsBar inherits Rectangle {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
-        padding-left: 12px;
+        // Without the rail (a form's or a signature's actions in Read) the content keeps the x it
+        // has beside the rail, so the bar's buttons sit at one place whatever the mode.
+        padding-left: root.with-rail ? 12px : 12px + Theme.rail-width;
         padding-right: 12px;
         padding-top: 3px;
         padding-bottom: 3px;

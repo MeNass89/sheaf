@@ -127,7 +127,8 @@ tokens only (ToolbarButton, ModeSegment, RailButton, TipArea, ResizeHandle, Them
   off the page). Scrolls (Flickable) when the window is shorter than its items.
 - **Options bar docked** (`reader-options.slint` now a `chrome` Rectangle with a hairline under, placed by
   reader.slint above the pages in the canvas column): y 82–118 at 1280 (69 tall for Shapes' two rows, kept),
-  content from x 316. Shown in a mode, or for a form's and a kept signature's actions in Read (a reader fills a
+  content from x 316 (also without the rail: the bar pads itself so its buttons never move). Shown in a mode,
+  or for a form's and a kept signature's actions in Read (a reader fills a
   form without entering a mode). Nothing floats over the pages but the selection bar.
 - `reader-inspector.slint` (new): 260 (220–340, W1's handle on its left edge, double click resets), `window`,
   header 36 with the title (Document / the mode) and ×. Read: Document (title, pages, page, zoom, page theme);

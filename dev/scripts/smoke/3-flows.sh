@@ -208,17 +208,17 @@ check "Extract offers one file per page and deleting the pages ($XS)" "echo \"$X
 check "extracting and deleting the only page is refused" "echo \"$XT\" | grep -q 'needs at least one page' && [ \"\$(npages $OUT/single.pdf)\" = 1 ]"
 quit
 
-# 31. The side panel's edge (247,400) dragged 100 px right: the first thumbnail (row y 230) widens
-# from 150 to 250 px, and the width is kept for the next start (PDF Expert's sidebar).
+# 31. The side panel's edge (260,400, the handle on the hairline) dragged 100 px right: the first thumbnail (row y 230) widens
+# from 162 to 262 px (260 − 98), and the width is kept for the next start (PDF Expert's sidebar).
 # The width of the first blue run on row 230: the first thumbnail of a blue page.
 thumbw() { import -window root -crop 500x1+0+230 png:- 2>/dev/null | convert - txt:- | awk -F'[(),]' 'NR > 1 { b = ($5 + 0 > 180 && $3 + 0 < 90); if (b) n++; else if (n > 20) { print n; exit } else n = 0 }' | head -1; }
 convert -size 300x400 xc:'#2040E0' "$OUT/blue.pdf"; launch "$OUT/blue.pdf"; sleep 1.5; TW0=$(thumbw)
-xdotool mousemove 247 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 247 + i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 1.5; TW1=$(thumbw); quit
+xdotool mousemove 260 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 260 + i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 1.5; TW1=$(thumbw); quit
 launch "$OUT/blue.pdf"; sleep 1.5; TW2=$(thumbw)
 quit
 # Back to the default panel for the later steps.
 python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["panel_width"] = 0; json.dump(p, open(sys.argv[1], "w"))' "$OUT/profile/data/Sheaf/prefs.json"
-check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 130 ] && [ \"\${TW0:-0}\" -lt 160 ] && [ \"\${TW1:-0}\" -gt 230 ] && [ \"\${TW1:-0}\" -lt 260 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
+check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 150 ] && [ \"\${TW0:-0}\" -lt 175 ] && [ \"\${TW1:-0}\" -gt 250 ] && [ \"\${TW1:-0}\" -lt 275 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
 
 # 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
 # words it covers (step 1's highlight, its page moved third; made as step 1 does when this part runs alone).
@@ -390,7 +390,7 @@ quit
 # custom stamp); saved, the file has a stamp drawing that picture; the picture is kept for next time.
 convert -size 80x40 xc:'#2a9d4b' "$OUT/stamp.png"; cp "$OUT/text.pdf" "$OUT/stamped.pdf"; launch "$OUT/stamped.pdf"; sleep 1; key m; sleep 0.5
 # Image… is right of the stamp list.
-answer "$PWD/$OUT/stamp.png"; IM="515 105"; click $IM 0.8; answer ""
+answer "$PWD/$OUT/stamp.png"; IM="559 100"; click $IM 0.8; answer ""
 click 640 420 1.2; key ctrl+s; sleep 1.5
 QS=$(qpdf --qdf --object-streams=disable "$OUT/stamped.pdf" - 2>/dev/null)
 check "Stamp ▸ Image… places a picture as a stamp (${IM:-no Image… button})" "echo \"\$QS\" | grep -aq '/Subtype /Stamp' && echo \"\$QS\" | grep -aq '/Subtype /Image'"
@@ -477,7 +477,7 @@ rects = [[float(n) for n in m.group(1).split()] for o in boxes for m in [re.sear
 print(" ".join(map(str, sorted({round(r[0], 1) for r in rects}))), len(boxes), "w", " ".join(sorted({str(round(r[2] - r[0])) for r in rects})))')
 check "Fields ⇧-clicked together are aligned by the card's Left, a check box placed by a click is 14 pt ($TWO; x of the check boxes, count, widths: $BX)" "echo \"$TWO\" | grep -q '2 fields selected' && echo \"$BX\" | grep -Eq '^[0-9.]+ 2 w 14$'"
 # Grid (Acrobat's Snap to Grid; options bar): a text field dragged from 503,463 to 663,489 lands on the 9 pt grid.
-key Escape; GR=$(at Grid 900x60+300+90); [ -n "$GR" ] && click $GR 0.6; TK=$(at Text 900x60+250+90); [ -n "$TK" ] && click $TK 0.4; shot 53c-grid
+key Escape; GR=$(at Grid 900x60+300+82); [ -n "$GR" ] && click $GR 0.6; TK=$(at Text 900x60+250+82); [ -n "$TK" ] && click $TK 0.4; shot 53c-grid
 xdotool mousemove 503 463 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 503 + i * 32 )) $(( 463 + i * 5 )); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; key ctrl+s; sleep 1.5
 SN=$(qpdf --qdf --object-streams=disable "$OUT/prep.pdf" - 2>/dev/null | python3 -c '
 import re, sys
