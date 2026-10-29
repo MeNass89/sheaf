@@ -1207,7 +1207,7 @@ fn opened(ui: &AppWindow, id: i32, snap: Snap) {
 }
 
 /// The reader's side panel width until one is dragged (Theme.sidebar-default).
-pub const PANEL_WIDTH: f32 = 248.0;
+pub const PANEL_WIDTH: f32 = 260.0;
 
 /// Thumbnails in the reader's sidebar (DESIGN §5.4): its width less a 16 margin each side (216 at
 /// 248, 448 at 480); the tools' strip uses 84 px.

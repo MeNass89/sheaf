@@ -198,3 +198,67 @@ Nassim, 29/10: Sepia ("crème") looked like a dull veil; Night is right but must
   `pictures_keep_their_pixels_…`, `a_scan_is_themed_whole_…`; renders.rs `themes_keep_photos_and_theme_ink_and_scans`
   (a PDF with a photo, the photo inside a form, a 1-bit mask, and a full-page scan). No GUI smoke step asserted
   theme colours. **All platforms**.
+## Redesign W3: toolbar, mode bar, rail, docked options bar, inspector (29/10/2026, Fable)
+
+DESIGN.md §5.2, §5.3, §5.5, DESIGN-PLAN W3. Branch wip/w3-reader (from wip/w1-tokens). W1's widgets and
+tokens only (ToolbarButton, ModeSegment, RailButton, TipArea, ResizeHandle, Theme, Space, Motion).
+
+- `reader-toolbar.slint` rewritten to §5.2: 44 tall `chrome`, one hairline. Leading group at x 8 (sidebar,
+  all pages = Organize, reading view = toolbar hidden, zoom field 72×28 at 132 with its list, − + capsule at
+  208/244, page field "1 / 3" 88×28 at 288); the **mode bar** 7×48 centred on the window and never over the
+  sidebar (472–808 at 1280: Annotate 496, Edit 544, Fill & Sign 592, Organize 640, Redact 688, Measure 736,
+  Tools 784); trailing group ending 8 from the right ("Aa" page-theme popover 864, search 160×28 at 904, AI
+  1072, Share 1112, Print 1152, More 1192, inspector 1236). Below 1180 the − + fold into the zoom list, the page
+  field hides (⌥⌘G still works), "Aa" folds into More; below 1024 the segments sit on a 40 pitch and the search
+  is 120. Undo / Redo / Save left the toolbar (menu bar, ⌘Z ⌘S); Save, Save as… and the page theme are rows of
+  More, Custom tools a row of More tools…; Share is a popover (Email, Copy the file, AirDrop on macOS).
+- **Modes** (reader.slint `mode`, per tab): 0 Read … 6 Measure, ⌘1–⌘6; a click on the selected segment, or
+  Escape with the Select tool and nothing selected, returns to Read. The mode follows the tool (a letter
+  typed, a More row: H puts Annotate on, E Edit, S / F Fill & Sign) and the tool follows the mode (leaving a mode
+  resets the tool to Select). Organize = the page grid (`spread == 3`, `toggle-grid`), so More ▸ Page grid and
+  the "all pages" toolbar button enter and leave it too. A comment picked while reading switches to Annotate.
+- `reader-rail.slint` (new): 44 wide, items 36 on a 40 pitch from y 90, Select first, tips to the right.
+  Annotate: Highlight, Underline, Strikethrough, Note, Text box, Pen, Eraser, Shapes, Stamp, Link. Edit: Edit
+  text, Add image, Link. Fill & Sign: Sign, Prepare form, Detect fields. Organize: Insert blank, Rotate left /
+  right, Duplicate, Delete (`danger`, the one tinted icon). Redact: Redact… (the Redact PDF tool), Sanitize.
+  Measure: Rulers, Grid, Loupe, Zoom to area (no measuring tool exists yet; these are the aids that read lengths
+  off the page). Scrolls (Flickable) when the window is shorter than its items.
+- **Options bar docked** (`reader-options.slint` now a `chrome` Rectangle with a hairline under, placed by
+  reader.slint above the pages in the canvas column): y 82–118 at 1280 (69 tall for Shapes' two rows, kept),
+  content from x 316 (also without the rail: the bar pads itself so its buttons never move). Shown in a mode,
+  or for a form's and a kept signature's actions in Read (a reader fills a
+  form without entering a mode). Nothing floats over the pages but the selection bar. Two rules keep the page
+  still under the pointer: a comment picked in Read stays in Read (no mode switch, so no bar docks), and the
+  Edit tool keeps its bar while objects are picked (the floating bar used to go at the pick).
+- `reader-inspector.slint` (new): 260 (220–340, W1's handle on its left edge, double click resets), `window`,
+  header 36 with the title (Document / the mode) and ×. Read: Document (title, pages, page, zoom, page theme);
+  Annotate: Colour, Stroke, Opacity (the same callbacks as the bar); Organize: "n of m" selected; other modes:
+  "Select something on the page to see its properties". ⌃⌘I (Ctrl+Alt+I elsewhere) and the trailing button.
+  **Deviation from §5.5:** it does not open by itself when a mode is entered — the canvas would narrow by 260 and
+  every page click of the smoke would move; it opens on request (closed by default, as the spec's Read state).
+- Side panel default 260 (`Theme.sidebar-default`, `reader_ui::PANEL_WIDTH`), as §6.2 asks; W1 had kept 248.
+- Not done in this pass, named for the next: the **Tools popover** (⌘K, 320×480 with Favourites / Recent) — the
+  Tools segment opens the catalogue page with its search focused, as the wrench did, so `type "compress"; Return`
+  still runs a tool on the document (the tool tab); the tool-in-inspector flow with a pinned Run; the sidebar as
+  an overlay at 1024; the menu bar reorder (`mac_menu.rs`, main.slint MenuBar). Measure has no measuring tool.
+- Icons added: `panel-right.svg`, `ruler.svg` (Lucide). 28 new texts in fr / de / es / it / pt.
+
+Smoke recalibrated (gui-smoke.sh `ZOOM_X=160 ZOOM_MENU_X=190 WRENCH_X=784`): 1-reader 2b' (the signature's page
+geometry with the Fill & Sign rail on: 944/612 px a point from 320,134), 2d and 2-documents 20c and 4-flows 210 (the same
+Edit-mode geometry), 3-flows 23 (the search field's text read at x 926), 50 (the sixth dot at 664,100, the palette's orange
+at 618,135), 54 (the dialog's Cancel read on its own row: the Edit text card has one too), 61 (the zoomed word measured on
+the canvas, not in the thumbnails), 4-flows 84 (the Shapes rows from y 80), 352 (custom tools through More ▸ More tools…),
+367 (the AI panel's Translate row found by its Classify button: W1's placeholders are too light for OCR), 2c (the ⇧-square
+drag starts at x 340: at 260 it sat on the resize handle and widened the panel for every later step), 6c / 6c'0 / 6c''
+(the first rectangle 70 lower, the stamp list's rows at 361,136 / 361,304, the Fill row dots at y 100), 6d (two Escapes back
+to Read before measuring the gap at x 767), the Notes filter (rows 28 tall since W1: Stamps at y 334) and the reply's bin
+(x 232 in the 260 panel), 300 (OCR may read the Fill chip "Fil"), 1-reader 6g (Fit page row at
+y 311), the options-bar clicks of 1-reader 2d/2e/9/10/11 and 2-documents 16 and 3-flows 53/58/63 (y 110 → 100,
+x + 44: the bar is docked at 82–118 from x 316), 2-documents 18 (Redact: the Redact segment 688,61 then the
+rail's second item 282,148), 4-flows 83 (the Pen in the rail at 282,348), `ai_open` (1090,61), `pdfa_reader_tool`
+(the Tools segment, no tooltip hunt), every More menu click 1108 → 1210 (its rows at x 1008 and y 102 + 28k are
+2 px under the old ones, inside the same rows).
+
+Screenshots /tmp/f5/W3/ (self-snapshots, Xvfb :134–:136; `*-screen.png` are real captures for the popovers):
+reader-read / annotate / annotate-highlight-inspector / organize / redact × light, dark × 1280, 1024;
+theme-popover, more-menu, tools (the catalogue page the Tools segment opens).

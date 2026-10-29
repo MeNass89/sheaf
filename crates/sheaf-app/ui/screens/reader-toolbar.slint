@@ -1,27 +1,78 @@
 import { PortfolioBridge } from "portfolio.slint";
 import { ActionBridge } from "actions.slint";
-// The reader's toolbar: side panel, annotation tools, page field, zoom, page theme, search, the
-// More menu, undo/redo/save.
+// The reader's unified toolbar (DESIGN §5.2): a leading group over the sidebar and the canvas
+// (sidebar, all pages, reading view, zoom, − +, page field), the mode bar centred on the window
+// (Annotate · Edit · Fill & Sign · Organize · Redact · Measure · Tools), a trailing group over
+// the inspector (page theme, search, AI, Share, Print, More, inspector). 44 tall, `chrome`,
+// one hairline under. Nothing is dropped when the window narrows: what folds is in More.
 import { ScrollView } from "std-widgets.slint";
 import { JavaScriptBridge } from "javascript.slint";
-import { Theme } from "../theme.slint";
-import { ToolButton, Divider, PopoverFrame } from "reader-parts.slint";
+import { Theme, Space, Motion } from "../theme.slint";
+import { ToolbarButton, ModeSegment } from "../widgets/toolbar.slint";
+import { TipArea } from "../widgets/tooltip.slint";
+import { PopoverFrame } from "reader-parts.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 import { AiBridge } from "../ai.slint";
+
+// A row of a popover menu (More, Share, the zoom list): 28 tall, `fill-1` under the pointer.
+component MenuRow inherits Rectangle {
+    in property <string> text;
+    in property <string> keys;
+    in property <bool> on;
+    in property <bool> dim;
+    callback clicked();
+    height: Theme.row-height;
+    border-radius: Theme.r-sm;
+    background: ta.has-hover ? Theme.fill-1 : transparent;
+    opacity: root.dim ? 0.45 : 1;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-action-default => { root.clicked(); }
+    Text { x: 10px; text: (root.on ? "✓ " : "") + root.text; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; }
+    Text { x: parent.width - self.width - 10px; text: root.keys; font-size: Theme.fs-subhead; color: Theme.text-2; vertical-alignment: center; }
+    ta := TouchArea { clicked => { root.clicked(); } }
+}
+
+// The page theme's swatch (Day / Sepia / Night): a 64×48 page in the theme's paper, its label under.
+component ThemeSwatch inherits Rectangle {
+    in property <string> label;
+    in property <color> paper;
+    in property <color> ink;
+    in property <bool> selected;
+    callback clicked();
+    width: 64px;
+    height: 68px;
+    VerticalLayout {
+        spacing: Space.xs;
+        Rectangle {
+            height: 48px;
+            border-radius: Theme.r-sm;
+            background: root.paper;
+            border-width: root.selected ? 2px : 1px;
+            border-color: root.selected ? Theme.accent : Theme.hairline;
+            Text { text: "Aa"; font-size: Theme.fs-title-3; font-weight: Theme.weight-demibold; color: root.ink; }
+        }
+        Text { text: root.label; font-size: Theme.fs-subhead; color: root.selected ? Theme.text : Theme.text-2; horizontal-alignment: center; }
+    }
+    TouchArea { clicked => { root.clicked(); } }
+}
 
 export component ReaderToolbar inherits Rectangle {
     in property <ToolTab> tab;
     in property <int> id;
     in property <bool> is-full-screen;
-    // A small window: the zoom buttons go (⌘+ / ⌘− stay).
+    // A small window (reader.slint): kept for the zoom list's labels.
     in property <bool> narrow;
     in property <length> view-height: 600px;
-    // Too narrow for every tool: the edit group folds into one button (900 px, the window's least,
-    // up to where it all fits).
-    // Folds below 1320 px: the wider title-bar text of macOS cut Save off at 1280 px (BAMA pass
-    // 28/10), and every platform keeps the same toolbar.
-    property <bool> fold-edit: root.width < 1320px;
+    // The mode shown (0 Read, 1 Annotate, 2 Edit, 3 Fill & Sign, 4 Organize, 5 Redact, 6 Measure).
+    in property <int> mode;
+    callback set-mode(int);
+    // The inspector column (⌃⌘I).
+    in property <bool> inspector-open;
+    callback toggle-inspector();
+    // Where the sidebar ends: the mode bar never crosses it.
+    in property <length> sidebar-right;
     in-out property <bool> bare;
     // What the search field holds (the side panel lists its results).
     out property <string> search-text: search-in.text;
@@ -35,13 +86,15 @@ export component ReaderToolbar inherits Rectangle {
     // The other open documents a split can show, read as the menu opens.
     property <[string]> split-names;
 
+    // Below 1180 the − / + buttons and the page field fold into the zoom list and More; below 1024
+    // the mode bar's items sit on a 40 pitch and the search field shrinks.
+    property <bool> fold: root.width < 1180px;
+    property <bool> compact: root.width < 1024px;
+    property <length> segment: root.compact ? 40px : Theme.mode-segment-width;
+
     property <string> page-text: root.tab.reader.page-text;
     changed page-text => { if !page-in.has-focus { page-in.text = root.page-text; } }
 
-    // " (H)": a tool's letter for its tip, the user's own (Preferences ▸ Keyboard shortcuts).
-    function key-hint(tool: int) -> string {
-        return PlatformBridge.tool-letters[tool] == "" ? "" : " (" + PlatformBridge.tool-letters[tool] + ")";
-    }
     // ⌥⌘G: the page field, its text selected.
     public function focus-page-field() { page-in.focus(); page-in.select-all(); }
     // ⌘F: the search field, its text selected.
@@ -51,107 +104,124 @@ export component ReaderToolbar inherits Rectangle {
         search-in.text = text;
         ReaderBridge.search(root.id, search-in.text);
     }
+    function mode-keys(n: string) -> string { return Theme.mac ? "⌘" + n : "Ctrl+" + n; }
 
-    height: root.bare ? 0px : 46px;
+    height: root.bare ? 0px : Theme.toolbar-height;
     visible: !root.bare;
-    background: Theme.panel-bg;
+    background: Theme.chrome;
+
+    // ── Leading group: over the sidebar, then the canvas ─────────────────────────────────────
     // Flexboxes, not HorizontalLayouts, so that right to left (Preferences ▸ Interface ▸ Direction)
-    // reverses the groups and the buttons in each (Slint's rows have no direction of their own).
-    FlexboxLayout {
+    // mirrors the groups and the buttons in each (Slint's rows have no direction of their own).
+    leading := FlexboxLayout {
+        x: PlatformBridge.rtl ? root.width - self.width - Space.sm : Space.sm;
+        y: (parent.height - Theme.toolbar-button) / 2;
+        width: self.preferred-width;
+        height: Theme.toolbar-button;
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
-        padding-left: PlatformBridge.rtl ? 10px : 8px;
-        padding-right: PlatformBridge.rtl ? 8px : 10px;
-        spacing: 4px;
-        alignment: stretch;
-        FlexboxLayout {
-            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-            flex-wrap: FlexboxLayoutWrap.no-wrap;
-            spacing: 2px;
-            alignment: start;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            if ActionBridge.commands.length > 0: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Custom tools"); clicked => { ActionBridge.command("custom-tools", 0); } }
-            ToolButton { icon: @image-url("../icons/panel-left.svg"); tip: @tr("Side panel"); clicked => { ReaderBridge.toggle-panel(root.id); } }
-            Rectangle { width: 6px; }
-            Divider { }
-            Rectangle { width: 6px; }
-            ToolButton { icon: @image-url("../icons/mouse-pointer-2.svg"); tip: @tr("Select text{}", root.key-hint(0)); active: root.tab.reader.tool == 0; clicked => { ReaderBridge.set-tool(root.id, 0); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/highlighter.svg"); tip: @tr("Highlight{}", root.key-hint(1)); active: root.tab.reader.tool == 1; clicked => { ReaderBridge.set-tool(root.id, 1); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/underline.svg"); tip: @tr("Underline{}", root.key-hint(2)); active: root.tab.reader.tool == 2; clicked => { ReaderBridge.set-tool(root.id, 2); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/strikethrough.svg"); tip: @tr("Strikethrough{}", root.key-hint(3)); active: root.tab.reader.tool == 3; clicked => { ReaderBridge.set-tool(root.id, 3); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/sticky-note.svg"); tip: @tr("Note{}", root.key-hint(4)); active: root.tab.reader.tool == 4; clicked => { ReaderBridge.set-tool(root.id, 4); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/pencil.svg"); tip: @tr("Pen{}", root.key-hint(5)); active: root.tab.reader.tool == 5; clicked => { ReaderBridge.set-tool(root.id, 5); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/shapes.svg"); tip: @tr("Shapes{}", root.key-hint(10)); active: root.tab.reader.tool == 10; clicked => { ReaderBridge.set-tool(root.id, 10); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/eraser.svg"); tip: @tr("Eraser{}", root.key-hint(11)); active: root.tab.reader.tool == 11; clicked => { ReaderBridge.set-tool(root.id, 11); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/stamp.svg"); tip: @tr("Stamp{}", root.key-hint(12)); active: root.tab.reader.tool == 12; clicked => { ReaderBridge.set-tool(root.id, 12); root.focus-pages(); } }
-            ToolButton { icon: @image-url("../icons/type.svg"); tip: @tr("Text box{}", root.key-hint(6)); active: root.tab.reader.tool == 6; clicked => { ReaderBridge.set-tool(root.id, 6); root.focus-pages(); } }
-            Rectangle { width: 6px; }
-            Divider { }
-            Rectangle { width: 6px; }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/text-cursor-input.svg"); tip: @tr("Edit text{}", root.key-hint(7)); active: root.tab.reader.tool == 7; clicked => { ReaderBridge.set-tool(root.id, 7); root.focus-pages(); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/image.svg"); tip: @tr("Add image{}", root.key-hint(8)); active: root.tab.reader.tool == 8; clicked => { ReaderBridge.set-tool(root.id, 8); root.focus-pages(); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/link.svg"); tip: @tr("Link{}", root.key-hint(13)); active: root.tab.reader.tool == 13; clicked => { ReaderBridge.set-tool(root.id, 13); root.focus-pages(); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/eye-off.svg"); tip: @tr("Redact…"); clicked => { ReaderBridge.redact(root.id); } }
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/signature.svg"); tip: @tr("Sign{}", root.key-hint(9)); active: root.tab.reader.tool == 9; clicked => { ReaderBridge.set-tool(root.id, 9); root.focus-pages(); } }
-            // A narrow window folds the edit group into one button with its menu (Acrobat's toolbar
-            // overflow), so no tool falls off the bar.
-            if root.fold-edit: Rectangle {
-                width: 30px;
-                ToolButton {
-                    icon: @image-url("../icons/text-cursor-input.svg");
-                    tip: @tr("Edit, link, redact, sign");
-                    active: root.tab.reader.tool == 7 || root.tab.reader.tool == 8 || root.tab.reader.tool == 13 || root.tab.reader.tool == 9;
-                    clicked => { edit-menu.show(); }
-                }
-                edit-menu := PopupWindow {
-                    x: 0;
-                    y: 34px;
-                    width: 220px;
-                    height: 5 * 30px + 8px;
-                    PopoverFrame {
-                        VerticalLayout {
-                            padding: 4px;
-                            for item[k] in [
-                                { icon: @image-url("../icons/text-cursor-input.svg"), text: @tr("Edit text"), keys: "E", tool: 7 },
-                                { icon: @image-url("../icons/image.svg"), text: @tr("Add image"), keys: "I", tool: 8 },
-                                { icon: @image-url("../icons/link.svg"), text: @tr("Link"), keys: "L", tool: 13 },
-                                { icon: @image-url("../icons/eye-off.svg"), text: @tr("Redact…"), keys: "", tool: -1 },
-                                { icon: @image-url("../icons/signature.svg"), text: @tr("Sign"), keys: "S", tool: 9 },
-                            ]: Rectangle {
-                                height: 30px;
-                                border-radius: Theme.radius-small;
-                                background: et.has-hover ? Theme.popup-hover : transparent;
-                                Image { x: 8px; width: 16px; height: 16px; source: item.icon; colorize: Theme.text-secondary; }
-                                Text { x: 32px; text: item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                                et := TouchArea {
-                                    clicked => {
-                                        if item.tool < 0 { ReaderBridge.redact(root.id); } else { ReaderBridge.set-tool(root.id, item.tool); }
-                                        root.focus-pages();
-                                    }
-                                }
-                            }
+        alignment: start;
+        spacing: Space.xs;
+        ToolbarButton { icon: @image-url("../icons/panel-left.svg"); on: root.tab.reader.panel-open; tip: @tr("Show or hide the sidebar"); shortcut: PlatformBridge.key-labels[21]; clicked => { ReaderBridge.toggle-panel(root.id); } }
+        ToolbarButton { icon: @image-url("../icons/layout-grid.svg"); on: root.tab.reader.spread == 3; tip: @tr("Show all pages"); shortcut: root.mode-keys("4"); clicked => { root.set-mode(4); } }
+        ToolbarButton { icon: @image-url("../icons/book-open.svg"); tip: @tr("Read with the toolbars hidden"); shortcut: "⇧T"; clicked => { root.bare = true; root.focus-pages(); } }
+        Rectangle { width: Space.xs; }
+        // The zoom: type a percentage (↩), or pick one from the list (PDF Expert's zoom menu).
+        zoom := Rectangle {
+            property <int> shown: root.tab.viewer-zoom;
+            changed shown => { if !zoom-field.has-focus { zoom-field.text = self.shown + "%"; } }
+            init => { zoom-field.text = self.shown + "%"; }
+            width: 72px;
+            height: Theme.control-height;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
+            border-radius: Theme.r-sm;
+            background: zoom-field.has-focus ? Theme.field : zoom-hover.has-hover ? Theme.fill-2 : Theme.fill-1;
+            border-width: zoom-field.has-focus ? 2px : 0px;
+            border-color: Theme.focus-ring;
+            animate background { duration: Motion.hover; }
+            accessible-role: button;
+            accessible-label: @tr("Zoom");
+            accessible-value: zoom-field.text;
+            zoom-hover := TipArea { tip: @tr("Zoom"); shortcut: PlatformBridge.key-labels[18]; }
+            zoom-field := TextInput {
+                // Tools page tools' keys wait while a field has the keyboard.
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
+                x: Space.sm;
+                width: parent.width - 28px;
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                single-line: true;
+                accepted => { ReaderBridge.zoom-typed(root.id, self.text); root.focus-pages(); }
+            }
+            Image {
+                x: parent.width - 18px;
+                width: 12px;
+                height: 12px;
+                y: (parent.height - self.height) / 2;
+                source: @image-url("../icons/chevron-down.svg");
+                colorize: Theme.text-2;
+            }
+            TouchArea {
+                x: parent.width - 22px;
+                width: 22px;
+                mouse-cursor: pointer;
+                clicked => { zoom-menu.show(); }
+            }
+            zoom-menu := PopupWindow {
+                x: 0;
+                y: parent.height + Space.xs;
+                width: 140px;
+                PopoverFrame {
+                    VerticalLayout {
+                        padding: Space.xs;
+                        for z in ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"]: MenuRow {
+                            text: z;
+                            clicked => { ReaderBridge.zoom-typed(root.id, z); root.focus-pages(); }
                         }
+                        Rectangle { height: 1px; background: Theme.hairline; }
+                        for f[k] in [@tr("Fit width"), @tr("Fit page")]: MenuRow {
+                            text: f;
+                            keys: PlatformBridge.key-labels[k == 0 ? 20 : 19];
+                            clicked => { ReaderBridge.zoom-fit(root.id, k); root.focus-pages(); }
+                        }
+                        // Folded below 1180: the zoom steps live here.
+                        if root.fold: Rectangle { height: 1px; background: Theme.hairline; }
+                        if root.fold: MenuRow { text: @tr("Zoom in"); keys: PlatformBridge.key-labels[16]; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
+                        if root.fold: MenuRow { text: @tr("Zoom out"); keys: PlatformBridge.key-labels[17]; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
                     }
                 }
             }
         }
-        Rectangle { horizontal-stretch: 1; }
-        // Page field and zoom
-        FlexboxLayout {
+        // − / +: one capsule.
+        if !root.fold: FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
-            spacing: 4px;
-            alignment: center;
-            padding-top: 9px;
-            padding-bottom: 9px;
-            Rectangle {
-                width: 46px;
-                border-radius: Theme.radius-small;
-                border-width: 1px;
-                border-color: page-in.has-focus ? Theme.text-secondary : Theme.input-border;
-                background: Theme.input-bg;
+            spacing: 0;
+            ToolbarButton { icon: @image-url("../icons/zoom-out.svg"); tip: @tr("Zoom out"); shortcut: PlatformBridge.key-labels[17]; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
+            ToolbarButton { icon: @image-url("../icons/zoom-in.svg"); tip: @tr("Zoom in"); shortcut: PlatformBridge.key-labels[16]; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
+        }
+        // The page field "4 / 7" (folded below 1180: hidden, still reached by ⌥⌘G).
+        Rectangle {
+            width: root.fold ? 0px : 88px;
+            visible: !root.fold;
+            height: Theme.control-height;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
+            border-radius: Theme.r-sm;
+            border-width: page-in.has-focus ? 2px : 1px;
+            border-color: page-in.has-focus ? Theme.focus-ring : Theme.hairline;
+            background: Theme.field;
+            accessible-role: text;
+            accessible-label: @tr("Go to a page");
+            TipArea { tip: @tr("Go to a page"); shortcut: PlatformBridge.key-labels[31]; }
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
+                padding-left: Space.sm;
+                padding-right: Space.sm;
+                spacing: Space.xs;
                 page-in := TextInput {
                     // Back to the page shown once the field is left or a jump is done.
                     changed has-focus => {
@@ -159,12 +229,11 @@ export component ReaderToolbar inherits Rectangle {
                         PlatformBridge.typing = self.has-focus;
                         if !self.has-focus { self.text = root.tab.reader.page-text; }
                     }
-                    x: 6px;
-                    width: parent.width - 12px;
+                    horizontal-stretch: 1;
                     text: root.tab.reader.page-text;
-                    font-size: Theme.fs-label;
+                    font-size: Theme.fs-body;
                     color: Theme.text;
-                    horizontal-alignment: center;
+                    horizontal-alignment: right;
                     vertical-alignment: center;
                     single-line: true;
                     accepted => {
@@ -173,434 +242,424 @@ export component ReaderToolbar inherits Rectangle {
                         self.text = root.tab.reader.page-text;
                     }
                 }
-            }
-            Text {
-                text: root.tab.reader.page-counter;
-                font-size: Theme.fs-label;
-                color: Theme.text-muted;
-                vertical-alignment: center;
-            }
-            Rectangle { width: 8px; }
-            if !root.narrow: ToolButton { icon: @image-url("../icons/zoom-out.svg"); tip: @tr("Zoom out (⌘−)"); clicked => { ViewerBridge.zoom-step(root.id, -1); } }
-            // The zoom: type a percentage (↩), or pick one from the list (PDF Expert's zoom menu).
-            Rectangle {
-                property <int> shown: root.tab.viewer-zoom;
-                changed shown => { if !zoom-field.has-focus { zoom-field.text = self.shown + "%"; } }
-                init => { zoom-field.text = self.shown + "%"; }
-                width: 62px;
-                height: 26px;
-                border-radius: Theme.radius-small;
-                border-width: zoom-field.has-focus || zoom-hover.has-hover ? 1px : 0px;
-                border-color: Theme.input-border;
-                background: zoom-field.has-focus ? Theme.input-bg : transparent;
-                zoom-hover := TouchArea { }
-                zoom-field := TextInput {
-                    // Tools page tools' keys wait while a field has the keyboard.
-                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
-                    x: 4px;
-                    width: 40px;
-                    font-size: Theme.fs-label;
-                    color: Theme.text;
-                    horizontal-alignment: center;
+                Text {
+                    text: root.tab.reader.page-counter;
+                    font-size: Theme.fs-body;
+                    color: Theme.text-2;
                     vertical-alignment: center;
-                    single-line: true;
-                    accepted => { ReaderBridge.zoom-typed(root.id, self.text); root.focus-pages(); }
-                }
-                Image {
-                    x: parent.width - 16px;
-                    width: 11px;
-                    height: 11px;
-                    source: @image-url("../icons/chevron-down.svg");
-                    colorize: Theme.text-secondary;
-                }
-                TouchArea {
-                    x: parent.width - 18px;
-                    width: 18px;
-                    mouse-cursor: pointer;
-                    clicked => { zoom-menu.show(); }
-                }
-                zoom-menu := PopupWindow {
-                    x: 0;
-                    y: parent.height + 4px;
-                    width: 120px;
-                    PopoverFrame {
-                        VerticalLayout {
-                            padding: 4px;
-                            for z in ["50%", "75%", "100%", "125%", "150%", "200%", "300%", "400%"]: Rectangle {
-                                height: 26px;
-                                background: zt.has-hover ? Theme.popup-hover : transparent;
-                                border-radius: Theme.radius-small;
-                                Text { x: 10px; text: z; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                zt := TouchArea { clicked => { ReaderBridge.zoom-typed(root.id, z); root.focus-pages(); } }
-                            }
-                            Rectangle { height: 1px; background: Theme.sidebar-border; }
-                            for f[k] in [@tr("Fit width"), @tr("Fit page")]: Rectangle {
-                                height: 26px;
-                                background: ft.has-hover ? Theme.popup-hover : transparent;
-                                border-radius: Theme.radius-small;
-                                Text { x: 10px; text: f; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                ft := TouchArea { clicked => { ReaderBridge.zoom-fit(root.id, k); root.focus-pages(); } }
-                            }
-                        }
-                    }
                 }
             }
-            if !root.narrow: ToolButton { icon: @image-url("../icons/zoom-in.svg"); tip: @tr("Zoom in (⌘+)"); clicked => { ViewerBridge.zoom-step(root.id, 1); } }
-            // Narrow: in the More menu only (its "Two pages" entry).
-            if !root.fold-edit: ToolButton {
-                icon: @image-url("../icons/columns-2.svg");
-                active: root.tab.reader.spread > 0;
-                tip: (root.tab.reader.spread == 0 ? @tr("Two pages") : root.tab.reader.spread == 1 ? @tr("Two pages, cover alone") : @tr("One page wide")) + " (⌥⌘2)";
-                clicked => { ReaderBridge.cycle-spread(root.id); root.focus-pages(); }
-            }
-            // Narrow: Fit width / Fit page stay in the zoom list (and ⌘9 / ⌘8).
-            if !root.fold-edit: ToolButton { icon: @image-url("../icons/maximize.svg"); tip: root.tab.reader.zoom-mode == 1 ? @tr("Fit width (⌘9)") : @tr("Fit page (⌘8)"); clicked => { ReaderBridge.zoom-fit(root.id, root.tab.reader.zoom-mode == 1 ? 0 : 1); } }
         }
-        Rectangle { horizontal-stretch: 1; }
+    }
+    // ── Mode bar: centred on the window, never over the sidebar ──────────────────────────────
+    mode-bar := Rectangle {
+        width: 7 * root.segment;
+        height: Theme.toolbar-button;
+        x: max(root.sidebar-right + Space.sm, min((root.width - self.width) / 2, trailing.x - self.width - Space.sm));
+        y: (parent.height - self.height) / 2;
+        accessible-role: tab-list;
         FlexboxLayout {
             flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
             flex-wrap: FlexboxLayoutWrap.no-wrap;
-            spacing: 2px;
-            alignment: end;
-            padding-top: 8px;
-            padding-bottom: 8px;
-            // Day → Sepia → Night → Day (one button: the three cost the toolbar its room).
-            ToolButton {
-                icon: root.tab.reader.theme == 0 ? @image-url("../icons/sun.svg") : root.tab.reader.theme == 2 ? @image-url("../icons/book-open.svg") : @image-url("../icons/moon.svg");
-                tip: @tr("Page theme");
-                clicked => { ReaderBridge.set-theme(root.id, root.tab.reader.theme == 0 ? 2 : root.tab.reader.theme == 2 ? 1 : 0); }
-            }
-            Rectangle { width: 6px; }
-            // Search
-            Rectangle {
-                // Narrower in a small window, so the toolbar always fits (the window's
-                // minimum is 900 px).
-                width: root.fold-edit ? 88px : root.narrow ? 110px : clamp(root.width - 1154px, 110px, 210px);
-                border-radius: Theme.radius-button;
-                border-width: 1px;
-                border-color: search-in.has-focus ? Theme.text-secondary : Theme.input-border;
-                background: Theme.input-bg;
-                Image {
-                    x: 8px;
-                    width: 14px;
-                    height: 14px;
-                    source: @image-url("../icons/search.svg");
-                    colorize: Theme.text-muted;
-                }
-                Text {
-                    x: 28px;
-                    visible: search-in.text == "";
-                    text: @tr("Search");
-                    font-size: Theme.fs-label;
-                    color: Theme.text-disabled;
-                    vertical-alignment: center;
-                }
-                search-in := TextInput {
-                    // Tools page tools' keys wait while a field has the keyboard.
-                    changed has-focus => { PlatformBridge.typing = self.has-focus; }
-                    x: 28px;
-                    width: parent.width - 28px - count.width - 8px;
-                    font-size: Theme.fs-label;
-                    color: Theme.text;
-                    vertical-alignment: center;
-                    single-line: true;
-                    accepted => {
-                        // Results already listed (even while the search goes on): Enter goes to the next one.
-                        if root.tab.reader.search-count != "" && root.tab.reader.search-count != "None" {
-                            ReaderBridge.search-step(root.id, 1);
-                        } else {
-                            ReaderBridge.search(root.id, self.text);
-                        }
-                    }
-                    // Any change drops the results of the old text: Enter then searches the new one.
-                    edited => { ReaderBridge.search-clear(root.id); }
-                    key-pressed(e) => {
-                        if e.text == Key.Escape {
-                            self.text = "";
-                            ReaderBridge.search-clear(root.id);
-                            root.focus-pages();
-                            return accept;
-                        }
-                        if e.text == Key.Return && e.modifiers.shift {
-                            ReaderBridge.search-step(root.id, -1);
-                            return accept;
-                        }
-                        // ⌘F again in the field: its words selected, ready to type a new search.
-                        if e.modifiers.control && (e.text == "f" || e.text == "F") {
-                            self.select-all();
-                            return accept;
-                        }
-                        if e.modifiers.control && (e.text == "g" || e.text == "G") {
-                            ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
-                            return accept;
-                        }
-                        reject
-                    }
-                }
-                count := Text {
-                    x: parent.width - self.width - 8px;
-                    text: root.tab.reader.search-count;
-                    font-size: Theme.fs-caption;
-                    color: Theme.text-muted;
-                    vertical-alignment: center;
-                }
-            }
-            Rectangle { width: 6px; }
-            // More: how the window shows the document (PDF Expert's View menu), print, properties.
-            ToolButton {
-                icon: @image-url("../icons/ellipsis.svg");
-                tip: @tr("More");
-                clicked => { view-menu.show(); }
-                // More ▸ More tools…: what did not fit in the first menu.
-                more-tools := PopupWindow {
-                    x: parent.width - 240px;
-                    y: parent.height + 6px;
-                    width: 240px;
-                    height: min(680px, max(200px, root.view-height - 100px));
-                    PopoverFrame {
-                        ScrollView {
-                        VerticalLayout {
-                            padding: 4px;
-                            for item[k] in [
-                                // PDF Expert's and Acrobat's overlay: another PDF's pages drawn over these.
-                                { text: @tr("Overlay a PDF…"), on: false },
-                                // Acrobat's Read Out Loud, Preview's Speech: from the page shown; again, it stops.
-                                { text: @tr("Read aloud"), on: false },
-                                { text: @tr("Reading speed"), on: false },
-                                // Acrobat's Loupe tool: the area under the pointer magnified.
-                                { text: @tr("Loupe"), on: root.tab.reader.loupe },
-                                // Acrobat's View ▸ Show/Hide ▸ Grid (also Prepare form's, where fields snap to it).
-                                { text: @tr("Grid"), on: root.tab.reader.form-grid },
-                                // PDF Expert's Export ▸ Flattened Copy: comments and fields drawn in, the document unchanged.
-                                { text: @tr("Save a flattened copy…"), on: false },
-                                { text: @tr("Email a flattened copy"), on: false },
-                                // Acrobat's Auto-Rotate Pages: the pages whose text runs sideways turned upright.
-                                { text: @tr("Turn pages upright"), on: false },
-                                // Acrobat's Remove all images (Smallpdf's): the text kept, every picture out.
-                                { text: @tr("Remove all images"), on: false },
-                                // Acrobat's Reflow: the page's text on the window's width, any size.
-                                { text: @tr("Reflow"), on: root.tab.reader.reflow },
-                                // Acrobat's Accessibility ▸ Full Check, its fixes and its report.
-                                { text: @tr("Accessibility check"), on: false },
-                                // Acrobat's Underlay: another PDF's pages behind these, page by page.
-                                { text: @tr("Underlay a PDF…"), on: false },
-                                // Acrobat's Read This Page Only, a selection read, Pause, and the voice.
-                                { text: @tr("Read this page"), on: false },
-                                { text: @tr("Read the selection"), on: false },
-                                { text: @tr("Pause or resume reading"), on: false },
-                                { text: @tr("Voice…"), on: false },
-                                // Acrobat's Rulers; a click on one makes a guide.
-                                { text: @tr("Rulers"), on: root.tab.reader.rulers-on },
-                                // Acrobat's and PDF Expert's keyboard shortcuts list (? or ⌘/).
-                                { text: @tr("Keyboard shortcuts"), on: false },
-                                // PDF Expert's Share ▸ Copy, macOS's AirDrop.
-                                { text: @tr("Copy the file"), on: false },
-                                { text: @tr("Share with AirDrop"), on: false },
-                                // PDF Expert's View ▸ Horizontal scrolling and Split View, its Pan & Zoom tool.
-                                { text: @tr("Scrolling, split view, hand ›"), on: root.tab.reader.horizontal || root.tab.split-mode > 0 || root.hand },
-                                { text: @tr("Print preflight…"), on: false },
-                                { text: @tr("Fix hairlines / page boxes…"), on: false },
-                                { text: @tr("Add printer marks…"), on: false },
-                                { text: @tr("Correct recognized text…"), on: false },
-                                { text: @tr("Search catalog…"), on: false },
-                                { text: @tr("Security policies…"), on: false },
-                                { text: @tr("Manage signatures…"), on: false },
-                                { text: @tr("JavaScript console…"), on: false },
-                                { text: @tr("Guided actions…"), on: false },
-                                { text: @tr("Library…"), on: false },
-                                { text: @tr("Create portfolio…"), on: false },
-                                { text: @tr("Browse embedded files…"), on: false },
-                                { text: @tr("Encrypt with certificates…"), on: false },
-                            ]: Rectangle {
-                                height: 28px;
-                                border-radius: Theme.radius-small;
-                                background: mt.has-hover ? Theme.popup-hover : transparent;
-                                Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                mt := TouchArea {
-                                    clicked => {
-                                        if k == 0 { ReaderBridge.overlay-pdf(root.id, false); }
-                                        if k == 1 { ReaderBridge.read-aloud(root.id, 0); }
-                                        if k == 2 { ReaderBridge.read-aloud(root.id, 1); }
-                                        if k == 3 { ReaderBridge.loupe(root.id); }
-                                        if k == 4 { ReaderBridge.form-grid(root.id); }
-                                        if k == 5 { ReaderBridge.flat-copy(root.id, false); }
-                                        if k == 6 { ReaderBridge.flat-copy(root.id, true); }
-                                        if k == 7 { ReaderBridge.turn-upright(root.id); }
-                                        if k == 8 { ReaderBridge.remove-images(root.id); }
-                                        if k == 9 { ReaderBridge.reflow(root.id, 0); }
-                                        if k == 10 { ReaderBridge.accessibility-check(root.id); }
-                                        if k == 11 { ReaderBridge.overlay-pdf(root.id, true); }
-                                        if k == 12 { ReaderBridge.read-aloud(root.id, 2); }
-                                        if k == 13 { ReaderBridge.read-aloud(root.id, 3); }
-                                        if k == 14 { ReaderBridge.read-aloud(root.id, 4); }
-                                        if k == 15 { ReaderBridge.read-aloud(root.id, 5); }
-                                        if k == 16 { ReaderBridge.rulers(root.id); }
-                                        if k == 17 { ReaderBridge.show-help(root.id, true); }
-                                        if k == 18 { ReaderBridge.share-file(root.id, false); }
-                                        if k == 19 { ReaderBridge.share-file(root.id, true); }
-                                        if k == 20 { root.split-names = ReaderBridge.split-names(root.id); layout-menu.show(); return; }
-                                        if k == 21 { ReaderBridge.print-preflight(root.id); }
-                                        if k == 22 { ReaderBridge.fix-page-hairlines(root.id); }
-                                        if k == 23 { ReaderBridge.add-crop-marks(root.id); }
-                                        if k == 24 { ReaderBridge.review-ocr(root.id); }
-                                        if k == 25 { ReaderBridge.catalog-open(root.id); }
-                                        if k == 26 { ReaderBridge.policy-open(root.id); }
-                                        if k == 27 { ReaderBridge.signature-manager(root.id); }
-                                        if k == 28 { JavaScriptBridge.open(root.id); }
-                                        if k == 29 { ActionBridge.open-page("actions"); return; }
-                                        if k == 30 { ActionBridge.open-page("library"); return; }
-                                        if k == 31 { PortfolioBridge.open(); return; }
-                                        if k == 32 { PortfolioBridge.browse(root.id); return; }
-                                        if k == 33 { ReaderBridge.cert-open(root.id); }
-                                        root.focus-pages();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    }
-                }
-                // More ▸ More tools ▸ Scrolling, split view, hand: how the pages run and how they are moved.
-                layout-menu := PopupWindow {
-                    x: parent.width - 260px;
-                    y: parent.height + 6px;
-                    width: 260px;
-                    PopoverFrame {
-                        VerticalLayout {
-                            padding: 4px;
-                            for item[k] in [
-                                // PDF Expert's Horizontal scrolling: the pages in one strip, left to right.
-                                { text: @tr("Scroll pages across"), keys: "", on: root.tab.reader.horizontal },
-                                // PDF Expert's Split View: two places of the document at once.
-                                { text: @tr("Split view side by side"), keys: "", on: root.tab.split-mode == 1 },
-                                { text: @tr("Split view one above the other"), keys: "", on: root.tab.split-mode == 2 },
-                                // PDF Expert's Sync Scroll and Zoom: the panes move and zoom together.
-                                { text: @tr("Sync scroll and zoom"), keys: "", on: root.tab.split-sync },
-                                // PDF Expert's Pan & Zoom tool, Acrobat's Hand and Dynamic Zoom (⌥ drag).
-                                { text: @tr("Hand tool (⌥ drag zooms)"), keys: "⇧H", on: root.hand },
-                            ]: Rectangle {
-                                height: 28px;
-                                border-radius: Theme.radius-small;
-                                background: lt.has-hover ? Theme.popup-hover : transparent;
-                                opacity: k == 3 && root.tab.split-mode == 0 ? 0.45 : 1;
-                                Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                                lt := TouchArea {
-                                    clicked => {
-                                        if k == 0 { ReaderBridge.toggle-horizontal(root.id); }
-                                        if k == 1 { ReaderBridge.split-view(root.id, root.tab.split-mode == 1 ? 0 : 1); }
-                                        if k == 2 { ReaderBridge.split-view(root.id, root.tab.split-mode == 2 ? 0 : 2); }
-                                        if k == 3 && root.tab.split-mode > 0 { ReaderBridge.split-sync(root.id); }
-                                        if k == 4 { root.toggle-hand(); }
-                                        root.focus-pages();
-                                    }
-                                }
-                            }
-                            // PDF Expert's split of two documents: another open tab in the other pane.
-                            for name[k] in root.split-names: Rectangle {
-                                height: 28px;
-                                border-radius: Theme.radius-small;
-                                background: st.has-hover ? Theme.popup-hover : transparent;
-                                Text { x: 10px; width: parent.width - 20px; text: (root.tab.split-title == name ? "✓ " : "") + @tr("Split with {}", name); font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; overflow: elide; }
-                                st := TouchArea {
-                                    clicked => {
-                                        ReaderBridge.split-with(root.id, k);
-                                        root.focus-pages();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                view-menu := PopupWindow {
-                    x: parent.width - 240px;
-                    y: parent.height + 6px;
-                    width: 240px;
-                    PopoverFrame {
-                        VerticalLayout {
-                            padding: 4px;
-                            for item[k] in [
-                                { text: @tr("Presentation"), keys: PlatformBridge.key-labels[26], on: false },
-                                { text: @tr("Full screen"), keys: PlatformBridge.key-labels[25], on: root.is-full-screen },
-                                { text: @tr("Hide toolbar"), keys: "⇧T", on: root.bare },
-                                { text: @tr("Highlight links"), keys: "⇧⌘L", on: root.tab.reader.show-links },
-                                { text: @tr("Highlight form fields"), keys: "", on: root.tab.reader.show-fields },
-                                { text: root.tab.reader.spread == 0 ? "Two pages" : root.tab.reader.spread == 1 ? "Two pages, cover alone" : "One page wide", keys: PlatformBridge.key-labels[22], on: false },
-                                { text: @tr("Page grid"), keys: "", on: root.tab.reader.spread == 3 },
-                                { text: @tr("Right to left"), keys: "", on: root.tab.reader.rtl },
-                                { text: @tr("Print…"), keys: PlatformBridge.key-labels[4], on: false },
-                                { text: @tr("Document properties…"), keys: PlatformBridge.key-labels[5], on: false },
-                                // Acrobat's Prepare a Form, among its tools: add, move and set up fields.
-                                { text: @tr("Prepare form"), keys: PlatformBridge.tool-letters[14], on: root.tab.reader.tool == 14 },
-                                // Acrobat's Protect ▸ Sanitize Document: hidden information removed, ⌘Z undoes it.
-                                { text: @tr("Sanitize document"), keys: "", on: false },
-                                // Acrobat's Edit a PDF ▸ Background.
-                                { text: @tr("Page background…"), keys: "", on: false },
-                                // Acrobat's File ▸ Revert, and the versions an incremental save keeps.
-                                { text: @tr("Versions…"), keys: "", on: false },
-                                // Acrobat's Marquee Zoom.
-                                { text: @tr("Zoom to area"), keys: PlatformBridge.tool-letters[15], on: false },
-                                // Acrobat's Snapshot tool.
-                                { text: @tr("Copy an area as a picture"), keys: "", on: false },
-                                // Acrobat's Automatically Scroll.
-                                { text: @tr("Scroll automatically"), keys: "", on: root.tab.reader.auto-scroll },
-                                // Acrobat's Single Page view (not continuous).
-                                { text: @tr("One page at a time"), keys: "", on: root.tab.reader.page-at-a-time },
-                                // Acrobat's Share ▸ Email, Preview's Share ▸ Mail.
-                                { text: @tr("Email…"), keys: "", on: false },
-                                // Acrobat's View ▸ Rotate View ▸ Clockwise: the view, not the file.
-                                { text: @tr("Rotate view"), keys: "⇧⌘+", on: root.tab.reader.view-turn != 0 },
-                                // The rest, in a second menu (this one fills the window's height).
-                                { text: @tr("More tools…"), keys: "›", on: false },
-                            ]: Rectangle {
-                                height: 28px;
-                                border-radius: Theme.radius-small;
-                                background: vt.has-hover ? Theme.popup-hover : transparent;
-                                Text { x: 10px; text: (item.on ? "✓ " : "") + item.text; font-size: Theme.fs-label; color: Theme.text; vertical-alignment: center; }
-                                Text { x: parent.width - self.width - 10px; text: item.keys; font-size: Theme.fs-caption; color: Theme.text-muted; vertical-alignment: center; }
-                                vt := TouchArea {
-                                    clicked => {
-                                        if k == 0 { root.present(); }
-                                        if k == 1 { root.toggle-full-screen(); }
-                                        if k == 2 { root.bare = !root.bare; }
-                                        if k == 3 { ReaderBridge.toggle-links(root.id); }
-                                        if k == 4 { ReaderBridge.toggle-fields(root.id); }
-                                        if k == 5 { ReaderBridge.cycle-spread(root.id); }
-                                        if k == 6 { ReaderBridge.toggle-grid(root.id); }
-                                        if k == 7 { ReaderBridge.toggle-rtl(root.id); }
-                                        if k == 8 { ReaderBridge.print-open(root.id); }
-                                        if k == 9 { ReaderBridge.props-open(root.id); }
-                                        if k == 10 { ReaderBridge.set-tool(root.id, root.tab.reader.tool == 14 ? 0 : 14); }
-                                        if k == 11 { ReaderBridge.sanitize(root.id); }
-                                        if k == 12 { ReaderBridge.background-open(root.id); }
-                                        if k == 13 { ReaderBridge.versions-open(root.id); }
-                                        if k == 14 { ReaderBridge.zoom-area(root.id); }
-                                        if k == 15 { ReaderBridge.snap-area(root.id); }
-                                        if k == 16 { ReaderBridge.auto-scroll(root.id); }
-                                        if k == 17 { ReaderBridge.page-at-a-time(root.id); }
-                                        if k == 18 { ReaderBridge.email(root.id); }
-                                        if k == 19 { ReaderBridge.rotate-view(root.id, 1); }
-                                        if k == 20 { more-tools.show(); return; }
-                                        root.focus-pages();
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            // Named as Acrobat's Edit menu names them: "Undo Add highlight".
-            ToolButton { icon: @image-url("../icons/undo-2.svg"); tip: root.tab.reader.can-undo && root.tab.reader.undo-label != "" ? @tr("Undo {} (⌘Z)", root.tab.reader.undo-label) : @tr("Undo (⌘Z)"); enabled: root.tab.reader.can-undo; clicked => { ReaderBridge.undo(root.id); } }
-            ToolButton { icon: @image-url("../icons/redo-2.svg"); tip: root.tab.reader.can-redo && root.tab.reader.redo-label != "" ? @tr("Redo {} (⇧⌘Z)", root.tab.reader.redo-label) : @tr("Redo (⇧⌘Z)"); enabled: root.tab.reader.can-redo; clicked => { ReaderBridge.redo(root.id); } }
-            // PDF Expert's AI Copilot, Acrobat's AI Assistant: the AI panel beside the pages.
-            ToolButton { icon: @image-url("../icons/sparkles.svg"); tip: @tr("AI Assistant"); active: AiBridge.open && AiBridge.tab == root.id; clicked => { AiBridge.toggle(root.id); } }
-            ToolButton { icon: @image-url("../icons/wrench.svg"); tip: @tr("Use a tool on this PDF"); clicked => { ReaderBridge.to-tools(root.id); } }
-            ToolButton { icon: @image-url("../icons/save.svg"); tip: root.tab.reader.dirty ? @tr("Save (⌘S)") : @tr("Saved"); enabled: root.tab.reader.dirty; active: root.tab.reader.dirty; clicked => { ReaderBridge.save(root.id); } }
+            spacing: 0;
+            ModeSegment { width: root.segment; icon: @image-url("../icons/highlighter.svg"); selected: root.mode == 1; tip: @tr("Annotate"); shortcut: root.mode-keys("1"); clicked => { root.set-mode(1); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/text-cursor-input.svg"); selected: root.mode == 2; tip: @tr("Edit"); shortcut: root.mode-keys("2"); clicked => { root.set-mode(2); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/signature.svg"); selected: root.mode == 3; tip: @tr("Fill & Sign"); shortcut: root.mode-keys("3"); clicked => { root.set-mode(3); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/layout-grid.svg"); selected: root.mode == 4; tip: @tr("Organize"); shortcut: root.mode-keys("4"); clicked => { root.set-mode(4); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/eye-off.svg"); selected: root.mode == 5; tip: @tr("Redact"); shortcut: root.mode-keys("5"); clicked => { root.set-mode(5); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/ruler.svg"); selected: root.mode == 6; tip: @tr("Measure"); shortcut: root.mode-keys("6"); clicked => { root.set-mode(6); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/wrench.svg"); tip: @tr("All tools"); shortcut: root.mode-keys("K"); clicked => { ReaderBridge.to-tools(root.id); } }
         }
+    }
+
+    // ── Trailing group: over the inspector ───────────────────────────────────────────────────
+    trailing := FlexboxLayout {
+        x: PlatformBridge.rtl ? Space.sm : root.width - self.width - Space.sm;
+        y: (parent.height - Theme.toolbar-button) / 2;
+        width: self.preferred-width;
+        height: Theme.toolbar-button;
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: start;
+        spacing: Space.xs;
+        // Page theme "Aa": Day · Sepia · Night, reflow. Folded below 1180 into More.
+        if !root.fold: Rectangle {
+            width: Theme.toolbar-button;
+            height: Theme.toolbar-button;
+            border-radius: Theme.r-pill;
+            background: root.tab.reader.theme != 0 ? Theme.fill-3 : aa.pressed ? Theme.fill-2 : aa.has-hover ? Theme.fill-1 : transparent;
+            animate background { duration: Motion.hover; }
+            accessible-role: button;
+            accessible-label: @tr("Page theme and text size");
+            Text { text: "Aa"; font-size: Theme.fs-body; font-weight: Theme.weight-demibold; color: root.tab.reader.theme != 0 ? Theme.text : Theme.text-2; }
+            aa := TipArea { tip: @tr("Page theme and text size"); clicked => { theme-menu.show(); } }
+            theme-menu := PopupWindow {
+                x: parent.width - 240px;
+                y: parent.height + Space.xs;
+                width: 240px;
+                PopoverFrame {
+                    VerticalLayout {
+                        padding: Space.sm;
+                        spacing: Space.sm;
+                        HorizontalLayout {
+                            spacing: Space.sm;
+                            alignment: center;
+                            // Paper and ink as src/reader.rs draws the pages (SEPIA_* and NIGHT_*).
+                            ThemeSwatch { label: @tr("Day"); paper: #FFFFFF; ink: #1D1D1F; selected: root.tab.reader.theme == 0; clicked => { ReaderBridge.set-theme(root.id, 0); } }
+                            ThemeSwatch { label: @tr("Sepia"); paper: #F8F1E3; ink: #4A3B2A; selected: root.tab.reader.theme == 2; clicked => { ReaderBridge.set-theme(root.id, 2); } }
+                            ThemeSwatch { label: @tr("Night"); paper: #1E1E20; ink: #DEDEDC; selected: root.tab.reader.theme == 1; clicked => { ReaderBridge.set-theme(root.id, 1); } }
+                        }
+                        Rectangle { height: 1px; background: Theme.hairline; }
+                        MenuRow { text: @tr("Reflow text"); on: root.tab.reader.reflow; clicked => { ReaderBridge.reflow(root.id, 0); root.focus-pages(); } }
+                    }
+                }
+            }
+        }
+        // Search: 160 (120 below 1024), grows when focused.
+        Rectangle {
+            width: search-in.has-focus ? (root.compact ? 160px : 240px) : root.compact ? 120px : 160px;
+            animate width { duration: Motion.quick; }
+            height: Theme.control-height;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
+            border-radius: Theme.r-sm;
+            border-width: search-in.has-focus ? 2px : 1px;
+            border-color: search-in.has-focus ? Theme.focus-ring : Theme.hairline;
+            background: Theme.field;
+            accessible-role: text;
+            accessible-label: @tr("Find in the document");
+            TipArea { tip: @tr("Find in the document"); shortcut: PlatformBridge.key-labels[11]; }
+            Image {
+                x: Space.sm;
+                width: 14px;
+                height: 14px;
+                y: (parent.height - self.height) / 2;
+                source: @image-url("../icons/search.svg");
+                colorize: Theme.text-3;
+            }
+            Text {
+                x: 28px;
+                visible: search-in.text == "";
+                text: @tr("Search");
+                font-size: Theme.fs-body;
+                color: Theme.text-3;
+                vertical-alignment: center;
+            }
+            search-in := TextInput {
+                // Tools page tools' keys wait while a field has the keyboard.
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
+                x: 28px;
+                width: parent.width - 28px - count.width - Space.sm;
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                vertical-alignment: center;
+                single-line: true;
+                accepted => {
+                    // Results already listed (even while the search goes on): Enter goes to the next one.
+                    if root.tab.reader.search-count != "" && root.tab.reader.search-count != "None" {
+                        ReaderBridge.search-step(root.id, 1);
+                    } else {
+                        ReaderBridge.search(root.id, self.text);
+                    }
+                }
+                // Any change drops the results of the old text: Enter then searches the new one.
+                edited => { ReaderBridge.search-clear(root.id); }
+                key-pressed(e) => {
+                    if e.text == Key.Escape {
+                        self.text = "";
+                        ReaderBridge.search-clear(root.id);
+                        root.focus-pages();
+                        return accept;
+                    }
+                    if e.text == Key.Return && e.modifiers.shift {
+                        ReaderBridge.search-step(root.id, -1);
+                        return accept;
+                    }
+                    // ⌘F again in the field: its words selected, ready to type a new search.
+                    if e.modifiers.control && (e.text == "f" || e.text == "F") {
+                        self.select-all();
+                        return accept;
+                    }
+                    if e.modifiers.control && (e.text == "g" || e.text == "G") {
+                        ReaderBridge.search-step(root.id, e.modifiers.shift ? -1 : 1);
+                        return accept;
+                    }
+                    reject
+                }
+            }
+            count := Text {
+                x: parent.width - self.width - Space.sm;
+                text: root.tab.reader.search-count;
+                font-size: Theme.fs-subhead;
+                color: Theme.text-2;
+                vertical-alignment: center;
+            }
+        }
+        Rectangle { width: Space.xs; }
+        // PDF Expert's AI Copilot, Acrobat's AI Assistant: the AI panel beside the pages.
+        ToolbarButton { icon: @image-url("../icons/sparkles.svg"); tip: @tr("Ask AI about this document"); on: AiBridge.open && AiBridge.tab == root.id; clicked => { AiBridge.toggle(root.id); } }
+        // Share: email, a copy of the file, AirDrop.
+        ToolbarButton {
+            icon: @image-url("../icons/upload.svg");
+            tip: @tr("Share this document");
+            clicked => { share-menu.show(); }
+            share-menu := PopupWindow {
+                x: parent.width - 220px;
+                y: parent.height + Space.xs;
+                width: 220px;
+                PopoverFrame {
+                    VerticalLayout {
+                        padding: Space.xs;
+                        MenuRow { text: @tr("Email…"); clicked => { ReaderBridge.email(root.id); root.focus-pages(); } }
+                        MenuRow { text: @tr("Copy the file"); clicked => { ReaderBridge.share-file(root.id, false); root.focus-pages(); } }
+                        if Theme.mac: MenuRow { text: @tr("Share with AirDrop"); clicked => { ReaderBridge.share-file(root.id, true); root.focus-pages(); } }
+                    }
+                }
+            }
+        }
+        ToolbarButton { icon: @image-url("../icons/printer.svg"); tip: @tr("Print…"); shortcut: PlatformBridge.key-labels[4]; clicked => { ReaderBridge.print-open(root.id); } }
+        // More: how the window shows the document (PDF Expert's View menu), saving, properties.
+        ToolbarButton {
+            icon: @image-url("../icons/ellipsis.svg");
+            tip: @tr("More");
+            clicked => { view-menu.show(); }
+            // More ▸ More tools…: what did not fit in the first menu.
+            more-tools := PopupWindow {
+                x: parent.width - 240px;
+                y: parent.height + 6px;
+                width: 240px;
+                height: min(680px, max(200px, root.view-height - 100px));
+                PopoverFrame {
+                    ScrollView {
+                    VerticalLayout {
+                        padding: Space.xs;
+                        for item[k] in [
+                            // PDF Expert's and Acrobat's overlay: another PDF's pages drawn over these.
+                            { text: @tr("Overlay a PDF…"), on: false },
+                            // Acrobat's Read Out Loud, Preview's Speech: from the page shown; again, it stops.
+                            { text: @tr("Read aloud"), on: false },
+                            { text: @tr("Reading speed"), on: false },
+                            // Acrobat's Loupe tool: the area under the pointer magnified.
+                            { text: @tr("Loupe"), on: root.tab.reader.loupe },
+                            // Acrobat's View ▸ Show/Hide ▸ Grid (also Prepare form's, where fields snap to it).
+                            { text: @tr("Grid"), on: root.tab.reader.form-grid },
+                            // PDF Expert's Export ▸ Flattened Copy: comments and fields drawn in, the document unchanged.
+                            { text: @tr("Save a flattened copy…"), on: false },
+                            { text: @tr("Email a flattened copy"), on: false },
+                            // Acrobat's Auto-Rotate Pages: the pages whose text runs sideways turned upright.
+                            { text: @tr("Turn pages upright"), on: false },
+                            // Acrobat's Remove all images (Smallpdf's): the text kept, every picture out.
+                            { text: @tr("Remove all images"), on: false },
+                            // Acrobat's Reflow: the page's text on the window's width, any size.
+                            { text: @tr("Reflow"), on: root.tab.reader.reflow },
+                            // Acrobat's Accessibility ▸ Full Check, its fixes and its report.
+                            { text: @tr("Accessibility check"), on: false },
+                            // Acrobat's Underlay: another PDF's pages behind these, page by page.
+                            { text: @tr("Underlay a PDF…"), on: false },
+                            // Acrobat's Read This Page Only, a selection read, Pause, and the voice.
+                            { text: @tr("Read this page"), on: false },
+                            { text: @tr("Read the selection"), on: false },
+                            { text: @tr("Pause or resume reading"), on: false },
+                            { text: @tr("Voice…"), on: false },
+                            // Acrobat's Rulers; a click on one makes a guide.
+                            { text: @tr("Rulers"), on: root.tab.reader.rulers-on },
+                            // Acrobat's and PDF Expert's keyboard shortcuts list (? or ⌘/).
+                            { text: @tr("Keyboard shortcuts"), on: false },
+                            // PDF Expert's Share ▸ Copy, macOS's AirDrop.
+                            { text: @tr("Copy the file"), on: false },
+                            { text: @tr("Share with AirDrop"), on: false },
+                            // PDF Expert's View ▸ Horizontal scrolling and Split View, its Pan & Zoom tool.
+                            { text: @tr("Scrolling, split view, hand ›"), on: root.tab.reader.horizontal || root.tab.split-mode > 0 || root.hand },
+                            { text: @tr("Print preflight…"), on: false },
+                            { text: @tr("Fix hairlines / page boxes…"), on: false },
+                            { text: @tr("Add printer marks…"), on: false },
+                            { text: @tr("Correct recognized text…"), on: false },
+                            { text: @tr("Search catalog…"), on: false },
+                            { text: @tr("Security policies…"), on: false },
+                            { text: @tr("Manage signatures…"), on: false },
+                            { text: @tr("JavaScript console…"), on: false },
+                            { text: @tr("Guided actions…"), on: false },
+                            { text: @tr("Library…"), on: false },
+                            { text: @tr("Create portfolio…"), on: false },
+                            { text: @tr("Browse embedded files…"), on: false },
+                            { text: @tr("Encrypt with certificates…"), on: false },
+                            { text: @tr("Custom tools"), on: false },
+                        ]: MenuRow {
+                            text: item.text;
+                            on: item.on;
+                            clicked => {
+                                if k == 0 { ReaderBridge.overlay-pdf(root.id, false); }
+                                if k == 1 { ReaderBridge.read-aloud(root.id, 0); }
+                                if k == 2 { ReaderBridge.read-aloud(root.id, 1); }
+                                if k == 3 { ReaderBridge.loupe(root.id); }
+                                if k == 4 { ReaderBridge.form-grid(root.id); }
+                                if k == 5 { ReaderBridge.flat-copy(root.id, false); }
+                                if k == 6 { ReaderBridge.flat-copy(root.id, true); }
+                                if k == 7 { ReaderBridge.turn-upright(root.id); }
+                                if k == 8 { ReaderBridge.remove-images(root.id); }
+                                if k == 9 { ReaderBridge.reflow(root.id, 0); }
+                                if k == 10 { ReaderBridge.accessibility-check(root.id); }
+                                if k == 11 { ReaderBridge.overlay-pdf(root.id, true); }
+                                if k == 12 { ReaderBridge.read-aloud(root.id, 2); }
+                                if k == 13 { ReaderBridge.read-aloud(root.id, 3); }
+                                if k == 14 { ReaderBridge.read-aloud(root.id, 4); }
+                                if k == 15 { ReaderBridge.read-aloud(root.id, 5); }
+                                if k == 16 { ReaderBridge.rulers(root.id); }
+                                if k == 17 { ReaderBridge.show-help(root.id, true); }
+                                if k == 18 { ReaderBridge.share-file(root.id, false); }
+                                if k == 19 { ReaderBridge.share-file(root.id, true); }
+                                if k == 20 { root.split-names = ReaderBridge.split-names(root.id); layout-menu.show(); return; }
+                                if k == 21 { ReaderBridge.print-preflight(root.id); }
+                                if k == 22 { ReaderBridge.fix-page-hairlines(root.id); }
+                                if k == 23 { ReaderBridge.add-crop-marks(root.id); }
+                                if k == 24 { ReaderBridge.review-ocr(root.id); }
+                                if k == 25 { ReaderBridge.catalog-open(root.id); }
+                                if k == 26 { ReaderBridge.policy-open(root.id); }
+                                if k == 27 { ReaderBridge.signature-manager(root.id); }
+                                if k == 28 { JavaScriptBridge.open(root.id); }
+                                if k == 29 { ActionBridge.open-page("actions"); return; }
+                                if k == 30 { ActionBridge.open-page("library"); return; }
+                                if k == 31 { PortfolioBridge.open(); return; }
+                                if k == 32 { PortfolioBridge.browse(root.id); return; }
+                                if k == 33 { ReaderBridge.cert-open(root.id); }
+                                if k == 34 { ActionBridge.command("custom-tools", 0); return; }
+                                root.focus-pages();
+                            }
+                        }
+                    }
+                }
+                }
+            }
+            // More ▸ More tools ▸ Scrolling, split view, hand: how the pages run and how they are moved.
+            layout-menu := PopupWindow {
+                x: parent.width - 260px;
+                y: parent.height + 6px;
+                width: 260px;
+                PopoverFrame {
+                    VerticalLayout {
+                        padding: Space.xs;
+                        for item[k] in [
+                            // PDF Expert's Horizontal scrolling: the pages in one strip, left to right.
+                            { text: @tr("Scroll pages across"), keys: "", on: root.tab.reader.horizontal },
+                            // PDF Expert's Split View: two places of the document at once.
+                            { text: @tr("Split view side by side"), keys: "", on: root.tab.split-mode == 1 },
+                            { text: @tr("Split view one above the other"), keys: "", on: root.tab.split-mode == 2 },
+                            // PDF Expert's Sync Scroll and Zoom: the panes move and zoom together.
+                            { text: @tr("Sync scroll and zoom"), keys: "", on: root.tab.split-sync },
+                            // PDF Expert's Pan & Zoom tool, Acrobat's Hand and Dynamic Zoom (⌥ drag).
+                            { text: @tr("Hand tool (⌥ drag zooms)"), keys: "⇧H", on: root.hand },
+                        ]: MenuRow {
+                            text: item.text;
+                            keys: item.keys;
+                            on: item.on;
+                            dim: k == 3 && root.tab.split-mode == 0;
+                            clicked => {
+                                if k == 0 { ReaderBridge.toggle-horizontal(root.id); }
+                                if k == 1 { ReaderBridge.split-view(root.id, root.tab.split-mode == 1 ? 0 : 1); }
+                                if k == 2 { ReaderBridge.split-view(root.id, root.tab.split-mode == 2 ? 0 : 2); }
+                                if k == 3 && root.tab.split-mode > 0 { ReaderBridge.split-sync(root.id); }
+                                if k == 4 { root.toggle-hand(); }
+                                root.focus-pages();
+                            }
+                        }
+                        // PDF Expert's split of two documents: another open tab in the other pane.
+                        for name[k] in root.split-names: MenuRow {
+                            text: @tr("Split with {}", name);
+                            on: root.tab.split-title == name;
+                            clicked => {
+                                ReaderBridge.split-with(root.id, k);
+                                root.focus-pages();
+                            }
+                        }
+                    }
+                }
+            }
+            view-menu := PopupWindow {
+                x: parent.width - 240px;
+                y: parent.height + 6px;
+                width: 240px;
+                PopoverFrame {
+                    VerticalLayout {
+                        padding: Space.xs;
+                        for item[k] in [
+                            { text: @tr("Presentation"), keys: PlatformBridge.key-labels[26], on: false },
+                            { text: @tr("Full screen"), keys: PlatformBridge.key-labels[25], on: root.is-full-screen },
+                            { text: @tr("Hide toolbar"), keys: "⇧T", on: root.bare },
+                            { text: @tr("Highlight links"), keys: "⇧⌘L", on: root.tab.reader.show-links },
+                            { text: @tr("Highlight form fields"), keys: "", on: root.tab.reader.show-fields },
+                            { text: root.tab.reader.spread == 0 ? @tr("Two pages") : root.tab.reader.spread == 1 ? @tr("Two pages, cover alone") : @tr("One page wide"), keys: PlatformBridge.key-labels[22], on: false },
+                            { text: @tr("Page grid"), keys: "", on: root.tab.reader.spread == 3 },
+                            { text: @tr("Right to left"), keys: "", on: root.tab.reader.rtl },
+                            { text: @tr("Print…"), keys: PlatformBridge.key-labels[4], on: false },
+                            { text: @tr("Document properties…"), keys: PlatformBridge.key-labels[5], on: false },
+                            // Acrobat's Prepare a Form, among its tools: add, move and set up fields.
+                            { text: @tr("Prepare form"), keys: PlatformBridge.tool-letters[14], on: root.tab.reader.tool == 14 },
+                            // Acrobat's Protect ▸ Sanitize Document: hidden information removed, ⌘Z undoes it.
+                            { text: @tr("Sanitize document"), keys: "", on: false },
+                            // Acrobat's Edit a PDF ▸ Background.
+                            { text: @tr("Page background…"), keys: "", on: false },
+                            // Acrobat's File ▸ Revert, and the versions an incremental save keeps.
+                            { text: @tr("Versions…"), keys: "", on: false },
+                            // Acrobat's Marquee Zoom.
+                            { text: @tr("Zoom to area"), keys: PlatformBridge.tool-letters[15], on: false },
+                            // Acrobat's Snapshot tool.
+                            { text: @tr("Copy an area as a picture"), keys: "", on: false },
+                            // Acrobat's Automatically Scroll.
+                            { text: @tr("Scroll automatically"), keys: "", on: root.tab.reader.auto-scroll },
+                            // Acrobat's Single Page view (not continuous).
+                            { text: @tr("One page at a time"), keys: "", on: root.tab.reader.page-at-a-time },
+                            // Acrobat's Share ▸ Email, Preview's Share ▸ Mail.
+                            { text: @tr("Email…"), keys: "", on: false },
+                            // Acrobat's View ▸ Rotate View ▸ Clockwise: the view, not the file.
+                            { text: @tr("Rotate view"), keys: "⇧⌘+", on: root.tab.reader.view-turn != 0 },
+                            // The rest, in a second menu (this one fills the window's height).
+                            { text: @tr("More tools…"), keys: "›", on: false },
+                            // Saving (the toolbar's Save button went: the menu bar and ⌘S keep it).
+                            { text: root.tab.reader.dirty ? @tr("Save") : @tr("Saved"), keys: PlatformBridge.key-labels[2], on: false },
+                            { text: @tr("Save as…"), keys: PlatformBridge.key-labels[3], on: false },
+                            // Page theme, for a window too narrow for the "Aa" button.
+                            { text: root.tab.reader.theme == 0 ? @tr("Page theme: Day") : root.tab.reader.theme == 2 ? @tr("Page theme: Sepia") : @tr("Page theme: Night"), keys: "", on: root.tab.reader.theme != 0 },
+                        ]: MenuRow {
+                            text: item.text;
+                            keys: item.keys;
+                            on: item.on;
+                            dim: k == 21 && !root.tab.reader.dirty;
+                            clicked => {
+                                if k == 0 { root.present(); }
+                                if k == 1 { root.toggle-full-screen(); }
+                                if k == 2 { root.bare = !root.bare; }
+                                if k == 3 { ReaderBridge.toggle-links(root.id); }
+                                if k == 4 { ReaderBridge.toggle-fields(root.id); }
+                                if k == 5 { ReaderBridge.cycle-spread(root.id); }
+                                if k == 6 { root.set-mode(4); }
+                                if k == 7 { ReaderBridge.toggle-rtl(root.id); }
+                                if k == 8 { ReaderBridge.print-open(root.id); }
+                                if k == 9 { ReaderBridge.props-open(root.id); }
+                                if k == 10 { ReaderBridge.set-tool(root.id, root.tab.reader.tool == 14 ? 0 : 14); }
+                                if k == 11 { ReaderBridge.sanitize(root.id); }
+                                if k == 12 { ReaderBridge.background-open(root.id); }
+                                if k == 13 { ReaderBridge.versions-open(root.id); }
+                                if k == 14 { ReaderBridge.zoom-area(root.id); }
+                                if k == 15 { ReaderBridge.snap-area(root.id); }
+                                if k == 16 { ReaderBridge.auto-scroll(root.id); }
+                                if k == 17 { ReaderBridge.page-at-a-time(root.id); }
+                                if k == 18 { ReaderBridge.email(root.id); }
+                                if k == 19 { ReaderBridge.rotate-view(root.id, 1); }
+                                if k == 20 { more-tools.show(); return; }
+                                if k == 21 && root.tab.reader.dirty { ReaderBridge.save(root.id); }
+                                if k == 22 { ReaderBridge.save-as(root.id); }
+                                if k == 23 { ReaderBridge.set-theme(root.id, root.tab.reader.theme == 0 ? 2 : root.tab.reader.theme == 2 ? 1 : 0); }
+                                root.focus-pages();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ToolbarButton { icon: @image-url("../icons/panel-left.svg"); on: root.inspector-open; tip: @tr("Show or hide the inspector"); shortcut: Theme.mac ? "⌃⌘I" : "Ctrl+Alt+I"; clicked => { root.toggle-inspector(); } }
     }
     Rectangle {
         y: parent.height - 1px;
         height: 1px;
-        background: Theme.sidebar-border;
+        background: Theme.hairline;
     }
 }

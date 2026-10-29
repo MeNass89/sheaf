@@ -1,0 +1,142 @@
+// The inspector (DESIGN §5.5): the right column, 260 wide (220–340 with its handle), `window`,
+// hairline left. Header 36 with the title (the mode, or "Document") and a close ×; sections with a
+// 15/600 title, rows 28 tall, label left and control right. In Read it describes the document;
+// in Annotate it holds the tool's colour, stroke and opacity; the other modes say what to select.
+import { ScrollView } from "std-widgets.slint";
+import { Theme, Space } from "../theme.slint";
+import { ResizeHandle } from "../widgets/resize-handle.slint";
+import { ToolButton, ColourDot, StrokeWidth, SmallButton } from "reader-parts.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+
+component Section inherits VerticalLayout {
+    in property <string> title;
+    padding-left: Space.lg;
+    padding-right: Space.lg;
+    padding-bottom: Space.md;
+    spacing: 0;
+    Rectangle {
+        height: Theme.row-height;
+        Text { x: 0; text: root.title; font-size: Theme.fs-title-3; font-weight: Theme.weight-demibold; color: Theme.text; vertical-alignment: center; }
+    }
+    @children
+}
+
+component Row inherits HorizontalLayout {
+    in property <string> label;
+    height: Theme.row-height;
+    spacing: Space.sm;
+    Text { text: root.label; font-size: Theme.fs-body; color: Theme.text; vertical-alignment: center; }
+    @children
+}
+
+component Value inherits Text {
+    horizontal-stretch: 1;
+    font-size: Theme.fs-body;
+    color: Theme.text-2;
+    horizontal-alignment: right;
+    vertical-alignment: center;
+    overflow: elide;
+}
+
+export component ReaderInspector inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    in property <int> mode;
+    in-out property <length> panel-width: Theme.inspector-default;
+    in property <[color]> light-colours;
+    in property <[color]> ink-colours;
+    in property <bool> light-tool;
+    callback close();
+    callback focus-pages();
+    width: root.panel-width;
+    background: Theme.window;
+    clip: true;
+
+    VerticalLayout {
+        Rectangle {
+            height: 36px;
+            Text {
+                x: Space.lg;
+                text: root.mode == 1 ? @tr("Annotate") : root.mode == 2 ? @tr("Edit") : root.mode == 3 ? @tr("Fill & Sign") : root.mode == 4 ? @tr("Pages") : root.mode == 5 ? @tr("Redact") : root.mode == 6 ? @tr("Measure") : @tr("Document");
+                font-size: Theme.fs-title-3;
+                font-weight: Theme.weight-demibold;
+                color: Theme.text;
+                vertical-alignment: center;
+            }
+            ToolButton { x: parent.width - self.width - Space.sm; y: (parent.height - self.height) / 2; icon: @image-url("../icons/x.svg"); tip: @tr("Close the inspector"); clicked => { root.close(); } }
+        }
+        Rectangle { height: 1px; background: Theme.hairline; }
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                padding-top: Space.sm;
+                if root.mode == 0: Section {
+                    title: @tr("Document");
+                    Row { label: @tr("Title"); Value { text: root.tab.reader.title; } }
+                    Row { label: @tr("Pages"); Value { text: root.tab.reader.page-count; } }
+                    Row { label: @tr("Page"); Value { text: root.tab.reader.page-text; } }
+                    Row { label: @tr("Zoom"); Value { text: root.tab.viewer-zoom + " %"; } }
+                    Row { label: @tr("Page theme"); Value { text: root.tab.reader.theme == 0 ? @tr("Day") : root.tab.reader.theme == 2 ? @tr("Sepia") : @tr("Night"); } }
+                }
+                if root.mode == 1: Section {
+                    title: @tr("Colour");
+                    Row {
+                        label: @tr("Colour");
+                        Rectangle { horizontal-stretch: 1; }
+                        if root.light-tool: HorizontalLayout {
+                            spacing: Space.xs;
+                            for c[k] in root.light-colours: Rectangle {
+                                width: 22px;
+                                ColourDot { colour: c; selected: root.tab.reader.colour == k; clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); } }
+                            }
+                        }
+                        if !root.light-tool: HorizontalLayout {
+                            spacing: Space.xs;
+                            for c[k] in root.ink-colours: Rectangle {
+                                width: 22px;
+                                ColourDot { colour: c; selected: root.tab.reader.colour == k; clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); } }
+                            }
+                        }
+                    }
+                    Row {
+                        label: @tr("Stroke");
+                        Rectangle { horizontal-stretch: 1; }
+                        for w[k] in [2px, 4px, 7px, 10px]: Rectangle {
+                            width: 22px;
+                            StrokeWidth { thickness: w; selected: root.tab.reader.pen-width == k; clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); } }
+                        }
+                    }
+                    Row {
+                        label: @tr("Opacity");
+                        Rectangle { horizontal-stretch: 1; }
+                        for p in [100, 50, 25]: Rectangle {
+                            width: 48px;
+                            SmallButton { text: p + " %"; on: root.tab.reader.opacity == p; clicked => { ReaderBridge.shape-option(root.id, 2, p); root.focus-pages(); } }
+                        }
+                    }
+                }
+                if root.mode == 4: Section {
+                    title: @tr("Pages");
+                    Row { label: @tr("Selected"); Value { text: @tr("{} of {}", root.tab.reader.pages-selected, root.tab.reader.page-count); } }
+                }
+                if root.mode >= 2 && root.mode != 4: Section {
+                    title: @tr("Properties");
+                    Text {
+                        text: @tr("Select something on the page to see its properties");
+                        font-size: Theme.fs-callout;
+                        color: Theme.text-2;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+        }
+    }
+    ResizeHandle {
+        edge-x: 0;
+        leading: true;
+        current-width: root.panel-width;
+        resized(w) => { root.panel-width = clamp(w, Theme.inspector-min, Theme.inspector-max); }
+        reset => { root.panel-width = Theme.inspector-default; }
+    }
+}

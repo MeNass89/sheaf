@@ -1,0 +1,89 @@
+// The mode rail (DESIGN §5.3): the active mode's tools in a 44-wide column between the sidebar
+// and the canvas, `chrome`, hairline right; items 36×36 on a 40 pitch from 8 under the toolbar,
+// the Select arrow first. Scrolls with the wheel when the window is shorter than its items.
+// Organize's Delete is the one tinted icon (`danger`).
+import { Theme, Space } from "../theme.slint";
+import { RailButton } from "../widgets/toolbar.slint";
+import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
+
+export component ReaderRail inherits Rectangle {
+    in property <ToolTab> tab;
+    in property <int> id;
+    // 1 Annotate, 2 Edit, 3 Fill & Sign, 4 Organize, 5 Redact, 6 Measure.
+    in property <int> mode;
+    // The keyboard back to the pages.
+    callback focus-pages();
+    width: Theme.rail-width;
+    background: Theme.chrome;
+
+    // A tool's own letter (Preferences ▸ Keyboard shortcuts), for the tip.
+    function letter(tool: int) -> string { return PlatformBridge.tool-letters[tool]; }
+    function pick(tool: int) { ReaderBridge.set-tool(root.id, tool); root.focus-pages(); }
+    property <int> tool: root.tab.reader.tool;
+
+    Flickable {
+        content-height: max(self.height, col.preferred-height);
+        col := VerticalLayout {
+            padding-top: Space.sm;
+            padding-bottom: Space.sm;
+            padding-left: Space.xs;
+            spacing: Space.xs;
+            alignment: start;
+            RailButton { icon: @image-url("../icons/mouse-pointer-2.svg"); on: root.tool == 0; tip: @tr("Select"); shortcut: root.letter(0); clicked => { root.pick(0); } }
+            if root.mode == 1: VerticalLayout {
+                spacing: Space.xs;
+                RailButton { icon: @image-url("../icons/highlighter.svg"); on: root.tool == 1; tip: @tr("Highlight"); shortcut: root.letter(1); clicked => { root.pick(1); } }
+                RailButton { icon: @image-url("../icons/underline.svg"); on: root.tool == 2; tip: @tr("Underline"); shortcut: root.letter(2); clicked => { root.pick(2); } }
+                RailButton { icon: @image-url("../icons/strikethrough.svg"); on: root.tool == 3; tip: @tr("Strikethrough"); shortcut: root.letter(3); clicked => { root.pick(3); } }
+                RailButton { icon: @image-url("../icons/sticky-note.svg"); on: root.tool == 4; tip: @tr("Note"); shortcut: root.letter(4); clicked => { root.pick(4); } }
+                RailButton { icon: @image-url("../icons/type.svg"); on: root.tool == 6; tip: @tr("Text box"); shortcut: root.letter(6); clicked => { root.pick(6); } }
+                RailButton { icon: @image-url("../icons/pencil.svg"); on: root.tool == 5; tip: @tr("Pen"); shortcut: root.letter(5); clicked => { root.pick(5); } }
+                RailButton { icon: @image-url("../icons/eraser.svg"); on: root.tool == 11; tip: @tr("Eraser"); shortcut: root.letter(11); clicked => { root.pick(11); } }
+                RailButton { icon: @image-url("../icons/shapes.svg"); on: root.tool == 10; tip: @tr("Shapes"); shortcut: root.letter(10); clicked => { root.pick(10); } }
+                RailButton { icon: @image-url("../icons/stamp.svg"); on: root.tool == 12; tip: @tr("Stamp"); shortcut: root.letter(12); clicked => { root.pick(12); } }
+                RailButton { icon: @image-url("../icons/link.svg"); on: root.tool == 13; tip: @tr("Link"); shortcut: root.letter(13); clicked => { root.pick(13); } }
+            }
+            if root.mode == 2: VerticalLayout {
+                spacing: Space.xs;
+                RailButton { icon: @image-url("../icons/text-cursor-input.svg"); on: root.tool == 7; tip: @tr("Edit text"); shortcut: root.letter(7); clicked => { root.pick(7); } }
+                RailButton { icon: @image-url("../icons/image.svg"); on: root.tool == 8; tip: @tr("Add image"); shortcut: root.letter(8); clicked => { root.pick(8); } }
+                RailButton { icon: @image-url("../icons/link.svg"); on: root.tool == 13; tip: @tr("Link"); shortcut: root.letter(13); clicked => { root.pick(13); } }
+            }
+            if root.mode == 3: VerticalLayout {
+                spacing: Space.xs;
+                RailButton { icon: @image-url("../icons/signature.svg"); on: root.tool == 9; tip: @tr("Sign"); shortcut: root.letter(9); clicked => { root.pick(9); } }
+                RailButton { icon: @image-url("../icons/file-input.svg"); on: root.tool == 14; tip: @tr("Prepare form"); shortcut: root.letter(14); clicked => { root.pick(14); } }
+                RailButton { icon: @image-url("../icons/scan-text.svg"); tip: @tr("Detect fields"); clicked => { ReaderBridge.detect-fields(root.id); root.focus-pages(); } }
+            }
+            // Organize: the page operations, on the pages selected in the grid.
+            if root.mode == 4: VerticalLayout {
+                spacing: Space.xs;
+                RailButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert blank page after"); clicked => { ReaderBridge.page-op(root.id, 5); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: @tr("Rotate left"); clicked => { ReaderBridge.page-op(root.id, 0); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/rotate-cw.svg"); tip: @tr("Rotate right"); clicked => { ReaderBridge.page-op(root.id, 1); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Duplicate"); clicked => { ReaderBridge.page-op(root.id, 3); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/trash-2.svg"); danger: true; tip: @tr("Delete"); clicked => { ReaderBridge.page-op(root.id, 2); root.focus-pages(); } }
+            }
+            // Redact: the Redact PDF tool (text, areas and pages marked, then applied), Sanitize.
+            if root.mode == 5: VerticalLayout {
+                spacing: Space.xs;
+                RailButton { icon: @image-url("../icons/eye-off.svg"); tip: @tr("Redact…"); clicked => { ReaderBridge.redact(root.id); } }
+                RailButton { icon: @image-url("../icons/eye-slash.svg"); tip: @tr("Sanitize document"); clicked => { ReaderBridge.sanitize(root.id); root.focus-pages(); } }
+            }
+            // Measure: the aids that read lengths off the page (rulers, grid, loupe, an area zoomed).
+            if root.mode == 6: VerticalLayout {
+                spacing: Space.xs;
+                RailButton { icon: @image-url("../icons/ruler.svg"); on: root.tab.reader.rulers-on; tip: @tr("Rulers"); clicked => { ReaderBridge.rulers(root.id); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/layout-grid.svg"); on: root.tab.reader.form-grid; tip: @tr("Grid"); clicked => { ReaderBridge.form-grid(root.id); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/search.svg"); on: root.tab.reader.loupe; tip: @tr("Loupe"); clicked => { ReaderBridge.loupe(root.id); root.focus-pages(); } }
+                RailButton { icon: @image-url("../icons/maximize.svg"); on: root.tool == 15; tip: @tr("Zoom to area"); shortcut: root.letter(15); clicked => { ReaderBridge.zoom-area(root.id); root.focus-pages(); } }
+            }
+        }
+    }
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        background: Theme.hairline;
+    }
+}

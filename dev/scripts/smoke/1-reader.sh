@@ -68,10 +68,10 @@ print(ChaCha20Poly1305((p / "signatures.key").read_bytes()).decrypt(b[len(h):len
 PYSECURE
 }
 sigs() { secure_marks | python3 -c 'import json, sys; p = json.load(sys.stdin); print(len(p.get("signatures", [])), "".join(map(str, p.get("current", [[], None, [0, 0], 0])[2])))'; }
-S1=$(sigs); click 412 109 0.8; click 700 620 1
+S1=$(sigs); click 456 100 0.8; click 700 620 1
 xdotool mousemove 520 400 mousedown 1; for i in $(seq 0 10); do xdotool mousemove $((520 + i * 10)) $((380 + i * 6)); done; xdotool mouseup 1; sleep 0.3
 # The second one in black (the pad's first ink, 448,314); the first kept its blue.
-click 448 314 0.3; click 818 555 1.2; S2=$(sigs); shot 02e-two-signatures; click 382 109 0.8; S3=$(sigs)
+click 448 314 0.3; click 818 555 1.2; S2=$(sigs); shot 02e-two-signatures; click 426 100 0.8; S3=$(sigs)
 blue() { qpdf --qdf --object-streams=disable $OUT/text.pdf - 2>/dev/null | grep -a -B30 PCFillSign | tr -s ' \n' ' ' | grep -o '/C \[ 0.1 0.32 0.85' | wc -l; }
 BL0=$(blue); click 760 700 1.2; key ctrl+s; sleep 1.5; BL1=$(blue)
 check "a signature picked again is placed in its own ink (blue: $BL0 → $BL1)" "[ $BL1 -gt $BL0 ]"
@@ -83,7 +83,7 @@ key ctrl+z; key ctrl+s; sleep 1.5
 sfont() { python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("signature_font", 0))' "$PWD/$OUT/profile/data/Sheaf/prefs.json"; }
 # "New signature" moves right as signatures are kept: found by OCR in the options bar; the name is typed
 # only once the pad is open (else its letters would pick tools).
-NS=$(at New 900x40+250+90); [ -n "$NS" ] && click $NS 0.8; click 700 620 1; click 640 512 0.3
+NS=$(at New 900x40+250+82); [ -n "$NS" ] && click $NS 0.8; click 700 620 1; click 640 512 0.3
 PAD=$(at Create 600x400+340+200)
 [ -n "$PAD" ] && { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "Ada Lovelace"; sleep 1.5; }; shot 02f-typed-fonts
 [ -n "$PAD" ] && { click 742 506 0.4; click 817 614 1.2; key ctrl+s; sleep 1.5; }; SF=$(sfont)
@@ -92,11 +92,13 @@ key ctrl+z; key ctrl+s; sleep 1.5
 key Escape; key v
 
 # 2b'. Select that signature, pull its corner handle: it grows, keeping its proportions and top-left.
-# Page 1 at ⌘9 in the 1280×800 window: screen = (258.5 + 1.651·x, 1401 − 1.651·y) for PDF (x, y).
-R0=$(inks "$OUT/text.pdf"); click 700 651 0.8
+# Page 1 at ⌘9 in the 1280×800 window, Fill & Sign still on (its rail): the signature picked, its options bar
+# docks and the page sits 944/612 px a point from 320,134, so screen = (320 + 1.5425·x, 1355.5 − 1.5425·y)
+# for PDF (x, y). (Before the pick, with no bar, the page top is at 98: see 2b'' below.)
+R0=$(inks "$OUT/text.pdf"); click 700 614 0.8   # the second signature (PDF y ≈ 457) with no bar docked: page top 98
 set -- $(python3 -c '
 rs = [list(map(float, r.split())) for r in "'"$R0"'".split(";")]
-sx = lambda x: 258.5 + 1.651 * x; sy = lambda y: 1401 - 1.651 * y
+sx = lambda x: 320 + 1.5425 * x; sy = lambda y: 1355.5 - 1.5425 * y
 r = min(rs, key=lambda r: abs(sx((r[0] + r[2]) / 2) - 700) + abs(sy((r[1] + r[3]) / 2) - 651))
 print(round(sx(r[2])), round(sy(r[1])))')
 HX=$1; HY=$2
@@ -117,8 +119,10 @@ raise SystemExit(0 if ok else 1)'"
 set -- $(python3 -c '
 new = set("'"$R1"'".split(";")) - set("'"$R0"'".split(";"))
 r = list(map(float, new.pop().split()))
-print(round(258.5 + 1.651 * (r[0] + 12)), round(1401 - 1.651 * (r[1] + r[3]) / 2))')
-key Escape; click $1 $2 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+print(round(276 + 1.6144 * (r[0] + 12)), round(1376.6 - 1.6144 * (r[1] + r[3]) / 2))')
+# Two Escapes: the first drops the selection (or leaves Fill & Sign when there is none), the second leaves the
+# mode. Back in Read the page is drawn 988/612 px a point from 276,98.
+key Escape; key Escape; sleep 0.5; click $1 $2 0.8; shot 02g-signature-to-delete; key Delete; sleep 1; key ctrl+s; sleep 1.5
 R2=$(inks "$OUT/text.pdf")
 check "a selected signature is deleted with the Delete key" "[ \$(echo \"$R2\" | tr ';' '\\n' | grep -c .) -eq \$(( \$(echo \"$R1\" | tr ';' '\\n' | grep -c .) - 1 )) ]"
 key Escape
@@ -160,9 +164,9 @@ check "a selected text box takes a new font, alignment and a typed size, and gro
 
 # 2d. Edit tool: drag the first paragraph of page 1 down; its words move down in the saved file.
 word_y() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/'; }
-# Where "quick" is on screen, from the saved file (OCR misses the big highlighted line): the page starts at
-# 264,100 and is drawn 1000/612 px a point at this zoom.
-quick_at() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*xMin="\([0-9.]*\)" yMin="\([0-9.]*\)" xMax="\([0-9.]*\)" yMax="\([0-9.]*\)".*/\1 \2 \3 \4/' | awk '{ k = 1000 / 612; printf "%d %d\n", 264 + ($1 + $3) / 2 * k, 100 + ($2 + $4) / 2 * k }'; }
+# Where "quick" is on screen, from the saved file (OCR misses the big highlighted line): in Edit mode (the
+# rail and the docked options bar) the page starts at 320,134 and is drawn 944/612 px a point at fit width.
+quick_at() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*xMin="\([0-9.]*\)" yMin="\([0-9.]*\)" xMax="\([0-9.]*\)" yMax="\([0-9.]*\)".*/\1 \2 \3 \4/' | awk '{ k = 944 / 612; printf "%d %d\n", 320 + ($1 + $3) / 2 * k, 134 + ($2 + $4) / 2 * k }'; }
 QY0=$(word_y "$OUT/text.pdf"); read DX DY <<< "$(quick_at "$OUT/text.pdf")"
 key e; sleep 1.2
 xdotool mousemove $DX $DY mousedown 1; sleep 0.1; for d in 20 60 100 140; do xdotool mousemove $DX $(( DY + d )); sleep 0.05; done; xdotool mouseup 1; sleep 1.2
@@ -267,16 +271,18 @@ quit
 # oval (317,109), arrow (376,109), Fill (413,109), opacity (550,109, a menu).
 launch "$OUT/shapes.pdf"; key ctrl+9
 drag() { xdotool mousemove $1 $2 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(($1 + i * $3 / 5)) $(($2 + i * $4 / 5)); sleep 0.05; done; xdotool mouseup 1; sleep 1.2; }
-key r; drag 500 300 180 120
-# ⇧ held at the press: a rectangle dragged 160 × 50 is saved square.
-xdotool keydown shift; drag 260 650 160 50; xdotool keyup shift
+key r; drag 500 370 180 120   # 70 lower than before W3: the docked Shapes bar (69 tall) moved the page down, and the
+                              # rectangle sat over the title line, which 6h reads by OCR
+# ⇧ held at the press: a rectangle dragged 160 × 50 is saved square. From x 340: a press at 260 lands on the
+# sidebar's resize handle (W1, 256–264) and widened the panel for every later step (run 4, 29/10).
+xdotool keydown shift; drag 340 650 160 50; xdotool keyup shift
 # Opacity opens its slider and quick values: 75 % picked.
 # The opacity button found by its "100 %" (the bar's width depends on the shape's options).
 # The oval (317,109), then its Fill found by its word (the bar's width depends on its options).
-click 317 109 0.8; FL=$(at Fill 800x40+260+90); [ -z "$FL" ] && { click 317 109 1; FL=$(at Fill 800x40+260+90); }
+click 361 100 0.8; FL=$(at Fill 800x40+304+82); [ -z "$FL" ] && { click 361 100 1; FL=$(at Fill 800x40+304+82); }
 [ -n "$FL" ] && click $FL 0.5; OP=$(at 100 800x40+380+90); [ -n "$OP" ] && click $OP 0.6
 P75=$(at 75 600x160+400+120); [ -n "$P75" ] && click $P75 0.5; drag 500 600 200 100
-click 376 109; drag 900 300 150 -100
+click 420 100; drag 900 300 150 -100
 key ctrl+s; sleep 1.5; shot 06c-shapes
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a rectangle, a filled oval at 75 % and an arrow are saved" "echo \"\$SH\" | grep -aq '/Subtype /Square' && echo \"\$SH\" | grep -aq '/Subtype /Circle' && echo \"\$SH\" | grep -aq '/IC \\[' && echo \"\$SH\" | grep -aq '/CA 0.75' && echo \"\$SH\" | grep -aq '/OpenArrow'"
@@ -291,8 +297,8 @@ check "the Shapes tool keeps its style for next time (opacity 75 % in the prefer
 # 6c'0. The first rectangle (unfilled) selected by a click inside it: the Fill row shows for it, its first
 # colour (the yellow dot, found by its colour: OCR misses the small "Fill") fills it at once (Acrobat's Properties
 # bar): saved, two shapes have /IC.
-key v; click 590 360 0.8; shot 06c0-selected
-YX=$(import -window root -crop 600x1+300+110 txt:- 2>/dev/null | grep -m1 'srgb(255,219,64)' | cut -d, -f1); FY=${YX:+110}
+key v; click 590 400 0.8; shot 06c0-selected   # inside the rectangle whether or not the Shapes bar (69 tall) is docked
+YX=$(import -window root -crop 600x1+300+100 txt:- 2>/dev/null | grep -m1 'srgb(255,219,64)' | cut -d, -f1); FY=${YX:+100}
 [ -n "$FY" ] && click $(( 300 + YX + 6 )) $FY 1; key ctrl+s; sleep 1.5
 NIC=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/IC \[')
 check "a selected rectangle takes a fill colour at once (${FY:+Fill row}; $NIC filled)" "[ \"\${NIC:-0}\" -ge 2 ]"
@@ -304,11 +310,11 @@ check "the eraser rubs out a drawing it goes along ($N1 → $N2)" "[ $N1 -ge 1 ]
 key v
 
 # 6c''. Stamps (M): the default (Approved) with a click; a dated one (Received, seventh in the list at
-# 317,330 once the list at 350,109 is open, after the four marks) says who and when.
-key m; click 900 300 1.2; click 350 109 0.8; click 317 330 0.8; click 700 600 1.2
-# A checkmark (first in the list, 317,150) placed beside them.
-# In blue (the colour row shows for marks, 540,109): Acrobat's Fill & Sign marks take a colour.
-click 350 109 0.8; click 317 150 0.8; click 540 109 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
+# 361,304 once the list at 394,100 is open, rows 28 from y 136, after the four marks) says who and when.
+key m; click 900 300 1.2; click 394 100 0.8; click 361 304 0.8; click 700 600 1.2
+# A checkmark (first in the list, 361,136) placed beside them.
+# In blue (the colour row shows for marks, 584,100): Acrobat's Fill & Sign marks take a colour.
+click 394 100 0.8; click 361 136 0.8; click 584 100 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
 check "a checkmark is placed (Fill & Sign mark)" "echo \"\$SH\" | grep -aq 'PCFillSign' && echo \"\$SH\" | grep -aq '(Checkmark)'"
@@ -350,8 +356,8 @@ check "a reply to a comment is saved as a reply" "echo \"\$QD\" | grep -aq '/IRT
 click 120 290 1; read RL RR RY <<< "$(span Reply 248x500+0+260)"; [ -n "$RY" ] && click $(( RR + 80 )) $RY 0.8; shot 06c-status
 AC=$(at Accepted 260x200+0+$(( ${RY:-300} + 16 ))); [ -n "$AC" ] && click $AC 1; key ctrl+s; sleep 1.5
 check "a review status is saved (Accepted)" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/State (Accepted)'"
-# The reply's own bin (right of its line, x 220) deletes it alone: the comment and its status stay.
-read _ RY <<< "$(at Smoke 260x500+0+130)"; [ -n "$RY" ] && click 220 "$RY" 1; key ctrl+s; sleep 1.5
+# The reply's own bin (right of its line, x 232 in the 260-wide panel) deletes it alone: the comment and its status stay.
+read _ RY <<< "$(at Smoke 260x500+0+130)"; [ -n "$RY" ] && click 232 "$RY" 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a reply is deleted alone, its comment and status kept" "[ -n \"$RY\" ] && ! echo \"\$QD\" | grep -aq '(Smoke reply)' && echo \"\$QD\" | grep -aq '/State (Accepted)'"
 key Escape
@@ -371,8 +377,10 @@ click 36 106 0.8
 
 # 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
-mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
-M1=$(mid); key ctrl+alt+2; sleep 2.5; M2=$(mid); key ctrl+alt+2; sleep 2.5; key ctrl+alt+2; sleep 2.5; M3=$(mid); shot 06d-spread
+mid() { import -window root -crop 6x200+767+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+# Back to Read first (two Escapes: selection, then the mode): the canvas is then 260–1280 and the gap at 770,
+# as it is when the document reopens (6f).
+key Escape; key Escape; sleep 0.8; M1=$(mid); key ctrl+alt+2; sleep 2.5; M2=$(mid); key ctrl+alt+2; sleep 2.5; key ctrl+alt+2; sleep 2.5; M3=$(mid); shot 06d-spread
 check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
 # 6e. Keyboard paging: End, Home, → and Space; ⌘A ⌘C copies the page in view, which tells which it is.
 inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
@@ -385,14 +393,14 @@ check "searching the selected text finds its page ($SE)" "[ \"$SE\" = 'Page 4' ]
 key End; sleep 0.8; key ctrl+a; shifted t; sleep 0.5; key ctrl+shift+e; sleep 1.5; BE=$(bar)
 check "searching the selection with the toolbar hidden shows it again ($BE)" "python3 -c 'import sys; sys.exit(0 if abs($BE - $B0) < 0.03 else 1)'"
 key Escape
-# 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ sets 200 %; Fit page from its list (ZOOM_MENU_X,61 ▸ 41 px
-# left of it, 330) sets a smaller zoom that shows the whole page. The figure is read from the field: with the
+# 6g. The zoom field (ZOOM_X,61): 200 typed and ↩ sets 200 %; Fit page from its list (ZOOM_MENU_X,61 ▸ 16 px
+# left of it, 311) sets a smaller zoom that shows the whole page. The figure is read from the field: with the
 # side panel open the page already covers the view's left edge at 163 %, so the edge said nothing (28/10).
 zoomread() { import -window root -crop 80x26+$((ZOOM_X - 37))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
 click $ZOOM_X 61 0.5; xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key ctrl+a; xdotool type --delay 20 "200"; key Return; sleep 2; Z1=$(zoomread)
 # The arrow takes its click once the pointer has rested on it (a click arriving with the move did nothing
 # after the field had been typed in, 28/10).
-xdotool mousemove $ZOOM_MENU_X 61; sleep 0.5; xdotool click 1; sleep 1; xdotool mousemove $((ZOOM_MENU_X - 16)) 329; sleep 0.5; xdotool click 1; sleep 2; Z2=$(zoomread)
+xdotool mousemove $ZOOM_MENU_X 61; sleep 0.5; xdotool click 1; sleep 1; xdotool mousemove $((ZOOM_MENU_X - 16)) 311; sleep 0.5; xdotool click 1; sleep 2; Z2=$(zoomread)
 check "zoom typed (200 %) and Fit page from the list (${Z1:-?} → ${Z2:-?} %)" "[ \"$Z1\" = 200 ] && [ -n \"$Z2\" ] && [ \"$Z2\" -lt 200 ] && [ \"$Z2\" -gt 20 ]"
 key ctrl+9; sleep 1
 # 6h. By hand: ⌘ + wheel zooms in around the pointer (the zoom field at ZOOM_X grows); a middle-button drag,
@@ -401,7 +409,7 @@ key ctrl+9; sleep 1
 pagesig() { import -window root -crop 1000x690+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
 # The zoom field read alone (a single line at 300 %: the default OCR misses it).
 zoomval() { import -window root -crop 70x26+$((ZOOM_X - 32))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
-key Home; sleep 1; ZA=$(zoomval); QK=$(at quick 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
+key Home; sleep 1; shot 06h-before-wheel; ZA=$(zoomval); QK=$(at quick 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
 # into the page was handled would anchor on where the pointer was before.
 [ -n "$QK" ] && xdotool mousemove $(echo $QK | awk '{ print $1 - 6, $2 - 4 }') && sleep 0.15 && xdotool mousemove $QK && sleep 0.4; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at quick 1020x700+255+90)
 check "⌘ + wheel zooms in ($ZA → $ZB %)" "[ -n \"$ZA\" ] && [ -n \"$ZB\" ] && [ $ZB -gt $ZA ]"
