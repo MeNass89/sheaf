@@ -113,6 +113,9 @@ RECENTS_ROW="90 68"; ALL_TOOLS_ROW="90 218"; TOOLS_SEARCH="1128 80"
 answer() { printf '%s' "$1" > "$OUT/dialog-answer"; }
 # A tile of Home ▸ All Tools found by the first word of its name (OCR over the grid, under the chips), clicked.
 tile() { local p; p=$(at "$1" 1028x652+252+140); [ -n "$p" ] && click $p "${2:-1.5}"; }
+# The star of the Home tile whose name is read at "x y": hovered, then clicked at the tile's top left corner (18 in,
+# 58 above the name's line); tiles are 152 wide on a 168 pitch from x 252 at 1280.
+tile_star() { xdotool mousemove $1 $(( $2 - 30 )); sleep 0.4; click $(( 252 + ($1 - 252) / 168 * 168 + 18 )) $(( $2 - 58 )) 1; }
 # Home ▸ Recents ▸ New ⌄ (the Open area's menu), then its item found by a word of its name; echoes where it was.
 home_new() { local n i; n=$(at New 1000x120+250+80); [ -n "$n" ] && click $n 0.8; i=$(at "$1" 600x260+500+150); [ -n "$i" ] && click $i "${2:-1}"; echo "$i"; }
 # Images into JPG to PDF by its Open file (All Tools ▸ JPG to PDF ▸ Open file, the dialog answered with them): images

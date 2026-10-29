@@ -38,11 +38,10 @@ xdotool windowfocus --sync "$W" 2>/dev/null; xdotool type --delay 20 "pdf to"; s
 TB1="$(ocr 1280x30+0+6) $(ocr 290x40+990+47)"
 # OCR drops spaces: compare without them.
 check "tool search: 'pdf to', ↓, ↩ opens PDF to Word ($TB1)" "echo \"$TB1\" | tr -d ' ' | grep -qi 'PDFtoWord' && ! echo \"$TB0\" | tr -d ' ' | grep -qi 'PDFtoWord'"
-# The star on Compress's tile (shown on hover, 58 px left of and above its name's centre: the tile's top left
-# corner): saved as a favourite, a Favourites row on top.
+# The star on Compress's tile (shown on hover, at the tile's top left corner: tile_star): saved as a favourite, a Favourites row on top.
 # The search still holds "pdf to" (the page was not left): cleared with Escape in the field first.
 click 40 21 0.8; click $ALL_TOOLS_ROW 0.8; click $TOOLS_SEARCH 0.4; key Escape; sleep 0.5; shot 09c-before-star
-read CX CY <<< "$(at Compress 1028x652+252+140)"; [ -n "$CY" ] && { xdotool mousemove $CX $(( CY - 30 )); sleep 0.4; click $(( CX - 58 )) $(( CY - 58 )) 1; }
+read CX CY <<< "$(at Compress 1028x652+252+140)"; [ -n "$CY" ] && tile_star $CX $CY
 check "starring a tool puts it in the preferences' favourites" "grep -rqs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # ⌘, opens Preferences from a tool tab and from a document (keys go up to the app).
 key ctrl+comma; sleep 1; PT1=$(ocr 500x60+200+40)
@@ -64,7 +63,7 @@ click 1140 755 4; shot 10-tool-result
 check "a tool run from the reader writes its output (Compress)" "qpdf --check $OUT/tool-compressed.pdf >/dev/null 2>&1"
 # The same star on Home ▸ Recents' Tools for you (Compress is the sixth tile; starred above, so its star shows).
 click 40 21 0.8; click $RECENTS_ROW 0.8; read CX CY <<< "$(at Compress 1028x200+252+250)"; shot 09d-recent-tools
-[ -n "$CY" ] && { xdotool mousemove $CX $(( CY - 30 )); sleep 0.4; click $(( CX - 58 )) $(( CY - 58 )) 1; }
+[ -n "$CY" ] && tile_star $CX $CY
 check "unstarring from Home's Tools for you takes it out of the favourites (${CY:-no tile})" "! grep -qs '\"compress\"' $OUT/profile/data/Sheaf/prefs.json"
 # Recent files' star (PDF Expert's Favorites), on the card of tool-compressed.pdf found by its name: starred in
 # the preferences; the search field ("compressed") keeps it alone in the list.
