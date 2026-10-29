@@ -30,7 +30,14 @@ GitHub releases; AI natural voices, bold non-Latin titles, category chips; BAMA 
 (theme, widgets, reader; smoke recalibrated). Linux needs glibc 2.39 (DECISIONS 29/10).
 Board: 325 closed at ≥9, 6 out of scope (cloud features), none open (29/10). Packages: .github/workflows/build.yml
 (push to build/*): DMG, Windows zip, Linux tarball as artifacts; MBP DMG in iCloud temp (Sheaf-0.2.1-r40-arm64.dmg).
-Open beyond the board: the pages tests' rare PDFium SIGSEGV (above); a public release needs Nassim's go.
+Open beyond the board: a public release needs Nassim's go.
+Fixed 29/10: the pages tests' SIGSEGV (about one full run in five) was a use-after-free, reproduced every time
+under Valgrind. pdfium-render's `PdfPage::flatten` and `transform_with_clip` reload the page (`reload_in_place`),
+but a PdfPage keeps its `boundaries`, `links` and `objects` on the handle it was made with, now freed: Change
+Page Size read the crop box and set the boxes through them. Now comments are drawn by PdfCraft
+(`pages::flattened`, also for Flip and Compare; PdfCraft's flatten takes inline /Annots, which PDFium writes) and
+resize gets the page again after the transform. Valgrind: pages 30/30 and compare 13/13, no invalid read. Test
+`pdfium_flatten_is_never_called`. Rule: after a pdfium-render call that reloads a page, get the page again.
 
 ## Where things are
 

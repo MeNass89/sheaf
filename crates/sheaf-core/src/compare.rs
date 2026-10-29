@@ -298,15 +298,12 @@ fn too_different(old_words: &[Placed], new_words: &[Placed]) -> Option<usize> {
 fn side_by_side(old: &Input, marked: &Path, out: &Path) -> Result<PathBuf> {
     use pdfium_render::prelude::*;
     let _g = crate::engine::pdfium_lock();
-    let a = old.open()?;
-    let b = crate::engine::open_pdf(marked, None)?;
     // Comments are drawn into the pages, or tiling would leave them out: the marks on the copy, and
-    // the original's own (Sol, 26/10: they were left out on the left).
-    for d in [&a, &b] {
-        for i in 0..d.pages().len() {
-            d.pages().get(i)?.flatten()?;
-        }
-    }
+    // the original's own (Sol, 26/10: they were left out on the left). By PdfCraft (`flattened`):
+    // PDFium's own flatten left freed pages behind.
+    let all = |i: &Input| -> Result<PdfDocument<'static>> { let n = i.open()?.pages().len() as usize; crate::pages::flattened(i, &(0..n).collect::<Vec<_>>()) };
+    let a = all(old)?;
+    let b = all(&Input::new(marked))?;
     let (na, nb) = (a.pages().len(), b.pages().len());
     let size = |d: &PdfDocument, i: i32| d.pages().get(i).ok().map(|p| (p.width().value, p.height().value));
     let (mut w, mut h) = (0f32, 0f32);
