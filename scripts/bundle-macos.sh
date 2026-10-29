@@ -123,7 +123,9 @@ cargo about generate --workspace -c about.toml about/template.hbs \
     -o "$app/Contents/Resources/licenses/THIRD_PARTY_LICENSES.html"
 
 echo "==> no local paths in the bundle"
-leaks=$(for f in "$app/Contents/MacOS/Sheaf" "$app/Contents/Helpers/sheaf"; do strings "$f" | grep -c -F "$HOME" || true; done | paste -sd+ - | bc)
+# onnxruntime's prebuilt library carries the source paths of its own build, made on a GitHub runner
+# (/Users/runner/work/ort-artifacts/…): not ours, even when this build's home is /Users/runner too.
+leaks=$(for f in "$app/Contents/MacOS/Sheaf" "$app/Contents/Helpers/sheaf"; do strings "$f" | grep -F "$HOME" | grep -c -v -F "$HOME/work/ort-artifacts/" || true; done | paste -sd+ - | bc)
 [ "$leaks" = 0 ] || { echo "error: $leaks occurrences of the builder's home path in the binaries" >&2; exit 1; }
 
 echo "==> rpath + sign"
