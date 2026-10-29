@@ -1,9 +1,12 @@
 name: Build
 
-# On demand: the macOS DMG, the Windows zip and the Linux tarball of any branch, smoke-tested and
-# kept as this run's artifacts (90 days). Nothing is published: release.yml attaches packages to a
-# release, on a version tag only.
+# On demand (a push to a build/* branch, or Run workflow once this file is on the default branch):
+# the macOS DMG, the Windows zip and the Linux tarball, smoke-tested and kept as this run's
+# artifacts (90 days). Nothing is published: release.yml attaches packages to a release, on a
+# version tag only.
 on:
+  push:
+    branches: ["build/**"]
   workflow_dispatch:
 
 env:
@@ -27,7 +30,7 @@ jobs:
           - os: macos-14
             build: bash scripts/bundle-macos.sh && bash scripts/make-dmg.sh
             out: target/Sheaf-*-arm64.dmg
-            smoke: target/Sheaf.app/Contents/MacOS/sheaf-cli
+            smoke: target/Sheaf.app/Contents/Helpers/sheaf
     runs-on: ${{ matrix.os }}
     defaults:
       run:
