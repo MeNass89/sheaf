@@ -160,9 +160,9 @@ check "a selected text box takes a new font, alignment and a typed size, and gro
 
 # 2d. Edit tool: drag the first paragraph of page 1 down; its words move down in the saved file.
 word_y() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*yMin="\([0-9.]*\)".*/\1/'; }
-# Where "quick" is on screen, from the saved file (OCR misses the big highlighted line): the page starts at
-# 264,100 and is drawn 1000/612 px a point at this zoom.
-quick_at() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*xMin="\([0-9.]*\)" yMin="\([0-9.]*\)" xMax="\([0-9.]*\)" yMax="\([0-9.]*\)".*/\1 \2 \3 \4/' | awk '{ k = 1000 / 612; printf "%d %d\n", 264 + ($1 + $3) / 2 * k, 100 + ($2 + $4) / 2 * k }'; }
+# Where "quick" is on screen, from the saved file (OCR misses the big highlighted line): in Edit mode (the
+# rail and the docked options bar) the page starts at 320,134 and is drawn 944/612 px a point at fit width.
+quick_at() { pdftotext -f 1 -l 1 -bbox "$1" - 2>/dev/null | grep -m1 '>quick<' | sed 's/.*xMin="\([0-9.]*\)" yMin="\([0-9.]*\)" xMax="\([0-9.]*\)" yMax="\([0-9.]*\)".*/\1 \2 \3 \4/' | awk '{ k = 944 / 612; printf "%d %d\n", 320 + ($1 + $3) / 2 * k, 134 + ($2 + $4) / 2 * k }'; }
 QY0=$(word_y "$OUT/text.pdf"); read DX DY <<< "$(quick_at "$OUT/text.pdf")"
 key e; sleep 1.2
 xdotool mousemove $DX $DY mousedown 1; sleep 0.1; for d in 20 60 100 140; do xdotool mousemove $DX $(( DY + d )); sleep 0.05; done; xdotool mouseup 1; sleep 1.2

@@ -49,7 +49,7 @@ quit
 cp "$OUT/text.pdf" "$OUT/dashed.pdf"; launch "$OUT/dashed.pdf"; sleep 1; key r; sleep 1
 # "- -" sits just left of the opacity's "100 %" (tesseract reads it merged with the width dots before it, and
 # the opacity as "100" or "10%"); the Shapes options take two rows.
-OP=$(at 10 1280x90+0+90); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 48 )) $2"); [ -n "$DD" ] && click $DD 0.4
+OP=$(at 10 1280x90+0+80); DD=$([ -n "$OP" ] && set -- $OP && echo "$(( $1 - 48 )) $2"); [ -n "$DD" ] && click $DD 0.4
 xdotool mousemove 520 420 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 520 + i * 30 )) $(( 420 + i * 20 )); sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 DQ=$(qpdf --qdf --object-streams=disable "$OUT/dashed.pdf" - 2>/dev/null)
 check "a dashed rectangle is saved dashed (${DD:-no button})" "echo \"\$DQ\" | grep -aq '/S /D'"
@@ -436,9 +436,9 @@ d = sys.stdin.buffer.read(); parts = d.split(maxsplit=4); w, h = int(parts[1]), 
 x, y = $2, 792 - $3; i = (y * w + x) * 3; print(px[i], px[i + 1], px[i + 2])"; }
 O0=$(pixel "$OUT/order.pdf" 175 525)
 launch "$OUT/order.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
-click $(( 264 + 120 * 1000 / 612 )) $(( 100 + (792 - 580) * 1000 / 612 )) 1; shot 210-picked
+click $(( 320 + 120 * 944 / 612 )) $(( 134 + (792 - 580) * 944 / 612 )) 1; shot 210-picked
 # The card in the view's top-right corner: "To front" is its first button (OCR may join its two words).
-TF=$(at To 680x120+600+90); [ -n "$TF" ] || TF=$(at front 680x120+600+90); [ -n "$TF" ] && click $TF 1.5; shot 210-front; key ctrl+s; sleep 1.5
+TF=$(at To 680x120+600+118); [ -n "$TF" ] || TF=$(at front 680x120+600+118); [ -n "$TF" ] && click $TF 1.5; shot 210-front; key ctrl+s; sleep 1.5
 O1=$(pixel "$OUT/order.pdf" 175 525)
 check "Order ▸ To front brings the picked square over the other (${TF:-no To front button}; overlap $O0 → $O1)" "[ \"$O0\" = '0 0 255' ] && [ \"$O1\" = '255 0 0' ]"
 quit
@@ -1294,7 +1294,8 @@ p.write_text(json.dumps(a))
 PY352
 cp "$OUT/text.pdf" "$OUT/352-custom.pdf"
 launch "$OUT/352-custom.pdf"
-click 24 62 0.8
+# Custom tools: More ▸ More tools… ▸ Custom tools (the toolbar button went with W3).
+optimize_print_tool Custom >/dev/null; sleep 0.8
 AP=$(at Apply 220x55+345+380); [ -n "$AP" ] && click $AP 1.5
 shot 352-custom-pages
 key ctrl+s; sleep 1.5

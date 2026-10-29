@@ -402,8 +402,9 @@ print(min((y for y in range(h) for x in range(w) if rows[y][x*bpp] < 60 and rows
 "; }
 Y0=$(blue_top)
 launch "$OUT/square.pdf"; key ctrl+9; sleep 1; key e; sleep 1.5
-# The square's centre at fit width: 430,630 pt of a 612 pt page shown 1000 px wide from x 264.
-SX=$(( 264 + 430 * 1000 / 612 )); SY=$(( 100 + (792 - 630) * 1000 / 612 ))
+# The square's centre at fit width in Edit mode: 430,630 pt of a 612 pt page shown 944 px wide from x 320
+# (the sidebar 260, the rail 44, a 16 margin), y 134 (the docked options bar ends at 118).
+SX=$(( 320 + 430 * 944 / 612 )); SY=$(( 134 + (792 - 630) * 944 / 612 ))
 # Hovered, it is outlined (drawings are not otherwise); a plain press picks it, a drag moves it.
 xdotool mousemove $(( SX - 200 )) $SY; sleep 0.3; xdotool mousemove $SX $SY; sleep 0.8; shot 20c-drawing-hover
 xdotool mousemove $SX $SY mousedown 1; for i in 1 2 3 4 5 6; do xdotool mousemove $SX $(( SY + i * 10 )); sleep 0.08; done; xdotool mouseup 1; sleep 2

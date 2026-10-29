@@ -102,7 +102,7 @@ launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 click 223 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 60x26+1004+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
+SF=$(ocr 100x26+926+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
 check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
 quit
 
@@ -565,7 +565,7 @@ if [ -n "$Q0" ]; then
     set -- $Q0; W0=$(( $2 - $1 )); key z; sleep 0.4
     xdotool mousemove $(( $1 - 20 )) $(( $3 - 25 )) mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( $1 - 20 + (W0 + 40) * i / 5 )) $(( $3 - 25 + 50 * i / 5 )); sleep 0.05; done; xdotool mouseup 1; sleep 3.5
 fi
-shot 61-zoom-area; Q1=$(span quick 1280x720+0+80); W1=$( [ -n "$Q1" ] && set -- $Q1 && echo $(( $2 - $1 )) )
+shot 61-zoom-area; Q1=$(span quick 976x680+304+118); W1=$( [ -n "$Q1" ] && set -- $Q1 && echo $(( $2 - $1 )) )
 check "Zoom to area makes the box dragged fill the view (quick ${W0:-?} → ${W1:-?} px wide)" "[ -n \"$W1\" ] && [ \"$W1\" -ge \$(( ${W0:-1000} * 2 )) ]"
 quit
 
@@ -641,10 +641,10 @@ click 1140 755 4; shot 66-target; TR=$(import -window root png:- | convert - -re
 check "Compress to a size out of reach keeps the smallest and says so (${TS:-no option}; $(ls $OUT/target-compressed*.pdf 2>/dev/null | wc -l) file)" "ls $OUT/target-compressed*.pdf >/dev/null 2>&1 && echo \"$TR\" | grep -q 'as small as it gets'"
 quit
 
-# 50. Any colour (Acrobat's Other color): the row's sixth dot (620,110 with the Pen, after the four widths and
-# "- -") opens a palette; its orange (the second swatch, 580,145) draws the stroke, saved orange (F28C28).
+# 50. Any colour (Acrobat's Other color): the row's sixth dot (664,100 with the Pen, after the four widths and
+# "- -") opens a palette; its orange (the second swatch, 624,135) draws the stroke, saved orange (F28C28).
 cp "$OUT/text.pdf" "$OUT/colour.pdf"; launch "$OUT/colour.pdf"
-key p; click 664 100 0.8; click 580 145 0.6
+key p; click 664 100 0.8; click 624 135 0.6
 xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) 410; sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 OC=$(qpdf --json=2 "$OUT/colour.pdf" | python3 -c 'import json, sys
 for v in json.load(sys.stdin)["qpdf"][1].values():
