@@ -228,7 +228,8 @@ quit
 # (1008,295) swaps them (Acrobat's right-to-left page order).
 convert -size 300x400 xc:'#E02020' xc:'#2040E0' "$OUT/rl.pdf"; launch "$OUT/rl.pdf"; sleep 1
 colour_at() { import -window root -crop "1x1+$1+420" txt:- 2>/dev/null | grep -o '#[0-9A-F]\{6\}'; }
-click 1108 61 0.8; click 1008 239 1.2; L0=$(colour_at 620); R0=$(colour_at 900)
+# Under load the two pages can take a few seconds to draw: read until the left one is drawn (5 s at most).
+click 1108 61 0.8; click 1008 239 1.2; for _ in $(seq 1 10); do L0=$(colour_at 620); [ "$L0" != '#E6E6E6' ] && break; sleep 0.5; done; R0=$(colour_at 900)
 click 1108 61 0.8; click 1008 295 1.2; L1=$(colour_at 620); R1=$(colour_at 900)
 reddish() { python3 -c 'import sys; v = sys.argv[1].lstrip("#"); r, b = int(v[0:2], 16), int(v[4:6], 16); sys.exit(0 if r > b + 80 else 1)' "$1"; }
 check "two pages read left to right, then right to left ($L0 $R0 → $L1 $R1)" "reddish '${L0:-#000000}' && reddish '${R1:-#000000}' && ! reddish '${R0:-#FF0000}' && ! reddish '${L1:-#FF0000}'"

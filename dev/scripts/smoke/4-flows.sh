@@ -1068,8 +1068,11 @@ Q2=$(ocr 700x300+290+250)
 quit
 mkdir -p "$OUT/trusted"; answer "$PWD/$OUT/trusted"
 launch; settings 3
-# Add a folder…: the first Add under "Trusted locations" (its note also says "folder").
-read _ TL <<< "$(pref_find locations)"; AF=; [ -n "$TL" ] && AF=$(at Add ${SWW}x90+$SX+$(( TL + 8 ))); [ -n "$AF" ] && click $AF 1
+# Add a folder…: the first Add under the caption "Trusted locations" (the notes around also say "folder" and
+# "trusted locations"), the form scrolled on until the buttons under it show.
+read _ TL <<< "$(pref_find Trusted)"
+for _ in 1 2 3; do [ -n "$TL" ] && [ $(( TL + 100 )) -gt $(( SY + SWH )) ] || break; xdotool mousemove $(( SX + 260 )) $(( SY + 300 )) click 5 click 5; sleep 0.8; read _ TL <<< "$(at Trusted "$SG")"; done
+AF=; [ -n "$TL" ] && AF=$(at Add ${SWW}x90+$SX+$(( TL + 8 ))); [ -n "$AF" ] && click $AF 1
 LOC=$(settings_val 'p["settings"]["trust"]["locations"]'); shot 302b-trusted
 answer ""
 check "a web link asks first, a blocked site stays blocked, a trusted folder is kept ($(echo "$Q1" | cut -c1-50); Remember ${R:-?}, Block ${B:-?}: $BL; then $(echo "$Q2" | cut -c1-30); $LOC)" "echo \"$Q1\" | grep -q 'example.org' && echo \"$BL\" | grep -q \"'example.org'\" && ! echo \"$Q2\" | grep -q 'Open a page' && echo \"$LOC\" | grep -q 'trusted'"
