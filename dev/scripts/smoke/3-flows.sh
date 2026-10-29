@@ -170,10 +170,12 @@ cp "$OUT/text.pdf" "$OUT/fresh.pdf"; launch "$OUT/fresh.pdf"; sleep 1.5; ZF=$(zo
 check "a new document opens at the zoom chosen in Preferences (Actual size: $ZF %)" "[ \"$ZF\" = 100 ]"
 quit
 # Fit page: a whole letter page in the 700 px high view, well under fit width (163 %).
-# The radios "Fit width", "Fit page", "Actual size": Fit page is the word "page" after a "Fit" in the form.
-launch; settings 2; FP2=$(import -window root -crop "$SG" png:- | convert - +repage -resize 200% png:- | tesseract stdin stdout tsv 2>/dev/null | awk -F'\t' -v ox=$SX -v oy=$(( SY + 52 )) '$12=="page" && prev=="Fit"{printf "%d %d\n", ox+($7+$9/2)/2, oy+($8+$10/2)/2; exit} {prev=$12}'); [ -n "$FP2" ] && click $FP2 0.6; quit
+# The radios "Fit width", "Fit page", "Actual size" (16 apart, each a 14 px circle 8 before its label): Fit page's
+# label ends 38 px left of Actual's circle's label, clicked 25 px further left (inside "page").
+launch; settings 2; read AL _ AY <<< "$(span Actual "$SG")"; FP2=; [ -n "$AY" ] && FP2="$(( AL - 63 )) $AY" && click $FP2 0.6
+DZ=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("default_zoom"))' "$PWD/$OUT/profile/data/Sheaf/prefs.json" 2>/dev/null); quit
 cp "$OUT/text.pdf" "$OUT/fresh2.pdf"; launch "$OUT/fresh2.pdf"; sleep 1.5; ZP=$(zoomval)
-check "a new document opens fitted to the page when chosen ($ZP %)" "[ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
+check "a new document opens fitted to the page when chosen (Fit page at ${FP2:-?}: default_zoom $DZ; $ZP %)" "[ \"$DZ\" = 1 ] && [ -n \"$ZP\" ] && [ \"$ZP\" -lt 120 ]"
 quit
 
 # 29. Close Other Tabs asks about a document with unsaved edits (as ⌘W would): b.pdf highlighted, then from
