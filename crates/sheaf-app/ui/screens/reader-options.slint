@@ -42,7 +42,8 @@ export component ReaderOptionsBar inherits Rectangle {
         height: 36px;
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: LayoutAlignment.stretch;
+        // The items hug the leading edge: docked across the canvas the bar is far wider than them.
+        alignment: LayoutAlignment.start;
         // Without the rail (a form's or a signature's actions in Read) the content keeps the x it
         // has beside the rail, so the bar's buttons sit at one place whatever the mode.
         padding-left: root.with-rail ? 12px : 12px + Theme.rail-width;

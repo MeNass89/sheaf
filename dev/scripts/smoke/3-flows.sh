@@ -102,7 +102,7 @@ launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
 click 223 153 0.8; shot 23-recent; click 60 237 1.5
-SF=$(ocr 100x26+926+48 | tr -d ' '); RN=$(ocr 240x24+0+166)
+SF=$(ocr 140x28+926+46 | tr -d ' '); RN=$(ocr 240x24+0+166)
 check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
 quit
 
