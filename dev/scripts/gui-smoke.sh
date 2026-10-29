@@ -145,9 +145,9 @@ click() { xdotool mousemove $(( $1 + 4 )) $(( $2 + 4 )); sleep 0.05; xdotool mou
 key() { xdotool windowfocus --sync "$W" 2>/dev/null; xdotool key "$@"; sleep 0.4; }
 # The side the reader's Thumbnails tab shows on (its page actions bar's hairline at y 748 across the sidebar): L, R
 # (right to left), or nothing.
-grey_at() { import -window root -crop "1x1+$1+$2" png:- 2>/dev/null | convert - -format "%[fx:int(255*p{0,0}.intensity)]" info: 2>/dev/null; }
-hairline_at() { local a b; a=$(grey_at "$1" 748); b=$(grey_at "$1" 760); [ -n "$a" ] && [ -n "$b" ] && [ $(( a > b ? a - b : b - a )) -ge 10 ]; }
-thumbs_side() { if hairline_at 124; then echo L; elif hairline_at 1156; then echo R; fi; }
+# One grab (timed steps read right after an action): the greys at x 124 and 1156, y 748 and 760.
+thumbs_side() { local g; g=$(import -window root -crop 1033x13+124+748 png:- 2>/dev/null | convert - -format "%[fx:int(255*p{0,0}.intensity)] %[fx:int(255*p{0,12}.intensity)] %[fx:int(255*p{1032,0}.intensity)] %[fx:int(255*p{1032,12}.intensity)]" info: 2>/dev/null); set -- $g; [ $# -eq 4 ] || return 0
+    if [ $(( $1 > $2 ? $1 - $2 : $2 - $1 )) -ge 10 ]; then echo L; elif [ $(( $3 > $4 ? $3 - $4 : $4 - $3 )) -ge 10 ]; then echo R; fi; }
 # The x range of the thumbnail strip for `at` / `span` ("lo hi"; "0 0": none). A fixture's 28 pt words are readable
 # in a thumbnail now that thumbnails are the sidebar's width less 32 (DESIGN §5.4): when the Thumbnails tab shows and
 # the area is wider than the sidebar, a word found in the strip (y 165-747) is taken only when the area holds no other
