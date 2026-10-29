@@ -14,13 +14,14 @@ import { SettingsTools } from "settings-tools.slint";
 import { SettingsAi } from "settings-ai.slint";
 import { SettingsShortcuts } from "settings-shortcuts.slint";
 
-// One topic of the tab bar: a 24 px icon over its 11 px name; the chosen one on `fill-2`.
+// One topic of the tab bar, 72 wide (Appearance fits whole): a 24 px icon over its 11 px name; the
+// chosen one on `fill-2`.
 component SettingsTab inherits Rectangle {
     in property <image> icon;
     in property <string> text;
     in property <bool> selected;
     callback clicked();
-    width: 64px;
+    width: 72px;
     height: 44px;
     border-radius: Theme.r-sm;
     background: root.selected ? Theme.fill-2 : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;

@@ -166,13 +166,13 @@ first_text() { pdftotext -f "$2" -l "$2" "$1" - 2>/dev/null | grep -m1 '[^[:spac
 
 # The Settings window (its own window since the redesign W5, src/settings_window.rs): Ctrl+, from the main window,
 # then tab $1 (0 General, 1 Appearance, 2 Reading, 3 Tools, 4 AI, 5 Shortcuts; none: the last one shown) clicked in
-# its tab bar (six 64 px tabs, 4 apart, centred in its 520 px). No window manager: it opens where the app puts it,
+# its tab bar (six 72 px tabs, 4 apart, centred in its 520 px). No window manager: it opens where the app puts it,
 # over the main window; its place in SX SY, its size in SWW SWH, its form (under the 52 px tab bar) in SG.
 settings() { local t; key ctrl+comma; SWIN=
     for t in $(seq 1 20); do SWIN=$(xdotool search --onlyvisible --name '^Settings$' 2>/dev/null | tail -1); [ -n "$SWIN" ] && break; sleep 0.25; done
     unset X Y WIDTH HEIGHT; eval "$(xdotool getwindowgeometry --shell "${SWIN:-0}" 2>/dev/null | grep -E '^(X|Y|WIDTH|HEIGHT)=')"
     SX=${X:-380}; SY=${Y:-60}; SWW=${WIDTH:-520}; SWH=${HEIGHT:-640}; SG="${SWW}x$(( SWH - 52 ))+$SX+$(( SY + 52 ))"; unset X Y WIDTH HEIGHT
-    [ -n "${1:-}" ] && { click $(( SX + 90 + $1 * 68 )) $(( SY + 24 )) 0.8; settings_size; }; sleep 0.4; }
+    [ -n "${1:-}" ] && { click $(( SX + 70 + $1 * 76 )) $(( SY + 24 )) 0.8; settings_size; }; sleep 0.4; }
 # The Settings window's height follows its tab: read again.
 settings_size() { unset HEIGHT; eval "$(xdotool getwindowgeometry --shell "${SWIN:-0}" 2>/dev/null | grep -E '^HEIGHT=')"; SWH=${HEIGHT:-$SWH}; SG="${SWW}x$(( SWH - 52 ))+$SX+$(( SY + 52 ))"; unset HEIGHT; }
 # A word of the Settings form, the form scrolled until it shows, then read again until its place holds (the scroll
