@@ -525,18 +525,19 @@ quit
 # 54. Closing what would be lost asks first: a paragraph retyped in Edit text and not applied ("Save changes to
 # …?"), and Redact's marks not applied ("Close … without redacting?", its own tab's × at 582,21); Cancel keeps
 # the tab. Tabs are 240 wide after the 120-wide Home tab, their × 18 px from their right edge: the one
-# document tab's × at 342, the second tab's at 582.
+# document tab's × at 342, the second tab's at 582. The dialog's Cancel is read on its own button row (y 400–480):
+# the Edit text card under the scrim has a Cancel of its own, higher up.
 cp "$OUT/text.pdf" "$OUT/retype.pdf"; launch "$OUT/retype.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
 xdotool windowfocus --sync "$W" 2>/dev/null; key ctrl+End; xdotool type --delay 10 " zebra"; sleep 0.8; click 342 21 1
-RT=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
+RT=$(ocr 700x200+290+250); CN=$(at Cancel 380x80+450+400); [ -n "$CN" ] && click $CN 0.8
 check "closing with a paragraph retyped asks first, Cancel keeps it (${RT:0:60}; $(ntabs) document tab)" "echo \"$RT\" | grep -q 'Save changes' && [ \"\$(ntabs)\" = 1 ]"
 key Escape; quit
 # The same with only its format changed (Bold, 470,110, in the format row): asked about too.
 cp "$OUT/text.pdf" "$OUT/reformat.pdf"; launch "$OUT/reformat.pdf"; key ctrl+9; sleep 1
 key e; sleep 1; QK=$(at quick 1020x700+255+90); [ -n "$QK" ] && click $QK 1.2
 click 514 100 0.8; click 342 21 1
-RF=$(ocr 700x200+290+250); CN=$(at Cancel 700x300+290+250); [ -n "$CN" ] && click $CN 0.8
+RF=$(ocr 700x200+290+250); CN=$(at Cancel 380x80+450+400); [ -n "$CN" ] && click $CN 0.8
 check "closing with a paragraph only made bold asks first (${RF:0:60})" "echo \"$RF\" | grep -q 'Save changes'"
 key Escape; quit
 cp "$OUT/text.pdf" "$OUT/redact2.pdf"; launch "$OUT/redact2.pdf"; sleep 1
@@ -642,9 +643,9 @@ check "Compress to a size out of reach keeps the smallest and says so (${TS:-no 
 quit
 
 # 50. Any colour (Acrobat's Other color): the row's sixth dot (664,100 with the Pen, after the four widths and
-# "- -") opens a palette; its orange (the second swatch, 624,135) draws the stroke, saved orange (F28C28).
+# "- -") opens a palette; its orange (the second swatch, 618,135) draws the stroke, saved orange (F28C28).
 cp "$OUT/text.pdf" "$OUT/colour.pdf"; launch "$OUT/colour.pdf"
-key p; click 664 100 0.8; click 624 135 0.6
+key p; click 664 100 0.8; click 618 135 0.6
 xdotool mousemove 500 400 mousedown 1; for i in 1 2 3 4 5; do xdotool mousemove $(( 500 + i * 30 )) 410; sleep 0.05; done; xdotool mouseup 1; sleep 1; key ctrl+s; sleep 1.5
 OC=$(qpdf --json=2 "$OUT/colour.pdf" | python3 -c 'import json, sys
 for v in json.load(sys.stdin)["qpdf"][1].values():
