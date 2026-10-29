@@ -355,3 +355,15 @@ Verified: `bash scripts/test.sh gui` "PASS gui" / "GREEN (layers: gui; not a ful
 150–154 picked beside another worktree's run); `cargo.sh clippy -p sheaf-app --all-targets -- -D warnings` and
 `cargo.sh test -p sheaf-app` green. "a bookmark is renamed in place" failed once while clippy and the tests ran
 beside the GUI run, passed alone and in the last run (load, not the change).
+
+## C-platform-012 native builds on the three systems (29/10, Opus)
+
+Notarisation out of scope (DECISIONS 28/10). New workflow `.github/workflows/build.yml` (push to build/*, or Run
+workflow): run 40851924338 on build/r40e — macos-latest (Xcode 26.6) Sheaf-0.2.1-arm64.dmg 110 MB, windows-2022
+zip 123 MB, ubuntu-24.04 tarball 120 MB, each smoke-tested (scripts/smoke.sh: info, render, merge, ocr) and kept as
+artifacts; nothing published. Bugs the first runs found and fixed: fetch-fonts' sparse-checkout patterns rewritten
+by Git Bash on Windows (no fonts fetched); onnxruntime's CoreML version checks needing clang's runtime when the
+release targets macOS 11 (`___isPlatformVersionAtLeast`, pdfcraft-ocr build.rs); Xcode 15's actool unable to read
+AppIcon.icon (newest Xcode on the runner; the icns alone otherwise); the home-path leak check counting
+onnxruntime's own build paths. Also built on the MBP (Xcode 27.1): the DMG opens, the app launches from it with its
+menus, Assets.car (dark-mode icon) present, CLI smoke ok; copied to iCloud temp as Sheaf-0.2.1-r40-arm64.dmg.
