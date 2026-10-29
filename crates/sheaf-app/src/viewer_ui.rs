@@ -1404,11 +1404,17 @@ mod tests {
             v.resize(w, top, h);
             assert_eq!(v.current(), 22, "at {w} × {h}");
         }
-        // Down a column a resize is as before: the scroll asked for is left alone.
+        // Down a column too (W4): a column opening beside the pages (search results) and closing
+        // again re-fits them, and the page read stays in view.
         v.viewer.set_horizontal(false);
-        let seq = v.scroll_seq;
-        v.resize(800.0, v.top, 700.0);
-        assert_eq!(v.scroll_seq, seq);
+        v.show_page(12, None);
+        let y = v.scroll;
+        v.top = y;
+        for w in [740.0, 1000.0] {
+            let top = v.top;
+            v.resize(w, top, 700.0);
+            assert_eq!(v.current(), 12, "down a column at {w}");
+        }
     }
 
     /// What [`view_left`] does to a tab's viewer.
