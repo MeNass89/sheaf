@@ -604,6 +604,16 @@ fn main() -> Result<(), slint::PlatformError> {
         }
         q.trim().into()
     });
+    // Home ▸ Customize.
+    {
+        let b = ui.global::<sheaf_app::HomeBridge>();
+        let weak = ui.as_weak();
+        b.on_set_section(move |k, on| if let Some(ui) = weak.upgrade() { home::set_home_section(&ui, k, on) });
+        let weak = ui.as_weak();
+        b.on_set_tile(move |k, i| if let Some(ui) = weak.upgrade() { home::set_home_tile(&ui, k, i) });
+        let weak = ui.as_weak();
+        b.on_reset(move || if let Some(ui) = weak.upgrade() { home::reset_home(&ui) });
+    }
     wire!(ui, on_star_tool, |ui, id| {
         home::toggle_favourite(&id);
         install_catalogue(&ui);
@@ -612,6 +622,10 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_open_tool, |ui, id| {
         if let Some(plugin_tool) = id.strip_prefix(plugins_ui::CARD) {
             return plugins_ui::open(&ui, plugin_tool);
+        }
+        // Home ▸ Tools for you ▸ Annotate: a document opened in the reader, where annotating is.
+        if id == home::ANNOTATE {
+            return ui.invoke_open_file();
         }
         if let Some(tool) = flow::tool_from_str(&id) {
             let preload = state::with(|a| std::mem::take(&mut a.home_files));

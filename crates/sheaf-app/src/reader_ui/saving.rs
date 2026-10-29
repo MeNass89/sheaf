@@ -153,7 +153,7 @@ pub(super) fn hand_to_tools(ui: &AppWindow, tab_id: i32) {
         a.home_files.push(path);
     });
     ui.set_active_tab(-1);
-    ui.set_page(sheaf_app::Page::Tools);
+    ui.set_page(sheaf_app::Page::AllTools);
     crate::flow::toast(ui, &sheaf_app::i18n::tr("Choose a tool for your file"));
 }
 

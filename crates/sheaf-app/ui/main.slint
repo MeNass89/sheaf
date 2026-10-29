@@ -3,12 +3,11 @@ import { PortfolioPanel, PortfolioBrowser, PortfolioBridge, PortfolioRow } from 
 import { JavaScriptConsole, JavaScriptBridge, DocumentScriptRow } from "screens/javascript.slint";
 import { LibraryScreen, LibraryDeletePrompt, LibraryBridge, LibraryRow, LibraryVersionRow } from "screens/library.slint";
 import { ActionsScreen, ActionPrompt, ActionDiscardPrompt, CustomToolsPanel, ActionBridge, ActionRow, ActionStepRow, ActionCommandRow } from "screens/actions.slint";
-import { Theme } from "theme.slint";
+import { Theme, Space } from "theme.slint";
 import { ToolCard } from "widgets/tool-card.slint";
-// The sidebar's entries, renamed: `MenuItem` is the menu bar's own element in this file.
-import { MenuItem as SideMenuItem } from "widgets/menu-item.slint";
 import { TabBar } from "widgets/tab-bar.slint";
-import { RecentsScreen } from "screens/recents.slint";
+import { RecentsScreen, FavouritesScreen, CustomizeHomeSheet, HomeBridge } from "screens/recents.slint";
+import { HomeMetrics, SourceRow } from "screens/home-kit.slint";
 import { HistoryScreen, ClearHistoryDialog } from "screens/history.slint";
 import { PreferencesScreen } from "screens/preferences.slint";
 import { RecentFile, HistoryRow } from "history-types.slint";
@@ -37,70 +36,89 @@ export { PlatformBridge, SpellIssue, ShortcutRow, Launcher, DictionaryRow }
 export { AiBridge, AiMessage }
 export { SettingsBridge, FeedbackBridge, UpdateBridge }
 export { PluginBridge, PluginRow }
+export { HomeBridge }
 
-export enum Page { recents, tools, history, preferences, actions, library }
+// Home's pages. Preferences stays a page reached by ⌘, until it has its own window (DESIGN §5.8).
+export enum Page { recents, favourites, library, history, actions, all-tools, preferences }
 
+// Home's source list (DESIGN §5.1): 220 wide in the chrome material, a hairline on its edge; rows
+// 28 tall from 16 under the tab strip, Help at the bottom. No Settings row (⌘, and the menu bar).
+// Icons only in a narrow window, each name in a tooltip.
 component Sidebar inherits Rectangle {
     in-out property <Page> page;
     in property <bool> collapsed;
+    callback help();
 
-    width: collapsed ? Theme.sidebar-collapsed-width : Theme.sidebar-width;
-    background: Theme.sidebar-bg;
+    width: collapsed ? HomeMetrics.source-collapsed : HomeMetrics.source-width;
+    background: Theme.chrome;
+    accessible-role: list;
+    accessible-label: @tr("Home");
 
     VerticalLayout {
-        padding: Theme.sidebar-margin;
-        padding-top: 16px;
-        spacing: 2px;
+        padding: Space.sm;
+        padding-top: Space.lg;
+        spacing: HomeMetrics.source-row-pitch - Theme.row-height;
         alignment: start;
-        SideMenuItem {
+        SourceRow {
             icon: @image-url("icons/clock.svg");
             text: @tr("Recents");
             collapsed: root.collapsed;
             selected: root.page == Page.recents;
             clicked => { root.page = Page.recents; }
         }
-        SideMenuItem {
-            icon: @image-url("icons/wrench.svg");
-            text: @tr("Tools");
+        SourceRow {
+            icon: @image-url("icons/star.svg");
+            text: @tr("Favourites");
             collapsed: root.collapsed;
-            selected: root.page == Page.tools;
-            clicked => { root.page = Page.tools; }
+            selected: root.page == Page.favourites;
+            clicked => { root.page = Page.favourites; }
         }
-        SideMenuItem {
-            icon: @image-url("icons/clipboard-list.svg");
-            text: @tr("Tasks History");
-            collapsed: root.collapsed;
-            selected: root.page == Page.history;
-            clicked => { root.page = Page.history; }
-        }
-        SideMenuItem {
+        SourceRow {
             icon: @image-url("icons/folder.svg");
             text: @tr("Library");
             collapsed: root.collapsed;
             selected: root.page == Page.library;
             clicked => { root.page = Page.library; }
         }
-        SideMenuItem {
-            icon: @image-url("icons/list-ordered.svg");
+        SourceRow {
+            icon: @image-url("icons/list.svg");
+            text: @tr("Tasks");
+            collapsed: root.collapsed;
+            selected: root.page == Page.history;
+            clicked => { root.page = Page.history; }
+        }
+        SourceRow {
+            icon: @image-url("icons/zap.svg");
             text: @tr("Actions");
             collapsed: root.collapsed;
             selected: root.page == Page.actions;
             clicked => { root.page = Page.actions; }
         }
-        SideMenuItem {
-            icon: @image-url("icons/settings.svg");
-            text: @tr("Preferences");
+        SourceRow {
+            icon: @image-url("icons/layout-grid.svg");
+            text: @tr("All Tools");
             collapsed: root.collapsed;
-            selected: root.page == Page.preferences;
-            clicked => { root.page = Page.preferences; }
+            selected: root.page == Page.all-tools;
+            clicked => { root.page = Page.all-tools; }
+        }
+    }
+    VerticalLayout {
+        padding: Space.sm;
+        padding-bottom: Space.lg;
+        alignment: end;
+        SourceRow {
+            icon: @image-url("icons/circle-help.svg");
+            text: @tr("Help");
+            collapsed: root.collapsed;
+            clicked => { root.help(); }
         }
     }
 
     Rectangle {
-        // Right to left the sidebar is on the right: its border on its left.
+        // Right to left the list is on the right: its hairline on its left.
         x: PlatformBridge.rtl ? 0 : parent.width - 1px;
         width: 1px;
-        background: Theme.sidebar-border;
+        background: Theme.hairline;
     }
 }
 
@@ -110,14 +128,12 @@ export component AppWindow inherits Window {
     in property <[ToolCard]> all-tools;
     // Tools page search: the tools found for what is typed, best first.
     in property <[ToolCard]> tool-results;
-    // Home: the tools of the latest runs, newest first.
-    in property <[ToolCard]> recent-tools;
     // Starred tools, and starring one.
     in property <[ToolCard]> favourite-tools;
     callback star-tool(string);
     callback tool-query(string) -> string;
-    // Tools page sort: 0 = Categories, 1 = All. Kept here so it survives page switches.
-    in-out property <int> tools-sort: 0;
+    // All Tools' category chip: -1 = every category, else its index. Kept across page switches.
+    in-out property <int> tools-sort: -1;
 
     // Tool tabs; active-tab is an index into `tabs`, -1 = Home.
     in property <[ToolTab]> tabs;
@@ -270,7 +286,7 @@ export component AppWindow inherits Window {
         if root.pw-visible { return; }
         // A reader tab takes the keyboard itself (also after the password dialog it opened with).
         if root.active-tab >= 0 && root.tabs[root.active-tab].is-reader { root.reader-keys += 1; return; }
-        if root.active-tab == -1 && root.page == Page.tools { root.search-seq += 1; } else { app-keys.focus(); }
+        if root.active-tab == -1 && root.page == Page.all-tools { root.search-seq += 1; } else { app-keys.focus(); }
     }
     // Bumped to give the shown reader tab the keyboard.
     property <int> reader-keys;
@@ -355,7 +371,7 @@ export component AppWindow inherits Window {
             MenuItem { title: @tr("Paste"); shortcut: PlatformBridge.keys[42]; activated => { PlatformBridge.edit-key("v", false); } }
             MenuItem { title: @tr("Select All"); shortcut: PlatformBridge.keys[10]; activated => { PlatformBridge.edit-key("a", false); } }
             MenuSeparator {}
-            MenuItem { title: @tr("Find…"); shortcut: PlatformBridge.keys[11]; enabled: root.reader-on || (root.active-tab == -1 && root.page == Page.tools); activated => { if root.reader-on { root.reader-command("find"); } else { root.search-seq += 1; } } }
+            MenuItem { title: @tr("Find…"); shortcut: PlatformBridge.keys[11]; enabled: root.reader-on || (root.active-tab == -1 && root.page == Page.all-tools); activated => { if root.reader-on { root.reader-command("find"); } else { root.search-seq += 1; } } }
             MenuItem { title: @tr("Find Next"); shortcut: PlatformBridge.keys[12]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, 1); } }
             MenuItem { title: @tr("Find Previous"); shortcut: PlatformBridge.keys[13]; enabled: root.reader-on; activated => { ReaderBridge.search-step(root.reader-id, -1); } }
             MenuSeparator {}
@@ -395,7 +411,7 @@ export component AppWindow inherits Window {
         }
         Menu {
             title: @tr("Tools");
-            MenuItem { title: @tr("All Tools"); shortcut: PlatformBridge.keys[34]; activated => { root.active-tab = -1; root.page = Page.tools; } }
+            MenuItem { title: @tr("All Tools"); shortcut: PlatformBridge.keys[34]; activated => { root.active-tab = -1; root.page = Page.all-tools; } }
             // Every tool of the Tools page, with the keys the user gave it (Preferences ▸ Keyboard
             // shortcuts, Stirling's tool hotkeys).
             Menu {
@@ -473,7 +489,7 @@ export component AppWindow inherits Window {
             if e.modifiers.control && (e.text == "w" || e.text == "W") && root.active-tab >= 0 && !PlatformBridge.rebound[6] /* close */ { root.close-active-tab(); return accept; }
             if e.text == Key.Tab && e.modifiers.control && (e.modifiers.shift ? !PlatformBridge.rebound[36] /* previous-tab */ : !PlatformBridge.rebound[35] /* next-tab */) { root.step-tab(e.modifiers.shift ? -1 : 1); return accept; }
             // ⌘F on the Tools page: its search.
-            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.tools && !PlatformBridge.rebound[11] /* find */ { root.search-seq += 1; return accept; }
+            if e.modifiers.control && e.text == "f" && root.active-tab == -1 && root.page == Page.all-tools && !PlatformBridge.rebound[11] /* find */ { root.search-seq += 1; return accept; }
             reject
         }
         VerticalLayout {
@@ -486,7 +502,7 @@ export component AppWindow inherits Window {
                 close-tabs-around(id, which) => { root.close-tabs-around(id, which); }
                 new-tab => {
                     root.active-tab = -1;
-                    root.page = Page.tools;
+                    root.page = Page.all-tools;
                     // Already on Tools: neither change fires, the search still takes the keyboard.
                     root.take-keys();
                 }
@@ -501,7 +517,8 @@ export component AppWindow inherits Window {
                         x: PlatformBridge.rtl ? parent.width - self.width : 0;
                         height: parent.height;
                         page <=> root.page;
-                        collapsed: root.width < Theme.sidebar-collapse-below;
+                        collapsed: root.width < HomeMetrics.collapse-below;
+                        help => { root.open-guide(); }
                     }
                     Rectangle {
                         x: PlatformBridge.rtl ? 0 : sidebar.width;
@@ -509,9 +526,11 @@ export component AppWindow inherits Window {
                         height: parent.height;
                         if root.page == Page.recents: RecentsScreen {
                             recents: root.recents;
-                            recent-tools: root.recent-tools;
+                            favourite-tools: root.favourite-tools;
+                            drag-over: root.drop-hint != "" && !root.drop-refused;
                             open-tool(id) => { root.open-tool(id); }
                             star(id) => { root.star-tool(id); }
+                            view-all => { root.page = Page.all-tools; }
                             open-file => { root.open-file(); }
                             new-blank => { root.new-blank(); }
                             new-from-clipboard => { root.new-from-clipboard(); }
@@ -525,17 +544,27 @@ export component AppWindow inherits Window {
                             pin-recent(i) => { root.pin-recent(i); }
                             filter-recents(q, o) => { root.filter-recents(q, o); }
                         }
-                        if root.page == Page.tools: ToolsScreen {
-                        focus-seq: root.search-seq;
+                        if root.page == Page.favourites: FavouritesScreen {
+                            recents: root.recents;
+                            favourite-tools: root.favourite-tools;
+                            open-tool(id) => { root.open-tool(id); }
+                            star(id) => { root.star-tool(id); }
+                            open-recent(i) => { root.open-recent(i); }
+                            reveal-recent(i) => { root.reveal-recent(i); }
+                            remove-recent(i) => { root.remove-recent(i); }
+                            pin-recent(i) => { root.pin-recent(i); }
+                            filter-recents(q, o) => { root.filter-recents(q, o); }
+                        }
+                        if root.page == Page.all-tools: ToolsScreen {
+                            focus-seq: root.search-seq;
                             sections <=> root.sections;
                             all-tools: root.all-tools;
                             sort <=> root.tools-sort;
-                            chevron: @image-url("icons/chevron-down.svg");
                             open-tool(id) => { root.open-tool(id); }
                             results: root.tool-results;
                             query(q) => { return root.tool-query(q); }
-                        star(id) => { root.star-tool(id); }
-                        favourites: root.favourite-tools;
+                            star(id) => { root.star-tool(id); }
+                            favourites: root.favourite-tools;
                         }
                         if root.page == Page.actions: ActionsScreen { }
                         if root.page == Page.library: LibraryScreen { }
@@ -662,6 +691,7 @@ export component AppWindow inherits Window {
             }
         }
     }
+    if HomeBridge.customizing && root.active-tab == -1: CustomizeHomeSheet { }
     if root.toast-visible: Toast {
         x: (parent.width - self.width) / 2;
         y: parent.height - self.height - 28px;

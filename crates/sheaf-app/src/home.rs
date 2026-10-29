@@ -10,7 +10,7 @@ use sheaf_app::files::{self, Kind};
 use sheaf_app::history::{self, Entry, Store};
 use sheaf_app::icons::{icon_image, tile_colour};
 use sheaf_app::prefs::{OutputMode, Prefs, ThemePref};
-use sheaf_app::{store_file, AppWindow, HistoryRow, RecentFile, Theme, ToolCard};
+use sheaf_app::{store_file, AppWindow, HistoryRow, HomeBridge, RecentFile, Theme, ToolCard};
 use sheaf_core::pages::Input;
 use sheaf_core::tools::{self, ToolId};
 use slint::winit_030::{winit, WinitWindowAccessor};
@@ -218,6 +218,101 @@ pub fn toggle_favourite(id: &str) {
             eprintln!("sheaf: cannot save preferences: {e}");
         }
     });
+}
+
+/// The tile of Tools for you that opens a document to annotate (not a catalogue tool).
+pub const ANNOTATE: &str = "annotate";
+/// Tools for you's default six (DESIGN §5.1).
+const DEFAULT_TILES: [&str; 6] = ["edit", ANNOTATE, "organize", "jpg_to_pdf", "sign", "compress"];
+/// Home's sections Customize can hide, in HomeBridge's order.
+const SECTIONS: [&str; 3] = ["tools", "recents", "favourites"];
+
+/// What a tile can be: Annotate, then every catalogue tool shown here.
+fn tile_choices() -> Vec<&'static str> {
+    let hidden = crate::platform_ui::hidden_tools();
+    std::iter::once(ANNOTATE).chain(tools::catalogue().iter().filter(|t| !hidden.contains(&t.id)).map(|t| t.id.as_str())).collect()
+}
+
+/// A tile's name: the default six by what they do for the person (PDF Expert's "Edit",
+/// "Annotate"…), every other tool by its catalogue name.
+fn tile_name(id: &str) -> String {
+    use sheaf_app::i18n;
+    match id {
+        "edit" => i18n::tr("Edit"),
+        ANNOTATE => i18n::tr("Annotate"),
+        "organize" => i18n::tr("Organize Pages"),
+        "jpg_to_pdf" => i18n::tr("Convert to PDF"),
+        "sign" => i18n::tr("Sign"),
+        "compress" => i18n::tr("Compress"),
+        _ => ToolId::from_str(id).map(|t| i18n::tr(tools::find(t).name)).unwrap_or_default(),
+    }
+}
+
+fn tile_card(id: &str) -> Option<ToolCard> {
+    if id == ANNOTATE {
+        return Some(ToolCard {
+            id: ANNOTATE.into(),
+            name: tile_name(ANNOTATE).into(),
+            category: 0,
+            icon: Image::load_from_svg_data(include_bytes!("../ui/icons/highlighter.svg")).unwrap_or_default(),
+            tile: slint::Color::default(),
+            enabled: true,
+            favourite: false,
+        });
+    }
+    let t = tools::catalogue().iter().find(|t| t.id.as_str() == id)?;
+    Some(ToolCard { name: tile_name(id).into(), ..crate::tool_card(t) })
+}
+
+/// The six tiles as chosen (the defaults until Customize changes one).
+fn home_tiles() -> Vec<String> {
+    let chosen = with(|h| h.prefs.home_tiles.clone());
+    if chosen.len() == DEFAULT_TILES.len() { chosen } else { DEFAULT_TILES.iter().map(|s| s.to_string()).collect() }
+}
+
+/// Home's tiles, sections and Customize's choices into HomeBridge.
+pub fn push_home(ui: &AppWindow) {
+    let ids = home_tiles();
+    let choices = tile_choices();
+    let hidden = with(|h| h.prefs.home_hidden.clone());
+    let b = ui.global::<HomeBridge>();
+    b.set_tiles(ModelRc::new(VecModel::from(ids.iter().filter_map(|id| tile_card(id)).collect::<Vec<_>>())));
+    b.set_tile_choices(ModelRc::new(VecModel::from(choices.iter().map(|id| slint::SharedString::from(tile_name(id))).collect::<Vec<_>>())));
+    b.set_tile_picks(ModelRc::new(VecModel::from(ids.iter().map(|id| choices.iter().position(|c| c == id).unwrap_or(0) as i32).collect::<Vec<_>>())));
+    b.set_show_tools(!hidden.iter().any(|s| s == SECTIONS[0]));
+    b.set_show_recents(!hidden.iter().any(|s| s == SECTIONS[1]));
+    b.set_show_favourites(!hidden.iter().any(|s| s == SECTIONS[2]));
+}
+
+/// Customize ▸ a section shown or hidden.
+pub fn set_home_section(ui: &AppWindow, k: i32, on: bool) {
+    let Some(name) = SECTIONS.get(k.max(0) as usize) else { return };
+    update_prefs(ui, |p| {
+        p.home_hidden.retain(|s| s != name);
+        if !on {
+            p.home_hidden.push(name.to_string());
+        }
+    });
+    push_home(ui);
+}
+
+/// Customize ▸ tile `k` becomes choice `i`.
+pub fn set_home_tile(ui: &AppWindow, k: i32, i: i32) {
+    let choices = tile_choices();
+    let (Some(slot), Some(id)) = (Some(k.max(0) as usize).filter(|k| *k < DEFAULT_TILES.len()), choices.get(i.max(0) as usize)) else { return };
+    let mut tiles = home_tiles();
+    tiles[slot] = id.to_string();
+    update_prefs(ui, |p| p.home_tiles = tiles);
+    push_home(ui);
+}
+
+/// Customize ▸ Restore Defaults: every section, the default six.
+pub fn reset_home(ui: &AppWindow) {
+    update_prefs(ui, |p| {
+        p.home_tiles.clear();
+        p.home_hidden.clear();
+    });
+    push_home(ui);
 }
 
 /// The style last used with reader tool `tool` (colour, width, opacity), if any.
@@ -924,7 +1019,14 @@ pub fn refresh(ui: &AppWindow) {
                 let pages = cached.as_ref().and_then(|c| c.1);
                 RecentFile {
                     name: name(p).into(),
-                    info: files::caption(files::file_size(p), pages).into(),
+                    // The card's line under the name: the pages once known ("7 pages · 2 h ago"),
+                    // else the size.
+                    info: match pages {
+                        Some(1) => sheaf_app::i18n::tr("1 page"),
+                        Some(n) => sheaf_app::i18n::trf("{} pages", &[&n]),
+                        None => files::human_size(files::file_size(p)),
+                    }
+                    .into(),
                     // A starred file no task or opening remembers any more says it is starred.
                     when: if *at > 0 { history::relative_time(*at, now).into() } else { "Starred".into() },
                     has_thumb: cached.is_some(),
@@ -937,12 +1039,11 @@ pub fn refresh(ui: &AppWindow) {
         h.recents = outs.into_iter().map(|(p, ..)| p).collect();
         (rows, recents, missing)
     });
+    let starred = recents.iter().take_while(|r| r.pinned).count();
     ui.set_history(ModelRc::new(VecModel::from(rows)));
     ui.set_recents(ModelRc::new(VecModel::from(recents)));
-    // Ids read first: a card asks whether its tool is starred, which borrows the same state.
-    let ids: Vec<sheaf_core::tools::ToolId> = with(|h| history::recent_tools(h.store.list(), READ, 6).into_iter().filter_map(sheaf_core::tools::ToolId::from_str).collect());
-    let tools: Vec<ToolCard> = ids.into_iter().filter_map(|id| sheaf_core::tools::catalogue().iter().find(|t| t.id == id)).map(crate::tool_card).collect();
-    ui.set_recent_tools(ModelRc::new(VecModel::from(tools)));
+    ui.global::<HomeBridge>().set_starred_files(starred as i32);
+    push_home(ui);
     for (p, kind) in missing {
         render_thumb(ui, p, kind);
     }

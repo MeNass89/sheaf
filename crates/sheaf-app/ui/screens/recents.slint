@@ -1,46 +1,43 @@
+// Home ▸ Recents (DESIGN §5.1), the library's first page: the Open area, Tools for you, Recent
+// files, Favourites; Home ▸ Favourites; the Customize sheet.
 import { PlatformBridge } from "../platform.slint";
-import { Theme } from "../theme.slint";
-import { ToolCard, ToolCardView } from "../widgets/tool-card.slint";
-import { PrimaryButton } from "../widgets/button.slint";
+import { Theme, Space } from "../theme.slint";
+import { ToolCard } from "../widgets/tool-card.slint";
 import { ScrollView } from "std-widgets.slint";
-import { DashedBox } from "../widgets/dashed-box.slint";
-import { SecondaryButton } from "dialogs.slint";
-import { RecentCard } from "../widgets/recent-card.slint";
+import { Button, ButtonKind } from "../widgets/button.slint";
+import { Checkbox, PopupButton } from "../widgets/controls.slint";
+import { Sheet, SheetButtons } from "../widgets/surfaces.slint";
 import { RecentFile } from "../history-types.slint";
-import { TextField } from "../widgets/text-field.slint";
-import { SortCombo } from "../widgets/sort-combo.slint";
+import { HomeMetrics, PageTitle, SectionHeader, LinkButton, EmptyState, TileGrid, FileGrid, OpenArea, SearchField, SortMenu } from "home-kit.slint";
 
-// One tilted page outline of the empty-state illustration.
-component PageSketch inherits Rectangle {
-    in property <angle> tilt;
-    width: 92px;
-    height: 120px;
-    Rectangle {
-        transform-rotation: root.tilt;
-        border-radius: 6px;
-        border-width: 1.5px;
-        border-color: Theme.art-stroke;
-        background: Theme.art-page;
-        for i in 5: Rectangle {
-            x: PlatformBridge.rtl ? parent.width - (14px) - self.width : 14px;
-            y: 22px + i * 16px;
-            width: i == 4 ? 36px : 64px;
-            height: 1.5px;
-            border-radius: 1px;
-            background: Theme.art-stroke;
-        }
-    }
+// What Home shows and the six tiles of Tools for you (Customize): set from Rust (home.rs).
+export global HomeBridge {
+    // Tools for you's six tiles.
+    in property <[ToolCard]> tiles;
+    // The tools a tile can be (Customize's popups): names, and each tile's index among them.
+    in property <[string]> tile-choices;
+    in property <[int]> tile-picks;
+    // Sections of Recents shown: Tools for you, Recent files, Favourites.
+    in property <bool> show-tools: true;
+    in property <bool> show-recents: true;
+    in property <bool> show-favourites: true;
+    // How many of Home's recent files are starred (they lead the list).
+    in property <int> starred-files;
+    // Customize's sheet.
+    in-out property <bool> customizing;
+    callback set-section(int, bool);
+    callback set-tile(int, int);
+    callback reset();
 }
 
-// Recents page: drop zone, then the recent output files or the empty-state illustration.
+// Home ▸ Recents.
 export component RecentsScreen inherits Rectangle {
     in property <[RecentFile]> recents;
-    // The tools of the latest runs (iLovePDF's Recent Tools): one click opens one.
-    in property <[ToolCard]> recent-tools;
+    in property <[ToolCard]> favourite-tools;
     callback open-tool(string);
     callback star(string);
+    callback view-all();
     callback open-file();
-    // A new one-page blank PDF (PDF Expert's New ▸ Blank Document).
     callback new-blank();
     callback new-from-clipboard();
     callback new-from-screenshot();
@@ -53,191 +50,231 @@ export component RecentsScreen inherits Rectangle {
     callback pin-recent(int);
     // Search and order (0 newest, 1 name, 2 size): Home's list filtered in Rust.
     callback filter-recents(string, int);
+    in property <bool> drag-over;
     property <int> order: 0;
     property <string> query;
-    changed query => { root.filter-recents(root.query, root.order); }
-    background: Theme.content-bg;
+    // The list as Rust keeps it is the whole one when the page opens (a search left on another
+    // visit would hide files with an empty field).
+    init => { root.filter-recents("", 0); }
+    background: Theme.window;
 
     scroll := ScrollView {
       content-width: self.visible-width;
       content-height: body.preferred-height;
       body := VerticalLayout {
         width: scroll.visible-width;
-        padding: Theme.content-padding;
-        spacing: 0;
+        padding-left: HomeMetrics.margin;
+        padding-right: HomeMetrics.margin;
+        padding-top: HomeMetrics.top;
+        padding-bottom: HomeMetrics.margin;
+        spacing: Space.lg;
         alignment: start;
 
-        DashedBox {
-            height: Theme.dropzone-height;
-            background: Theme.card;
-            VerticalLayout {
-                alignment: center;
-                spacing: 8px;
-                FlexboxLayout {
-                    flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                    flex-wrap: FlexboxLayoutWrap.no-wrap;
-                    alignment: center;
-                    spacing: 8px;
-                    PrimaryButton {
-                        text: @tr("Open file");
-                        width: 92px;
-                        clicked => { root.open-file(); }
-                    }
-                    SecondaryButton {
-                        text: @tr("New blank PDF");
-                        clicked => { root.new-blank(); }
-                    }
-                    // Acrobat's Create PDF from Clipboard, Preview's New from Clipboard.
-                    SecondaryButton {
-                        text: @tr("From clipboard");
-                        clicked => { root.new-from-clipboard(); }
-                    }
-                    // Acrobat's Create PDF ▸ Screen capture.
-                    SecondaryButton {
-                        text: @tr("From screenshot");
-                        clicked => { root.new-from-screenshot(); }
-                    }
-                    // Acrobat's Create PDF ▸ Scanner.
-                    SecondaryButton {
-                        text: @tr("From scanner");
-                        clicked => { root.new-from-scanner(); }
-                    }
-                    // Preview's Import from iPhone or iPad (Continuity Camera): Mac only.
-                    if PlatformBridge.mac: SecondaryButton {
-                        text: @tr("From iPhone or iPad");
-                        clicked => { root.new-from-iphone(); }
-                    }
-                }
-                Text {
-                    text: @tr("PDFs, images or documents, or drag & drop anywhere");
-                    font-size: Theme.fs-button;
-                    color: Theme.text-muted;
-                    horizontal-alignment: center;
-                }
+        PageTitle {
+            text: @tr("Recents");
+            Button {
+                text: @tr("Customize");
+                tip: @tr("Choose what Home shows");
+                clicked => { HomeBridge.customizing = true; }
+            }
+        }
+        OpenArea {
+            drag-over: root.drag-over;
+            open-files => { root.open-file(); }
+            new-blank => { root.new-blank(); }
+            new-from-clipboard => { root.new-from-clipboard(); }
+            new-from-screenshot => { root.new-from-screenshot(); }
+            new-from-scanner => { root.new-from-scanner(); }
+            new-from-iphone => { root.new-from-iphone(); }
+        }
+
+        if HomeBridge.show-tools: VerticalLayout {
+            padding-top: HomeMetrics.section-gap - Space.lg;
+            spacing: HomeMetrics.header-gap;
+            SectionHeader {
+                text: @tr("Tools for you");
+                LinkButton { text: @tr("View All"); clicked => { root.view-all(); } }
+            }
+            TileGrid {
+                tools: HomeBridge.tiles;
+                one-row: true;
+                open-tool(id) => { root.open-tool(id); }
+                star(id) => { root.star(id); }
             }
         }
 
-        if root.recent-tools.length > 0: VerticalLayout {
-            padding-top: 24px;
-            spacing: 14px;
-            Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                height: Theme.button-height;
-                text: @tr("Recent tools");
-                font-size: Theme.fs-subtitle;
-                font-weight: Theme.weight-demibold;
-                color: Theme.text-heading;
-                vertical-alignment: center;
-            }
-            // Wraps at narrow widths (six cards are wider than the window's minimum).
-            FlexboxLayout {
-                // Right to left, the cards flow from the right.
-                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                flex-wrap: wrap;
-                spacing: Theme.grid-spacing;
-                for t in root.recent-tools: ToolCardView {
-                    tool: t;
-                    clicked(id) => { root.open-tool(id); }
-                    star(id) => { root.star(id); }
-                }
-            }
-        }
-
-        if root.recents.length > 0 || root.query != "": VerticalLayout {
-            padding-top: 24px;
-            spacing: 14px;
-            FlexboxLayout {
-                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                flex-wrap: FlexboxLayoutWrap.no-wrap;
-                alignment: LayoutAlignment.stretch;
-                height: Theme.button-height;
-                spacing: 10px;
-                Text {
-                    horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                    text: @tr("Recent files");
-                    font-size: Theme.fs-subtitle;
-                    font-weight: Theme.weight-demibold;
-                    color: Theme.text-heading;
-                    vertical-alignment: center;
-                    horizontal-stretch: 1;
-                }
-                // Finder's search and sort, as PDF Expert's file browser has them.
-                TextField {
-                    width: 200px;
-                    placeholder: @tr("Search recent files");
+        if HomeBridge.show-recents: VerticalLayout {
+            padding-top: HomeMetrics.section-gap - Space.lg;
+            spacing: HomeMetrics.header-gap;
+            SectionHeader {
+                text: @tr("Recent files");
+                if root.recents.length > 0 || root.query != "": SearchField {
+                    width: HomeMetrics.search-width;
+                    placeholder: @tr("Search recents");
                     text <=> root.query;
-                }
-                SortCombo {
-                    options: [@tr("Newest"), @tr("Name"), @tr("Size")];
-                    current-index <=> root.order;
-                    chevron: @image-url("../icons/chevron-down.svg");
-                    selected(i) => { root.filter-recents(root.query, i); }
-                }
-                SecondaryButton {
-                    text: @tr("Clear recents");
-                    accessible-role: button;
-                    accessible-label: @tr("Clear recents");
-                    accessible-action-default => { root.clear-recents(); }
-                    border-color: clear-focus.has-focus ? Theme.text-secondary : Theme.input-border;
-                    clicked => { root.clear-recents(); }
-                    clear-focus := FocusScope {
-                        key-pressed(e) => {
-                            if e.text == Key.Return || e.text == " " {
-                                root.clear-recents();
-                                return accept;
-                            }
-                            reject
-                        }
+                    edited(q) => { root.filter-recents(q, root.order); }
+                    key(e) => {
+                        if e.text == Key.Escape && self.text != "" { self.text = ""; root.filter-recents("", root.order); return accept; }
+                        reject
                     }
                 }
-            }
-            FlexboxLayout {
-                // Right to left, the cards flow from the right.
-                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-                flex-wrap: wrap;
-                spacing: 14px;
-                for f[i] in root.recents: RecentCard {
-                    file: f;
-                    open => { root.open-recent(i); }
-                    reveal => { root.reveal-recent(i); }
-                    remove => { root.remove-recent(i); }
-                    pin => { root.pin-recent(i); }
+                if root.recents.length > 0 || root.query != "": SortMenu {
+                    options: [@tr("Newest"), @tr("Name"), @tr("Size")];
+                    current <=> root.order;
+                    extra: @tr("Clear Recents");
+                    selected(i) => { root.filter-recents(root.query, i); }
+                    extra-chosen => { root.clear-recents(); }
                 }
             }
-        }
-
-        if root.recents.length == 0 && root.query == "": Rectangle { height: 80px; }
-
-        // Illustration
-        if root.recents.length == 0 && root.query == "": Rectangle {
-            height: 232px;
-            clip: true;
-            Rectangle {
-                width: 320px;
-                height: 320px;
-                y: 0;
-                border-radius: self.width / 2;
-                background: @linear-gradient(180deg, Theme.art-circle 0%, Theme.art-circle 40%, Theme.content-bg 72%);
+            if root.recents.length > 0: FileGrid {
+                files: root.recents;
+                open(i) => { root.open-recent(i); }
+                reveal(i) => { root.reveal-recent(i); }
+                remove(i) => { root.remove-recent(i); }
+                pin(i) => { root.pin-recent(i); }
             }
-            PageSketch { x: (parent.width - self.width) / 2 - 58px; y: 92px; tilt: -14deg; }
-            PageSketch { x: (parent.width - self.width) / 2 + 58px; y: 92px; tilt: 12deg; }
-            PageSketch { x: (parent.width - self.width) / 2; y: 72px; tilt: 0deg; }
-            Rectangle {
-                x: (parent.width - self.width) / 2;
-                y: 222px;
-                width: 260px;
-                height: 1.5px;
-                background: Theme.art-stroke;
+            if root.recents.length == 0 && root.query == "": EmptyState {
+                icon: @image-url("../icons/folder.svg");
+                text: @tr("Files you open will appear here");
+            }
+            if root.recents.length == 0 && root.query != "": EmptyState {
+                icon: @image-url("../icons/search.svg");
+                text: @tr("No recent file matches “{}”", root.query);
             }
         }
 
-        if root.recents.length == 0: Rectangle { height: 16px; }
-        if root.recents.length == 0: Text {
-            text: @tr("Your recent files will appear here");
-            font-size: Theme.fs-button;
-            color: Theme.text-muted;
-            horizontal-alignment: center;
+        if HomeBridge.show-favourites && (HomeBridge.starred-files > 0 || root.favourite-tools.length > 0): VerticalLayout {
+            padding-top: HomeMetrics.section-gap - Space.lg;
+            spacing: HomeMetrics.header-gap;
+            SectionHeader { text: @tr("Favourites"); }
+            if HomeBridge.starred-files > 0: FileGrid {
+                files: root.recents;
+                limit: HomeBridge.starred-files;
+                open(i) => { root.open-recent(i); }
+                reveal(i) => { root.reveal-recent(i); }
+                remove(i) => { root.remove-recent(i); }
+                pin(i) => { root.pin-recent(i); }
+            }
+            if root.favourite-tools.length > 0: TileGrid {
+                tools: root.favourite-tools;
+                open-tool(id) => { root.open-tool(id); }
+                star(id) => { root.star(id); }
+            }
         }
       }
+    }
+}
+
+// Home ▸ Favourites: the starred files, then the starred tools (DESIGN §5.1 "files first").
+export component FavouritesScreen inherits Rectangle {
+    in property <[RecentFile]> recents;
+    in property <[ToolCard]> favourite-tools;
+    callback open-tool(string);
+    callback star(string);
+    callback open-recent(int);
+    callback reveal-recent(int);
+    callback remove-recent(int);
+    callback pin-recent(int);
+    callback filter-recents(string, int);
+    init => { root.filter-recents("", 0); }
+    background: Theme.window;
+    scroll := ScrollView {
+      content-width: self.visible-width;
+      content-height: body.preferred-height;
+      body := VerticalLayout {
+        width: scroll.visible-width;
+        padding-left: HomeMetrics.margin;
+        padding-right: HomeMetrics.margin;
+        padding-top: HomeMetrics.top;
+        padding-bottom: HomeMetrics.margin;
+        spacing: Space.lg;
+        alignment: start;
+        PageTitle { text: @tr("Favourites"); }
+        if HomeBridge.starred-files == 0 && root.favourite-tools.length == 0: EmptyState {
+            icon: @image-url("../icons/star.svg");
+            text: @tr("Star a file or a tool to keep it here");
+        }
+        if HomeBridge.starred-files > 0: VerticalLayout {
+            spacing: HomeMetrics.header-gap;
+            SectionHeader { text: @tr("Files"); }
+            FileGrid {
+                files: root.recents;
+                limit: HomeBridge.starred-files;
+                open(i) => { root.open-recent(i); }
+                reveal(i) => { root.reveal-recent(i); }
+                remove(i) => { root.remove-recent(i); }
+                pin(i) => { root.pin-recent(i); }
+            }
+        }
+        if root.favourite-tools.length > 0: VerticalLayout {
+            padding-top: HomeBridge.starred-files > 0 ? HomeMetrics.section-gap - Space.lg : 0;
+            spacing: HomeMetrics.header-gap;
+            SectionHeader { text: @tr("Tools"); }
+            TileGrid {
+                tools: root.favourite-tools;
+                open-tool(id) => { root.open-tool(id); }
+                star(id) => { root.star(id); }
+            }
+        }
+      }
+    }
+}
+
+// Customize (Recents' title row): which sections Home shows and which six tools are Tools for
+// you. Applies at once, as Settings do; Done closes it, Escape too.
+export component CustomizeHomeSheet inherits Rectangle {
+    background: Theme.scrim;
+    // Clicks stop at the scrim (a click in the sheet must not close it).
+    TouchArea { }
+    keys := FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape || e.text == Key.Return { HomeBridge.customizing = false; return accept; }
+            reject
+        }
+    }
+    Sheet {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 480px;
+        height: self.preferred-height;
+        title: @tr("Customize Home");
+        Text {
+            text: @tr("Sections");
+            font-size: Theme.fs-headline;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+        }
+        VerticalLayout {
+            spacing: Space.sm;
+            Checkbox { text: @tr("Tools for you"); checked: HomeBridge.show-tools; toggled(on) => { HomeBridge.set-section(0, on); } }
+            Checkbox { text: @tr("Recent files"); checked: HomeBridge.show-recents; toggled(on) => { HomeBridge.set-section(1, on); } }
+            Checkbox { text: @tr("Favourites"); checked: HomeBridge.show-favourites; toggled(on) => { HomeBridge.set-section(2, on); } }
+        }
+        Text {
+            text: @tr("Tools for you");
+            font-size: Theme.fs-headline;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+        }
+        VerticalLayout {
+            spacing: Space.sm;
+            for r in 3: HorizontalLayout {
+                spacing: Space.sm;
+                for c in 2: PopupButton {
+                    property <int> k: r * 2 + c;
+                    horizontal-stretch: 1;
+                    options: HomeBridge.tile-choices;
+                    current-index: HomeBridge.tile-picks.length > self.k ? HomeBridge.tile-picks[self.k] : 0;
+                    tip: @tr("Tile {}", self.k + 1);
+                    selected(i) => { HomeBridge.set-tile(self.k, i); }
+                }
+            }
+        }
+        SheetButtons {
+            Button { text: @tr("Restore Defaults"); clicked => { HomeBridge.reset(); } }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: @tr("Done"); kind: ButtonKind.primary; clicked => { HomeBridge.customizing = false; } }
+        }
     }
 }

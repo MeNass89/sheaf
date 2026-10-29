@@ -1,10 +1,12 @@
 import { PlatformBridge } from "../platform.slint";
-import { PrimaryButton } from "../widgets/button.slint";
+import { Button, ButtonKind } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
-import { ComboBox, ScrollView } from "std-widgets.slint";
-import { Modal, SecondaryButton as Button } from "dialogs.slint";
+import { PopupButton } from "../widgets/controls.slint";
+import { ScrollView } from "std-widgets.slint";
+import { Modal } from "dialogs.slint";
 import { Thumb } from "../widgets/file-card.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Space } from "../theme.slint";
+import { HomeMetrics, PageTitle, SearchField } from "home-kit.slint";
 
 export struct LibraryRow { id: string, name: string, detail: string, marked: bool, thumb: image, has-thumb: bool }
 export struct LibraryVersionRow { number: int, label: string, detail: string }
@@ -33,29 +35,19 @@ export global LibraryBridge {
 
 export component LibraryScreen inherits Rectangle {
     init => { LibraryBridge.command("refresh", 0); }
-    background: Theme.content-bg;
+    background: Theme.window;
     VerticalLayout {
-        padding: 24px; spacing: 16px;
-        Text { text: @tr("Library"); color: Theme.text; font-size: Theme.fs-title; font-weight: 600; }
-        Text { text: @tr("Private file copies. Each save in Sheaf keeps a new version."); color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
-        HorizontalLayout {
-            spacing: 8px;
-            PrimaryButton { text: @tr("Add files…"); enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
-            ComboBox { model: [@tr("Name A–Z"), @tr("Name Z–A"), @tr("Newest"), @tr("Oldest"), @tr("Largest"), @tr("Smallest")]; current-index <=> LibraryBridge.sort; enabled: !LibraryBridge.busy; selected(value) => { LibraryBridge.command("sort", 0); } }
+        padding-left: HomeMetrics.margin; padding-right: HomeMetrics.margin; padding-top: HomeMetrics.top; padding-bottom: Space.xl; spacing: Space.lg;
+        PageTitle {
+            text: @tr("Library");
+            PopupButton { options: [@tr("Name A–Z"), @tr("Name Z–A"), @tr("Newest"), @tr("Oldest"), @tr("Largest"), @tr("Smallest")]; current-index <=> LibraryBridge.sort; enabled: !LibraryBridge.busy; tip: @tr("Order"); selected(i) => { LibraryBridge.command("sort", 0); } }
             Button { text: @tr("Refresh"); enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("refresh", 0); } }
-            Rectangle { horizontal-stretch: 1; }
+            Button { text: @tr("Add to Library…"); kind: ButtonKind.primary; enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("add", 0); } }
         }
-        Rectangle {
-            height: Theme.field-height; border-width: 1px; border-color: Theme.input-border; border-radius: Theme.radius-small; background: Theme.input-bg;
-            if LibraryBridge.query == "": Text { x: 10px; text: @tr("Filter by name or archive folder"); color: Theme.text-muted; font-size: Theme.fs-body; vertical-alignment: center; }
-            TextInput {
-                // Tools page tools' keys wait while a field has the keyboard.
-                changed has-focus => { PlatformBridge.typing = self.has-focus; }
-                x: 10px; width: parent.width - 20px; text <=> LibraryBridge.query;
-                single-line: true; color: Theme.text; font-size: Theme.fs-body; vertical-alignment: center;
-                accessible-label: @tr("Filter files by name or archive folder");
-                edited => { LibraryBridge.command("filter", 0); }
-            }
+        HorizontalLayout {
+            spacing: Space.sm;
+            Text { horizontal-stretch: 1; text: @tr("Keep private copies and versions of your files here. Each save in Sheaf keeps a new version."); color: Theme.text-2; font-size: Theme.fs-body; wrap: word-wrap; vertical-alignment: center; }
+            SearchField { width: 240px; placeholder: @tr("Filter by name or archive folder"); text <=> LibraryBridge.query; edited => { LibraryBridge.command("filter", 0); } }
         }
         HorizontalLayout {
             spacing: 8px;
@@ -91,7 +83,8 @@ export component LibraryScreen inherits Rectangle {
                     Button { text: @tr("All folders"); clicked => { LibraryBridge.folder = ""; LibraryBridge.command("folder", 0); } }
                     for folder in LibraryBridge.folders: Rectangle {
                         height: 34px;
-                        background: LibraryBridge.folder == folder ? Theme.menu-selected-bg : transparent;
+                        border-radius: Theme.r-row;
+                        background: LibraryBridge.folder == folder ? Theme.fill-2 : transparent;
                         Text { text: folder; color: Theme.text; font-size: Theme.fs-caption; overflow: elide; vertical-alignment: center; }
                         TouchArea { clicked => { LibraryBridge.folder = folder; LibraryBridge.command("folder", 0); } }
                     }
@@ -100,13 +93,13 @@ export component LibraryScreen inherits Rectangle {
             ScrollView {
                 horizontal-stretch: 2;
                 library-grid := FlexboxLayout {
-                    property <int> columns: max(1, floor((self.width + 10px) / 166px));
+                    property <int> columns: max(1, floor((self.width + HomeMetrics.gap) / (HomeMetrics.card-width + HomeMetrics.gap)));
                     property <int> rows: ceil(LibraryBridge.rows.length / self.columns);
-                    height: self.rows * 190px;
-                    spacing: 10px; flex-wrap: wrap;
+                    height: self.rows * (HomeMetrics.card-height + HomeMetrics.gap);
+                    spacing: HomeMetrics.gap; flex-wrap: wrap;
                     for row[i] in LibraryBridge.rows: Rectangle {
-                        width: 156px; height: 180px; border-radius: Theme.radius-small;
-                        background: LibraryBridge.selected == i ? Theme.menu-selected-bg : Theme.card;
+                        width: HomeMetrics.card-width; height: HomeMetrics.card-height; border-radius: Theme.r-md;
+                        background: LibraryBridge.selected == i ? Theme.fill-2 : Theme.window; border-width: 1px; border-color: LibraryBridge.selected == i ? Theme.accent : Theme.hairline;
                         TouchArea { enabled: !LibraryBridge.busy; clicked => { LibraryBridge.command("select", i); } }
                         VerticalLayout {
                             padding: 8px; spacing: 5px;
@@ -147,7 +140,7 @@ export component LibraryScreen inherits Rectangle {
                     }
                     Text { text: @tr("Version history"); color: Theme.text; font-size: Theme.fs-subtitle; }
                     for version in LibraryBridge.versions: Rectangle {
-                        height: 74px; background: Theme.card;
+                        height: 74px; background: Theme.window; border-radius: Theme.r-md; border-width: 1px; border-color: Theme.hairline;
                         VerticalLayout {
                             padding: 8px; spacing: 6px;
                             Text { text: @tr("Version {} · ", version.number) + version.label; color: Theme.text; font-size: Theme.fs-body; overflow: elide; }
@@ -187,6 +180,6 @@ export component LibraryDeletePrompt inherits Modal {
     HorizontalLayout {
         spacing: 8px;
         Button { text: @tr("Cancel"); clicked => { LibraryBridge.command("cancel-delete", 0); } }
-        Button { text: @tr("Delete from Library"); clicked => { LibraryBridge.command("delete", 0); } }
+        Button { text: @tr("Delete from Library"); kind: ButtonKind.destructive; clicked => { LibraryBridge.command("delete", 0); } }
     }
 }

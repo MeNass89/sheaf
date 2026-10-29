@@ -1,46 +1,57 @@
+// Home ▸ Tasks (DESIGN §5.1): every finished run, newest first, on Home's margins and title row.
 import { PlatformBridge } from "../platform.slint";
 import { ScrollView } from "std-widgets.slint";
-import { Theme } from "../theme.slint";
-import { IconButton } from "../widgets/button.slint";
+import { Theme, Motion, Space } from "../theme.slint";
+import { Button, ButtonKind, IconButton } from "../widgets/button.slint";
+import { Sheet, SheetButtons } from "../widgets/surfaces.slint";
 import { HistoryRow } from "../history-types.slint";
-import { Modal, SecondaryButton } from "dialogs.slint";
-import { PrimaryButton } from "../widgets/button.slint";
+import { HomeMetrics, PageTitle, EmptyState, LinkButton } from "home-kit.slint";
 
+// One run: the tool's glyph on a `fill-1` tile, its name and files, when, Run Again, Show in folder.
+// 52 tall, a hairline under it; hover `fill-1`.
 component HistoryRowView inherits Rectangle {
     in property <HistoryRow> item;
     callback reveal();
     callback rerun();
-    height: 56px;
-    border-radius: Theme.radius-item;
-    background: Theme.card;
+    height: 52px;
+    border-radius: Theme.r-row;
+    background: ta.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    ta := TouchArea { }
+    Rectangle {
+        y: parent.height - 1px;
+        height: 1px;
+        x: Space.sm;
+        width: parent.width - 2 * Space.sm;
+        background: Theme.hairline;
+    }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
-        padding-left: 12px;
-        padding-right: 10px;
-        spacing: 12px;
+        padding-left: Space.sm;
+        padding-right: Space.sm;
+        spacing: Space.md;
         Rectangle {
             cross-axis-self-alignment: CrossAxisAlignment.center;
             width: 32px;
             height: 32px;
-            border-radius: 7px;
-            background: root.item.tile;
+            border-radius: Theme.r-pill;
+            background: Theme.fill-1;
             Image {
-                width: 18px;
-                height: 18px;
+                width: Theme.icon-md;
+                height: Theme.icon-md;
                 source: root.item.icon;
-                colorize: white;
+                colorize: Theme.text;
             }
         }
         VerticalLayout {
             horizontal-stretch: 1;
             alignment: center;
-            spacing: 2px;
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: root.item.tool-name;
-                font-size: Theme.fs-body;
+                font-size: Theme.fs-headline;
                 font-weight: Theme.weight-demibold;
                 color: Theme.text;
                 overflow: elide;
@@ -48,130 +59,104 @@ component HistoryRowView inherits Rectangle {
             Text {
                 horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 text: root.item.files;
-                font-size: Theme.fs-caption;
-                color: Theme.text-muted;
+                font-size: Theme.fs-subhead;
+                color: Theme.text-2;
                 overflow: elide;
             }
         }
         Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
             text: root.item.when;
-            font-size: Theme.fs-label;
-            color: Theme.text-muted;
+            font-size: Theme.fs-callout;
+            color: Theme.text-2;
             vertical-alignment: center;
         }
-        if root.item.can-rerun: Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        if root.item.can-rerun: LinkButton {
             text: @tr("Run again");
-            font-size: Theme.fs-label;
-            font-weight: Theme.weight-demibold;
-            color: rerun-touch.has-hover ? Theme.accent-hover : Theme.accent;
-            vertical-alignment: center;
-            rerun-touch := TouchArea {
-                mouse-cursor: pointer;
-                clicked => { root.rerun(); }
-            }
+            clicked => { root.rerun(); }
         }
         IconButton {
             cross-axis-self-alignment: CrossAxisAlignment.center;
             icon: @image-url("../icons/folder-open.svg");
             enabled: root.item.can-reveal;
+            tip: PlatformBridge.mac ? @tr("Show in Finder") : @tr("Show in Folder");
             clicked => { root.reveal(); }
         }
     }
 }
 
 // "Clear the whole history?" Shown by AppWindow so its scrim covers the whole window.
-export component ClearHistoryDialog inherits Modal {
+export component ClearHistoryDialog inherits Rectangle {
     callback clear();
     callback cancel();
-    Text {
-        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: @tr("Clear the whole history?");
-        font-size: Theme.fs-body-large;
-        font-weight: Theme.weight-demibold;
-        color: Theme.text;
-    }
-    Text {
-        horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-        text: @tr("Your files are not deleted.");
-        font-size: Theme.fs-label;
-        color: Theme.text-secondary;
-    }
-    FlexboxLayout {
-        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-        flex-wrap: FlexboxLayoutWrap.no-wrap;
-        alignment: end;
-        spacing: 10px;
-        SecondaryButton {
-            text: @tr("Cancel");
-            clicked => { root.cancel(); }
+    background: Theme.scrim;
+    TouchArea { }
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { root.cancel(); return accept; }
+            if e.text == Key.Return { root.clear(); return accept; }
+            reject
         }
-        PrimaryButton {
-            text: @tr("Clear");
-            clicked => { root.clear(); }
+    }
+    Sheet {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 360px;
+        height: self.preferred-height;
+        Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+            text: @tr("Clear the whole history?");
+            font-size: Theme.fs-headline;
+            font-weight: Theme.weight-demibold;
+            color: Theme.text;
+        }
+        Text {
+            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+            text: @tr("Your files are not deleted.");
+            font-size: Theme.fs-body;
+            color: Theme.text-2;
+        }
+        SheetButtons {
+            Button { text: @tr("Cancel"); clicked => { root.cancel(); } }
+            Button { text: @tr("Clear"); kind: ButtonKind.primary; clicked => { root.clear(); } }
         }
     }
 }
 
-// Tasks History page: every finished job, newest first.
+// Home ▸ Tasks: every finished job, newest first.
 export component HistoryScreen inherits Rectangle {
     in property <[HistoryRow]> rows;
     callback reveal(int);
     callback rerun(int);
-    // "Clear all" pressed: AppWindow asks for confirmation.
+    // "Clear History…" pressed: AppWindow asks for confirmation.
     callback ask-clear();
-    background: Theme.content-bg;
+    background: Theme.window;
 
     VerticalLayout {
-        padding-top: Theme.content-padding;
-        spacing: 12px;
-        FlexboxLayout {
-            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
-            flex-wrap: FlexboxLayoutWrap.no-wrap;
-            alignment: LayoutAlignment.stretch;
-            padding-left: Theme.content-padding;
-            padding-right: Theme.content-padding;
-            height: 36px;
-            Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: @tr("Tasks History");
-                font-size: Theme.fs-page-title;
-                font-weight: Theme.weight-bold;
-                color: Theme.text;
-                vertical-alignment: center;
-                horizontal-stretch: 1;
-            }
-            if root.rows.length > 0: Text {
-                horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-                text: @tr("Clear all");
-                font-size: Theme.fs-button;
-                font-weight: Theme.weight-demibold;
-                color: clear-touch.has-hover ? Theme.accent-hover : Theme.accent;
-                vertical-alignment: center;
-                clear-touch := TouchArea {
-                    mouse-cursor: pointer;
-                    clicked => { root.ask-clear(); }
-                }
+        padding-top: HomeMetrics.top;
+        spacing: Space.lg;
+        PageTitle {
+            padding-left: HomeMetrics.margin;
+            padding-right: HomeMetrics.margin;
+            text: @tr("Tasks");
+            if root.rows.length > 0: Button {
+                text: @tr("Clear History…");
+                clicked => { root.ask-clear(); }
             }
         }
-        if root.rows.length == 0: Text {
-            horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
-            x: PlatformBridge.rtl ? parent.width - (Theme.content-padding) - self.width : Theme.content-padding;
-            text: @tr("Finished tasks will appear here");
-            font-size: Theme.fs-button;
-            color: Theme.text-muted;
+        if root.rows.length == 0: EmptyState {
+            icon: @image-url("../icons/list.svg");
+            text: @tr("Runs of your tools will appear here with their results");
         }
-        scroll := ScrollView {
+        if root.rows.length > 0: scroll := ScrollView {
             vertical-stretch: 1;
             content-width: self.visible-width;
             content-height: list.preferred-height;
             list := VerticalLayout {
                 width: scroll.visible-width;
-                padding-left: Theme.content-padding;
-                padding-right: Theme.content-padding;
-                padding-bottom: Theme.content-padding;
-                spacing: 8px;
+                padding-left: HomeMetrics.margin - Space.sm;
+                padding-right: HomeMetrics.margin - Space.sm;
+                padding-bottom: HomeMetrics.margin;
                 alignment: start;
                 for r[i] in root.rows: HistoryRowView {
                     item: r;
@@ -180,5 +165,6 @@ export component HistoryScreen inherits Rectangle {
                 }
             }
         }
+        if root.rows.length == 0: Rectangle { vertical-stretch: 1; }
     }
 }

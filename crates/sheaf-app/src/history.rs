@@ -143,18 +143,3 @@ fn civil_from_days(z: i64) -> (i64, u32, u32) {
     let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
     (yoe + era * 400 + i64::from(m <= 2), m, d)
 }
-
-/// The tools of the most recent runs, newest first, each once (the Home page's Recent tools, as
-/// iLovePDF shows them); `skip` names entries that are not tool runs.
-pub fn recent_tools<'a>(entries: &'a [Entry], skip: &str, max: usize) -> Vec<&'a str> {
-    let mut out: Vec<&str> = Vec::new();
-    for e in entries.iter().filter(|e| e.tool != skip) {
-        if !out.contains(&e.tool.as_str()) {
-            out.push(&e.tool);
-            if out.len() == max {
-                break;
-            }
-        }
-    }
-    out
-}

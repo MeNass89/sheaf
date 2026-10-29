@@ -174,6 +174,11 @@ pub struct Prefs {
     /// Files starred on Home (PDF Expert's Favorites, Acrobat's Starred): listed first, kept
     /// when Recents are cleared.
     pub pinned_files: Vec<PathBuf>,
+    /// Home ▸ Tools for you: its six tiles (tool ids, or "annotate"), chosen with Customize;
+    /// empty = the default six.
+    pub home_tiles: Vec<String>,
+    /// Home ▸ Recents' sections hidden with Customize ("tools", "recents", "favourites").
+    pub home_hidden: Vec<String>,
     /// The signature made in the reader, reused on every document (PDF Expert keeps it too):
     /// drawn strokes (pad units, y up) or a typed name.
     #[serde(skip_serializing)]

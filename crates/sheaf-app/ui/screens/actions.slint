@@ -1,10 +1,11 @@
 import { PlatformBridge } from "../platform.slint";
-import { PrimaryButton } from "../widgets/button.slint";
+import { Button, ButtonKind } from "../widgets/button.slint";
 import { Check as CheckBox } from "../widgets/check.slint";
 import { ComboBox, ScrollView, TextEdit } from "std-widgets.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Space } from "../theme.slint";
+import { HomeMetrics, PageTitle } from "home-kit.slint";
 import { TextField } from "../widgets/text-field.slint";
-import { Modal, SecondaryButton as Button } from "dialogs.slint";
+import { Modal } from "dialogs.slint";
 
 export struct ActionRow { name: string, description: string, builtin: bool, custom: bool, source: int }
 export struct ActionCommandRow { label: string, action: int, step: int, separator: bool, current: bool, icon: image, interactive: bool }
@@ -184,18 +185,16 @@ component ActionOutputSettings inherits Rectangle {
 // Acrobat's Action Wizard: the saved list stays beside the ordered steps being edited.
 export component ActionsScreen inherits Rectangle {
     property <bool> paste-open;
-    background: Theme.content-bg;
+    background: Theme.window;
     VerticalLayout {
-        padding: 24px; spacing: 16px;
-        Text { text: @tr("Actions"); color: Theme.text; font-size: Theme.fs-title; font-weight: 600; }
-        Text { text: @tr("Save a sequence, then run it on PDFs. Output settings control names and replacement."); color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
-        HorizontalLayout {
-            spacing: 8px;
+        padding-left: HomeMetrics.margin; padding-right: HomeMetrics.margin; padding-top: HomeMetrics.top; padding-bottom: Space.xl; spacing: Space.lg;
+        PageTitle {
+            text: @tr("Actions");
             Button { text: @tr("New action"); enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new", 0); } }
             Button { text: @tr("New custom tool"); enabled: !ActionBridge.busy; clicked => { ActionBridge.command("new-tool", 0); } }
-            Rectangle { horizontal-stretch: 1; }
-            PrimaryButton { text: @tr("Run on PDFs…"); enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
+            Button { text: @tr("Run on PDFs…"); kind: ButtonKind.primary; enabled: !ActionBridge.busy && ActionBridge.steps.length > 0; clicked => { ActionBridge.command("run", 0); } }
         }
+        Text { text: @tr("Save a sequence, then run it on PDFs. Output settings control names and replacement."); color: Theme.text-2; font-size: Theme.fs-body; wrap: word-wrap; }
         HorizontalLayout {
             spacing: 8px;
             Button { text: @tr("Import…"); enabled: !ActionBridge.busy; clicked => { ActionBridge.command("import", 0); } }
@@ -225,8 +224,10 @@ export component ActionsScreen inherits Rectangle {
                     if ActionBridge.rows.length == 0: Text { text: @tr("No actions in this list yet."); color: Theme.text-secondary; font-size: Theme.fs-body; wrap: word-wrap; }
                     for row in ActionBridge.rows: Rectangle {
                         height: 80px;
-                        background: ActionBridge.selected == row.source ? Theme.menu-selected-bg : Theme.card;
-                        border-radius: Theme.radius-small;
+                        background: ActionBridge.selected == row.source ? Theme.fill-2 : Theme.window;
+                        border-radius: Theme.r-md;
+                        border-width: 1px;
+                        border-color: ActionBridge.selected == row.source ? Theme.accent : Theme.hairline;
                         VerticalLayout {
                             padding: 10px; spacing: 4px;
                             Text { text: row.name; color: Theme.text; font-size: Theme.fs-body; font-weight: 600; overflow: elide; }
