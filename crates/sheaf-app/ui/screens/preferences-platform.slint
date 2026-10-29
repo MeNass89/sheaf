@@ -266,16 +266,12 @@ export component InterfaceSection inherits Card {
         alignment: LayoutAlignment.start;
         spacing: 8px;
         // Each language named in itself, as iLovePDF lists them (src/i18n.rs LANGUAGES' order).
-        Segment { width: 190px; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
+        Segment { width: Theme.mac ? self.fit-width : 190px; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
         for name[i] in ["English", "Français", "Deutsch", "Español", "Italiano", "Português"]: Segment {
-            width: 112px;
+            width: Theme.mac ? self.fit-width : 112px;
             text: name;
             selected: PlatformBridge.language == i + 1;
             clicked => { PlatformBridge.set-language(i + 1); }
         }
-        // Each language named in itself, as iLovePDF lists them.
-        Segment { width: Theme.mac ? self.fit-width : 190px; text: @tr("As the system's language"); selected: PlatformBridge.language == 0; clicked => { PlatformBridge.set-language(0); } }
-        Segment { width: Theme.mac ? self.fit-width : 190px; text: "English"; selected: PlatformBridge.language == 1; clicked => { PlatformBridge.set-language(1); } }
-        Segment { width: Theme.mac ? self.fit-width : 190px; text: "Français"; selected: PlatformBridge.language == 2; clicked => { PlatformBridge.set-language(2); } }
     }
 }
