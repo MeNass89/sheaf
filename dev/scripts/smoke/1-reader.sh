@@ -199,7 +199,7 @@ key ctrl+z; key ctrl+s; sleep 1.5
 check "undo again removes the duplicate" "[ \"\$(npages $OUT/text.pdf)\" = 4 ]"
 # Drag page 1's thumbnail (120,230) below page 2's (the drop line, a page badge under the pointer):
 # page 2 comes first; ⌘Z puts it back.
-xdotool mousemove 120 230 mousedown 1; for i in $(seq 1 12); do xdotool mousemove 120 $((230 + i * 25)); sleep 0.04; done; sleep 0.3; shot 03b-page-drag; xdotool mouseup 1; sleep 1.2
+xdotool mousemove 120 230 mousedown 1; for i in $(seq 1 12); do xdotool mousemove 120 $((230 + i * 35)); sleep 0.04; done; sleep 0.3; shot 03b-page-drag; xdotool mouseup 1; sleep 1.2
 key ctrl+s; sleep 1.5; FP=$(first_text $OUT/text.pdf 1)
 check "dragging a thumbnail reorders the pages ($FP)" "[ \"$FP\" = 'Page 2' ]"
 key ctrl+z; key ctrl+s; sleep 1.5
@@ -334,8 +334,9 @@ check "⌘Z brings them all back" "qpdf --qdf --object-streams=disable $OUT/shap
 # first card (under its "Page 1 · n" heading, 120,290) deletes a stamp, not what sat at that row's place in the full
 # list; back to All (the chips dragged back, All at 33,184).
 NST=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/Subtype /Stamp$')
-chips_left() { xdotool mousemove 230 184 mousedown 1; for x in 200 160 120 80 40 10; do xdotool mousemove $x 184; sleep 0.04; done; xdotool mouseup 1; sleep 0.6; }
-chips_right() { xdotool mousemove 20 184 mousedown 1; for x in 60 100 140 180 220 246; do xdotool mousemove $x 184; sleep 0.04; done; xdotool mouseup 1; sleep 0.6; }
+# Slowly, and held still before the release: a quick drag flings the row past Stamps.
+chips_left() { xdotool mousemove 230 184 mousedown 1; for x in 220 210 200 190 180 170 160 150 140 130; do xdotool mousemove $x 184; sleep 0.05; done; sleep 0.5; xdotool mouseup 1; sleep 0.6; }
+chips_right() { xdotool mousemove 30 184 mousedown 1; for x in 60 90 120 150 180 210 240; do xdotool mousemove $x 184; sleep 0.05; done; sleep 0.5; xdotool mouseup 1; sleep 0.6; }
 chips_left; ST=$(at Stamps 248x24+0+172); [ -n "$ST" ] && click $ST 1; click 120 290 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "Notes filter: the first row of Stamps deletes a stamp (${ST:-no chip}; $NST → one less), shapes kept" "[ \$(echo \"\$QD\" | grep -ac '/Subtype /Stamp\$') -eq \$(( NST - 1 )) ] && echo \"\$QD\" | grep -aq '/Subtype /Square\$'"

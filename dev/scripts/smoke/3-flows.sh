@@ -102,9 +102,9 @@ quit
 launch "$OUT/text.pdf"
 key ctrl+f; xdotool type --delay 20 "fox"; key Return; sleep 1.5
 key ctrl+f; xdotool type --delay 20 "quick"; key Return; sleep 1.5
-click 1226 102 0.8; shot 23-recent; RF=$(at fox 248x300+1024+240); [ -n "$RF" ] && click $RF 1.5
+click 1226 102 0.8; shot 23-recent; click 1100 292 1.5   # "fox", the second recent row
 SF=$(ocr 60x26+1004+48 | tr -d ' '); RN=$(ocr 220x28+1024+88)
-check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 results'"
+check "a recent search runs again from the list ($SF; $RN)" "echo \"$SF\" | grep -q '^fox' && echo \"$RN\" | grep -q '4 \?results'"
 quit
 
 # 24. More ▸ Highlight form fields (1127,61 ▸ "form" 1008,211) turns the fields' tint off and on (Acrobat's
@@ -251,9 +251,9 @@ check "pages copied from one document are pasted into another ($(npages $OUT/fou
 quit
 
 # 35. Thumbnails bar ▸ ⋯ (206,774) ▸ Number pages… (250,734): page 1 selected, "i, ii, iii" (the style list at
-# 120,645, then its second entry, 40,709), Number (196,715): the saved file labels its pages i to iv (/PageLabels, /r).
+# 120,645, then its second entry, 40,670: the list is pushed up to end at the window's edge), Number (196,715): the saved file labels its pages i to iv (/PageLabels, /r).
 cp "$OUT/text.pdf" "$OUT/numbered.pdf"; launch "$OUT/numbered.pdf"; sleep 1
-click 120 230 0.6; click 206 774 0.8; click 250 734 0.8; click 120 645 0.8; click 40 709 0.6   # the style list, then "i, ii, iii"
+click 120 230 0.6; click 206 774 0.8; click 250 734 0.8; click 120 645 0.8; click 40 670 0.6   # the style list, then "i, ii, iii"
 NB="196 715"; click $NB 1; key ctrl+s; sleep 1.5
 check "Number pages labels the pages in the style chosen (${NB:-no Number button})" "qpdf --qdf --object-streams=disable $OUT/numbered.pdf - 2>/dev/null | grep -aq '/S /r'"
 quit
@@ -316,8 +316,9 @@ quit
 # the grid on it (it fills the width again).
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/grid.pdf"; launch "$OUT/grid.pdf"; sleep 1
 click 1108 61 0.8; click 1008 267 1.5
-# The x of the first pixel where colour channel $1 (r, g or b) dominates on row y = $2, right of the panel.
-first_x() { import -window root -crop "1030x1+250+$2" txt:- 2>/dev/null | python3 -c '
+# The x of the first pixel where colour channel $1 (r, g or b) dominates on row y = $2, right of the panel (from x
+# $3, default 250; the page grid closes the Thumbnails sidebar, so its pages are read from 0).
+first_x() { local x0=${3:-250}; import -window root -crop "$(( 1280 - x0 ))x1+$x0+$2" txt:- 2>/dev/null | python3 -c '
 import re, sys
 want = "rgb".index(sys.argv[1])
 for line in sys.stdin:
@@ -325,8 +326,8 @@ for line in sys.stdin:
     m = re.match(r"(\d+),0: .*srgb\((\d+),(\d+),(\d+)", line)
     if not m: continue
     c = [int(m.group(k)) for k in (2, 3, 4)]
-    if c[want] > 150 and all(c[k] < 110 for k in range(3) if k != want): print(250 + int(m.group(1))); break' "$1"; }
-GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY); GG=$(first_x g $GY)
+    if c[want] > 150 and all(c[k] < 110 for k in range(3) if k != want): print(int(sys.argv[2]) + int(m.group(1))); break' "$1" "$x0"; }
+GY=226; GR=$(first_x r $GY 0); GB=$(first_x b $GY 0); GG=$(first_x g $GY 0)
 [ -n "$GB" ] && click $(( GB + 20 )) $GY 0.6; key Delete; sleep 1.5; key ctrl+s; sleep 1.5
 NB=$(npages "$OUT/grid.pdf")
 [ -n "$GR" ] && xdotool mousemove $(( GR + 20 )) $GY click --repeat 2 --delay 120 1; sleep 1.5; WIDE=$(first_x r 450)
@@ -684,10 +685,11 @@ quit
 
 # 52. Attachments tab (177,106): on hover, the trash deletes an attachment and the pencil renames one (Acrobat's
 # Attachments pane). Rows from y 219, 28 apart, in name order: annex, budget, contract, notes; trash at 228,
-# pencil at 206. notes.txt deleted, budget.txt renamed money.txt; + adds one to the document.
+# pencil at 206. budget.txt renamed money.txt first (four rows: the Find field above them), then notes.txt (still
+# the fourth row) deleted; + adds one to the document.
 cp "$OUT/withatt.pdf" "$OUT/att2.pdf"; launch "$OUT/att2.pdf"; click 177 106 1
-xdotool mousemove 120 303; sleep 0.4; click 228 303 1
 xdotool mousemove 120 247; sleep 0.4; click 206 247 0.6; key ctrl+a; xdotool type --delay 20 "money.txt"; key Return; sleep 1
+xdotool mousemove 120 303; sleep 0.4; click 228 303 1
 key ctrl+s; sleep 1.5; shot 52-attachments
 AL=$(qpdf --list-attachments "$OUT/att2.pdf" 2>/dev/null | tr '\n' ' ')
 check "an attachment is deleted and another renamed ($AL)" "! echo \"$AL\" | grep -q notes.txt && echo \"$AL\" | grep -q money.txt && ! echo \"$AL\" | grep -q budget.txt && echo \"$AL\" | grep -q contract.txt"

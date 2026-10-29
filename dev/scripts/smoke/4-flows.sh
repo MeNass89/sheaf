@@ -242,7 +242,7 @@ quit
 # first) goes before it (Acrobat's Organize Pages): saved, the first page is yellow.
 convert -size 300x400 xc:'#E02020' xc:'#20A020' xc:'#2040E0' xc:'#E0C020' "$OUT/griddrag.pdf"; launch "$OUT/griddrag.pdf"; sleep 1
 click 1108 61 0.8; click 1008 267 1.5
-GY=226; GR=$(first_x r $GY); GB=$(first_x b $GY)
+GY=226; GR=$(first_x r $GY 0); GB=$(first_x b $GY 0)
 # Yellow is red and green high: the last card, right of the blue one (cards are about as wide as blue's offset).
 GYW=${GB:+$(( GB + (GB - ${GR:-0}) / 2 + 20 ))}
 if [ -n "$GR" ] && [ -n "$GYW" ]; then

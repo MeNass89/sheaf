@@ -307,7 +307,8 @@ export component ReaderPanel inherits Rectangle {
                             ReaderBridge.thumb-pressed(root.id, root.thumb-down-page, false, false);
                             ReaderBridge.thumb-released(root.id);
                         }
-                        root.menu-x = max(0px, min(self.mouse-x, self.width - 248px));
+                        // At the pointer, as Preview opens it (it may reach past the sidebar).
+                        root.menu-x = self.mouse-x;
                         root.menu-y = self.mouse-y;
                         page-menu.show();
                     }

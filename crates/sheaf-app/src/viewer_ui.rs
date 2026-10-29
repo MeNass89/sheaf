@@ -379,9 +379,12 @@ impl ViewerUi {
     /// The view is `width` × `height`, scrolled to `top`. With pages across, a new size keeps the
     /// point at the view's top middle on its page (Sol, 27/10: deep in a strip, a window or side
     /// panel resized slid toward another page: the strip is laid out again at the new width).
+    /// Down a column too: a column opening or closing beside the pages (the search results, the
+    /// sidebar) re-fits their width, and the page read stays the one at the top (W4: closing the
+    /// search results slid from page 3 to page 2).
     fn resize(&mut self, width: f64, top: f64, height: f64) {
         let w = self.viewer.view_width();
-        let anchor = self.viewer.across().then(|| self.viewer.anchor_of(self.left + w / 2.0, self.top));
+        let anchor = Some(self.viewer.anchor_of(self.left + w / 2.0, self.top));
         let wide = self.viewer.set_width(width);
         let high = self.viewer.set_height(height);
         self.top = top;
