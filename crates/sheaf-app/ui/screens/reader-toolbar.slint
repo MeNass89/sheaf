@@ -111,11 +111,16 @@ export component ReaderToolbar inherits Rectangle {
     background: Theme.chrome;
 
     // ── Leading group: over the sidebar, then the canvas ─────────────────────────────────────
-    leading := HorizontalLayout {
-        x: Space.sm;
+    // Flexboxes, not HorizontalLayouts, so that right to left (Preferences ▸ Interface ▸ Direction)
+    // mirrors the groups and the buttons in each (Slint's rows have no direction of their own).
+    leading := FlexboxLayout {
+        x: PlatformBridge.rtl ? root.width - self.width - Space.sm : Space.sm;
         y: (parent.height - Theme.toolbar-button) / 2;
         width: self.preferred-width;
         height: Theme.toolbar-button;
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: start;
         spacing: Space.xs;
         ToolbarButton { icon: @image-url("../icons/panel-left.svg"); on: root.tab.reader.panel-open; tip: @tr("Show or hide the sidebar"); shortcut: PlatformBridge.key-labels[21]; clicked => { ReaderBridge.toggle-panel(root.id); } }
         ToolbarButton { icon: @image-url("../icons/layout-grid.svg"); on: root.tab.reader.spread == 3; tip: @tr("Show all pages"); shortcut: root.mode-keys("4"); clicked => { root.set-mode(4); } }
@@ -128,7 +133,7 @@ export component ReaderToolbar inherits Rectangle {
             init => { zoom-field.text = self.shown + "%"; }
             width: 72px;
             height: Theme.control-height;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
             border-radius: Theme.r-sm;
             background: zoom-field.has-focus ? Theme.field : zoom-hover.has-hover ? Theme.fill-2 : Theme.fill-1;
             border-width: zoom-field.has-focus ? 2px : 0px;
@@ -190,7 +195,9 @@ export component ReaderToolbar inherits Rectangle {
             }
         }
         // − / +: one capsule.
-        if !root.fold: HorizontalLayout {
+        if !root.fold: FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 0;
             ToolbarButton { icon: @image-url("../icons/zoom-out.svg"); tip: @tr("Zoom out"); shortcut: PlatformBridge.key-labels[17]; clicked => { ViewerBridge.zoom-step(root.id, -1); } }
             ToolbarButton { icon: @image-url("../icons/zoom-in.svg"); tip: @tr("Zoom in"); shortcut: PlatformBridge.key-labels[16]; clicked => { ViewerBridge.zoom-step(root.id, 1); } }
@@ -200,7 +207,7 @@ export component ReaderToolbar inherits Rectangle {
             width: root.fold ? 0px : 88px;
             visible: !root.fold;
             height: Theme.control-height;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
             border-radius: Theme.r-sm;
             border-width: page-in.has-focus ? 2px : 1px;
             border-color: page-in.has-focus ? Theme.focus-ring : Theme.hairline;
@@ -208,7 +215,10 @@ export component ReaderToolbar inherits Rectangle {
             accessible-role: text;
             accessible-label: @tr("Go to a page");
             TipArea { tip: @tr("Go to a page"); shortcut: PlatformBridge.key-labels[31]; }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: stretch;
                 padding-left: Space.sm;
                 padding-right: Space.sm;
                 spacing: Space.xs;
@@ -248,7 +258,9 @@ export component ReaderToolbar inherits Rectangle {
         x: max(root.sidebar-right + Space.sm, min((root.width - self.width) / 2, trailing.x - self.width - Space.sm));
         y: (parent.height - self.height) / 2;
         accessible-role: tab-list;
-        HorizontalLayout {
+        FlexboxLayout {
+            flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+            flex-wrap: FlexboxLayoutWrap.no-wrap;
             spacing: 0;
             ModeSegment { width: root.segment; icon: @image-url("../icons/highlighter.svg"); selected: root.mode == 1; tip: @tr("Annotate"); shortcut: root.mode-keys("1"); clicked => { root.set-mode(1); } }
             ModeSegment { width: root.segment; icon: @image-url("../icons/text-cursor-input.svg"); selected: root.mode == 2; tip: @tr("Edit"); shortcut: root.mode-keys("2"); clicked => { root.set-mode(2); } }
@@ -261,11 +273,14 @@ export component ReaderToolbar inherits Rectangle {
     }
 
     // ── Trailing group: over the inspector ───────────────────────────────────────────────────
-    trailing := HorizontalLayout {
-        x: root.width - self.width - Space.sm;
+    trailing := FlexboxLayout {
+        x: PlatformBridge.rtl ? Space.sm : root.width - self.width - Space.sm;
         y: (parent.height - Theme.toolbar-button) / 2;
         width: self.preferred-width;
         height: Theme.toolbar-button;
+        flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+        flex-wrap: FlexboxLayoutWrap.no-wrap;
+        alignment: start;
         spacing: Space.xs;
         // Page theme "Aa": Day · Sepia · Night, reflow. Folded below 1180 into More.
         if !root.fold: Rectangle {
@@ -304,7 +319,7 @@ export component ReaderToolbar inherits Rectangle {
             width: search-in.has-focus ? (root.compact ? 160px : 240px) : root.compact ? 120px : 160px;
             animate width { duration: Motion.quick; }
             height: Theme.control-height;
-            y: (parent.height - self.height) / 2;
+            cross-axis-self-alignment: CrossAxisAlignment.center;
             border-radius: Theme.r-sm;
             border-width: search-in.has-focus ? 2px : 1px;
             border-color: search-in.has-focus ? Theme.focus-ring : Theme.hairline;
