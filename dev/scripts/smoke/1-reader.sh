@@ -350,8 +350,8 @@ check "a reply to a comment is saved as a reply" "echo \"\$QD\" | grep -aq '/IRT
 # saved as a status reply.
 click 120 240 1; click 150 292 0.8; shot 06c-status; click 150 358 1; key ctrl+s; sleep 1.5
 check "a review status is saved (Accepted)" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/State (Accepted)'"
-# The reply's own bin (right of its line, x 220) deletes it alone: the comment and its status stay.
-read _ RY <<< "$(at Smoke 260x500+0+130)"; [ -n "$RY" ] && click 220 "$RY" 1; key ctrl+s; sleep 1.5
+# The reply's own bin (right of its line, x 232 in the 260-wide panel) deletes it alone: the comment and its status stay.
+read _ RY <<< "$(at Smoke 260x500+0+130)"; [ -n "$RY" ] && click 232 "$RY" 1; key ctrl+s; sleep 1.5
 QD=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "a reply is deleted alone, its comment and status kept" "[ -n \"$RY\" ] && ! echo \"\$QD\" | grep -aq '(Smoke reply)' && echo \"\$QD\" | grep -aq '/State (Accepted)'"
 key Escape
