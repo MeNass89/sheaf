@@ -3,9 +3,11 @@ import { IconButton } from "button.slint";
 import { ToolTab } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 
-// One tool tab: tile-colour icon, name (elided), ×. Narrow (many tabs open), the × shows on the
-// active and the hovered tab only, as in a browser; a middle click closes it.
-component TabItem inherits Rectangle {
+// One tab (DESIGN §4 TabItem): 120–240 wide, the full 38 of the strip, a monochrome icon 14 at 12,
+// the name, × on hover (and on the selected tab). The selected tab is the `window` colour with a
+// hairline each side, joined to the toolbar under it; the others are the strip's `chrome`. A middle
+// click closes it.
+export component TabItem inherits Rectangle {
     in property <ToolTab> tab;
     in property <bool> active;
     // Draw the divider on its right (an inactive neighbour follows).
@@ -17,17 +19,22 @@ component TabItem inherits Rectangle {
     callback dropped(length);
     callback close-around(int);
     property <bool> dragging;
-    property <bool> narrow: root.width < 110px;
+    property <bool> narrow: root.width < 150px;
     // Right to left (Preferences ▸ Interface ▸ Direction): icon on the right, × on the left.
     property <bool> rtl: PlatformBridge.rtl;
     property <length> name-start: 12px + Theme.tab-icon + 10px;
     // The unsaved dot sits where the × goes: the name stops before either.
     property <length> name-end: (close.visible || root.unsaved) ? 30px : 8px;
-    width: Theme.tool-tab-width;
-    height: Theme.tab-height;
-    background: root.active ? Theme.tab-bg : touch.has-hover ? Theme.menu-hover-bg : transparent;
-    border-top-left-radius: Theme.radius-small;
-    border-top-right-radius: Theme.radius-small;
+    width: Theme.tab-max-width;
+    height: Theme.tabbar-height;
+    background: root.active ? Theme.window : touch.has-hover ? Theme.fill-1 : transparent;
+    accessible-role: AccessibleRole.tab;
+    accessible-label: root.tab.name;
+    accessible-item-selected: root.active;
+    accessible-action-default => { root.select(); }
+    // The selected tab's sides.
+    if root.active: Rectangle { x: 0; width: 1px; background: Theme.hairline; }
+    if root.active: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.hairline; }
     // A task running in this tab: its progress along the tab's foot, followed from any other tab
     // (the task goes on while another document is read).
     if root.tab.phase == 1: Rectangle {
@@ -80,23 +87,18 @@ component TabItem inherits Rectangle {
     }
     if root.divider: Rectangle {
         x: root.rtl ? 0 : parent.width - 1px;
-        y: 9px;
+        y: 11px;
         width: 1px;
-        height: parent.height - 18px;
-        background: Theme.option-border;
+        height: parent.height - 22px;
+        background: Theme.hairline;
     }
-    Rectangle {
+    // Monochrome: no coloured tiles in the chrome (DESIGN §1 Feeling).
+    Image {
         x: root.rtl ? parent.width - 12px - self.width : 12px;
-        width: Theme.tab-icon + 2px;
-        height: Theme.tab-icon + 2px;
-        border-radius: 3px;
-        background: root.tab.tile;
-        Image {
-            width: Theme.tab-icon - 4px;
-            height: Theme.tab-icon - 4px;
-            source: root.tab.icon;
-            colorize: white;
-        }
+        width: Theme.tab-icon;
+        height: Theme.tab-icon;
+        source: root.tab.icon;
+        colorize: root.active ? Theme.text : Theme.text-2;
     }
     Text {
         x: root.rtl ? root.name-end : root.name-start;
@@ -104,9 +106,8 @@ component TabItem inherits Rectangle {
         width: parent.width - root.name-start - root.name-end;
         horizontal-alignment: root.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.tab.name;
-        font-size: Theme.fs-tab;
-        font-weight: root.active ? Theme.weight-demibold : 400;
-        color: root.active ? Theme.text : Theme.text-secondary;
+        font-size: Theme.fs-body;
+        color: root.active ? Theme.text : Theme.text-2;
         vertical-alignment: center;
         overflow: elide;
     }
@@ -119,14 +120,14 @@ component TabItem inherits Rectangle {
         width: 8px;
         height: 8px;
         border-radius: 4px;
-        background: Theme.text-secondary;
+        background: Theme.text-2;
     }
     close := IconButton {
-        visible: (!root.narrow || root.active || touch.has-hover) && (!root.unsaved || touch.has-hover);
-        x: root.rtl ? 4px : parent.width - self.width - 4px;
+        visible: (root.active || touch.has-hover || self.has-hover) && (!root.unsaved || touch.has-hover || self.has-hover);
+        x: root.rtl ? 8px : parent.width - self.width - 8px;
         width: 20px;
         height: 20px;
-        icon-size: 12px;
+        icon-size: 14px;
         icon: @image-url("../icons/x.svg");
         clicked => { root.close(); }
     }
@@ -150,23 +151,23 @@ export component TabBar inherits Rectangle {
     // Where it would land: whole tab widths away from where it was.
     // Right to left, a drag to the left goes further along the bar.
     property <int> drop-at: root.drag-from < 0 ? -1
-        : clamp(root.drag-from + round((PlatformBridge.rtl ? -root.drag-dx : root.drag-dx) / (root.other-w + 2px)), 0, root.tabs.length - 1);
-    background: Theme.tabbar-bg;
-    // Tabs share the bar: full width while they fit, narrower down to 72 px as more open (a
+        : clamp(root.drag-from + round((PlatformBridge.rtl ? -root.drag-dx : root.drag-dx) / root.other-w), 0, root.tabs.length - 1);
+    background: Theme.chrome;
+    // The Home tab, pinned first (its icon and name).
+    property <length> home-w: Theme.tab-min-width;
+    // Tabs share the bar: 240 wide while they fit, narrower down to 120 as more open (a
     // browser's), then the row scrolls (wheel or trackpad) and the active tab is kept in view.
-    property <length> room: root.width - 8px - Theme.tab-width - 34px - 12px;
-    property <length> each: root.tabs.length == 0 ? Theme.tool-tab-width
-        : clamp((root.room - 2px * root.tabs.length) / root.tabs.length, 72px, Theme.tool-tab-width);
-    // The active tab keeps room for its name (140 px); the others share what is left.
-    property <length> active-w: min(Theme.tool-tab-width, max(root.each, 140px));
-    property <length> other-w: root.active < 0 || root.tabs.length < 2 ? root.each
-        : clamp((root.room - root.active-w - 2px * root.tabs.length) / (root.tabs.length - 1), 72px, Theme.tool-tab-width);
-    property <length> row-width: 8px + Theme.tab-width + (root.tabs.length - 1) * (root.other-w + 2px) + root.active-w + 38px;
+    property <length> room: root.width - root.home-w - 38px - 8px;
+    property <length> each: root.tabs.length == 0 ? Theme.tab-max-width
+        : clamp(root.room / root.tabs.length, Theme.tab-min-width, Theme.tab-max-width);
+    property <length> active-w: root.each;
+    property <length> other-w: root.each;
+    property <length> row-width: root.home-w + root.tabs.length * root.each + 38px;
     changed active => { if root.active < 0 { root.active-at = -1; } }
     // The active tab is kept in view (its place is set by the tab itself).
     changed active-at => {
         if root.active-at >= 0 {
-            let from-start = 8px + Theme.tab-width + 2px + root.active-at * (root.other-w + 2px);
+            let from-start = root.home-w + root.active-at * root.other-w;
             // Right to left the bar starts at the right edge of the row.
             let left = PlatformBridge.rtl ? strip.content-width - from-start - root.active-w : from-start;
             if left + root.active-w > -strip.content-x + strip.width { strip.content-x = -(left + root.active-w - strip.width + 4px); }
@@ -177,28 +178,31 @@ export component TabBar inherits Rectangle {
     strip := Flickable {
         // Scrolled by wheel or trackpad only: a mouse drag moves a tab.
         interactive: false;
-        y: parent.height - Theme.tab-height;
-        height: Theme.tab-height;
+        y: 0;
+        height: Theme.tabbar-height;
         content-width: max(root.row-width, self.width);
         content-height: self.height;
     // A flexbox, not a HorizontalLayout, so that right to left reverses it (Slint's rows have no
     // direction of their own).
     FlexboxLayout {
-        x: PlatformBridge.rtl ? 0 : 8px;
-        width: parent.width - 8px;
-        height: Theme.tab-height;
+        x: 0;
+        width: parent.width;
+        height: Theme.tabbar-height;
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: start;
-        spacing: 2px;
-        // "Home" tab
-        // Full tab height, as the tool tabs: unset, the flexbox gave it its content's height.
+        spacing: 0px;
+        // "Home" tab, pinned first.
+        // Full tab height, as the other tabs: unset, the flexbox gave it its content's height.
         Rectangle {
-            width: Theme.tab-width;
-            height: Theme.tab-height;
-            background: root.active == -1 ? Theme.tab-bg : home-touch.has-hover ? Theme.menu-hover-bg : transparent;
-            border-top-left-radius: Theme.radius-small;
-            border-top-right-radius: Theme.radius-small;
+            width: root.home-w;
+            height: Theme.tabbar-height;
+            background: root.active == -1 ? Theme.window : home-touch.has-hover ? Theme.fill-1 : transparent;
+            accessible-role: AccessibleRole.tab;
+            accessible-label: @tr("Home");
+            accessible-item-selected: root.active == -1;
+            accessible-action-default => { root.active = -1; }
+            if root.active == -1: Rectangle { x: parent.width - 1px; width: 1px; background: Theme.hairline; }
             home-touch := TouchArea {
                 clicked => { root.active = -1; }
             }
@@ -211,13 +215,12 @@ export component TabBar inherits Rectangle {
                     width: Theme.tab-icon;
                     height: Theme.tab-icon;
                     y: (parent.height - self.height) / 2;
-                    colorize: Theme.text;
+                    colorize: root.active == -1 ? Theme.text : Theme.text-2;
                 }
                 Text {
                     text: @tr("Home");
-                    font-size: Theme.fs-tab;
-                    font-weight: root.active == -1 ? Theme.weight-demibold : 400;
-                    color: Theme.text;
+                    font-size: Theme.fs-body;
+                    color: root.active == -1 ? Theme.text : Theme.text-2;
                     vertical-alignment: center;
                 }
             }
@@ -241,8 +244,8 @@ export component TabBar inherits Rectangle {
             close => { root.close-tab(root.tabs[k].id); }
         }
         Rectangle {
-            width: 34px;
-            height: Theme.tab-height;
+            width: 38px;
+            height: Theme.tabbar-height;
             IconButton {
                 icon: @image-url("../icons/plus.svg");
                 clicked => { root.new-tab(); }
@@ -251,17 +254,17 @@ export component TabBar inherits Rectangle {
     }
     // Where a dragged tab will go.
     if root.drag-from >= 0 && root.drop-at != root.drag-from: Rectangle {
-        property <length> left: 8px + Theme.tab-width + 2px + root.drop-at * (root.other-w + 2px);
-        property <length> ltr-x: root.drop-at > root.drag-from ? self.left + root.other-w : self.left - 2px;
+        property <length> left: root.home-w + root.drop-at * root.other-w;
+        property <length> ltr-x: root.drop-at > root.drag-from ? self.left + root.other-w - 1px : self.left - 1px;
         x: PlatformBridge.rtl ? strip.content-width - self.ltr-x - self.width : self.ltr-x;
         width: 2px;
-        height: Theme.tab-height;
+        height: Theme.tabbar-height;
         background: Theme.accent;
     }
     }
     Rectangle {
         y: parent.height - 1px;
         height: 1px;
-        background: Theme.sidebar-border;
+        background: Theme.hairline;
     }
 }

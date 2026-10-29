@@ -7,6 +7,7 @@
 import { ScrollView, TextEdit } from "std-widgets.slint";
 import { JavaScriptBridge } from "javascript.slint";
 import { Theme } from "../theme.slint";
+import { TooltipBridge } from "../widgets/tooltip.slint";
 import { ToolButton, SmallButton, Divider, ColourDot, PopoverFrame } from "reader-parts.slint";
 import { SignatureManagerSheet } from "signature-manager.slint";
 import { SecurityPolicySheet } from "security-policy.slint";
@@ -46,6 +47,17 @@ export component ReaderScreen inherits Rectangle {
     property <int> effect-kind: root.bare && root.effect-left > 0 ? root.tab.reader.page-effect : 0;
     property <string> link-tip;
     property <bool> over-link: root.link-tip != "";
+    // Where a link goes, said by the tooltip layer (widgets/tooltip.slint) under the pointer at once:
+    // the pointer's place in the window when the link was reached.
+    property <length> link-wx;
+    property <length> link-wy;
+    changed link-tip => {
+        if root.link-tip != "" && root.tab.reader.tool == 0 {
+            TooltipBridge.show-now(root.link-wx, root.link-wy, 0px, 16px, root.link-tip);
+        } else {
+            TooltipBridge.leave();
+        }
+    }
     // A small window: the three page themes become one button, the zoom buttons go (⌘+ / ⌘− stay).
     property <bool> narrow: root.width < 1150px;
     // The text being typed is checked for spelling (not a choice list, a link or a length).
@@ -388,10 +400,13 @@ export component ReaderScreen inherits Rectangle {
             alignment: stretch;
             // ---- side panel -------------------------------------------------------------------
             panel := ReaderPanel {
+                // Above the canvas: its resize handle reaches 4 px over the pages (DESIGN §6.2).
+                z: 1;
                 tab: root.tab;
                 id: root.id;
                 bare: root.bare;
                 panel-width: root.panel-width;
+                window-width: root.width;
                 search-text: toolbar.search-text;
                 thumb-down-y <=> root.thumb-down-y;
                 drop-line <=> root.drop-line;
@@ -573,17 +588,6 @@ export component ReaderScreen inherits Rectangle {
                             clip: true;
                             Image { x: 2px; y: 2px; width: parent.width - 4px; height: parent.height - 4px; source: root.tab.reader.loupe-image; image-fit: contain; }
                         }
-                        // Where a link goes, beside the pointer.
-                        if root.over-link && root.tab.reader.tool == 0: Rectangle {
-                            // Beside the pointer, flipped above or to the left near the edges of the view.
-                            x: min(pages-ta.mouse-x + 14px, -sv.content-x + sv.visible-width - self.width - 4px);
-                            y: pages-ta.mouse-y + 48px > -sv.content-y + sv.visible-height ? pages-ta.mouse-y - 30px : pages-ta.mouse-y + 18px;
-                            width: min(lt.preferred-width + 14px, 420px);
-                            height: 22px;
-                            border-radius: Theme.radius-small;
-                            background: Theme.toast-bg;
-                            lt := Text { x: 7px; width: parent.width - 14px; text: root.link-tip; font-size: Theme.fs-caption; color: Theme.on-toast; overflow: elide; vertical-alignment: center; }
-                        }
                         pointer-event(e) => {
                             // The hand tool with ⌥ held: up zooms in, down out, around the press.
                             if root.dyn-zooming {
@@ -635,6 +639,8 @@ export component ReaderScreen inherits Rectangle {
                                 root.wheel-anchored = false;
                             }
                             if e.kind == PointerEventKind.move && !root.pressing {
+                                root.link-wx = self.absolute-position.x + self.mouse-x;
+                                root.link-wy = self.absolute-position.y + self.mouse-y;
                                 root.link-tip = ReaderBridge.over-link(root.id, self.mouse-x, self.mouse-y);
                                 if root.tab.reader.tool == 7 { ReaderBridge.hover(root.id, self.mouse-x, self.mouse-y); }
                                 if root.tab.reader.loupe { ReaderBridge.loupe-at(root.id, self.mouse-x, self.mouse-y); }

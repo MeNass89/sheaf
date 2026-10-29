@@ -5,38 +5,41 @@ export component DashedBox inherits Rectangle {
     in property <color> dash-color: Theme.dashed;
     in property <length> dash: 5px;
     in property <length> gap: 4px;
-    property <int> nx: floor((self.width - 2 * Theme.radius-small) / (dash + gap));
-    property <int> ny: floor((self.height - 2 * Theme.radius-small) / (dash + gap));
+    // Where the straight runs stop short of the corners (the corner radius), and the line width.
+    in property <length> corner: Theme.r-xs;
+    in property <length> thickness: 1px;
+    property <int> nx: floor((self.width - 2 * root.corner) / (dash + gap));
+    property <int> ny: floor((self.height - 2 * root.corner) / (dash + gap));
     property <length> ox: (self.width - nx * (dash + gap) + gap) / 2;
     property <length> oy: (self.height - ny * (dash + gap) + gap) / 2;
 
-    border-radius: Theme.radius-small;
+    border-radius: root.corner;
 
     for i in nx: Rectangle {
         x: root.ox + i * (root.dash + root.gap);
         y: 0;
         width: root.dash;
-        height: 1px;
+        height: root.thickness;
         background: root.dash-color;
     }
     for i in nx: Rectangle {
         x: root.ox + i * (root.dash + root.gap);
-        y: root.height - 1px;
+        y: root.height - root.thickness;
         width: root.dash;
-        height: 1px;
+        height: root.thickness;
         background: root.dash-color;
     }
     for i in ny: Rectangle {
         x: 0;
         y: root.oy + i * (root.dash + root.gap);
-        width: 1px;
+        width: root.thickness;
         height: root.dash;
         background: root.dash-color;
     }
     for i in ny: Rectangle {
-        x: root.width - 1px;
+        x: root.width - root.thickness;
         y: root.oy + i * (root.dash + root.gap);
-        width: 1px;
+        width: root.thickness;
         height: root.dash;
         background: root.dash-color;
     }

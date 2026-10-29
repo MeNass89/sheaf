@@ -1,0 +1,159 @@
+// What floats (DESIGN §4): popover, context menu rows, sheet, toast. Slint has no blur: every one is
+// the opaque `window` colour, lifted by its token shadow and a hairline. Popovers show no arrow
+// (macOS 26 toolbar popovers have none) and open 4 px under their button.
+import { Theme, Motion, Space } from "../theme.slint";
+
+// Popover body: 200–360 wide, radius 10, pad 8, the `popover` shadow.
+export component Popover inherits Rectangle {
+    min-width: 200px;
+    max-width: 360px;
+    background: Theme.window;
+    border-radius: Theme.r-md;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    drop-shadow-blur: Theme.popover-blur;
+    drop-shadow-offset-y: Theme.popover-y;
+    drop-shadow-color: Theme.popover-shadow;
+    @children
+}
+
+// One row of a context menu or a popover list: 28 tall, an optional 16 icon, the title; hover is
+// the accent fill with `on-accent` text (macOS menus). Context menus show no shortcuts (`keys`
+// is for popover lists only).
+export component MenuRow inherits Rectangle {
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <string> text;
+    in property <string> keys;
+    in property <bool> enabled: true;
+    in property <bool> danger;
+    callback activated();
+    height: Theme.row-height;
+    border-radius: Theme.r-xs + 1px;
+    background: root.enabled && ta.has-hover ? Theme.accent : transparent;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.activated(); } }
+    property <color> ink: !root.enabled ? Theme.text-disabled : ta.has-hover ? Theme.on-accent : root.danger ? Theme.danger : Theme.text;
+    if root.has-icon: Image {
+        x: 8px;
+        width: Theme.icon-sm;
+        height: Theme.icon-sm;
+        source: root.icon;
+        colorize: root.ink;
+    }
+    Text {
+        x: root.has-icon ? 32px : 12px;
+        width: parent.width - self.x - 12px - (root.keys == "" ? 0px : 48px);
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: root.ink;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if root.keys != "": Text {
+        x: parent.width - self.width - 12px;
+        text: root.keys;
+        font-size: Theme.fs-body;
+        color: ta.has-hover && root.enabled ? Theme.on-accent : Theme.text-3;
+        vertical-alignment: center;
+    }
+    ta := TouchArea { enabled: root.enabled; clicked => { root.activated(); } }
+}
+
+// A separator line of a menu: 1 px `hairline` with 4 px of margin.
+export component MenuSeparatorLine inherits Rectangle {
+    height: 9px;
+    Rectangle { x: 4px; width: parent.width - 8px; height: 1px; background: Theme.hairline; }
+}
+
+// The frame of a context menu: 240–320 wide, radius 8, pad 4.
+export component ContextMenu inherits Rectangle {
+    min-width: 240px;
+    max-width: 320px;
+    background: Theme.window;
+    border-radius: Theme.r-pill;
+    border-width: 1px;
+    border-color: Theme.hairline;
+    drop-shadow-blur: Theme.popover-blur;
+    drop-shadow-offset-y: Theme.popover-y;
+    drop-shadow-color: Theme.popover-shadow;
+    VerticalLayout {
+        padding: 4px;
+        @children
+    }
+}
+
+// Sheet: 360 / 480 / 640 / 864 wide, radius 12, the `sheet` shadow, the title `fs-title-1` at 20,
+// the content, then the buttons bottom right (Cancel then the primary, 8 apart). Placed by its
+// screen over a `scrim`; it rises 8 px and fades in.
+export component Sheet inherits Rectangle {
+    in property <string> title;
+    property <bool> shown;
+    init => { self.shown = true; }
+    opacity: self.shown ? 1 : 0;
+    animate opacity { duration: Motion.appear; }
+    background: Theme.window;
+    border-radius: Theme.r-lg;
+    drop-shadow-blur: Theme.sheet-blur;
+    drop-shadow-offset-y: Theme.sheet-y;
+    drop-shadow-color: Theme.sheet-shadow;
+    accessible-role: groupbox;
+    accessible-label: root.title;
+    VerticalLayout {
+        padding: Space.xl;
+        spacing: Space.lg;
+        if root.title != "": Text {
+            text: root.title;
+            font-size: Theme.fs-title-1;
+            color: Theme.text;
+        }
+        @children
+    }
+}
+
+// The row of a sheet's or dialog's buttons: right-aligned, 8 apart.
+export component SheetButtons inherits HorizontalLayout {
+    alignment: end;
+    spacing: Space.sm;
+}
+
+// Toast: min 200×36, radius 8, `toast` with `on-toast` text 13, an optional "Undo" in the accent
+// (its light shade on the dark toast, the deep one on the light toast of dark mode).
+export component ToastView inherits Rectangle {
+    in property <string> text;
+    in property <string> action;
+    callback action-clicked();
+    height: 36px;
+    min-width: 200px;
+    preferred-width: lbl.preferred-width + (root.action == "" ? 0px : act.preferred-width + 16px) + 32px;
+    border-radius: Theme.r-pill;
+    background: Theme.toast;
+    drop-shadow-blur: Theme.toast-blur;
+    drop-shadow-offset-y: Theme.toast-y;
+    drop-shadow-color: Theme.toast-shadow;
+    accessible-role: AccessibleRole.text;
+    accessible-label: root.text;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 16px;
+        alignment: center;
+        lbl := Text {
+            text: root.text;
+            font-size: Theme.fs-body;
+            color: Theme.on-toast;
+            vertical-alignment: center;
+        }
+        act := Text {
+            visible: root.action != "";
+            text: root.action;
+            font-size: Theme.fs-body;
+            font-weight: Theme.weight-demibold;
+            color: Theme.dark ? Theme.accent.darker(20%) : Theme.accent.brighter(25%);
+            vertical-alignment: center;
+            TouchArea { mouse-cursor: pointer; clicked => { root.action-clicked(); } }
+        }
+    }
+}

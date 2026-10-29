@@ -1,0 +1,193 @@
+// The tooltip layer (DESIGN §6.1). No control draws its own tip: a tip drawn inside its button was
+// covered by any sibling painted later (a divider, the side panel's edge, the dropdowns under the
+// Notes toolbar), cut by the panel's clip, and hung under the window at the bottom bar. A control
+// tells `TooltipBridge` where it is and what to say; the one `TooltipLayer`, the last child of the
+// window, draws the tip above everything, placed to stay inside the window.
+import { Theme, Motion } from "../theme.slint";
+
+export global TooltipBridge {
+    // The anchor, in window coordinates (a control's `absolute-position` and size).
+    in-out property <length> anchor-x;
+    in-out property <length> anchor-y;
+    in-out property <length> anchor-width;
+    in-out property <length> anchor-height;
+    in-out property <string> text;
+    // A shortcut shown after the text in the secondary colour ("⌘L").
+    in-out property <string> shortcut;
+    // A vertical rail's anchor: the tip goes to its right (left when it would overflow).
+    in-out property <bool> side;
+    // Shown now; waiting the rest delay; fading out; a tip shown less than 300 ms ago (the next
+    // one shows at once).
+    in-out property <bool> shown;
+    in-out property <bool> pending;
+    in-out property <bool> leaving;
+    in-out property <bool> warm;
+    // Restarts the rest delay when the pointer moves to another anchor before a tip showed.
+    in-out property <int> serial;
+
+    // The pointer (or the keyboard focus) rests on a control.
+    public function hover(x: length, y: length, w: length, h: length, text: string, shortcut: string, side: bool) {
+        self.anchor-x = x;
+        self.anchor-y = y;
+        self.anchor-width = w;
+        self.anchor-height = h;
+        self.text = text;
+        self.shortcut = shortcut;
+        self.side = side;
+        self.leaving = false;
+        self.serial += 1;
+        if self.shown || self.warm {
+            self.shown = true;
+            self.pending = false;
+        } else {
+            self.pending = true;
+        }
+    }
+    // Shown at once, without the rest delay (a link's destination under the pointer).
+    public function show-now(x: length, y: length, w: length, h: length, text: string) {
+        self.hover(x, y, w, h, text, "", false);
+        self.shown = true;
+        self.pending = false;
+    }
+    // The pointer left the control: the tip goes 60 ms later.
+    public function leave() {
+        self.pending = false;
+        if self.shown {
+            self.leaving = true;
+        }
+    }
+    // A press or a key: the tip goes at once and the next waits the full delay again.
+    public function cancel() {
+        self.pending = false;
+        self.leaving = false;
+        self.shown = false;
+        self.warm = false;
+    }
+}
+
+export component TooltipLayer inherits Rectangle {
+    // The window's size (the layer fills it).
+    x: 0;
+    y: 0;
+    width: 100%;
+    height: 100%;
+
+    // 600 ms of rest, then the tip.
+    Timer {
+        interval: 600ms;
+        running: TooltipBridge.pending && !TooltipBridge.shown && mod(TooltipBridge.serial, 2) == 0;
+        triggered => { TooltipBridge.pending = false; TooltipBridge.shown = true; }
+    }
+    Timer {
+        interval: 600ms;
+        running: TooltipBridge.pending && !TooltipBridge.shown && mod(TooltipBridge.serial, 2) == 1;
+        triggered => { TooltipBridge.pending = false; TooltipBridge.shown = true; }
+    }
+    // Out 60 ms after leaving; warm for 300 ms after.
+    Timer {
+        interval: 60ms;
+        running: TooltipBridge.leaving;
+        triggered => {
+            TooltipBridge.leaving = false;
+            TooltipBridge.shown = false;
+            TooltipBridge.warm = true;
+        }
+    }
+    Timer {
+        interval: 300ms;
+        running: TooltipBridge.warm && !TooltipBridge.shown;
+        triggered => { TooltipBridge.warm = false; }
+    }
+
+    // The text's own width, unwrapped, to size the body (max 280 then it wraps).
+    measure := Text {
+        visible: false;
+        text: TooltipBridge.text;
+        font-size: Theme.fs-subhead;
+    }
+    measure-key := Text {
+        visible: false;
+        text: TooltipBridge.shortcut;
+        font-size: Theme.fs-subhead;
+    }
+    property <length> pad-x: 8px;
+    property <length> pad-y: 4px;
+    property <length> gap: 6px;
+    property <length> edge: 8px;
+    property <length> key-width: TooltipBridge.shortcut == "" ? 0px : measure-key.preferred-width + 8px;
+    property <length> body-width: min(measure.preferred-width + root.key-width, Theme.tooltip-max-width - 2 * root.pad-x) + 2 * root.pad-x;
+    property <length> body-height: label.preferred-height + 2 * root.pad-y;
+    property <length> ax: TooltipBridge.anchor-x;
+    property <length> ay: TooltipBridge.anchor-y;
+    property <length> aw: TooltipBridge.anchor-width;
+    property <length> ah: TooltipBridge.anchor-height;
+    // Below the anchor, flipped above when it would pass the window's bottom less 8; x centred and
+    // clamped into [8, W − w − 8]. A rail's tip: right of it, flipped left, y centred.
+    property <length> below-y: root.ay + root.ah + root.gap;
+    property <length> right-x: root.ax + root.aw + root.gap;
+    property <length> tip-x: TooltipBridge.side
+        ? (root.right-x + root.body-width > root.width - root.edge ? root.ax - root.gap - root.body-width : root.right-x)
+        : clamp(root.ax + (root.aw - root.body-width) / 2, root.edge, max(root.edge, root.width - root.body-width - root.edge));
+    property <length> tip-y: TooltipBridge.side
+        ? clamp(root.ay + (root.ah - root.body-height) / 2, root.edge, max(root.edge, root.height - root.body-height - root.edge))
+        : (root.below-y + root.body-height > root.height - root.edge ? root.ay - root.gap - root.body-height : root.below-y);
+
+    body := Rectangle {
+        visible: self.opacity > 0;
+        opacity: TooltipBridge.shown && TooltipBridge.text != "" ? 1 : 0;
+        animate opacity { duration: TooltipBridge.shown ? Motion.quick : Motion.tooltip-out; }
+        x: root.tip-x;
+        y: root.tip-y;
+        width: root.body-width;
+        height: root.body-height;
+        border-radius: Theme.r-xs;
+        background: Theme.tooltip;
+        border-width: 1px;
+        border-color: Theme.hairline;
+        drop-shadow-blur: 6px;
+        drop-shadow-offset-y: 2px;
+        drop-shadow-color: Theme.dark ? #00000066 : #0000001F;
+        label := Text {
+            x: root.pad-x;
+            y: root.pad-y;
+            width: root.body-width - 2 * root.pad-x - root.key-width;
+            text: TooltipBridge.text;
+            font-size: Theme.fs-subhead;
+            color: Theme.text;
+            wrap: word-wrap;
+            vertical-alignment: top;
+        }
+        if TooltipBridge.shortcut != "": Text {
+            x: root.body-width - root.pad-x - measure-key.preferred-width;
+            y: root.pad-y;
+            text: TooltipBridge.shortcut;
+            font-size: Theme.fs-subhead;
+            color: Theme.text-2;
+        }
+    }
+}
+
+// A TouchArea that names its control through the layer: hover (and `focused`, for the keyboard)
+// shows `tip`, leaving hides it, a press cancels it. It must cover its control (its own place is
+// the anchor). `side` puts the tip right of a vertical rail's item.
+export component TipArea inherits TouchArea {
+    in property <string> tip;
+    in property <string> shortcut;
+    in property <bool> side;
+    in property <bool> focused;
+    function show() {
+        TooltipBridge.hover(self.absolute-position.x, self.absolute-position.y, self.width, self.height, root.tip, root.shortcut, root.side);
+    }
+    changed has-hover => {
+        if root.tip != "" {
+            if self.has-hover { root.show(); } else { TooltipBridge.leave(); }
+        }
+    }
+    changed focused => {
+        if root.tip != "" {
+            if root.focused { root.show(); } else { TooltipBridge.leave(); }
+        }
+    }
+    changed pressed => { if self.pressed { TooltipBridge.cancel(); } }
+    mouse-cursor: pointer;
+}

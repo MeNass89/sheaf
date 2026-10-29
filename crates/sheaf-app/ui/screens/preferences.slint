@@ -213,9 +213,9 @@ export component PreferencesScreen inherits Rectangle {
                     flex-wrap: FlexboxLayoutWrap.no-wrap;
                     alignment: start;
                     spacing: 10px;
-                    for c[i] in [#E5322D, #1F6FEB, #1A7F37, #8250DF, #D9730D, #57606A]: Swatch {
-                        // On macOS the first choice is the system's accent (ui/theme.slint).
-                        colour: Theme.mac && i == 0 ? Theme.system-accent : c;
+                    for c[i] in Theme.accent-swatches: Swatch {
+                        // Blue first (the system accent on macOS), then red… (ui/theme.slint).
+                        colour: c;
                         selected: Theme.accent-choice == i;
                         clicked => { root.set-accent(i); }
                     }

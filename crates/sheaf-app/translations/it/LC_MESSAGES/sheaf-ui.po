@@ -7211,3 +7211,15 @@ msgstr "Primo conduttore"
 #: (merged)
 msgid "Second host"
 msgstr "Secondo conduttore"
+
+#: ui/screens/reader-panel.slint
+msgid "More page actions"
+msgstr "Altre azioni sulle pagine"
+
+#: ui/widgets/home-parts.slint
+msgid "or drop any files here"
+msgstr "o trascina qui i file"
+
+#: ui/widgets/home-parts.slint
+msgid "Open Files"
+msgstr "Apri file"

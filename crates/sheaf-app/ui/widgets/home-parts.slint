@@ -1,0 +1,88 @@
+// Home's own parts (DESIGN §4): the tool tile and the Open area. FileCard is FileCardView in
+// file-card.slint. No coloured tiles: a monochrome icon on a `fill-1` square.
+import { Theme, Motion } from "../theme.slint";
+import { Button, ButtonKind } from "button.slint";
+import { TipArea } from "tooltip.slint";
+import { DashedBox } from "dashed-box.slint";
+
+// ToolTile: 152×108, `fill-1` radius 10; the icon 24 `text` on a 40×40 tile at 16 from the top, the
+// label 13 under it at 12. Hover `fill-2`.
+export component ToolTile inherits Rectangle {
+    in property <image> icon;
+    in property <string> text;
+    in property <string> tip;
+    callback clicked();
+    width: 152px;
+    height: 108px;
+    border-radius: Theme.r-md;
+    background: ta.pressed ? Theme.fill-3 : ta.has-hover ? Theme.fill-2 : Theme.fill-1;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-description: root.tip;
+    accessible-action-default => { root.clicked(); }
+    Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: 16px;
+        width: 40px;
+        height: 40px;
+        border-radius: Theme.r-md;
+        background: Theme.window;
+        Image {
+            width: 24px;
+            height: 24px;
+            source: root.icon;
+            colorize: Theme.text;
+        }
+    }
+    Text {
+        x: 8px;
+        y: 16px + 40px + 12px;
+        width: parent.width - 16px;
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: Theme.text;
+        horizontal-alignment: center;
+        overflow: elide;
+    }
+    ta := TipArea { tip: root.tip; clicked => { root.clicked(); } }
+}
+
+// DropArea (Home's Open area): full width × 100, radius 16, a dashed 1.5 px accent border at 50 %,
+// an accent 6 % fill; the capsule "Open Files" centred, "or drop any files here" 12 `text-2` under.
+// Drag over: accent 12 % and a solid border.
+export component DropArea inherits Rectangle {
+    in property <bool> drag-over;
+    in property <string> hint: @tr("or drop any files here");
+    callback open-files();
+    height: 100px;
+    border-radius: Theme.r-xl;
+    background: Theme.accent.transparentize(root.drag-over ? 88% : 94%);
+    border-width: root.drag-over ? 1.5px : 0px;
+    border-color: Theme.accent;
+    // The dashes (Slint has no dashed stroke): runs along each side, the corners left round.
+    if !root.drag-over: DashedBox {
+        width: parent.width;
+        height: parent.height;
+        corner: Theme.r-xl;
+        thickness: 1.5px;
+        dash: 6px;
+        gap: 4px;
+        dash-color: Theme.accent.transparentize(50%);
+        background: transparent;
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 8px;
+        HorizontalLayout {
+            alignment: center;
+            Button { text: @tr("Open Files"); kind: ButtonKind.large; clicked => { root.open-files(); } }
+        }
+        Text {
+            text: root.hint;
+            font-size: Theme.fs-callout;
+            color: Theme.text-2;
+            horizontal-alignment: center;
+        }
+    }
+}

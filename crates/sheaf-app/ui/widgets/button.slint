@@ -1,25 +1,30 @@
-import { Theme } from "../theme.slint";
+import { Theme, Motion } from "../theme.slint";
+import { TooltipBridge } from "tooltip.slint";
 
-// Filled accent button ("Open file").
+// Filled accent button ("Open file"). New screens use `Button { kind: ButtonKind.primary; }`.
 export component PrimaryButton inherits Rectangle {
     in property <string> text;
     in property <bool> enabled: true;
     callback clicked();
 
-    height: Theme.button-height;
+    height: Theme.control-height;
     min-width: label.preferred-width + 32px;
-    border-radius: Theme.radius-button;
-    background: !enabled ? Theme.pill-bg
+    border-radius: Theme.r-sm;
+    background: !enabled ? Theme.fill-2
         : touch.pressed ? Theme.accent-pressed
         : touch.has-hover ? Theme.accent-hover : Theme.accent;
-    animate background { duration: 120ms; }
+    animate background { duration: Motion.quick; }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
 
     label := Text {
         text: root.text;
         // Disabled: grey on grey (white on text-disabled read at 2.2:1).
         color: root.enabled ? Theme.on-accent : Theme.text-disabled;
-        font-size: Theme.fs-button;
-        font-weight: 500;
+        font-size: Theme.fs-body;
+        font-weight: Theme.weight-demibold;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -31,27 +36,129 @@ export component PrimaryButton inherits Rectangle {
     }
 }
 
-// Square icon-only button (tab bar "+").
+// Square icon-only button (tab bar "+", a tab's ×). Its tip goes through the tooltip layer.
 export component IconButton inherits Rectangle {
     in property <image> icon;
     in property <bool> enabled: true;
-    in property <length> icon-size: 16px;
+    in property <length> icon-size: Theme.icon-sm;
+    in property <string> tip;
+    out property <bool> has-hover: touch.has-hover;
     callback clicked();
 
     width: 28px;
     height: 28px;
-    border-radius: Theme.radius-small;
-    background: enabled && touch.has-hover ? Theme.menu-hover-bg : transparent;
+    border-radius: Theme.r-sm;
+    background: !enabled ? transparent : touch.pressed ? Theme.fill-2 : touch.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
 
     Image {
         source: root.icon;
         width: root.icon-size;
         height: root.icon-size;
-        colorize: root.enabled ? Theme.text-secondary : Theme.text-disabled;
+        colorize: root.enabled ? Theme.text-2 : Theme.text-disabled;
     }
 
     touch := TouchArea {
         enabled: root.enabled;
+        mouse-cursor: pointer;
         clicked => { root.clicked(); }
+        changed has-hover => {
+            if root.tip != "" {
+                if self.has-hover {
+                    TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.tip, "", false);
+                } else {
+                    TooltipBridge.leave();
+                }
+            }
+        }
+        pointer-event(e) => { if e.kind == PointerEventKind.down { TooltipBridge.cancel(); } }
+    }
+}
+
+// The four buttons of the component inventory (DESIGN §4): secondary (the default: `fill-2`),
+// primary (accent, one per page or card), destructive (secondary with `danger` text), large (the
+// capsule "Open Files", 120×32).
+export enum ButtonKind { secondary, primary, destructive, large }
+
+export component Button inherits Rectangle {
+    in property <string> text;
+    in property <ButtonKind> kind: ButtonKind.secondary;
+    in property <bool> enabled: true;
+    // Said by the tooltip layer (a shortcut, a longer name).
+    in property <string> tip;
+    out property <bool> has-focus: fs.has-focus;
+    callback clicked();
+
+    property <bool> filled: root.kind == ButtonKind.primary || root.kind == ButtonKind.large;
+    // The ring shows for the keyboard only: a click's focus draws none.
+    property <bool> clicked-focus;
+    height: root.kind == ButtonKind.large ? 32px : Theme.control-height;
+    min-width: root.kind == ButtonKind.large ? 120px : 72px;
+    preferred-width: max(self.min-width, label.preferred-width + 24px);
+    border-radius: root.kind == ButtonKind.large ? self.height / 2 : Theme.r-sm;
+    background: !root.enabled ? Theme.fill-2
+        : root.filled ? (touch.pressed ? Theme.accent-pressed : touch.has-hover ? Theme.accent-hover : Theme.accent)
+        : (touch.pressed ? Theme.fill-3.darker(10%) : touch.has-hover ? Theme.fill-3 : Theme.fill-2);
+    animate background { duration: Motion.quick; }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-description: root.tip;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+
+    if fs.has-focus && !root.clicked-focus: Rectangle {
+        x: -4px;
+        y: -4px;
+        width: parent.width + 8px;
+        height: parent.height + 8px;
+        border-radius: parent.border-radius + 4px;
+        border-width: 2px;
+        border-color: Theme.focus-ring;
+    }
+    label := Text {
+        text: root.text;
+        color: !root.enabled ? Theme.text-disabled
+            : root.filled ? Theme.on-accent
+            : root.kind == ButtonKind.destructive ? Theme.danger : Theme.text;
+        font-size: Theme.fs-body;
+        font-weight: root.filled ? Theme.weight-demibold : Theme.weight-regular;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    fs := FocusScope {
+        enabled: root.enabled;
+        changed has-focus => {
+            if !self.has-focus { root.clicked-focus = false; }
+            if self.has-focus && !root.clicked-focus && root.tip != "" {
+                TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.tip, "", false);
+            } else if !self.has-focus && root.tip != "" {
+                TooltipBridge.leave();
+            }
+        }
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" { root.clicked(); return accept; }
+            reject
+        }
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: pointer;
+            clicked => { root.clicked(); }
+            changed has-hover => {
+                if root.tip != "" {
+                    if self.has-hover {
+                        TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.tip, "", false);
+                    } else {
+                        TooltipBridge.leave();
+                    }
+                }
+            }
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down { TooltipBridge.cancel(); root.clicked-focus = true; }
+            }
+        }
     }
 }

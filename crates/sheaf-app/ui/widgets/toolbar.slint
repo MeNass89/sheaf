@@ -1,0 +1,184 @@
+// The control layer's buttons (DESIGN §4 component inventory): toolbar, mode bar, mode rail and the
+// sidebar's segmented tabs. Monochrome icons; the state is a neutral pill, never the accent (one
+// signal: the accent belongs to selection and the primary button).
+import { Theme, Motion } from "../theme.slint";
+import { TipArea } from "tooltip.slint";
+
+// ToolbarButton: 36×36, icon 18, radius 8. Rest transparent, hover `fill-1`, pressed `fill-2`, on
+// (an active tool) `fill-3` with the icon `text`.
+export component ToolbarButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> on;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <string> shortcut;
+    callback clicked();
+    width: Theme.toolbar-button;
+    height: Theme.toolbar-button;
+    border-radius: Theme.r-pill;
+    background: root.on ? Theme.fill-3 : !root.enabled ? transparent : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-description: root.shortcut;
+    accessible-enabled: root.enabled;
+    accessible-checked: root.on;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    Image {
+        width: Theme.icon-md;
+        height: Theme.icon-md;
+        source: root.icon;
+        colorize: !root.enabled ? Theme.text-disabled : root.on ? Theme.text : Theme.text-2;
+    }
+    ta := TipArea {
+        enabled: root.enabled;
+        tip: root.tip;
+        shortcut: root.shortcut;
+        clicked => { root.clicked(); }
+    }
+}
+
+// ToolbarText (zoom "87% ⌄"): 72×28, radius 6, `fill-1` at rest.
+export component ToolbarText inherits Rectangle {
+    in property <string> text;
+    in property <bool> chevron: true;
+    in property <string> tip;
+    in property <string> shortcut;
+    callback clicked();
+    width: 72px;
+    height: Theme.control-height;
+    border-radius: Theme.r-sm;
+    background: ta.pressed ? Theme.fill-3 : ta.has-hover ? Theme.fill-2 : Theme.fill-1;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-value: root.text;
+    accessible-action-default => { root.clicked(); }
+    HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 6px;
+        spacing: 2px;
+        Text {
+            text: root.text;
+            font-size: Theme.fs-body;
+            color: Theme.text;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+        if root.chevron: Image {
+            width: 12px;
+            height: 12px;
+            y: (parent.height - self.height) / 2;
+            source: @image-url("../icons/chevron-down.svg");
+            colorize: Theme.text-2;
+        }
+    }
+    ta := TipArea { tip: root.tip; shortcut: root.shortcut; clicked => { root.clicked(); } }
+}
+
+// ModeSegment: one item of the mode bar, 48×36, icon 18, radius 8; selected `fill-3`.
+export component ModeSegment inherits Rectangle {
+    in property <image> icon;
+    in property <bool> selected;
+    in property <string> tip;
+    in property <string> shortcut;
+    callback clicked();
+    width: Theme.mode-segment-width;
+    height: Theme.toolbar-button;
+    border-radius: Theme.r-pill;
+    background: root.selected ? Theme.fill-3 : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.quick; }
+    accessible-role: tab;
+    accessible-label: root.tip;
+    accessible-description: root.shortcut;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { root.clicked(); }
+    Image {
+        width: Theme.icon-md;
+        height: Theme.icon-md;
+        source: root.icon;
+        colorize: root.selected ? Theme.text : Theme.text-2;
+    }
+    ta := TipArea { tip: root.tip; shortcut: root.shortcut; clicked => { root.clicked(); } }
+}
+
+// RailButton: the mode rail's item, 36×36 on a 40 pitch; its tip to the right. `danger` for the
+// organiser's Delete (the only tinted icon in the reader).
+export component RailButton inherits Rectangle {
+    in property <image> icon;
+    in property <bool> on;
+    in property <bool> danger;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    in property <string> shortcut;
+    callback clicked();
+    width: Theme.toolbar-button;
+    height: Theme.toolbar-button;
+    border-radius: Theme.r-pill;
+    background: root.on ? Theme.fill-3 : !root.enabled ? transparent : ta.pressed ? Theme.fill-2 : ta.has-hover ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-description: root.shortcut;
+    accessible-checked: root.on;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    Image {
+        width: Theme.icon-md;
+        height: Theme.icon-md;
+        source: root.icon;
+        colorize: !root.enabled ? Theme.text-disabled : root.danger ? Theme.danger : root.on ? Theme.text : Theme.text-2;
+    }
+    ta := TipArea {
+        enabled: root.enabled;
+        tip: root.tip;
+        shortcut: root.shortcut;
+        side: true;
+        clicked => { root.clicked(); }
+    }
+}
+
+// SidebarTabs: the sidebar's segmented control. A `fill-1` track (radius 6), each item ≥ 28 wide
+// (36 when there is room) and 28 tall, icon 16; the selected item a `window` thumb (radius 5) with
+// a soft shadow. Items share the width: at the sidebar's least (200) six fit at 28.
+export struct SidebarTabItem { icon: image, text: string, shortcut: string }
+
+export component SidebarTabs inherits Rectangle {
+    in property <[SidebarTabItem]> items;
+    in-out property <int> current;
+    callback selected(int);
+    height: 28px;
+    border-radius: Theme.r-sm;
+    background: Theme.fill-1;
+    accessible-role: tab-list;
+    HorizontalLayout {
+        padding: 2px;
+        spacing: 0px;
+        for item[i] in root.items: Rectangle {
+            min-width: 24px;
+            horizontal-stretch: 1;
+            border-radius: Theme.r-sm - 1px;
+            background: root.current == i ? Theme.window : ta.has-hover ? Theme.fill-1 : transparent;
+            drop-shadow-blur: root.current == i ? 2px : 0px;
+            drop-shadow-offset-y: 1px;
+            drop-shadow-color: root.current == i ? #0000001F : transparent;
+            accessible-role: tab;
+            accessible-label: item.text;
+            accessible-item-selected: root.current == i;
+            accessible-action-default => { root.current = i; root.selected(i); }
+            Image {
+                width: Theme.icon-sm;
+                height: Theme.icon-sm;
+                source: item.icon;
+                colorize: root.current == i ? Theme.text : Theme.text-2;
+            }
+            ta := TipArea {
+                tip: item.text;
+                shortcut: item.shortcut;
+                clicked => { root.current = i; root.selected(i); }
+            }
+        }
+    }
+}

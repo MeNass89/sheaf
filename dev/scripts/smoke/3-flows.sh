@@ -208,17 +208,18 @@ check "Extract offers one file per page and deleting the pages ($XS)" "echo \"$X
 check "extracting and deleting the only page is refused" "echo \"$XT\" | grep -q 'needs at least one page' && [ \"\$(npages $OUT/single.pdf)\" = 1 ]"
 quit
 
-# 31. The side panel's edge (247,400) dragged 100 px right: the first thumbnail (row y 230) widens
-# from 150 to 250 px, and the width is kept for the next start (PDF Expert's sidebar).
+# 31. The side panel's edge (its resize handle, centred on the hairline at x 260) dragged 100 px
+# right: the panel goes 260 → 360, the first thumbnail (row y 230) widens from 162 to 262 px, and
+# the width is kept for the next start (PDF Expert's sidebar).
 # The width of the first blue run on row 230: the first thumbnail of a blue page.
 thumbw() { import -window root -crop 500x1+0+230 png:- 2>/dev/null | convert - txt:- | awk -F'[(),]' 'NR > 1 { b = ($5 + 0 > 180 && $3 + 0 < 90); if (b) n++; else if (n > 20) { print n; exit } else n = 0 }' | head -1; }
 convert -size 300x400 xc:'#2040E0' "$OUT/blue.pdf"; launch "$OUT/blue.pdf"; sleep 1.5; TW0=$(thumbw)
-xdotool mousemove 247 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 247 + i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 1.5; TW1=$(thumbw); quit
+xdotool mousemove 260 400 mousedown 1; for i in $(seq 1 10); do xdotool mousemove $(( 260 + i * 10 )) 400; sleep 0.04; done; xdotool mouseup 1; sleep 1.5; TW1=$(thumbw); quit
 launch "$OUT/blue.pdf"; sleep 1.5; TW2=$(thumbw)
 quit
 # Back to the default panel for the later steps.
 python3 -c 'import json, sys; p = json.load(open(sys.argv[1])); p["panel_width"] = 0; json.dump(p, open(sys.argv[1], "w"))' "$OUT/profile/data/Sheaf/prefs.json"
-check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 130 ] && [ \"\${TW0:-0}\" -lt 160 ] && [ \"\${TW1:-0}\" -gt 230 ] && [ \"\${TW1:-0}\" -lt 260 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
+check "the side panel's edge resizes it, its thumbnails follow, kept on restart ($TW0 → $TW1 → $TW2 px)" "[ \"\${TW0:-0}\" -gt 142 ] && [ \"\${TW0:-0}\" -lt 172 ] && [ \"\${TW1:-0}\" -gt 242 ] && [ \"\${TW1:-0}\" -lt 272 ] && [ \"\${TW2:-x}\" = \"\${TW1:-y}\" ]"
 
 # 32. A highlight saved without a note, on a page never shown: the Notes panel (153,106) lists the
 # words it covers (step 1's highlight, its page moved third; made as step 1 does when this part runs alone).

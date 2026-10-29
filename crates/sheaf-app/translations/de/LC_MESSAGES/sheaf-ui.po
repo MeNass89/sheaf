@@ -7211,3 +7211,15 @@ msgstr "Erster Sprecher"
 #: (merged)
 msgid "Second host"
 msgstr "Zweiter Sprecher"
+
+#: ui/screens/reader-panel.slint
+msgid "More page actions"
+msgstr "Weitere Seitenaktionen"
+
+#: ui/widgets/home-parts.slint
+msgid "or drop any files here"
+msgstr "oder Dateien hierher ziehen"
+
+#: ui/widgets/home-parts.slint
+msgid "Open Files"
+msgstr "Dateien öffnen"

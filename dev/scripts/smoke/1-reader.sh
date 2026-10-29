@@ -421,14 +421,16 @@ key ctrl+alt+g; xdotool type --delay 20 "1"; key Return; sleep 1.2; PL=$(inview)
 check "a page label typed in the page field goes to that page ($PL)" "[ \"$PL\" = 'Page 3' ]"
 quit
 
-# 6i. A link says where it goes under the pointer (a dark tooltip below it); away from it, nothing.
+# 6i. A link says where it goes under the pointer ("Page 2", the tooltip layer's tip under the
+# pointer, centred on it); away from it, nothing. Read by OCR under the pointer (the page's own
+# "Go to page 2" is above it).
 launch "$OUT/links.pdf"; key ctrl+9; sleep 0.5
-under() { import -window root -crop 120x20+490+250 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+under() { ocr 200x40+385+252; }
 xdotool mousemove 900 600; sleep 0.6; U0=$(under); xdotool mousemove 480 235; sleep 0.2; xdotool mousemove 485 238; sleep 0.8; U1=$(under)
-check "a link shows where it goes on hover ($U0 → $U1)" "python3 -c 'import sys; sys.exit(0 if $U0 - $U1 > 0.1 else 1)'"
+check "a link shows where it goes on hover ($U0 → $U1)" "! echo \"$U0\" | grep -q 'Page 2' && echo \"$U1\" | grep -q 'Page 2'"
 # Scrolling under a still pointer takes the tooltip away (it would name a link no longer there).
 key Down; key Down; sleep 0.8; U2=$(under)
-check "the link tooltip goes when the page scrolls ($U1 → $U2)" "python3 -c 'import sys; sys.exit(0 if $U2 - $U1 > 0.1 else 1)'"
+check "the link tooltip goes when the page scrolls ($U1 → $U2)" "! echo \"$U2\" | grep -q 'Page 2'"
 # ⇧⌘L tints every link (the first one, under 480,235 once back at the top); ⇧⌘P presents (no
 # toolbar), Escape ends it.
 key Home; sleep 0.6; xdotool mousemove 900 700; sleep 0.3

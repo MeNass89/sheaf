@@ -26,6 +26,8 @@ import { LinkWarningDialog } from "screens/preferences-more.slint";
 import { FeedbackBridge, ReportIssueDialog } from "screens/feedback.slint";
 import { UpdateBridge, UpdateDialog, UpdateNotice } from "screens/updates.slint";
 import { PluginBridge, PluginRow, PluginWarningDialog } from "screens/preferences-plugins.slint";
+import { TooltipBridge, TooltipLayer } from "widgets/tooltip.slint";
+export { WidgetGallery } from "widgets/gallery.slint";
 
 export { PrintPreviewBridge, InkPlate }
 
@@ -718,5 +720,6 @@ export component AppWindow inherits Window {
     if PortfolioBridge.visible && !PortfolioBridge.browsing: PortfolioPanel { }
     if PortfolioBridge.visible && PortfolioBridge.browsing: PortfolioBrowser { }
     if LibraryBridge.delete-id != "": LibraryDeletePrompt { }
-
+    // Tooltips above everything (widgets/tooltip.slint): keep it the last child.
+    TooltipLayer {}
 }

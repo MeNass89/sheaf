@@ -1,0 +1,348 @@
+// Form controls of the component inventory (DESIGN §4): popup button, checkbox, radio, switch,
+// chip, colour swatch, inspector segment. Mac sizes (28 tall controls, 13 px text); every one has
+// hover, pressed, a keyboard-only focus ring and a disabled state, and says what it is to the
+// screen reader. Buttons are in button.slint, text fields in text-field.slint.
+import { Theme, Motion } from "../theme.slint";
+import { TipArea } from "tooltip.slint";
+
+// The 2 px accent ring outside a control, 2 px away, for keyboard focus only.
+export component FocusRing inherits Rectangle {
+    in property <length> radius;
+    x: -4px;
+    y: -4px;
+    border-radius: root.radius + 4px;
+    border-width: 2px;
+    border-color: Theme.focus-ring;
+}
+
+// PopupButton (combo): height 28, `fill-2`, the label then a 12 px chevron; the label truncates
+// in the middle before the chevron, never the chevron (the clipped "By page ⌄"); min width 88.
+export component PopupButton inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> current-index: 0;
+    in property <bool> enabled: true;
+    in property <string> tip;
+    callback selected(int);
+    property <bool> clicked-focus;
+    height: Theme.control-height;
+    min-width: 88px;
+    preferred-width: max(88px, label-measure.preferred-width + 8px + 4px + 12px + 8px);
+    border-radius: Theme.r-sm;
+    background: !root.enabled ? Theme.fill-1 : ta.pressed || ta.has-hover ? Theme.fill-3 : Theme.fill-2;
+    animate background { duration: Motion.hover; }
+    accessible-role: combobox;
+    accessible-label: root.tip;
+    accessible-value: root.options[root.current-index];
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { popup.show(); } }
+    label-measure := Text { visible: false; text: root.options[root.current-index]; font-size: Theme.fs-body; }
+    if fs.has-focus && !root.clicked-focus: FocusRing { radius: Theme.r-sm; width: parent.width + 8px; height: parent.height + 8px; }
+    Text {
+        x: 8px;
+        width: parent.width - 8px - 4px - 12px - 8px;
+        text: root.options[root.current-index];
+        font-size: Theme.fs-body;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
+        vertical-alignment: center;
+        overflow: elide;
+        // Slint elides at the end; a long label still keeps the chevron whole.
+    }
+    Image {
+        x: parent.width - 8px - self.width;
+        width: 12px;
+        height: 12px;
+        source: @image-url("../icons/chevron-down.svg");
+        colorize: root.enabled ? Theme.text-2 : Theme.text-disabled;
+    }
+    fs := FocusScope {
+        enabled: root.enabled;
+        changed has-focus => { if !self.has-focus { root.clicked-focus = false; } }
+        key-pressed(e) => {
+            if e.text == " " || e.text == "\n" || e.text == Key.DownArrow { popup.show(); return accept; }
+            reject
+        }
+        ta := TipArea {
+            enabled: root.enabled;
+            tip: root.tip;
+            clicked => { root.clicked-focus = true; popup.show(); }
+        }
+    }
+    popup := PopupWindow {
+        x: 0;
+        y: parent.height + 4px;
+        width: max(root.width, 200px);
+        Rectangle {
+            background: Theme.window;
+            border-radius: Theme.r-md;
+            border-width: 1px;
+            border-color: Theme.hairline;
+            drop-shadow-blur: Theme.popover-blur;
+            drop-shadow-offset-y: Theme.popover-y;
+            drop-shadow-color: Theme.popover-shadow;
+            VerticalLayout {
+                padding: 4px;
+                for option[i] in root.options: Rectangle {
+                    height: Theme.row-height;
+                    border-radius: Theme.r-row;
+                    background: ot.has-hover ? Theme.accent : transparent;
+                    Image {
+                        x: 6px;
+                        width: 12px;
+                        height: 12px;
+                        visible: i == root.current-index;
+                        source: @image-url("../icons/check.svg");
+                        colorize: ot.has-hover ? Theme.on-accent : Theme.text;
+                    }
+                    Text {
+                        x: 24px;
+                        width: parent.width - 32px;
+                        text: option;
+                        font-size: Theme.fs-body;
+                        color: ot.has-hover ? Theme.on-accent : Theme.text;
+                        vertical-alignment: center;
+                        overflow: elide;
+                    }
+                    ot := TouchArea {
+                        clicked => { root.current-index = i; root.selected(i); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Checkbox: 14×14 radius 3, the label 13 at 8; on = accent fill with a white check.
+export component Checkbox inherits Rectangle {
+    in property <string> text;
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    property <bool> clicked-focus;
+    height: Theme.control-height;
+    preferred-width: 14px + 8px + lbl.preferred-width;
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.checked = !root.checked; root.toggled(root.checked); } }
+    box := Rectangle {
+        x: 0;
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+        background: !root.enabled ? Theme.fill-2 : root.checked ? (ta.pressed ? Theme.accent-pressed : Theme.accent) : ta.pressed ? Theme.fill-2 : Theme.field;
+        border-width: root.checked ? 0px : 1px;
+        border-color: Theme.control-border;
+        animate background { duration: Motion.quick; }
+        if fs.has-focus && !root.clicked-focus: FocusRing { radius: 3px; width: parent.width + 8px; height: parent.height + 8px; }
+        if root.checked: Image {
+            width: 10px;
+            height: 10px;
+            source: @image-url("../icons/check.svg");
+            colorize: root.enabled ? Theme.on-accent : Theme.text-disabled;
+        }
+    }
+    lbl := Text {
+        x: 22px;
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
+        vertical-alignment: center;
+    }
+    fs := FocusScope {
+        enabled: root.enabled;
+        changed has-focus => { if !self.has-focus { root.clicked-focus = false; } }
+        key-pressed(e) => {
+            if e.text == " " { root.checked = !root.checked; root.toggled(root.checked); return accept; }
+            reject
+        }
+        ta := TouchArea {
+            enabled: root.enabled;
+            clicked => { root.clicked-focus = true; root.checked = !root.checked; root.toggled(root.checked); }
+        }
+    }
+}
+
+// Radio: a 14 circle; on = an accent ring with a dot.
+export component Radio inherits Rectangle {
+    in property <string> text;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    callback clicked();
+    property <bool> clicked-focus;
+    height: Theme.control-height;
+    preferred-width: 14px + 8px + lbl.preferred-width;
+    accessible-role: radio-button;
+    accessible-label: root.text;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
+    Rectangle {
+        x: 0;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: !root.enabled ? Theme.fill-2 : root.checked ? Theme.accent : ta.pressed ? Theme.fill-2 : Theme.field;
+        border-width: root.checked ? 0px : 1px;
+        border-color: Theme.control-border;
+        if fs.has-focus && !root.clicked-focus: FocusRing { radius: 7px; width: parent.width + 8px; height: parent.height + 8px; }
+        if root.checked: Rectangle {
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background: Theme.on-accent;
+        }
+    }
+    lbl := Text {
+        x: 22px;
+        text: root.text;
+        font-size: Theme.fs-body;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
+        vertical-alignment: center;
+    }
+    fs := FocusScope {
+        enabled: root.enabled;
+        changed has-focus => { if !self.has-focus { root.clicked-focus = false; } }
+        key-pressed(e) => {
+            if e.text == " " { root.clicked(); return accept; }
+            reject
+        }
+        ta := TouchArea {
+            enabled: root.enabled;
+            clicked => { root.clicked-focus = true; root.clicked(); }
+        }
+    }
+}
+
+// Switch (Settings): 26×15, accent when on, the knob sliding with Motion.quick.
+export component Switch inherits Rectangle {
+    in-out property <bool> checked;
+    in property <bool> enabled: true;
+    in property <string> label;
+    callback toggled(bool);
+    property <bool> clicked-focus;
+    width: 26px;
+    height: 15px;
+    border-radius: 7.5px;
+    background: !root.enabled ? Theme.fill-2 : root.checked ? Theme.accent : Theme.fill-3;
+    animate background { duration: Motion.quick; }
+    accessible-role: switch;
+    accessible-label: root.label;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.checked = !root.checked; root.toggled(root.checked); } }
+    if fs.has-focus && !root.clicked-focus: FocusRing { radius: 7.5px; width: parent.width + 8px; height: parent.height + 8px; }
+    Rectangle {
+        x: root.checked ? parent.width - self.width - 1px : 1px;
+        y: 1px;
+        width: 13px;
+        height: 13px;
+        border-radius: 6.5px;
+        background: #FFFFFF;
+        drop-shadow-blur: 1px;
+        drop-shadow-offset-y: 0.5px;
+        drop-shadow-color: #00000040;
+        animate x { duration: Motion.quick; easing: ease-out; }
+    }
+    fs := FocusScope {
+        enabled: root.enabled;
+        changed has-focus => { if !self.has-focus { root.clicked-focus = false; } }
+        key-pressed(e) => {
+            if e.text == " " { root.checked = !root.checked; root.toggled(root.checked); return accept; }
+            reject
+        }
+        TouchArea {
+            enabled: root.enabled;
+            clicked => { root.clicked-focus = true; root.checked = !root.checked; root.toggled(root.checked); }
+        }
+    }
+}
+
+// Chip (filter, category): height 22, pad 8, radius 11, `fill-1`; on = accent 15 % + accent text.
+export component Chip inherits Rectangle {
+    in property <string> text;
+    in property <bool> on;
+    callback clicked();
+    height: 22px;
+    width: lbl.preferred-width + 16px;
+    border-radius: 11px;
+    background: root.on ? Theme.accent.transparentize(85%) : ta.pressed ? Theme.fill-3 : ta.has-hover ? Theme.fill-2 : Theme.fill-1;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-checked: root.on;
+    accessible-action-default => { root.clicked(); }
+    lbl := Text {
+        text: root.text;
+        font-size: Theme.fs-callout;
+        color: root.on ? Theme.accent-text : Theme.text;
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// Swatch (colour): an 18 circle with a faint inner ring; hover grows it 10 %; selected = a 2 px
+// `text` ring 2 px out.
+export component Swatch inherits Rectangle {
+    in property <color> colour;
+    in property <bool> selected;
+    in property <string> tip;
+    callback clicked();
+    width: Theme.swatch + 8px;
+    height: Theme.swatch + 8px;
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-checked: root.selected;
+    accessible-action-default => { root.clicked(); }
+    if root.selected: Rectangle {
+        width: Theme.swatch + 8px;
+        height: Theme.swatch + 8px;
+        border-radius: self.width / 2;
+        border-width: 2px;
+        border-color: Theme.text;
+    }
+    Rectangle {
+        property <length> d: ta.has-hover ? Theme.swatch * 1.1 : Theme.swatch;
+        width: self.d;
+        height: self.d;
+        border-radius: self.d / 2;
+        background: root.colour;
+        border-width: 1px;
+        border-color: #00000014;
+        animate width, height { duration: Motion.hover; }
+    }
+    ta := TipArea { tip: root.tip; clicked => { root.clicked(); } }
+}
+
+// InspectorSegment: the inspector's choices, height 24, pad 10; a `fill-1` track, the chosen item
+// a `window` thumb.
+export component InspectorSegment inherits Rectangle {
+    in property <[string]> options;
+    in-out property <int> current;
+    callback selected(int);
+    height: 24px;
+    border-radius: Theme.r-sm;
+    background: Theme.fill-1;
+    accessible-role: tab-list;
+    HorizontalLayout {
+        padding: 2px;
+        for option[i] in root.options: Rectangle {
+            horizontal-stretch: 1;
+            min-width: t.preferred-width + 20px;
+            border-radius: Theme.r-sm - 1px;
+            background: root.current == i ? Theme.window : sa.has-hover ? Theme.fill-1 : transparent;
+            drop-shadow-blur: root.current == i ? 2px : 0px;
+            drop-shadow-offset-y: 1px;
+            drop-shadow-color: root.current == i ? #0000001F : transparent;
+            accessible-role: tab;
+            accessible-label: option;
+            accessible-item-selected: root.current == i;
+            accessible-action-default => { root.current = i; root.selected(i); }
+            t := Text {
+                text: option;
+                font-size: Theme.fs-callout;
+                color: Theme.text;
+            }
+            sa := TouchArea { clicked => { root.current = i; root.selected(i); } }
+        }
+    }
+}

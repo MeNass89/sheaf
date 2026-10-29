@@ -7211,3 +7211,15 @@ msgstr "Primeiro apresentador"
 #: (merged)
 msgid "Second host"
 msgstr "Segundo apresentador"
+
+#: ui/screens/reader-panel.slint
+msgid "More page actions"
+msgstr "Mais ações de página"
+
+#: ui/widgets/home-parts.slint
+msgid "or drop any files here"
+msgstr "ou largue os ficheiros aqui"
+
+#: ui/widgets/home-parts.slint
+msgid "Open Files"
+msgstr "Abrir ficheiros"

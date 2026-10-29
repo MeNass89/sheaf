@@ -1,7 +1,10 @@
 import { ScrollView } from "std-widgets.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Motion } from "../theme.slint";
 
-// Small bordered drop-down used for the Tools "Sort" choice.
+// A popup button (DESIGN §4 Combo): 28 tall, `fill-2`, the label then a 12 px chevron. The label
+// elides before the chevron, which is never clipped (the narrow side panel's "By page ⌄"); 88
+// wide at least where it shares a row (its callers clamp it). New code may use PopupButton
+// (controls.slint); this keeps the older API.
 export component SortCombo inherits Rectangle {
     in property <[string]> options;
     in-out property <int> current-index: 0;
@@ -10,24 +13,28 @@ export component SortCombo inherits Rectangle {
 
     width: Theme.combo-width;
     height: Theme.combo-height;
-    border-radius: Theme.radius-small;
-    border-width: 1px;
-    border-color: touch.has-hover ? Theme.text-secondary : Theme.input-border;
-    background: Theme.input-bg;
+    border-radius: Theme.r-sm;
+    background: touch.pressed || touch.has-hover ? Theme.fill-3 : Theme.fill-2;
+    animate background { duration: Motion.hover; }
+    accessible-role: combobox;
+    accessible-value: root.options[root.current-index];
+    accessible-action-default => { popup.show(); }
 
     Text {
-        x: 10px;
+        x: 8px;
+        width: parent.width - 8px - 4px - 12px - 8px;
         text: root.options[root.current-index];
-        font-size: Theme.fs-button;
+        font-size: Theme.fs-body;
         color: Theme.text;
         vertical-alignment: center;
+        overflow: elide;
     }
     Image {
         x: parent.width - self.width - 8px;
-        width: 13px;
-        height: 13px;
+        width: 12px;
+        height: 12px;
         source: root.chevron;
-        colorize: Theme.text-secondary;
+        colorize: Theme.text-2;
     }
 
     touch := TouchArea {
@@ -40,29 +47,39 @@ export component SortCombo inherits Rectangle {
     popup := PopupWindow {
         x: 0;
         y: root.height + 4px;
-        width: root.width;
-        height: min(root.options.length * 30px + 8px, 308px);
+        width: max(root.width, 160px);
+        height: min(root.options.length * Theme.row-height + 8px, 288px);
         Rectangle {
-            background: Theme.input-bg;
-            border-radius: Theme.radius-small;
+            background: Theme.window;
+            border-radius: Theme.r-md;
             border-width: 1px;
-            border-color: Theme.input-border;
-            drop-shadow-blur: 8px;
-            drop-shadow-color: #00000022;
+            border-color: Theme.hairline;
+            drop-shadow-blur: Theme.popover-blur;
+            drop-shadow-offset-y: Theme.popover-y;
+            drop-shadow-color: Theme.popover-shadow;
             ScrollView {
                 VerticalLayout {
                     padding: 4px;
                     for opt[i] in root.options: Rectangle {
-                        height: 30px;
-                        border-radius: 3px;
-                        background: ta.has-hover ? Theme.popup-hover : transparent;
-                        Text {
+                        height: Theme.row-height;
+                        border-radius: Theme.r-row;
+                        background: ta.has-hover ? Theme.accent : transparent;
+                        Image {
                             x: 6px;
+                            width: 12px;
+                            height: 12px;
+                            visible: i == root.current-index;
+                            source: @image-url("../icons/check.svg");
+                            colorize: ta.has-hover ? Theme.on-accent : Theme.text;
+                        }
+                        Text {
+                            x: 24px;
+                            width: parent.width - 32px;
                             text: opt;
-                            font-size: Theme.fs-button;
-                            font-weight: i == root.current-index ? Theme.weight-demibold : 400;
-                            color: i == root.current-index ? Theme.accent : Theme.text;
+                            font-size: Theme.fs-body;
+                            color: ta.has-hover ? Theme.on-accent : Theme.text;
                             vertical-alignment: center;
+                            overflow: elide;
                         }
                         ta := TouchArea {
                             clicked => {

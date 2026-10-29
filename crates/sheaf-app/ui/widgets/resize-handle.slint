@@ -1,0 +1,53 @@
+// The resize handle of a side column (DESIGN §6.2): an 8-wide invisible hit area centred on the
+// column's hairline (4 each side), the col-resize cursor; the hairline turns `accent` while hovered
+// or dragged; a double-click puts the default back. The column clamps the width to its own
+// [min, max] (and the sidebar to 45 % of the window); the handle only says where the pointer is.
+//
+// Place it as the column's last child: `ResizeHandle { edge-x: parent.width; }` for a column on
+// the left (its right edge), `edge-x: 0` with `leading: true` for one on the right (the inspector).
+import { Theme } from "../theme.slint";
+
+export component ResizeHandle inherits Rectangle {
+    // Where the hairline is, in the parent's coordinates.
+    in property <length> edge-x;
+    // The column is on the right of the handle (the inspector): dragging left widens it.
+    in property <bool> leading;
+    // The column's width while dragged: the width it had at the press plus the pointer's travel.
+    in property <length> current-width;
+    out property <bool> active: ta.has-hover || ta.pressed;
+    // A new width to apply (not yet clamped) while the pointer moves, pressed.
+    callback resized(length);
+    // Let go: the width to keep.
+    callback committed();
+    // Double click: the default width back.
+    callback reset();
+    property <length> start-width;
+    // The pointer at the press, in window coordinates (the handle moves with the edge it drags).
+    property <length> start-x;
+    x: root.edge-x - Theme.handle-width / 2;
+    width: Theme.handle-width;
+    // The hairline itself (1 px, on the column's edge).
+    Rectangle {
+        x: root.leading ? Theme.handle-width / 2 : Theme.handle-width / 2 - 1px;
+        width: 1px;
+        background: root.active ? Theme.accent : Theme.hairline;
+    }
+    ta := TouchArea {
+        mouse-cursor: col-resize;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                root.start-width = root.current-width;
+                root.start-x = self.absolute-position.x + self.mouse-x;
+            }
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                root.committed();
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.resized(root.start-width + (root.leading ? -1 : 1) * (self.absolute-position.x + self.mouse-x - root.start-x));
+            }
+        }
+        double-clicked => { root.reset(); root.committed(); }
+    }
+}

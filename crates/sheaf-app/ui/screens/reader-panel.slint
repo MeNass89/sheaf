@@ -7,6 +7,7 @@ import { ToolTab, ReaderBridge, Parse } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 import { ToolButton, PanelTab, SmallButton, PanelField, PopoverFrame } from "reader-parts.slint";
 import { SortCombo } from "../widgets/sort-combo.slint";
+import { ResizeHandle } from "../widgets/resize-handle.slint";
 import { Check } from "../widgets/check.slint";
 
 export component ReaderPanel inherits Rectangle {
@@ -14,6 +15,11 @@ export component ReaderPanel inherits Rectangle {
     in property <int> id;
     in property <bool> bare;
     in property <length> panel-width;
+    // The window's width: the panel never takes more than 45 % of it.
+    in property <length> window-width: 1280px;
+    // Too narrow for the seven page actions (7 × 32 + 14): Extract and Number pages fold into ⋯,
+    // Delete stays last (the first icon the panel's edge clipped was the trash).
+    property <bool> fold-actions: root.panel-width < 240px;
     // The search field's text (the options re-run the search with it).
     in property <string> search-text;
     // Pages drag: where the press was, and the drop line (−1: no drag); shared with the reader.
@@ -520,7 +526,10 @@ export component ReaderPanel inherits Rectangle {
                         padding: 8px;
                         padding-bottom: 0px;
                         spacing: 6px;
-                        SmallButton { text: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
+                        // A narrow panel (under 240) shows the eye instead of the words, so the row
+                        // (and its trash at the end) stays inside the panel.
+                        if root.panel-width >= 240px: SmallButton { text: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
+                        if root.panel-width < 240px: ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: root.tab.reader.comments-hidden ? @image-url("../icons/eye.svg") : @image-url("../icons/eye-off.svg"); tip: root.tab.reader.comments-hidden ? @tr("Show all") : @tr("Hide all"); clicked => { ReaderBridge.notes-action(root.id, 0); root.focus-pages(); } }
                         ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-text.svg"); tip: @tr("Summary of comments…"); clicked => { ReaderBridge.notes-action(root.id, 1); } }
                         ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-output.svg"); tip: @tr("Export comments (XFDF, FDF)…"); clicked => { ReaderBridge.notes-action(root.id, 3); } }
                         ToolButton { cross-axis-self-alignment: CrossAxisAlignment.center; icon: @image-url("../icons/file-input.svg"); tip: @tr("Import comments…"); clicked => { ReaderBridge.notes-action(root.id, 4); } }
@@ -536,14 +545,14 @@ export component ReaderPanel inherits Rectangle {
                         padding-bottom: 0px;
                         spacing: 6px;
                         SortCombo {
-                            width: 112px;
+                            width: clamp((root.panel-width - 22px) / 2, 88px, 112px);
                             options: [@tr("All"), @tr("Markup"), @tr("Notes"), @tr("Drawings"), @tr("Stamps"), @tr("Accepted"), @tr("Rejected"), @tr("Cancelled"), @tr("Completed"), @tr("No status"), @tr("Checked")];
                             current-index: root.tab.reader.notes-filter;
                             chevron: @image-url("../icons/chevron-down.svg");
                             selected(i) => { ReaderBridge.notes-view(root.id, 0, i); }
                         }
                         SortCombo {
-                            width: 112px;
+                            width: clamp((root.panel-width - 22px) / 2, 88px, 112px);
                             options: [@tr("By page"), @tr("Newest"), @tr("By author"), @tr("By type")];
                             current-index: root.tab.reader.notes-sort;
                             chevron: @image-url("../icons/chevron-down.svg");
@@ -861,15 +870,43 @@ export component ReaderPanel inherits Rectangle {
                     FlexboxLayout {
                         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
                         flex-wrap: FlexboxLayoutWrap.no-wrap;
-                        padding: 7px;
+                        padding: root.fold-actions ? 4px : 7px;
                         spacing: 2px;
                         alignment: center;
                         ToolButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: @tr("Rotate left"); clicked => { ReaderBridge.page-op(root.id, 0); } }
                         ToolButton { icon: @image-url("../icons/rotate-cw.svg"); tip: @tr("Rotate right"); clicked => { ReaderBridge.page-op(root.id, 1); } }
                         ToolButton { icon: @image-url("../icons/plus.svg"); tip: @tr("Insert blank page after"); clicked => { ReaderBridge.page-op(root.id, 5); } }
                         ToolButton { icon: @image-url("../icons/copy.svg"); tip: @tr("Duplicate"); clicked => { ReaderBridge.page-op(root.id, 3); } }
-                        ToolButton { icon: @image-url("../icons/file-output.svg"); tip: @tr("Extract…"); clicked => { root.extract-open = !root.extract-open; root.number-open = false; root.transition-open = false; } }
-                        ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Number pages…"); clicked => { root.number-open = !root.number-open; root.extract-open = false; root.transition-open = false; } }
+                        if !root.fold-actions: ToolButton { icon: @image-url("../icons/file-output.svg"); tip: @tr("Extract…"); clicked => { root.extract-open = !root.extract-open; root.number-open = false; root.transition-open = false; } }
+                        if !root.fold-actions: ToolButton { icon: @image-url("../icons/list-ordered.svg"); tip: @tr("Number pages…"); clicked => { root.number-open = !root.number-open; root.extract-open = false; root.transition-open = false; } }
+                        if root.fold-actions: ToolButton {
+                            icon: @image-url("../icons/ellipsis.svg");
+                            tip: @tr("More page actions");
+                            clicked => { actions-more.show(); }
+                            actions-more := PopupWindow {
+                                x: 0;
+                                y: -self.height - 4px;
+                                width: 200px;
+                                height: 2 * Theme.row-height + 8px;
+                                PopoverFrame {
+                                    VerticalLayout {
+                                        padding: 4px;
+                                        for item[k] in [@tr("Extract…"), @tr("Number pages…")]: Rectangle {
+                                            height: Theme.row-height;
+                                            border-radius: Theme.r-row;
+                                            background: pam.has-hover ? Theme.accent : transparent;
+                                            Text { x: 12px; text: item; font-size: Theme.fs-body; color: pam.has-hover ? Theme.on-accent : Theme.text; vertical-alignment: center; }
+                                            pam := TouchArea {
+                                                clicked => {
+                                                    if k == 0 { root.extract-open = !root.extract-open; root.number-open = false; } else { root.number-open = !root.number-open; root.extract-open = false; }
+                                                    root.transition-open = false;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         ToolButton { icon: @image-url("../icons/trash-2.svg"); tip: @tr("Delete"); clicked => { ReaderBridge.page-op(root.id, 2); } }
                     }
                 }
@@ -1006,29 +1043,16 @@ export component ReaderPanel inherits Rectangle {
                 }
             }
         }
-        // The edge next to the pages: the panel's right, its left right to left.
-        Rectangle {
-            x: PlatformBridge.rtl ? 0 : parent.width - 1px;
-            width: 1px;
-            background: edge.has-hover || edge.pressed ? Theme.accent : Theme.sidebar-border;
-        }
-        // The edge drags to resize the panel (PDF Expert's sidebar), 200–480 px; the thumbnails
-        // take the new width once it is let go.
-        edge := TouchArea {
-            x: PlatformBridge.rtl ? -3px : parent.width - 4px;
-            width: 7px;
-            mouse-cursor: ew-resize;
-            moved => {
-                if self.pressed {
-                    // Right to left the panel's right edge stays put (the window's) and its left one is dragged.
-                    ReaderBridge.panel-width = clamp(PlatformBridge.rtl ? root.absolute-position.x + root.width - (self.absolute-position.x + self.mouse-x) : self.absolute-position.x + self.mouse-x - root.absolute-position.x, 200px, 480px);
-                }
-            }
-            pointer-event(e) => {
-                if e.kind == PointerEventKind.up {
-                    ReaderBridge.panel-resized(ReaderBridge.panel-width);
-                }
-            }
+        // The edge next to the pages drags to resize the panel (PDF Expert's sidebar): the design
+        // system's handle (widgets/resize-handle.slint), 200–480 and at most 45 % of the window;
+        // a double click puts back 260. The thumbnails take the new width once it is let go.
+        ResizeHandle {
+            edge-x: PlatformBridge.rtl ? 0 : parent.width;
+            leading: PlatformBridge.rtl;
+            current-width: root.panel-width;
+            resized(w) => { ReaderBridge.panel-width = clamp(w, Theme.sidebar-min, max(Theme.sidebar-min, min(Theme.sidebar-max, root.window-width * Theme.sidebar-max-share))); }
+            reset => { ReaderBridge.panel-width = Theme.sidebar-default; }
+            committed => { ReaderBridge.panel-resized(ReaderBridge.panel-width); }
         }
     // A bookmark's commands (Acrobat): move, nest, point it at the page in view.
     property <int> mark-row;

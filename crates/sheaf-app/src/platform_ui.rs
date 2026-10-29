@@ -711,6 +711,59 @@ fn system_accent() -> Option<slint::Color> {
     Some(slint::Color::from_rgb_u8(byte(r), byte(g), byte(b)))
 }
 
+/// Whether the system asks for less motion: macOS's Reduce Motion, GNOME's animations off, or
+/// SHEAF_REDUCE_MOTION=1 (any platform).
+fn reduce_motion() -> bool {
+    if let Ok(v) = std::env::var("SHEAF_REDUCE_MOTION") {
+        return v == "1";
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use objc2::msg_send;
+        use objc2::rc::Retained;
+        use objc2::runtime::{AnyClass, AnyObject, Bool};
+        let Some(workspace) = AnyClass::get(c"NSWorkspace") else { return false };
+        // SAFETY: +[NSWorkspace sharedWorkspace] and -[NSWorkspace
+        // accessibilityDisplayShouldReduceMotion] (macOS 10.12), as AppKit declares them.
+        unsafe {
+            let shared: Option<Retained<AnyObject>> = msg_send![workspace, sharedWorkspace];
+            let Some(shared) = shared else { return false };
+            let reduce: Bool = msg_send![&*shared, accessibilityDisplayShouldReduceMotion];
+            reduce.as_bool()
+        }
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("gsettings")
+            .args(["get", "org.gnome.desktop.interface", "enable-animations"])
+            .output()
+            .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).trim() == "false")
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    false
+}
+
+thread_local! {
+    // The widget gallery's window (debug builds, SHEAF_GALLERY): kept for its life and its snapshots.
+    static GALLERY: std::cell::RefCell<Option<sheaf_app::WidgetGallery>> = const { std::cell::RefCell::new(None) };
+}
+
+/// SHEAF_GALLERY=1 (debug builds): every widget of the design system in its states, in its own
+/// window, in the main window's appearance (SHEAF_THEME).
+fn show_gallery(ui: &AppWindow) {
+    let Ok(gallery) = sheaf_app::WidgetGallery::new() else { return };
+    let from = ui.global::<sheaf_app::Theme>();
+    let theme = gallery.global::<sheaf_app::Theme>();
+    theme.set_mode(match std::env::var("SHEAF_THEME").as_deref() { Ok("dark") => 2, Ok("light") => 1, _ => from.get_mode() });
+    theme.set_mac(from.get_mac());
+    theme.set_system_accent(from.get_system_accent());
+    theme.set_accent_choice(from.get_accent_choice());
+    theme.set_reduce_motion(from.get_reduce_motion());
+    gallery.window().set_size(slint::LogicalSize::new(1280.0, 800.0));
+    let _ = gallery.show();
+    GALLERY.with(|g| *g.borrow_mut() = Some(gallery));
+}
+
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
     // The grammar rules load while the window opens, not on the first word typed.
@@ -730,6 +783,11 @@ pub fn install(ui: &AppWindow) {
     #[cfg(target_os = "macos")]
     if let Some(accent) = system_accent() {
         theme.set_system_accent(accent);
+    }
+    // Reduce Motion: every Motion duration 0 (ui/theme.slint).
+    theme.set_reduce_motion(reduce_motion());
+    if cfg!(debug_assertions) && std::env::var_os("SHEAF_GALLERY").is_some() {
+        show_gallery(ui);
     }
     let weak = ui.as_weak();
     g.on_minimize(move || if let Some(ui) = weak.upgrade() { ui.window().set_minimized(true) });
@@ -771,8 +829,10 @@ pub fn install(ui: &AppWindow) {
             let request = dir.join("request");
             let Ok(name) = std::fs::read_to_string(&request) else { return };
             let _ = std::fs::remove_file(&request);
+            // A name starting with "gallery" draws the widget gallery's window (SHEAF_GALLERY).
+            let gallery = name.trim().starts_with("gallery").then(|| GALLERY.with(|g| g.borrow().as_ref().and_then(|g| g.window().take_snapshot().ok()))).flatten();
             if let Some(ui) = weak.upgrade()
-                && let Ok(shot) = ui.window().take_snapshot()
+                && let Some(shot) = gallery.or_else(|| ui.window().take_snapshot().ok())
                 && let Some(img) = image::RgbaImage::from_raw(shot.width(), shot.height(), shot.as_bytes().to_vec())
             {
                 let _ = img.save(dir.join(format!("{}.png", name.trim())));

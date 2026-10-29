@@ -1,61 +1,67 @@
 // Small controls shared by the reader screen and its side panel.
 
 import { PlatformBridge } from "../platform.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Motion } from "../theme.slint";
+import { TooltipBridge } from "../widgets/tooltip.slint";
 
 export component ToolButton inherits Rectangle {
     in property <image> icon;
     in property <bool> active;
     in property <bool> enabled: true;
+    // Said by the tooltip layer (widgets/tooltip.slint) after a rest on the button, with its
+    // shortcut after it; to its right in a vertical rail.
     in property <string> tip;
+    in property <string> tip-shortcut;
+    in property <bool> tip-side;
     callback clicked();
     width: 30px;
     height: 30px;
-    border-radius: Theme.radius-button;
-    background: root.active ? Theme.pill-bg : ta.has-hover && root.enabled ? Theme.popup-hover : transparent;
+    border-radius: Theme.r-pill;
+    background: root.active ? Theme.fill-3 : ta.pressed && root.enabled ? Theme.fill-2 : ta.has-hover && root.enabled ? Theme.fill-1 : transparent;
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.tip;
+    accessible-description: root.tip-shortcut;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
     Image {
-        width: 17px;
-        height: 17px;
+        width: Theme.icon-md;
+        height: Theme.icon-md;
         source: root.icon;
         // The pill behind shows the state; an accent icon on it read as a second, louder signal.
-        colorize: !root.enabled ? Theme.text-disabled : root.active ? Theme.text : Theme.text-secondary;
+        colorize: !root.enabled ? Theme.text-disabled : root.active ? Theme.text : Theme.text-2;
     }
     ta := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
-    }
-    if ta.has-hover && root.tip != "": Rectangle {
-        y: parent.height + 6px;
-        x: (parent.width - self.width) / 2;
-        width: tipt.preferred-width + 14px;
-        height: 22px;
-        border-radius: Theme.radius-small;
-        background: Theme.toast-bg;
-        tipt := Text {
-            text: root.tip;
-            font-size: Theme.fs-caption;
-            color: Theme.on-toast;
+        changed has-hover => {
+            if self.has-hover && root.tip != "" {
+                TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.tip, root.tip-shortcut, root.tip-side);
+            } else if !self.has-hover && root.tip != "" {
+                TooltipBridge.leave();
+            }
         }
+        pointer-event(e) => { if e.kind == PointerEventKind.down { TooltipBridge.cancel(); } }
     }
 }
 
 // The one look of everything that floats over the reader (menus, the palette, the options and
 // selection bars): an 8 px radius, a hairline, a soft shadow deeper in the dark (macOS popovers).
 export component PopoverFrame inherits Rectangle {
-    background: Theme.card;
-    border-radius: 8px;
+    background: Theme.window;
+    border-radius: Theme.r-md;
     border-width: 1px;
-    border-color: Theme.separator;
-    drop-shadow-blur: 12px;
-    drop-shadow-offset-y: 3px;
-    drop-shadow-color: Theme.dark ? #00000080 : #00000030;
+    border-color: Theme.hairline;
+    drop-shadow-blur: Theme.popover-blur;
+    drop-shadow-offset-y: Theme.popover-y;
+    drop-shadow-color: Theme.popover-shadow;
 }
 
 export component Divider inherits Rectangle {
     width: 1px;
     height: 20px;
-    background: Theme.separator;
+    background: Theme.hairline;
 }
 
 export component ColourDot inherits Rectangle {
@@ -109,40 +115,39 @@ export component PanelTab inherits Rectangle {
     in property <bool> selected;
     callback clicked();
     height: 28px;
-    border-radius: Theme.radius-button;
-    background: root.selected ? Theme.pill-bg : t.has-hover ? Theme.popup-hover : transparent;
+    border-radius: Theme.r-sm;
+    background: root.selected ? Theme.fill-2 : t.has-hover ? Theme.fill-1 : transparent;
+    accessible-role: tab;
+    accessible-label: root.text;
+    accessible-item-selected: root.selected;
+    accessible-action-default => { root.clicked(); }
     HorizontalLayout {
         padding-left: 8px;
         padding-right: 8px;
         spacing: 6px;
         alignment: center;
         Image {
-            width: 14px;
-            height: 14px;
+            width: Theme.icon-sm;
+            height: Theme.icon-sm;
             y: (parent.height - self.height) / 2;
             source: root.icon;
-            colorize: root.selected ? Theme.text : Theme.text-muted;
+            colorize: root.selected ? Theme.text : Theme.text-2;
         }
     }
+    // Icons of equal width that never move, named on hover (PDF Expert's sidebar) by the layer.
     t := TouchArea {
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
-    }
-    // Icons of equal width that never move, named on hover (PDF Expert's sidebar).
-    horizontal-stretch: 1;
-    if t.has-hover: Rectangle {
-        y: parent.height + 6px;
-        x: (parent.width - self.width) / 2;
-        width: tipt.preferred-width + 14px;
-        height: 22px;
-        border-radius: Theme.radius-small;
-        background: Theme.toast-bg;
-        tipt := Text {
-            text: root.text;
-            font-size: Theme.fs-caption;
-            color: Theme.on-toast;
+        changed has-hover => {
+            if self.has-hover {
+                TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.text, "", false);
+            } else {
+                TooltipBridge.leave();
+            }
         }
+        pointer-event(e) => { if e.kind == PointerEventKind.down { TooltipBridge.cancel(); } }
     }
+    horizontal-stretch: 1;
 }
 
 // `primary` is a committing button (Use, Print, Done, Apply): solid accent. `on` is a toggle or a
@@ -153,41 +158,42 @@ export component SmallButton inherits Rectangle {
     in property <bool> primary;
     in property <bool> on;
     in property <bool> enabled: true;
-    // Shown under the button on hover (a shortcut, as a menu item shows its keys).
+    // Said by the tooltip layer after a rest on the button (a shortcut, as a menu item shows its keys).
     in property <string> tip;
     callback clicked();
     property <bool> solid: root.primary && root.enabled;
     height: 26px;
     // The label's own width.
     width: lbl.preferred-width + 20px;
-    border-radius: Theme.radius-button;
-    // Hover and press only ever darken the rest colour, never lighten it.
-    background: root.solid ? (t.pressed ? Theme.accent-hover.darker(10%) : t.has-hover ? Theme.accent-hover : Theme.accent)
+    border-radius: Theme.r-sm;
+    // Hover and press only ever deepen the rest colour, never lighten it (Button, DESIGN §4).
+    background: root.solid ? (t.pressed ? Theme.accent-pressed : t.has-hover ? Theme.accent-hover : Theme.accent)
         : root.on ? Theme.accent.transparentize(t.pressed ? 70% : t.has-hover ? 78% : 85%)
-        : (t.pressed ? Theme.pill-bg.darker(12%) : t.has-hover && root.enabled ? Theme.pill-bg.darker(5%) : Theme.pill-bg);
+        : (t.pressed && root.enabled ? Theme.fill-3 : t.has-hover && root.enabled ? Theme.fill-3 : Theme.fill-2);
+    animate background { duration: Motion.hover; }
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-description: root.tip;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { if root.enabled { root.clicked(); } }
     lbl := Text {
         text: root.text;
-        font-size: Theme.fs-label;
-        font-weight: root.primary ? Theme.weight-demibold : 400;
-        color: !root.enabled ? Theme.text-disabled : root.solid ? Theme.on-accent : root.on ? Theme.accent : Theme.text;
+        font-size: Theme.fs-body;
+        font-weight: root.primary ? Theme.weight-demibold : Theme.weight-regular;
+        color: !root.enabled ? Theme.text-disabled : root.solid ? Theme.on-accent : root.on ? Theme.accent-text : Theme.text;
     }
     t := TouchArea {
         enabled: root.enabled;
         mouse-cursor: pointer;
         clicked => { root.clicked(); }
-    }
-    if t.has-hover && root.tip != "": Rectangle {
-        y: parent.height + 6px;
-        x: (parent.width - self.width) / 2;
-        width: tipt.preferred-width + 14px;
-        height: 22px;
-        border-radius: Theme.radius-small;
-        background: Theme.toast-bg;
-        tipt := Text {
-            text: root.tip;
-            font-size: Theme.fs-caption;
-            color: Theme.on-toast;
+        changed has-hover => {
+            if self.has-hover && root.tip != "" {
+                TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.tip, "", false);
+            } else if !self.has-hover && root.tip != "" {
+                TooltipBridge.leave();
+            }
         }
+        pointer-event(e) => { if e.kind == PointerEventKind.down { TooltipBridge.cancel(); } }
     }
 }
 
@@ -197,15 +203,15 @@ export component PanelField inherits Rectangle {
     in-out property <string> text <=> input.text;
     callback edited(string);
     height: 26px;
-    border-radius: Theme.radius-button;
-    border-width: 1px;
-    border-color: input.has-focus ? Theme.text-secondary : Theme.input-border;
-    background: Theme.input-bg;
+    border-radius: Theme.r-sm;
+    border-width: input.has-focus ? 2px : 1px;
+    border-color: input.has-focus ? Theme.focus-ring : Theme.hairline;
+    background: Theme.field;
     if input.text == "": Text {
         x: 8px;
         text: root.placeholder;
-        font-size: Theme.fs-label;
-        color: Theme.text-disabled;
+        font-size: Theme.fs-body;
+        color: Theme.text-3;
         vertical-alignment: center;
     }
     input := TextInput {

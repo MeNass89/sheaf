@@ -1,0 +1,217 @@
+// The widget gallery (debug builds, SHEAF_GALLERY=1): every component of the inventory in its rest,
+// on and disabled states, light or dark (SHEAF_THEME), over an 8 px grid so that every edge can be
+// checked against it. Hover, press and the focus ring show by pointing or tabbing.
+import { Theme, Space } from "../theme.slint";
+import { TooltipLayer } from "tooltip.slint";
+import { Button, ButtonKind, IconButton } from "button.slint";
+import { ToolbarButton, ToolbarText, ModeSegment, RailButton, SidebarTabs, SidebarTabItem } from "toolbar.slint";
+import { PopupButton, Checkbox, Radio, Switch, Chip, Swatch, InspectorSegment } from "controls.slint";
+import { Popover, MenuRow, MenuSeparatorLine, ContextMenu, Sheet, SheetButtons, ToastView } from "surfaces.slint";
+import { ResizeHandle } from "resize-handle.slint";
+import { ToolTile, DropArea } from "home-parts.slint";
+
+component Caption inherits Text {
+    font-size: Theme.fs-subhead;
+    color: Theme.text-2;
+}
+
+component Row inherits HorizontalLayout {
+    spacing: Space.sm;
+    alignment: start;
+    height: 40px;
+}
+
+export component WidgetGallery inherits Window {
+    title: "Sheaf widgets";
+    preferred-width: 1280px;
+    preferred-height: 800px;
+    background: Theme.window;
+    property <int> mode-on: 0;
+    property <int> tab-on: 0;
+    property <bool> check-on: true;
+    property <bool> switch-on: true;
+    property <int> radio-on: 0;
+    property <length> column: Theme.sidebar-default;
+    // The 8 px grid.
+    for i in 160: Rectangle { x: i * 8px; width: 1px; background: Theme.dark ? #FFFFFF0A : #0000000A; }
+    for i in 100: Rectangle { y: i * 8px; height: 1px; background: Theme.dark ? #FFFFFF0A : #0000000A; }
+
+    // A sidebar column with its resize handle (200–480, 45 % of the window; double click: 260).
+    Rectangle {
+        x: 0;
+        width: root.column;
+        background: Theme.chrome;
+        VerticalLayout {
+            padding: Space.lg;
+            spacing: Space.md;
+            alignment: start;
+            SidebarTabs {
+                items: [
+                    { icon: @image-url("../icons/layout-grid.svg"), text: "Thumbnails", shortcut: "⌥⌘1" },
+                    { icon: @image-url("../icons/list-tree.svg"), text: "Outline", shortcut: "⌥⌘2" },
+                    { icon: @image-url("../icons/star.svg"), text: "Bookmarks", shortcut: "⌥⌘3" },
+                    { icon: @image-url("../icons/message-square.svg"), text: "Annotations", shortcut: "⌥⌘4" },
+                    { icon: @image-url("../icons/paperclip.svg"), text: "Attachments", shortcut: "⌥⌘5" },
+                    { icon: @image-url("../icons/layers.svg"), text: "Layers", shortcut: "⌥⌘6" },
+                ];
+                current <=> root.tab-on;
+            }
+            Text { text: "Thumbnails"; font-size: Theme.fs-title-3; font-weight: Theme.weight-demibold; color: Theme.text; }
+            Caption { text: "Drag the edge: 200–480"; }
+            Caption { text: "Width " + round(root.column / 1px); }
+        }
+        ResizeHandle {
+            edge-x: parent.width;
+            current-width: root.column;
+            resized(w) => { root.column = clamp(w, Theme.sidebar-min, min(Theme.sidebar-max, root.width * Theme.sidebar-max-share)); }
+            reset => { root.column = Theme.sidebar-default; }
+        }
+        // The page actions bar: its tips flip above (the window's bottom edge).
+        Rectangle {
+            y: parent.height - 44px;
+            height: 44px;
+            Rectangle { y: 0; height: 1px; background: Theme.hairline; }
+            HorizontalLayout {
+                padding-left: 8px;
+                alignment: start;
+                ToolbarButton { icon: @image-url("../icons/rotate-ccw.svg"); tip: "Rotate left"; shortcut: "⌘L"; y: 4px; }
+                ToolbarButton { icon: @image-url("../icons/rotate-cw.svg"); tip: "Rotate right"; shortcut: "⌘R"; y: 4px; }
+                ToolbarButton { icon: @image-url("../icons/trash-2.svg"); tip: "Delete"; shortcut: "⌫"; y: 4px; }
+            }
+        }
+    }
+
+    VerticalLayout {
+        x: root.column + 32px;
+        width: root.width - root.column - 64px;
+        padding-top: 24px;
+        spacing: Space.lg;
+        alignment: start;
+        Text { text: "Widgets"; font-size: Theme.fs-large-title; color: Theme.text; }
+
+        Caption { text: "ToolbarButton · ToolbarText · ModeSegment — rest, on, disabled"; }
+        Row {
+            ToolbarButton { icon: @image-url("../icons/panel-left.svg"); tip: "Show or hide the sidebar"; shortcut: "⌃⌘S"; }
+            ToolbarButton { icon: @image-url("../icons/highlighter.svg"); on: true; tip: "Highlight"; shortcut: "H"; }
+            ToolbarButton { icon: @image-url("../icons/printer.svg"); enabled: false; tip: "Print…"; }
+            ToolbarText { text: "87%"; tip: "Zoom"; shortcut: "⌘0"; y: 4px; }
+            Rectangle { width: 16px; }
+            for icon[i] in [@image-url("../icons/pen-line.svg"), @image-url("../icons/text-cursor-input.svg"), @image-url("../icons/signature.svg"), @image-url("../icons/layout-grid.svg"), @image-url("../icons/eye-off.svg"), @image-url("../icons/slash.svg"), @image-url("../icons/wrench.svg")]: ModeSegment {
+                icon: icon;
+                selected: root.mode-on == i;
+                tip: ["Annotate", "Edit", "Fill & Sign", "Organize", "Redact", "Measure", "All tools"][i];
+                shortcut: ["⌘1", "⌘2", "⌘3", "⌘4", "⌘5", "⌘6", "⌘K"][i];
+                clicked => { root.mode-on = i; }
+            }
+        }
+
+        Caption { text: "Button — secondary, primary, destructive, large, disabled"; }
+        Row {
+            Button { text: "Cancel"; y: 6px; }
+            Button { text: "Print"; kind: ButtonKind.primary; tip: "⌘P"; y: 6px; }
+            Button { text: "Delete"; kind: ButtonKind.destructive; y: 6px; }
+            Button { text: "Open Files"; kind: ButtonKind.large; y: 4px; }
+            Button { text: "Disabled"; enabled: false; y: 6px; }
+            Button { text: "Disabled"; kind: ButtonKind.primary; enabled: false; y: 6px; }
+            IconButton { icon: @image-url("../icons/plus.svg"); tip: "New tab"; y: 6px; }
+        }
+
+        Caption { text: "PopupButton · Checkbox · Radio · Switch · Segment"; }
+        Row {
+            PopupButton { options: ["By page", "By date", "By author", "By colour"]; width: 88px; y: 6px; tip: "Sort"; }
+            PopupButton { options: ["A very long sort label indeed"]; width: 120px; y: 6px; }
+            Checkbox { text: "Match case"; checked <=> root.check-on; y: 6px; }
+            Checkbox { text: "Off"; y: 6px; }
+            Checkbox { text: "Disabled"; enabled: false; y: 6px; }
+            Radio { text: "System"; checked: root.radio-on == 0; clicked => { root.radio-on = 0; } y: 6px; }
+            Radio { text: "Light"; checked: root.radio-on == 1; clicked => { root.radio-on = 1; } y: 6px; }
+            Switch { checked <=> root.switch-on; label: "Notify"; y: 12px; }
+            Switch { checked: false; enabled: false; label: "Off"; y: 12px; }
+            InspectorSegment { options: ["Day", "Sepia", "Night"]; width: 180px; y: 8px; }
+        }
+
+        Caption { text: "Chip · Swatch (accent choices, the chosen one ringed) · Toast"; }
+        Row {
+            Chip { text: "All"; on: true; y: 8px; }
+            Chip { text: "Highlights"; y: 8px; }
+            Chip { text: "Notes"; y: 8px; }
+            Rectangle { width: 16px; }
+            for c[i] in Theme.accent-swatches: Swatch { colour: c; selected: Theme.accent-choice == i; tip: ["Blue", "Red", "Green", "Purple", "Orange", "Graphite"][i]; y: 6px; }
+            Rectangle { width: 16px; }
+            ToastView { text: "3 pages deleted"; action: "Undo"; width: 240px; y: 2px; }
+            ToastView { text: "Saved study.pdf"; width: 200px; y: 2px; }
+        }
+
+        Caption { text: "Popover · ContextMenu · Sheet"; }
+        HorizontalLayout {
+            spacing: Space.xl;
+            alignment: start;
+            height: 196px;
+            Popover {
+                width: 200px;
+                height: 120px;
+                VerticalLayout {
+                    padding: 8px;
+                    MenuRow { text: "Fit width"; keys: "⌘9"; }
+                    MenuRow { text: "Fit page"; keys: "⌘8"; }
+                    MenuRow { text: "Actual size"; keys: "⌘0"; }
+                }
+            }
+            ContextMenu {
+                width: 240px;
+                height: 132px;
+                MenuRow { text: "Copy"; has-icon: true; icon: @image-url("../icons/copy.svg"); }
+                MenuRow { text: "Highlight"; has-icon: true; icon: @image-url("../icons/highlighter.svg"); }
+                MenuSeparatorLine {}
+                MenuRow { text: "Disabled"; enabled: false; }
+                MenuRow { text: "Delete"; danger: true; }
+            }
+            Sheet {
+                title: "Save changes?";
+                width: 360px;
+                height: 160px;
+                Text { text: "Your changes to study.pdf are lost if you don't save them."; wrap: word-wrap; font-size: Theme.fs-body; color: Theme.text; }
+                SheetButtons {
+                    Button { text: "Don't Save"; }
+                    Button { text: "Cancel"; }
+                    Button { text: "Save"; kind: ButtonKind.primary; }
+                }
+            }
+        }
+
+        Caption { text: "ToolTile · DropArea"; }
+        HorizontalLayout {
+            spacing: Space.lg;
+            alignment: start;
+            height: 108px;
+            ToolTile { icon: @image-url("../icons/pen-line.svg"); text: "Annotate"; }
+            ToolTile { icon: @image-url("../icons/layout-grid.svg"); text: "Organize Pages"; }
+            ToolTile { icon: @image-url("../icons/minimize-2.svg"); text: "Compress"; }
+            DropArea { width: 400px; }
+        }
+    }
+    // The last toolbar-like button at the right edge: its tip clamps 8 px inside.
+    ToolbarButton {
+        x: root.width - 44px;
+        y: 4px;
+        icon: @image-url("../icons/panel-left.svg");
+        tip: "Show or hide the inspector";
+        shortcut: "⌃⌘I";
+    }
+    // A rail item: its tip to the right.
+    RailButton {
+        x: root.column + 4px;
+        y: 420px;
+        icon: @image-url("../icons/mouse-pointer-2.svg");
+        tip: "Select";
+        shortcut: "V";
+    }
+    RailButton {
+        x: root.column + 4px;
+        y: 460px;
+        icon: @image-url("../icons/trash-2.svg");
+        danger: true;
+        tip: "Delete pages";
+    }
+    TooltipLayer {}
+}

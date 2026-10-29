@@ -1,4 +1,9 @@
-// Design tokens. Every colour and size the screens use lives here.
+// Design tokens (docs/DESIGN.md §4). Every colour, size, radius, shadow and duration the screens use
+// lives here; views use these names, never raw values.
+//
+// The first section is the token table of the spec. The section "Aliases" keeps the names the
+// screens used before the redesign, pointed at the new roles, so each screen migrates on its own
+// (W2–W5); they go once every screen reads the new names.
 import { Palette } from "std-widgets.slint";
 
 export global Theme {
@@ -9,110 +14,205 @@ export global Theme {
     in-out property <string> serif-family: "serif";
     in-out property <string> mono-family: "monospace";
     out property <bool> dark: mode == 2 || (mode == 0 && Palette.color-scheme == ColorScheme.dark);
-    // Running on macOS (set from Rust): only the system accent follows it; the metrics below are
-    // Apple's (13 px text, 28 px controls) on every platform.
+    // Running on macOS (set from Rust): only the system accent follows it; the metrics are the
+    // same on every platform (one design on all three, DESIGN §4 Cross-platform rule).
     in property <bool> mac;
     // macOS's accent colour (System Settings ▸ Appearance), read once at start in sRGB.
     in property <color> system-accent: #007AFF;
+    // The system's Reduce Motion (macOS accessibility, GNOME "enable-animations" off), or
+    // SHEAF_REDUCE_MOTION=1. Every Motion duration is 0 under it.
+    in property <bool> reduce-motion;
 
-    // Surfaces
-    out property <color> bg: dark ? #161616 : #ffffff;
-    out property <color> content-bg: dark ? #1E1E24 : #F5F5FA;
-    out property <color> tabbar-bg: dark ? #26262D : #EBEBF4;
-    out property <color> tab-bg: dark ? #161616 : #ffffff;
-    out property <color> sidebar-bg: dark ? #161616 : #ffffff;
-    out property <color> sidebar-border: dark ? #33333B : #EBEBF4;
-    out property <color> card: dark ? #292931 : #ffffff;
-    // A soft outline on hover (black or white read as a harsh frame).
-    out property <color> card-border-hover: option-border;
-    out property <color> separator: dark ? #47474F : #EBEBF4;
-    out property <color> dashed: dark ? #47474F : #D6D6DF;
-    out property <color> pill-bg: dark ? #33333B : #EBEBF4;
-    out property <color> input-bg: dark ? #292931 : #ffffff;
-    out property <color> input-border: dark ? #5C5C64 : #ADADB6;
-    out property <color> popup-hover: dark ? #33333B : #F5F5FA;
+    // ── Colour roles ────────────────────────────────────────────────────────────────────────
+    // Home content, inspector, sheets, popovers.
+    out property <color> window: dark ? #1E1E1E : #FFFFFF;
+    // The control layer: tab strip, toolbar, sidebar, mode rail (one material). Slint has no
+    // blur: chrome is opaque and told apart from content by tone and the hairline between them.
+    out property <color> chrome: dark ? #2B2B2B : #F6F6F6;
+    out property <color> chrome-inactive: dark ? #262626 : #F0F0F0;
+    // Behind the pages.
+    out property <color> canvas: dark ? #1C1C21 : #E6E6EB;
+    out property <color> page-shadow: dark ? #00000066 : #00000040;
+    // 1 px separators and panel edges.
+    out property <color> hairline: dark ? #3A3A3F : #D9D9DE;
+    // A control's own outline where a hairline is too faint to find the edge (radio cards).
+    out property <color> control-border: dark ? #4A4A4F : #C4C4C8;
+    // Row hover; pressed, selected segment, mode pill; toolbar pill of an active tool.
+    out property <color> fill-1: dark ? #FFFFFF0F : #0000000A;
+    out property <color> fill-2: dark ? #FFFFFF1A : #00000014;
+    out property <color> fill-3: dark ? #FFFFFF29 : #0000001F;
+    // Text fields and the search field (border `hairline`).
+    out property <color> field: dark ? #1A1A1A : #FFFFFF;
+    out property <color> text: dark ? #F2F2F2 : #1D1D1F;
+    out property <color> text-2: dark ? #A1A1A6 : #6E6E73;
+    // Placeholders only (below 4.5:1 on purpose).
+    out property <color> text-3: dark ? #6E6E73 : #9A9AA0;
+    out property <color> text-disabled: dark ? #4A4A4F : #C4C4C8;
 
-    // Tool flow
-    out property <color> panel-bg: dark ? #1E1E24 : #ffffff;
-    out property <color> filearea-bg: dark ? #1E1E24 : #F5F5FA;
-    out property <color> option-border: dark ? #5C5C64 : #ADADB6;
-    // Selected options: a tint of the accent, apart from the card colour in dark mode too.
-    out property <color> option-selected-bg: derived-accent ? accent.transparentize(dark ? 70% : 85%) : dark ? #4A2A27 : #FDE4DF;
-    out property <color> info-bg: dark ? #14304A : #DEF2FF;
-    out property <color> info: dark ? #4DB3F5 : #008EE9;
-    out property <color> success: #4ACD86;
-    out property <color> success-strong: dark ? #4ACD86 : #1D9D58;
-    out property <color> on-success: dark ? #161616 : #ffffff;
-    out property <color> warning: #EF9E02;
-    out property <color> warning-bg: dark ? #3A2A08 : #FFF4D6;
-    out property <color> danger: dark ? #FF6A58 : #E5322D;
-    out property <color> badge-bg: dark ? #EBEBF4 : #292931;
-    out property <color> on-badge: dark ? #161616 : #ffffff;
-    out property <color> thumb-placeholder: dark ? #33333B : #E4E4EC;
-    out property <color> thumb-shadow: #00000033;
-    out property <color> scrim: #00000066;
-    out property <color> toast-bg: dark ? #EBEBF4 : #292931;
-    out property <color> on-toast: dark ? #161616 : #ffffff;
-    out property <color> progress-track: dark ? #33333B : #EBEBF4;
+    // Status: always with an icon or a word.
+    out property <color> info: dark ? #409CFF : #0A84FF;
+    out property <color> success: dark ? #30D158 : #1D9D58;
+    out property <color> warning: dark ? #F5A623 : #D97706;
+    out property <color> danger: dark ? #FF453A : #D70015;
+    out property <color> scrim: dark ? #00000080 : #00000040;
+    // Tooltip body (text `text`, border `hairline`), the bottom toast (text `on-toast`).
+    out property <color> tooltip: dark ? #3A3A3AF5 : #F2F2F2F5;
+    out property <color> toast: dark ? #EBEBF0 : #2B2B2B;
+    out property <color> on-toast: dark ? #1D1D1F : #FFFFFF;
 
-    // Menu
-    out property <color> menu-text: dark ? #ADADB6 : #5C5C64;
-    out property <color> menu-hover-bg: dark ? #232329 : #F5F5FA;
-    out property <color> menu-selected-bg: derived-accent ? accent.transparentize(dark ? 80% : 88%) : dark ? #292931 : #FDE4DF;
-
-    // Accent (Preferences ▸ Appearance ▸ Accent colour): Sheaf red, blue, green, purple,
-    // orange, graphite; a lighter tint of each in dark mode.
+    // Accent (Settings ▸ Appearance ▸ Accent): Sheaf blue first (calm), then Sheaf red, green,
+    // purple, orange, graphite; a lighter tint of each in dark mode. On macOS the first choice is
+    // the system accent, as in every Mac app (the system is blue unless the person chose another).
     in-out property <int> accent-choice: 0;
-    // On macOS the default choice is the system accent, as in every Mac app.
     property <bool> follows-system: mac && accent-choice == 0;
-    // Hover, pressed and selection shades computed from the accent (Sheaf red keeps its own).
-    property <bool> derived-accent: accent-choice != 0 || follows-system;
-    property <[color]> accents-light: [#E5322D, #1F6FEB, #1A7F37, #8250DF, #D9730D, #57606A];
-    property <[color]> accents-dark: [#FF6A58, #58A6FF, #3FB950, #BC8CFF, #F0883E, #A8B1BA];
+    out property <[color]> accent-swatches: [mac ? system-accent : #1F6FEB, #E5322D, #1A7F37, #8250DF, #D9730D, #57606A];
+    property <[color]> accents-light: [#1F6FEB, #E5322D, #1A7F37, #8250DF, #D9730D, #57606A];
+    property <[color]> accents-dark: [#58A6FF, #FF6A58, #3FB950, #BC8CFF, #F0883E, #A8B1BA];
     out property <color> accent: follows-system ? system-accent : dark ? accents-dark[accent-choice] : accents-light[accent-choice];
-    out property <color> accent-hover: derived-accent ? (dark ? accent.brighter(30%) : accent.darker(25%)) : dark ? #FFB6AD : #BD060A;
-    // A shade of the accent (pure black or white flashed on every click).
-    out property <color> accent-pressed: dark ? accent.brighter(20%) : accent.darker(20%);
-    // macOS's accents carry white text in both appearances.
-    out property <color> on-accent: dark && !follows-system ? #161616 : #ffffff;
+    // Hover and press only ever deepen the rest colour (light) or lift it (dark).
+    out property <color> accent-hover: dark ? accent.brighter(15%) : accent.darker(15%);
+    out property <color> accent-pressed: dark ? accent.brighter(25%) : accent.darker(25%);
+    // Accent-coloured text: a deep shade in light mode, a light one in dark mode.
+    out property <color> accent-text: dark ? accent.brighter(15%) : accent.darker(20%);
+    // Text and symbols on an accent fill: the dark tints carry dark text (white fails on them),
+    // macOS's accents white in both appearances.
+    out property <color> on-accent: dark && !follows-system ? #1D1D1F : #FFFFFF;
+    // Text selection on the page.
+    out property <color> selection: accent.transparentize(dark ? 65% : 75%);
+    // The focus ring (2 px outside the shape, keyboard only).
+    out property <color> focus-ring: accent.transparentize(15%);
 
-    // Text
-    out property <color> text: dark ? #ffffff : #292931;
-    out property <color> text-heading: dark ? #EBEBF4 : #47474F;
-    out property <color> text-secondary: dark ? #ADADB6 : #5C5C64;
-    out property <color> text-muted: dark ? #ADADB6 : #85858E;
-    out property <color> text-disabled: dark ? #5C5C64 : #ADADB6;
+    // ── Type scale (size / leading in px) ───────────────────────────────────────────────────
+    out property <length> fs-large-title: 26px;   // 32 leading, 400: Home page title
+    out property <length> fs-title-1: 22px;       // 26, 400: sheet titles
+    out property <length> fs-title-2: 17px;       // 22, 600: Home section headers
+    out property <length> fs-title-3: 15px;       // 20, 600: sidebar and inspector section titles
+    out property <length> fs-headline: 13px;      // 16, 600: card titles, dialog headings
+    out property <length> fs-body: 13px;          // 16, 400: rows, buttons, fields, menus, tabs
+    out property <length> fs-callout: 12px;       // 15, 400: hints, tool descriptions
+    out property <length> fs-subhead: 11px;       // 14, 400: metadata, tooltips, page badges
+    out property <length> fs-caption: 11px;       // alias of fs-subhead (old name, widely used)
+    out property <length> fs-floor: 10px;         // 13, 400: the floor (thumbnail numbers)
+    out property <length> lh-large-title: 32px;
+    out property <length> lh-title-1: 26px;
+    out property <length> lh-title-2: 22px;
+    out property <length> lh-title-3: 20px;
+    out property <length> lh-body: 16px;
+    out property <length> lh-callout: 15px;
+    out property <length> lh-subhead: 14px;
+    out property <int> weight-regular: 400;
+    out property <int> weight-demibold: 600;
+    out property <int> weight-bold: 700;
 
-    // Illustration
-    out property <color> art-circle: dark ? #292931 : #EBEBF4;
-    out property <color> art-stroke: dark ? #85858E : #ADADB6;
-    out property <color> art-page: dark ? #1E1E24 : #ffffff;
+    // ── Radii (concentric: inner = outer − padding) ─────────────────────────────────────────
+    out property <length> r-xs: 4px;     // chips' inner marks, tooltips, keycaps, badges
+    out property <length> r-sm: 6px;     // buttons, fields, segments
+    out property <length> r-row: 6px;    // row hover fills
+    out property <length> r-pill: 8px;   // toolbar, rail and mode pills; context menus; toasts
+    out property <length> r-md: 10px;    // cards, popovers
+    out property <length> r-lg: 12px;    // sheets
+    out property <length> r-xl: 16px;    // the Open area
 
-    // Radii
-    out property <length> radius-card: 12px;
-    out property <length> radius-item: 8px;
-    out property <length> radius-button: 6px;
-    out property <length> radius-small: 4px;
+    // ── Shadows ─────────────────────────────────────────────────────────────────────────────
+    out property <length> popover-blur: 16px;
+    out property <length> popover-y: 4px;
+    out property <color> popover-shadow: dark ? #00000080 : #00000026;
+    out property <length> sheet-blur: 40px;
+    out property <length> sheet-y: 12px;
+    out property <color> sheet-shadow: #00000040;
+    out property <length> page-blur: 6px;
+    out property <length> page-y: 2px;
+    out property <length> toast-blur: 12px;
+    out property <length> toast-y: 4px;
+    out property <color> toast-shadow: #00000033;
 
-    // Type scale
-    out property <length> fs-caption: 11px;
-    out property <length> fs-label: 13px;
-    out property <length> fs-body: 13px;
+    // ── Metrics of the component inventory ──────────────────────────────────────────────────
+    out property <length> control-height: 28px;     // buttons, fields, popups
+    out property <length> row-height: 28px;         // sidebar, inspector, menu rows
+    out property <length> toolbar-height: 44px;
+    out property <length> toolbar-button: 36px;     // ToolbarButton, RailButton (icon 18)
+    out property <length> mode-segment-width: 48px;
+    out property <length> rail-width: 44px;
+    out property <length> rail-pitch: 40px;
+    out property <length> options-bar-height: 36px;
+    out property <length> icon-sm: 16px;            // rows, menus, inspector
+    out property <length> icon-md: 18px;            // toolbar, rail, sidebar tabs
+    out property <length> icon-lg: 20px;            // Home source list
+    out property <length> swatch: 18px;
+    out property <length> tooltip-max-width: 280px;
+    out property <length> tab-min-width: 120px;
+    out property <length> tab-max-width: 240px;
+
+    // ── Side columns (DESIGN §6.2) ──────────────────────────────────────────────────────────
+    out property <length> sidebar-min: 200px;
+    out property <length> sidebar-default: 260px;
+    out property <length> sidebar-max: 480px;
+    // Never more than this share of the window.
+    out property <float> sidebar-max-share: 0.45;
+    out property <length> inspector-min: 220px;
+    out property <length> inspector-default: 260px;
+    out property <length> inspector-max: 340px;
+    // The resize handle's hit area, centred on the hairline.
+    out property <length> handle-width: 8px;
+
+    // ── Aliases (pre-redesign names; screens migrate to the roles above) ────────────────────
+    out property <color> bg: window;
+    out property <color> content-bg: window;
+    out property <color> tabbar-bg: chrome;
+    out property <color> tab-bg: window;
+    out property <color> sidebar-bg: chrome;
+    out property <color> sidebar-border: hairline;
+    out property <color> card: window;
+    out property <color> card-border-hover: control-border;
+    out property <color> separator: hairline;
+    out property <color> dashed: control-border;
+    out property <color> pill-bg: fill-2;
+    out property <color> input-bg: field;
+    out property <color> input-border: hairline;
+    out property <color> popup-hover: fill-1;
+    out property <color> panel-bg: chrome;
+    out property <color> filearea-bg: canvas;
+    out property <color> option-border: control-border;
+    // Selected options: a tint of the accent.
+    out property <color> option-selected-bg: accent.transparentize(dark ? 75% : 88%);
+    out property <color> info-bg: info.transparentize(dark ? 80% : 88%);
+    out property <color> success-strong: success;
+    out property <color> on-success: #FFFFFF;
+    out property <color> warning-bg: warning.transparentize(dark ? 80% : 85%);
+    out property <color> badge-bg: dark ? #EBEBF0 : #2B2B2B;
+    out property <color> on-badge: dark ? #1D1D1F : #FFFFFF;
+    out property <color> thumb-placeholder: fill-2;
+    out property <color> thumb-shadow: page-shadow;
+    out property <color> toast-bg: toast;
+    out property <color> progress-track: fill-2;
+    out property <color> menu-text: text-2;
+    out property <color> menu-hover-bg: fill-1;
+    out property <color> menu-selected-bg: accent.transparentize(dark ? 80% : 88%);
+    out property <color> text-heading: text;
+    out property <color> text-secondary: text-2;
+    out property <color> text-muted: text-2;
+    out property <color> art-circle: fill-1;
+    out property <color> art-stroke: text-3;
+    out property <color> art-page: window;
+    out property <length> radius-card: r-md;
+    out property <length> radius-item: r-pill;
+    out property <length> radius-button: r-sm;
+    out property <length> radius-small: r-xs;
+    out property <length> fs-label: fs-body;
     out property <length> fs-body-large: 16px;
     out property <length> fs-subtitle: 18px;
     out property <length> fs-title: 24px;
     out property <length> fs-title-large: 28px;
-    // Component text sizes (taste gate 15/10): Apple's 13 px body and smaller headings.
-    out property <length> fs-menu: 13px;
-    out property <length> fs-section: 15px;
-    out property <length> fs-card: 13px;
-    out property <length> fs-page-title: 22px;
-    out property <length> fs-button: 13px;
-    out property <length> fs-tab: 13px;
-    out property <int> weight-demibold: 600;
-    out property <int> weight-bold: 700;
+    out property <length> fs-menu: fs-body;
+    out property <length> fs-section: fs-title-3;
+    out property <length> fs-card: fs-body;
+    out property <length> fs-page-title: fs-title-1;
+    out property <length> fs-button: fs-body;
+    out property <length> fs-tab: fs-body;
+    out property <length> fs-panel-title: 16px;
+    out property <length> fs-result-title: 18px;
 
-    // Layout
+    // Layout of screens not yet migrated (W2–W5 replace them with the metrics above).
     out property <length> tabbar-height: 38px;
     out property <length> tab-width: 132px;
     out property <length> tab-height: 32px;
@@ -134,13 +234,11 @@ export global Theme {
     out property <length> card-label-gap: 12px;
     out property <length> grid-spacing: 20px;
     out property <length> section-header-height: 44px;
-    // Apple's regular control height is 28 px.
-    out property <length> button-height: 28px;
+    out property <length> button-height: control-height;
     out property <length> dropzone-height: 120px;
     out property <length> combo-width: 104px;
-    out property <length> combo-height: 28px;
-    out property <length> segment-height: 28px;
-    // Tool flow
+    out property <length> combo-height: control-height;
+    out property <length> segment-height: control-height;
     out property <length> panel-width: 292px;  // 248 px of options + the scrollbar gutter
     out property <length> panel-padding: 16px;
     out property <length> filearea-margin: 20px;
@@ -151,15 +249,39 @@ export global Theme {
     out property <length> fab-size: 40px;
     out property <length> action-height: 36px;
     out property <length> radio-card-height: 44px;
-    out property <length> field-height: 28px;
+    out property <length> field-height: control-height;
     out property <length> tool-tab-width: 168px;
     out property <length> continue-width: 200px;
     out property <length> continue-row: 40px;
     out property <length> result-bar-height: 80px;
     out property <length> page-thumb-width: 84px;
     out property <length> page-thumb-height: 118px;
-    out property <length> fs-panel-title: 16px;
-    out property <length> fs-result-title: 18px;
     // Two-line labels need air between lines.
     out property <float> line-height: 1.25;
+}
+
+// Spacing on the 4 px grid. Window and page margins 20; related controls 8 apart; groups 20;
+// sections 32; cards pad 16.
+export global Space {
+    out property <length> xs: 4px;
+    out property <length> sm: 8px;
+    out property <length> md: 12px;
+    out property <length> lg: 16px;
+    out property <length> xl: 20px;
+    out property <length> xxl: 24px;
+    out property <length> section: 32px;
+}
+
+// Every animation goes through these; all 0 under Reduce Motion (a change then simply appears).
+// Search results, tab switches and the page organiser never animate.
+export global Motion {
+    out property <duration> hover: Theme.reduce-motion ? 0ms : 80ms;
+    // Press, segment move, tooltip in.
+    out property <duration> quick: Theme.reduce-motion ? 0ms : 120ms;
+    // Sidebar / inspector slide, popover scale and fade.
+    out property <duration> ui: Theme.reduce-motion ? 0ms : 160ms;
+    // A sheet rising 8 px and fading in.
+    out property <duration> appear: Theme.reduce-motion ? 0ms : 200ms;
+    out property <duration> dismiss: Theme.reduce-motion ? 0ms : 120ms;
+    out property <duration> tooltip-out: Theme.reduce-motion ? 0ms : 60ms;
 }

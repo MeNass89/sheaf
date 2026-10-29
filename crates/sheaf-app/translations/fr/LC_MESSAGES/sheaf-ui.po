@@ -7203,3 +7203,15 @@ msgstr "Premier animateur"
 #: ui/screens/ai-panel.slint
 msgid "Second host"
 msgstr "Second animateur"
+
+#: ui/screens/reader-panel.slint
+msgid "More page actions"
+msgstr "Autres actions sur les pages"
+
+#: ui/widgets/home-parts.slint
+msgid "or drop any files here"
+msgstr "ou déposez des fichiers ici"
+
+#: ui/widgets/home-parts.slint
+msgid "Open Files"
+msgstr "Ouvrir des fichiers"
