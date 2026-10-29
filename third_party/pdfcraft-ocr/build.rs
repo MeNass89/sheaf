@@ -13,4 +13,14 @@ fn main() {
     if prebuilt {
         println!("cargo::rustc-cfg=onnxruntime");
     }
+    // onnxruntime's CoreML code checks the macOS version (`@available`), which calls
+    // ___isPlatformVersionAtLeast from clang's runtime; rustc does not link that runtime, and a build
+    // for an older macOS than the SDK's (the release targets macOS 11) needs it.
+    if prebuilt && os == "macos" {
+        if let Ok(out) = std::process::Command::new("clang").arg("--print-resource-dir").output() {
+            let dir = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            println!("cargo::rustc-link-search=native={dir}/lib/darwin");
+            println!("cargo::rustc-link-lib=static=clang_rt.osx");
+        }
+    }
 }
