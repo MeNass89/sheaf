@@ -367,3 +367,48 @@ release targets macOS 11 (`___isPlatformVersionAtLeast`, pdfcraft-ocr build.rs);
 AppIcon.icon (newest Xcode on the runner; the icns alone otherwise); the home-path leak check counting
 onnxruntime's own build paths. Also built on the MBP (Xcode 27.1): the DMG opens, the app launches from it with its
 menus, Assets.car (dark-mode icon) present, CLI smoke ok; copied to iCloud temp as Sheaf-0.2.1-r40-arm64.dmg.
+
+## Redesign W1: tokens, widgets, tooltip layer, side-panel width (29/10/2026, Opus)
+
+DESIGN.md §4 and §6, DESIGN-PLAN W1. Branch wip/w1-tokens (from dev/phase-4-5 + wip/design-spec).
+
+- `ui/theme.slint`: the token table (colour roles window / chrome / canvas / hairline / fill-1..3 / field /
+  text..text-3 / status / tooltip / toast, accent-text, on-accent, focus-ring), type scale with leadings, radii
+  r-xs..r-xl, shadows, metrics, side-column widths; globals `Space` and `Motion` (every duration 0 under Reduce
+  Motion). The old names stay as aliases pointed at the new roles, so every screen already wears the new
+  palette; W2–W5 migrate to the new names, the aliases go after them. Accent: Sheaf blue first (the system's
+  on macOS), Sheaf red second; `Theme.accent-swatches` feeds Preferences' row.
+- Tooltip layer `widgets/tooltip.slint`: `TooltipBridge` (hover / show-now / leave / cancel), `TooltipLayer`
+  last child of `AppWindow` (and of the gallery), `TipArea` for new widgets. 600 ms rest, warm 300 ms, out
+  60 ms, a press cancels; below the anchor, flipped above past H − 8, x clamped to [8, W − w − 8], rails to the
+  right (flipped left), max 280 then wraps, shortcut in `text-2`. ToolButton, PanelTab, SmallButton,
+  IconButton, the collapsed Home menu and the link destination all go through it: no control draws a tip.
+- Widgets: `toolbar.slint` (ToolbarButton, ToolbarText, ModeSegment, RailButton, SidebarTabs),
+  `button.slint` (Button with secondary / primary / destructive / large, keyboard-only focus ring),
+  `controls.slint` (PopupButton, Checkbox, Radio, Switch, Chip, Swatch, InspectorSegment, FocusRing),
+  `surfaces.slint` (Popover, MenuRow, ContextMenu, Sheet, SheetButtons, ToastView), `home-parts.slint`
+  (ToolTile, DropArea), `resize-handle.slint`; SortCombo, MenuItem, DashedBox, tab strip restyled.
+  `widgets/gallery.slint` + SHEAF_GALLERY=1 (debug): every widget over the 8 px grid; a snapshot name starting
+  with "gallery" draws that window.
+- Tab strip: 38, `chrome`, Home pinned first 120 wide, tabs 240 → 120 (then on to 72 rather than scroll, so
+  twelve tabs stay in sight: a small departure from the spec's 120 floor), monochrome icon, × on hover and on the
+  selected tab, the selected tab `window` with hairline sides, one hairline at every boundary.
+- Side panel: `ResizeHandle` (8 wide, centred on the hairline, col-resize, accent while hovered or dragged,
+  double click = default), 200–480 and at most 45 % of the window. Narrow (< 240) the page actions fold Extract
+  and Number pages into ⋯ (Delete stays), the Notes "Hide all" becomes its eye icon, the two Notes popups share the
+  row (88–112 each): nothing clipped at 200.
+- Default width stays **248**, not the spec's 260: at 260 the handle (to x 264) took the smoke's drags that start
+  at x 260 on the canvas and every canvas click moved 12 px; W3 re-lays the reader and recalibrates those
+  clicks anyway, so it flips `Theme.sidebar-default` and `reader_ui::PANEL_WIDTH` together.
+- Outside W1's files, the minimum: reader.slint (link tip through the layer; panel `z: 1` so its handle is over
+  the canvas; `window-width`), reader-panel.slint (handle, folds above), preferences.slint (swatch list).
+- `platform_ui.rs`: Reduce Motion (macOS NSWorkspace, GNOME enable-animations, SHEAF_REDUCE_MOTION), gallery.
+
+Smoke recalibrated: 1-reader 6i (the link tip read by OCR "Page 2" under the pointer: the tip is light now, a
+mean-brightness test no longer sees it); 2-documents `ntabs` (counts the strip's boundary hairlines at y 10, the
+purple tab tiles are gone; used by 4-flows too); 4-flows `red_at` and `tick_x` (the accent is blue), the preview
+banner OCR in one-line mode (`--psm 7`: tesseract dropped "Preview of no" where the banner straddles the page edge).
+
+Screenshots /tmp/f5/w1/ (self-snapshots, Xvfb :128–:130): reader light/dark 1280 and 1024, gallery light/dark,
+tips (trash above the bar, right edge clamped at 1280 and 1024, panel tab over its separator, Notes toolbar over
+the popups, rail to the right), narrow panel 200 (Notes, Pages), wide 480, reset.
