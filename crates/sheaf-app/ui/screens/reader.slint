@@ -102,7 +102,9 @@ export component ReaderScreen inherits Rectangle {
     property <length> inspector-width: Theme.inspector-default;
     // The options bar docks under the toolbar while a mode is on and the tool has options (and for
     // a form's or a kept signature's actions, which a reader uses without a mode).
-    property <bool> options-shown: !root.bare && (root.mode != 0 || root.tab.reader.has-form || root.tab.reader.has-signature) && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8 && !(root.tab.reader.tool == 7 && root.tab.reader.has-picked && !root.tab.reader.selected-image)) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature);
+    // The Edit tool keeps its bar while objects are picked (the floating bar used to go, the docked one
+    // would move the page under the pointer mid-pick).
+    property <bool> options-shown: !root.bare && (root.mode != 0 || root.tab.reader.has-form || root.tab.reader.has-signature) && (root.tab.reader.tool == 5 || (root.tab.reader.tool != 0 && root.tab.reader.tool != 8) || root.tab.reader.selected-annot || root.tab.reader.has-form || root.tab.reader.has-signature);
     // The text being typed is checked for spelling (not a choice list, a link or a length).
     property <bool> spell-kind: root.tab.reader.note.kind != 5 && root.tab.reader.note.kind != 8 && root.tab.reader.note.kind != 9 && root.tab.reader.note.kind != 12;
     // The menu bar's commands this screen runs itself (main.slint): `menu-seq` bumped runs

@@ -129,7 +129,9 @@ tokens only (ToolbarButton, ModeSegment, RailButton, TipArea, ResizeHandle, Them
   reader.slint above the pages in the canvas column): y 82–118 at 1280 (69 tall for Shapes' two rows, kept),
   content from x 316 (also without the rail: the bar pads itself so its buttons never move). Shown in a mode,
   or for a form's and a kept signature's actions in Read (a reader fills a
-  form without entering a mode). Nothing floats over the pages but the selection bar.
+  form without entering a mode). Nothing floats over the pages but the selection bar. Two rules keep the page
+  still under the pointer: a comment picked in Read stays in Read (no mode switch, so no bar docks), and the
+  Edit tool keeps its bar while objects are picked (the floating bar used to go at the pick).
 - `reader-inspector.slint` (new): 260 (220–340, W1's handle on its left edge, double click resets), `window`,
   header 36 with the title (Document / the mode) and ×. Read: Document (title, pages, page, zoom, page theme);
   Annotate: Colour, Stroke, Opacity (the same callbacks as the bar); Organize: "n of m" selected; other modes:

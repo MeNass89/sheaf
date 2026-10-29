@@ -120,7 +120,7 @@ set -- $(python3 -c '
 new = set("'"$R1"'".split(";")) - set("'"$R0"'".split(";"))
 r = list(map(float, new.pop().split()))
 print(round(320 + 1.5425 * (r[0] + 12)), round(1319.5 - 1.5425 * (r[1] + r[3]) / 2))')
-key Escape; click $1 $2 0.8; key Delete; sleep 1; key ctrl+s; sleep 1.5
+key Escape; click $1 $2 0.8; shot 02g-signature-to-delete; key Delete; sleep 1; key ctrl+s; sleep 1.5
 R2=$(inks "$OUT/text.pdf")
 check "a selected signature is deleted with the Delete key" "[ \$(echo \"$R2\" | tr ';' '\\n' | grep -c .) -eq \$(( \$(echo \"$R1\" | tr ';' '\\n' | grep -c .) - 1 )) ]"
 key Escape
@@ -293,8 +293,8 @@ check "the Shapes tool keeps its style for next time (opacity 75 % in the prefer
 # 6c'0. The first rectangle (unfilled) selected by a click inside it: the Fill row shows for it, its first
 # colour (the yellow dot, found by its colour: OCR misses the small "Fill") fills it at once (Acrobat's Properties
 # bar): saved, two shapes have /IC.
-key v; click 590 360 0.8; shot 06c0-selected
-YX=$(import -window root -crop 600x1+300+110 txt:- 2>/dev/null | grep -m1 'srgb(255,219,64)' | cut -d, -f1); FY=${YX:+110}
+key v; click 590 330 0.8; shot 06c0-selected   # inside the rectangle whether or not the Shapes bar (69 tall) is docked
+YX=$(import -window root -crop 600x1+300+100 txt:- 2>/dev/null | grep -m1 'srgb(255,219,64)' | cut -d, -f1); FY=${YX:+100}
 [ -n "$FY" ] && click $(( 300 + YX + 6 )) $FY 1; key ctrl+s; sleep 1.5
 NIC=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null | grep -ac '/IC \[')
 check "a selected rectangle takes a fill colour at once (${FY:+Fill row}; $NIC filled)" "[ \"\${NIC:-0}\" -ge 2 ]"
@@ -306,11 +306,11 @@ check "the eraser rubs out a drawing it goes along ($N1 → $N2)" "[ $N1 -ge 1 ]
 key v
 
 # 6c''. Stamps (M): the default (Approved) with a click; a dated one (Received, seventh in the list at
-# 317,330 once the list at 350,109 is open, after the four marks) says who and when.
-key m; click 900 300 1.2; click 394 100 0.8; click 317 330 0.8; click 700 600 1.2
-# A checkmark (first in the list, 317,150) placed beside them.
-# In blue (the colour row shows for marks, 540,109): Acrobat's Fill & Sign marks take a colour.
-click 394 100 0.8; click 317 150 0.8; click 584 100 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
+# 361,304 once the list at 394,100 is open, rows 28 from y 136, after the four marks) says who and when.
+key m; click 900 300 1.2; click 394 100 0.8; click 361 304 0.8; click 700 600 1.2
+# A checkmark (first in the list, 361,136) placed beside them.
+# In blue (the colour row shows for marks, 584,100): Acrobat's Fill & Sign marks take a colour.
+click 394 100 0.8; click 361 136 0.8; click 584 100 0.5; click 400 650 1.2; key ctrl+s; sleep 1.5; key v
 SH=$(qpdf --qdf --object-streams=disable "$OUT/shapes.pdf" - 2>/dev/null)
 check "stamps: Approved, and Received dated by the author" "echo \"\$SH\" | grep -aq '/Name /Approved' && echo \"\$SH\" | grep -aq '/PCByLine (By $USER at '"
 check "a checkmark is placed (Fill & Sign mark)" "echo \"\$SH\" | grep -aq 'PCFillSign' && echo \"\$SH\" | grep -aq '(Checkmark)'"
@@ -368,7 +368,7 @@ click 37 106 0.8
 
 # 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
-mid() { import -window root -crop 6x200+761+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
+mid() { import -window root -crop 6x200+767+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
 M1=$(mid); key ctrl+alt+2; sleep 2.5; M2=$(mid); key ctrl+alt+2; sleep 2.5; key ctrl+alt+2; sleep 2.5; M3=$(mid); shot 06d-spread
 check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
 # 6e. Keyboard paging: End, Home, → and Space; ⌘A ⌘C copies the page in view, which tells which it is.
@@ -398,7 +398,7 @@ key ctrl+9; sleep 1
 pagesig() { import -window root -crop 1000x690+260+90 png:- 2>/dev/null | md5sum | cut -c1-8; }
 # The zoom field read alone (a single line at 300 %: the default OCR misses it).
 zoomval() { import -window root -crop 70x26+$((ZOOM_X - 32))+48 png:- 2>/dev/null | convert - -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr -cd '0-9'; }
-key Home; sleep 1; ZA=$(zoomval); QK=$(at quick 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
+key Home; sleep 1; shot 06h-before-wheel; ZA=$(zoomval); QK=$(at quick 1020x700+255+90); # The pointer arrives as a hand moves it (two steps, a pause): a wheel event read before the move
 # into the page was handled would anchor on where the pointer was before.
 [ -n "$QK" ] && xdotool mousemove $(echo $QK | awk '{ print $1 - 6, $2 - 4 }') && sleep 0.15 && xdotool mousemove $QK && sleep 0.4; xdotool keydown ctrl click 4 click 4 keyup ctrl; sleep 2; ZB=$(zoomval); QK2=$(at quick 1020x700+255+90)
 check "⌘ + wheel zooms in ($ZA → $ZB %)" "[ -n \"$ZA\" ] && [ -n \"$ZB\" ] && [ $ZB -gt $ZA ]"
