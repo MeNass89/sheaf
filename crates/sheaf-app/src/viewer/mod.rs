@@ -149,8 +149,14 @@ pub struct OverlayRect {
 
 /// Width of a thumbnail in the strip, logical pixels.
 pub const THUMB_WIDTH: f64 = 84.0;
-/// A page's width in the page grid (spread 3) at 100 %.
-pub const GRID_PAGE: f64 = 170.0;
+/// The page organiser (spread 3, DESIGN §5.7): a page 196 wide at 100 % (the inspector's thumb size,
+/// 120–320, is that zoom), 56 between columns, 40 between rows under the page number (8 under the
+/// page, 18 tall), 40 around the grid; left-aligned, as PDF Expert lays it out.
+pub const GRID_PAGE: f64 = 196.0;
+pub const GRID_GAP_X: f64 = 56.0;
+pub const GRID_GAP_Y: f64 = 40.0;
+pub const GRID_BELOW: f64 = 26.0;
+pub const GRID_MARGIN: f64 = 40.0;
 /// Narrowest the view is laid out for, logical pixels.
 const MIN_PAGE_WIDTH: f64 = 120.0;
 
@@ -175,6 +181,11 @@ pub struct Viewer {
     rtl: bool,
     /// Width of a thumbnail in the strip or panel.
     pub thumb_width: f64,
+    /// The thumbnails' rhythm: room above the first, under each (the reader's sidebar puts the
+    /// page number there) and between one and the next. The tools' strip: PAGE_GAP, 0, PAGE_GAP.
+    pub thumb_top: f64,
+    pub thumb_below: f64,
+    pub thumb_gap: f64,
     /// Rotate View (Acrobat's View ▸ Rotate View): every page shown turned this much more clockwise
     /// than its own /Rotate (0, 90, 180, 270); `boxes` carry it, the file does not.
     turn: u16,
@@ -199,7 +210,7 @@ pub fn turned(boxes: &[PageBox], turn: u16) -> Vec<PageBox> {
 
 impl Viewer {
     pub fn new(boxes: Vec<PageBox>) -> Self {
-        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, turn: 0, horizontal: false, left: 0.0, row_of: Vec::new(), content_w: 0.0, view_h: 0.0 };
+        let mut v = Self { boxes, fit_width: 600.0, zoom: 100, layout: Vec::new(), rects: Vec::new(), content_h: PAGE_GAP, page_width: 0.0, spread: 0, rtl: false, thumb_width: THUMB_WIDTH, thumb_top: PAGE_GAP, thumb_below: 0.0, thumb_gap: PAGE_GAP, turn: 0, horizontal: false, left: 0.0, row_of: Vec::new(), content_w: 0.0, view_h: 0.0 };
         v.relayout();
         v
     }
@@ -208,9 +219,44 @@ impl Viewer {
         match self.spread {
             0 => 1.0,
             1 | 2 => 2.0,
-            // Pages about GRID_PAGE wide at 100 %, at least two to a row.
-            _ => ((self.fit_width - PAGE_GAP) / (GRID_PAGE + PAGE_GAP)).floor().max(2.0),
+            // As many GRID_PAGE cells (at the zoom) as fit between the margins, at least one.
+            _ => ((self.fit_width - 2.0 * GRID_MARGIN + GRID_GAP_X) / (self.grid_page_width() + GRID_GAP_X)).floor().max(1.0),
         }
+    }
+
+    /// A page's width in the organiser's grid: GRID_PAGE at the zoom.
+    fn grid_page_width(&self) -> f64 {
+        (GRID_PAGE * self.zoom as f64 / 100.0).round().max(40.0)
+    }
+
+    /// The organiser's grid (spread 3): cells left to right from the margin, rows down, each row
+    /// as tall as its tallest page plus its number and the row gap.
+    fn relayout_grid(&mut self) {
+        let w = self.grid_page_width();
+        self.page_width = w;
+        let cols = self.columns() as usize;
+        let n = self.boxes.len();
+        let heights: Vec<f64> = self.boxes.iter().map(|b| { let (bw, bh) = b.view_size(); (w * bh / bw.max(1e-9)).round() }).collect();
+        let row_w = cols as f64 * w + (cols as f64 - 1.0) * GRID_GAP_X;
+        let content_w = self.fit_width.max(row_w + 2.0 * GRID_MARGIN);
+        let mut rects = vec![[0.0; 4]; n];
+        let mut row_of = vec![0; n];
+        let mut y = GRID_MARGIN;
+        for (r, row) in (0..n).collect::<Vec<_>>().chunks(cols.max(1)).enumerate() {
+            for (k, &i) in row.iter().enumerate() {
+                let x = GRID_MARGIN + k as f64 * (w + GRID_GAP_X);
+                // Right to left: the first page on the right.
+                let x = if self.rtl { content_w - x - w } else { x };
+                rects[i] = [x, y, w, heights[i]];
+                row_of[i] = r;
+            }
+            y += row.iter().map(|&i| heights[i]).fold(0.0, f64::max) + GRID_BELOW + GRID_GAP_Y;
+        }
+        self.layout = rects.iter().map(|r| (r[1], r[3])).collect();
+        self.rects = rects;
+        self.row_of = row_of;
+        self.content_w = content_w;
+        self.content_h = y - GRID_GAP_Y + GRID_MARGIN;
     }
 
     /// The width one page has at 100 % (fit width): the viewport's, shared by the columns.
@@ -220,6 +266,9 @@ impl Viewer {
     }
 
     fn relayout(&mut self) {
+        if self.spread == 3 {
+            return self.relayout_grid();
+        }
         // Zoomed out, a page may go narrower than the window's floor: a very tall page fits whole.
         let w = (self.fit_page_width() * self.zoom as f64 / 100.0).max(4.0);
         // Rounded down when narrow: a page fitted to the height must not grow past it.
@@ -561,7 +610,22 @@ impl Viewer {
 
     /// The thumbnail strip's layout ([`THUMB_WIDTH`] wide pages).
     pub fn thumb_layout(&self) -> Vec<(f64, f64)> {
-        layout(&self.boxes.iter().map(PageBox::view_size).collect::<Vec<_>>(), self.thumb_width)
+        let mut y = self.thumb_top;
+        self.boxes
+            .iter()
+            .map(|b| {
+                let (w, h) = b.view_size();
+                let height = self.thumb_width * h / w.max(1e-9);
+                let top = y;
+                y += height + self.thumb_below + self.thumb_gap;
+                (top, height)
+            })
+            .collect()
+    }
+
+    /// The thumbnails' strip height: the last one, the room under it and a gap.
+    pub fn thumb_content_height(&self) -> f64 {
+        self.thumb_layout().last().map(|(y, h)| y + h + self.thumb_below + self.thumb_gap).unwrap_or(self.thumb_top)
     }
 }
 
@@ -651,11 +715,19 @@ mod tests {
         assert!(r0[0] == r2[0] && r0[0] < c0[0], "the cover sits in the left column: {r0:?} {c0:?}");
         assert!(r1[0] > r2[0] && r1[1] == r2[1], "page 2 on the right of page 3: {r1:?} {r2:?}");
         v.set_rtl(false);
-        // The grid: as many columns as fit in 1000 px, pages in reading order.
+        // The organiser's grid: 196-wide cells on a 252 pitch from x 40, as many as fit in 1000 px
+        // (three), rows 40 apart under the page numbers, pages in reading order.
         v.set_spread(3);
-        let (g0, g1, g4) = (v.page_rect(0), v.page_rect(1), v.page_rect(4));
-        assert!(g0[1] == g1[1] && g1[0] > g0[0] && g4[1] == g0[1], "five pages in one row of five: {g0:?} {g1:?} {g4:?}");
-        assert!(g0[2] > 150.0 && g0[2] < 200.0, "{g0:?}");
+        let (g0, g1, g2, g3) = (v.page_rect(0), v.page_rect(1), v.page_rect(2), v.page_rect(3));
+        assert_eq!((g0[0], g0[1], g0[2]), (GRID_MARGIN, GRID_MARGIN, GRID_PAGE), "{g0:?}");
+        assert!(g1[1] == g0[1] && g1[0] == g0[0] + GRID_PAGE + GRID_GAP_X && g2[1] == g0[1], "{g1:?} {g2:?}");
+        assert_eq!(g3[0], g0[0], "the fourth page starts the second row: {g3:?}");
+        assert_eq!(g3[1], g0[1] + g0[3] + GRID_BELOW + GRID_GAP_Y, "{g3:?}");
+        // The thumb size (the zoom): 320 wide holds two columns.
+        v.set_zoom(163);
+        assert_eq!(v.page_rect(1)[1], v.page_rect(0)[1]);
+        assert_eq!(v.page_rect(2)[0], GRID_MARGIN);
+        v.set_zoom(100);
         // Back to one column: as before.
         v.set_spread(0);
         assert_eq!(v.page_rect(1), single);

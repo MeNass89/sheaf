@@ -166,6 +166,9 @@ pub struct Prefs {
     /// How each document was viewed when left: fit mode (0 width, 1 page, 2 a chosen zoom), the
     /// zoom, pages side by side (newest first, as `last_pages`).
     pub last_views: Vec<(PathBuf, i32, u32, u8)>,
+    /// The sidebar's Bookmarks (PDF Expert's page bookmarks, ⌘D): the pages (0-based) bookmarked in
+    /// each document, kept beside it rather than written into the file (newest document first).
+    pub page_bookmarks: Vec<(PathBuf, Vec<u32>)>,
     /// The reader's style per tool, kept between sessions as PDF Expert keeps it: tool, colour,
     /// width, opacity (indices).
     pub tool_styles: Vec<(i32, u8, u8, u8)>,

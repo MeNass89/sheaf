@@ -540,7 +540,7 @@ pub fn paste_xfdf(element: &str, page: usize, (dx, dy): (f64, f64), name: &str) 
 }
 
 /// Outline titles often carry line breaks and runs of spaces from the authoring tool.
-fn clean_title(s: &str) -> String {
+pub fn clean_title(s: &str) -> String {
     let t = s.split_whitespace().collect::<Vec<_>>().join(" ");
     if t.is_empty() { "Untitled".into() } else { t }
 }

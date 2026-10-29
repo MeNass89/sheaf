@@ -622,7 +622,9 @@ pub fn set_theme(ui: &AppWindow, tab_id: i32, theme: i32) {
 
 pub fn set_panel(tab_id: i32, panel: i32) {
     update(tab_id, |r, _| {
-        r.panel = panel.clamp(0, 5);
+        // 0 Thumbnails, 1 Outline, 2 Annotations, 4 Attachments, 5 Layers, 6 Bookmarks (3, the old
+        // search results, now live in the inspector).
+        r.panel = if panel == 3 { 0 } else { panel.clamp(0, 6) };
         r.panel_open = true;
         model::quote_texts(r, tab_id);
     });

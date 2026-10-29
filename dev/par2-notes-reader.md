@@ -99,3 +99,54 @@ Apple's macOS design rules applied to the reader screens. Anything that moves or
 - Outline rows: selection and hover inset 6 px, rounded. Comment cards: the colour strip inset and rounded inside
   the card's corners. **All platforms**. Redact panel: "Mark whole page" on its own row, the pages field under
   it (**macOS only**; Linux keeps one row, where smoke 18 reads the list below).
+
+## Redesign W4: sidebar, search results, page organiser (29/10/2026, Opus)
+
+DESIGN.md §5.4, §5.6, §5.7, §6.2; DESIGN-PLAN W4. Branch wip/w4-sidebar (from wip/w1-tokens). W1's tokens and
+widgets only (SidebarTabs, ToolbarButton, Chip, Checkbox, Button, SortCombo, MenuRow, PopoverFrame, TipArea).
+
+- `ui/screens/reader-panel.slint`, rewritten: SidebarTabs 28 tall at 16 (Thumbnails, Outline, **Bookmarks**,
+  Annotations, Attachments, Layers; always six, empty tabs show their empty state), a title row 36 (15/600 at 16, the
+  tab's one action 28×28 at the right: + for Outline, Bookmarks, Attachments; ⋯ for Thumbnails, Annotations, Layers),
+  a hairline, the content. `panel` keeps its codes (0 Thumbnails, 1 Outline, 2 Annotations, 4 Attachments, 5 Layers)
+  plus 6 Bookmarks; 3 (search) is gone.
+  - Thumbnails `width − 32` (reader_ui::reader_thumb), 8 above the first, number badge 18 tall 6 under each, 12
+    apart (THUMB_TOP/BELOW/GAP, `Viewer::thumb_top/below/gap`; the tools' strip keeps its rhythm). The page in view
+    on a `fill-1` ground, selected = 2 px accent frame 3 px out + accent badge. Insertion bar 2 px accent, the
+    carried capsule accent.
+  - Page actions bar: 52 tall (8 above and below), ToolbarButtons 36 on a 36 pitch from x 8 (centres y 774):
+    Rotate left, Rotate right, Insert blank, Duplicate, Extract…, Number pages…, Delete. Under 260 wide the bar
+    folds into ⋯: Number pages and Extract first (248: Delete stays at 170, ⋯ at 206), then Delete and
+    Duplicate (200: RL RR Insert Duplicate ⋯). The ⋯ menu opens above the bar.
+  - Strips over the bar (Number pages, Transitions, Replace's pages, Extract) on Theme tokens with Buttons; their
+    first line elides and the last row is fixed, so the smoke clicks fixed places.
+  - Outline rows 28 (fill inset 6, radius 6, disclosure 12 at depth × 16, page right `text-2`, hover Rename /
+    Delete / ⋯ at 20×20); drag pitch 28. Empty: "Click + to add the page you are on…".
+  - Bookmarks (new, PDF Expert's page bookmarks): `ReaderUi::bookmarks`, `nav::bookmark_op` (0 toggle the page in
+    view, 1 go, 2 remove), kept in the preferences beside the file (`Prefs::page_bookmarks`, `home::page_bookmarks`),
+    never written into the PDF. Each row is titled by the outline heading it falls under, else "Page n".
+  - Annotations: filter chips that scroll sideways (Flickable), "n comments" + "By page ⌄" (SortCombo 88–120, the
+    chevron never clipped), CommentCards (window + hairline, radius 6, pad 10, 3 px strip inset 6) grouped under
+    "Page 3 · 4" (`ReaderAnnotRow::group`, model.rs) when sorted by page. Hide/Show all, Summary, Export, Import,
+    Remove all moved to the title's ⋯.
+  - Attachments rows 28 (clip, name, size right; hover Save a copy…, Rename, Delete); Layers rows 28 with a Checkbox,
+    Show all / Hide all / Reset in ⋯.
+- `ui/screens/reader-search.slint` (new): `SearchResults`, the inspector column's Search content: header 36 ("Search",
+  "140 results", options, ×), groups "Page 6 · 16" (`trf("Page {} · {}")`), 2-line rows (the match bold in the
+  `warning` amber: Slint's styled text has no background tint), the current row on the accent, no-results view with
+  the words and a hint, Replace / Replace All pinned at the bottom. Options popup: Match Case, Whole Words, Search in
+  Folder…, Recent Searches (each removable, `search_forget`), Clear. `show-options()` for the field's magnifier (W3).
+  Searching no longer takes the sidebar over (search.rs).
+- **Seam with W3**: until W3's inspector lands, reader.slint hosts `SearchResults` as a 260-wide column (240 under
+  1120) at the right of the pages, shown while the search field has run (`search-count != ""`). W3 moves that one
+  element into its inspector; the smoke already clicks at x ≥ 1020. The organiser's marks are one element in the
+  pages' scroll content (`OrganiserMarks`).
+- `ui/screens/reader-organize.slint` + viewer/mod.rs `relayout_grid`: the page grid (spread 3) is the organiser:
+  196-wide pages at 100 % (the zoom is the thumb size: 120–320 = 61–163 %), 56 between columns, rows 40 apart under
+  the number (8 under the page, 18 tall), 40 margin, left-aligned. Numbers under every page, selected ones framed with
+  an accent badge, a 2 px accent insertion bar in the gap's middle (`ReaderState::grid-cells / grid-bar`, replacing
+  the old kind-12 rings). Turning the grid on closes the sidebar when it showed Thumbnails; it reopens on exit.
+- Not done here (other streams' files): ⌥⌘1…6 and Go ▸ Add Bookmark ⌘D (menu bar / reader keys, W3), the thumb
+  size slider (inspector, W3: set the grid's zoom), the Organize rail, "n of 7 selected" (W3's inspector),
+  rubber-band selection in the grid. At 480 one letter-size thumbnail (448 × 580) fills the column, so "two numbers
+  readable" from the plan cannot hold with `width − 32`.

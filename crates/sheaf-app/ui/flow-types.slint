@@ -85,6 +85,25 @@ export struct ReaderResultRow {
     first: bool,
 }
 
+// Reader: one page bookmark of the sidebar's Bookmarks (PDF Expert's, ⌘D): the outline heading
+// it falls under (else "Page n"), its page, whether it is the page in view.
+export struct ReaderBookmarkRow {
+    title: string,
+    page-label: string,
+    current: bool,
+}
+
+// Reader: a page of the page organiser (Organize's grid) in content coordinates, its number, whether
+// it is selected; also the insertion bar of a drag (w 2, selected).
+export struct ReaderGridCell {
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    label: string,
+    selected: bool,
+}
+
 // Reader: one row of the outline panel.
 export struct ReaderOutlineRow {
     title: string,
@@ -150,6 +169,8 @@ export struct ReaderAnnotRow {
     page-label: string,
     colour: color,
     selected: bool,
+    // The first comment of its page when listed by page: its page and count ("Page 3 · 4").
+    group: string,
 }
 
 // Reader: the note or text box being typed, in content coordinates.
@@ -282,10 +303,16 @@ export struct ReaderState {
     page-text: string,
     page-label: string,
     panel-open: bool,
-    // 0 thumbnails, 1 outline, 2 annotations, 3 search results
+    // The sidebar's tab: 0 Thumbnails, 1 Outline, 2 Annotations, 4 Attachments, 5 Layers,
+    // 6 Bookmarks (3 was the search results, which now live in the inspector).
     panel: int,
     outline: [ReaderOutlineRow],
     outline-empty: bool,
+    // The sidebar's Bookmarks, in page order.
+    bookmarks: [ReaderBookmarkRow],
+    // The page organiser's pages in view and its insertion bar (w 0: none).
+    grid-cells: [ReaderGridCell],
+    grid-bar: ReaderGridCell,
     annots: [ReaderAnnotRow],
     // 0 select, 1 highlight, 2 underline, 3 strikethrough, 4 note, 5 pen, 6 text box,
     // 7 edit text, 8 add image
@@ -1019,6 +1046,8 @@ export global ReaderBridge {
     callback layers-all(int, int);
     // Outline panel: row, op (0 bookmark this page, 1 rename, 2 renamed to text, 3 stop, 4 delete), text.
     callback outline-op(int, int, int, string);
+    // Bookmarks: op (0 bookmark the page in view or take it off, 1 go to row, 2 remove row), row.
+    callback bookmark-op(int, int, int);
     // A zoom typed in the zoom field or picked from its list ("150", "150 %").
     callback zoom-typed(int, string);
     // Review status of a comment (its index): 0 none, 1 accepted, 2 rejected, 3 cancelled, 4 completed.
@@ -1145,6 +1174,8 @@ export global ReaderBridge {
     // +1 next match, −1 previous.
     callback search-step(int, int);
     callback search-clear(int);
+    // The search options' Recent Searches: forget one (its index), or all (−1).
+    callback search-forget(int, int);
     // Match case, whole words, and the query to search again with them.
     callback search-options(int, bool, bool, string);
     callback result-clicked(int, int);

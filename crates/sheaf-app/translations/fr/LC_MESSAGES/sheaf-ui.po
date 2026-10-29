@@ -7215,3 +7215,147 @@ msgstr "ou déposez des fichiers ici"
 #: ui/widgets/home-parts.slint
 msgid "Open Files"
 msgstr "Ouvrir des fichiers"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Thumbnails"
+msgstr "Vignettes"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Annotations"
+msgstr "Annotations"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Attachments"
+msgstr "Pièces jointes"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Add the page you are on to the outline"
+msgstr "Ajouter la page affichée au sommaire"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Bookmark the page you are on"
+msgstr "Ajouter un signet à la page affichée"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Attach a file…"
+msgstr "Joindre un fichier…"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Comment actions"
+msgstr "Actions sur les commentaires"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Layer actions"
+msgstr "Actions sur les calques"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Click + to add the page you are on. With text selected, its words become the title."
+msgstr "Cliquez sur + pour ajouter la page affichée. Si du texte est sélectionné, il devient le titre."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Click + to bookmark the page you are on."
+msgstr "Cliquez sur + pour ajouter un signet à la page affichée."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Remove bookmark"
+msgstr "Retirer le signet"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Highlights, notes and drawings will be listed here."
+msgstr "Les surlignages, notes et dessins apparaîtront ici."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Highlights"
+msgstr "Surlignages"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "1 comment"
+msgstr "1 commentaire"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "{} comments"
+msgstr "{} commentaires"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "No comments of this kind."
+msgstr "Aucun commentaire de ce type."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Delete reply"
+msgstr "Supprimer la réponse"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Delete comment"
+msgstr "Supprimer le commentaire"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Files attached to this PDF appear here. Click + to attach one."
+msgstr "Les fichiers joints à ce PDF apparaissent ici. Cliquez sur + pour en joindre un."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "This PDF has no layers."
+msgstr "Ce PDF n’a pas de calques."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "No results"
+msgstr "Aucun résultat"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "1 result"
+msgstr "1 résultat"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "{} results"
+msgstr "{} résultats"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Search options"
+msgstr "Options de recherche"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Close search"
+msgstr "Fermer la recherche"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "No results for “{}”"
+msgstr "Aucun résultat pour « {} »"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Match Case or Whole Words is on: turn it off in the options to find more."
+msgstr "Respecter la casse ou Mots entiers est activé : désactivez-le dans les options pour trouver plus."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Check the spelling, or search a shorter part of the word."
+msgstr "Vérifiez l’orthographe ou cherchez une partie plus courte du mot."
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Replace All"
+msgstr "Tout remplacer"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Match Case"
+msgstr "Respecter la casse"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Whole Words"
+msgstr "Mots entiers"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Search in Folder…"
+msgstr "Rechercher dans un dossier…"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Recent Searches"
+msgstr "Recherches récentes"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Remove from Recent Searches"
+msgstr "Retirer des recherches récentes"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Clear Recent Searches"
+msgstr "Effacer les recherches récentes"
+
+#: ui/screens/reader-panel.slint ui/screens/reader-search.slint
+msgid "Page {} · {}"
+msgstr "Page {} · {}"

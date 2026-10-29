@@ -1134,7 +1134,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     tab.viewer_selecting = v.selecting;
     tab.viewer_width = len(v.viewer.content_width());
     tab.viewer_height = len(v.viewer.content_height());
-    tab.viewer_thumbs_height = len(viewer::content_height(&tl));
+    tab.viewer_thumbs_height = len(v.viewer.thumb_content_height());
     tab.viewer_current = v.current() as i32;
     // Shown as the step it is (100 %, 200 %) when the integer zoom lands a hair off it.
     let actual = v.viewer.actual_percent(v.current());
