@@ -6991,3 +6991,223 @@ msgstr "{} Seite kopiert: ⌘V im Seitenbereich eines Dokuments fügt sie nach d
 #: src/reader_ui/pages.rs
 msgid "{} pages copied: ⌘V in a document's Pages panel puts them after its selected page"
 msgstr "{} Seiten kopiert: ⌘V im Seitenbereich eines Dokuments fügt sie nach der ausgewählten Seite ein"
+
+#: (merged)
+msgid "Updates"
+msgstr "Aktualisierungen"
+
+#: (merged)
+msgid "Only when I ask"
+msgstr "Nur auf Anfrage"
+
+#: (merged)
+msgid "Once a day"
+msgstr "Einmal täglich"
+
+#: (merged)
+msgid "Check Now"
+msgstr "Jetzt prüfen"
+
+#: (merged)
+msgid "Sheaf works offline. It asks GitHub for its latest release only when you check, or once a day at launch if you choose it, and never goes through a proxy."
+msgstr "Sheaf funktioniert offline. Es fragt GitHub nur dann nach der neuesten Version, wenn Sie danach suchen, oder auf Wunsch einmal täglich beim Start, und nutzt nie einen Proxy."
+
+#: (merged)
+msgid "Import from iPhone or iPad…"
+msgstr "Von iPhone oder iPad importieren…"
+
+#: (merged)
+msgid "Import from Scanner…"
+msgstr "Vom Scanner importieren…"
+
+#: (merged)
+msgid "From iPhone or iPad"
+msgstr "Von iPhone oder iPad"
+
+#: (merged)
+msgid "Insert from iPhone or iPad…"
+msgstr "Von iPhone oder iPad einfügen…"
+
+#: (merged)
+msgid "Camera"
+msgstr "Kamera"
+
+#: (merged)
+msgid "iPhone or iPad"
+msgstr "iPhone oder iPad"
+
+#: (merged)
+msgid "PNG or JPEG, or a photo of your signature on white paper"
+msgstr "PNG oder JPEG oder ein Foto Ihrer Unterschrift auf weißem Papier"
+
+#: (merged)
+msgid "Import from iPhone or iPad"
+msgstr "Von iPhone oder iPad importieren"
+
+#: (merged)
+msgid "Choose your iPhone or iPad, then Take Photo or Scan Documents: the pages come here."
+msgstr "Wählen Sie Ihr iPhone oder iPad und dann Foto aufnehmen oder Dokumente scannen: Die Seiten erscheinen hier."
+
+#: (merged)
+msgid "Choose your iPhone or iPad, then Take Photo of your signature on white paper."
+msgstr "Wählen Sie Ihr iPhone oder iPad und dann Foto aufnehmen, um Ihre Unterschrift auf weißem Papier zu fotografieren."
+
+#: (merged)
+msgid "Nothing was imported"
+msgstr "Es wurde nichts importiert"
+
+#: (merged)
+msgid "Importing from an iPhone or iPad needs a Mac"
+msgstr "Für den Import von einem iPhone oder iPad ist ein Mac erforderlich"
+
+#: (merged)
+msgid "Signature from the camera"
+msgstr "Unterschrift mit der Kamera"
+
+#: (merged)
+msgid "No picture was taken"
+msgstr "Es wurde kein Foto aufgenommen"
+
+#: (merged)
+msgid "The camera panel needs a Mac"
+msgstr "Das Kamerafenster erfordert einen Mac"
+
+#: (merged)
+msgid "Add a trusted time stamp"
+msgstr "Vertrauenswürdigen Zeitstempel hinzufügen"
+
+#: (merged)
+msgid "The time stamp server below is asked for the time when you sign. A signature with a digital ID carries it; with no signature placed, the document gets a time stamp of its own."
+msgstr "Der unten angegebene Zeitstempelserver wird beim Signieren nach der Uhrzeit gefragt. Eine Signatur mit digitaler ID enthält ihn; ist keine Signatur platziert, erhält das Dokument einen eigenen Zeitstempel."
+
+#: (merged)
+msgid "Add a time stamp server in Preferences ▸ Signatures."
+msgstr "Fügen Sie unter Einstellungen ▸ Signaturen einen Zeitstempelserver hinzu."
+
+#: (merged)
+msgid "Time stamp servers"
+msgstr "Zeitstempelserver"
+
+#: (merged)
+msgid "None: add the address of a time stamp server to time stamp documents and signatures."
+msgstr "Keine: Fügen Sie die Adresse eines Zeitstempelservers hinzu, um Dokumente und Signaturen mit Zeitstempel zu versehen."
+
+#: (merged)
+msgid "{} (default)"
+msgstr "{} (Standard)"
+
+#: (merged)
+msgid "Server address"
+msgstr "Serveradresse"
+
+#: (merged)
+msgid "Add server"
+msgstr "Server hinzufügen"
+
+#: (merged)
+msgid "Free servers: https://freetsa.org/tsr, http://timestamp.digicert.com. A time stamp sends the server only a fingerprint of the document, never the document."
+msgstr "Kostenlose Server: https://freetsa.org/tsr, http://timestamp.digicert.com. Ein Zeitstempel sendet dem Server nur einen Fingerabdruck des Dokuments, nie das Dokument selbst."
+
+#: (merged)
+msgid "Check for Updates…"
+msgstr "Nach Updates suchen…"
+
+#: (merged)
+msgid "Download opens {} in your browser. Install it as you installed Sheaf."
+msgstr "Herunterladen öffnet {} in Ihrem Browser. Installieren Sie es so, wie Sie Sheaf installiert haben."
+
+#: (merged)
+msgid "This release has no download for this computer: Download opens its page."
+msgstr "Diese Version enthält keinen Download für diesen Computer: Herunterladen öffnet ihre Seite."
+
+#: (merged)
+msgid "Check for updates automatically, once a day"
+msgstr "Automatisch einmal täglich nach Updates suchen"
+
+#: (merged)
+msgid "Sheaf asks GitHub for its latest release only when you check, or once a day when this is ticked. It sends nothing about you or your files, and installs nothing by itself."
+msgstr "Sheaf fragt GitHub nur dann nach der neuesten Version, wenn Sie danach suchen, oder einmal täglich, wenn dies aktiviert ist. Es sendet nichts über Sie oder Ihre Dateien und installiert nichts von selbst."
+
+#: (merged)
+msgid "Skip This Version"
+msgstr "Diese Version überspringen"
+
+#: (merged)
+msgid "Try Again"
+msgstr "Erneut versuchen"
+
+#: (merged)
+msgid "Later"
+msgstr "Später"
+
+#: (merged)
+msgid "Download"
+msgstr "Herunterladen"
+
+#: (merged)
+msgid "Not Now"
+msgstr "Nicht jetzt"
+
+#: (merged)
+msgid "See What's New"
+msgstr "Neuerungen ansehen"
+
+#: (merged)
+msgid "GitHub could not be reached. Check your internet connection, then try again."
+msgstr "GitHub ist nicht erreichbar. Prüfen Sie Ihre Internetverbindung und versuchen Sie es dann erneut."
+
+#: (merged)
+msgid "GitHub limits how often one network may check. Try again after {}."
+msgstr "GitHub begrenzt, wie oft ein Netzwerk prüfen darf. Versuchen Sie es nach {} erneut."
+
+#: (merged)
+msgid "GitHub limits how often one network may check. Try again in an hour."
+msgstr "GitHub begrenzt, wie oft ein Netzwerk prüfen darf. Versuchen Sie es in einer Stunde erneut."
+
+#: (merged)
+msgid "GitHub answered with error {}. Try again later."
+msgstr "GitHub hat mit Fehler {} geantwortet. Versuchen Sie es später erneut."
+
+#: (merged)
+msgid "GitHub's answer could not be read. Try again later."
+msgstr "Die Antwort von GitHub konnte nicht gelesen werden. Versuchen Sie es später erneut."
+
+#: (merged)
+msgid "Sheaf {} is available"
+msgstr "Sheaf {} ist verfügbar"
+
+#: (merged)
+msgid "You have version {}."
+msgstr "Sie haben Version {}."
+
+#: (merged)
+msgid "Sheaf is up to date"
+msgstr "Sheaf ist auf dem neuesten Stand"
+
+#: (merged)
+msgid "Version {} is the latest version."
+msgstr "Version {} ist die neueste Version."
+
+#: (merged)
+msgid "You have version {}. No release has been published yet."
+msgstr "Sie haben Version {}. Es wurde noch keine Version veröffentlicht."
+
+#: (merged)
+msgid "Could not check for updates"
+msgstr "Suche nach Updates nicht möglich"
+
+#: (merged)
+msgid "Checking for updates…"
+msgstr "Suche nach Updates…"
+
+#: (merged)
+msgid "Sheaf {} is available."
+msgstr "Sheaf {} ist verfügbar."
+
+#: (merged)
+msgid "First host"
+msgstr "Erster Sprecher"
+
+#: (merged)
+msgid "Second host"
+msgstr "Zweiter Sprecher"
