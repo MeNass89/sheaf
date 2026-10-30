@@ -127,11 +127,12 @@ export component ToastView inherits Rectangle {
     callback action-clicked();
     height: max(36px, lbl.preferred-height + 16px);
     min-width: 200px;
-    max-width: 640px;
+    max-width: 760px;
     // Measured unwrapped (a wrapping Text's preferred width is its longest word's): one line when it
-    // fits in 640, wrapped past that.
-    preferred-width: measure.preferred-width + (root.action == "" ? 0px : act.preferred-width + 16px) + 32px;
+    // fits in 760, wrapped past that.
+    preferred-width: measure.preferred-width + (root.action == "" ? 0px : action-measure.preferred-width + 16px) + 32px;
     measure := Text { visible: false; text: root.text; font-size: Theme.fs-body; }
+    action-measure := Text { visible: false; text: root.action; font-size: Theme.fs-body; font-weight: Theme.weight-demibold; }
     border-radius: Theme.r-pill;
     background: Theme.toast;
     drop-shadow-blur: Theme.toast-blur;
@@ -151,8 +152,8 @@ export component ToastView inherits Rectangle {
             vertical-alignment: center;
             wrap: word-wrap;
         }
-        act := Text {
-            visible: root.action != "";
+        // Made only with an action: an empty one would still take the row's spacing and wrap the text.
+        if root.action != "": act := Text {
             text: root.action;
             font-size: Theme.fs-body;
             font-weight: Theme.weight-demibold;

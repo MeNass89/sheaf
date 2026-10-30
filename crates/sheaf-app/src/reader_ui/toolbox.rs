@@ -172,16 +172,18 @@ fn reset(t: &mut TabState) {
 /// A tool's job on a document tab is done (run.rs): the result said in a toast and opened in its
 /// own tab (a PDF; another kind of file is shown in its folder), the reader's tool state cleared.
 pub fn finished(ui: &AppWindow, tab_id: i32) {
-    let Some((tool, outputs, warn)) = with(|a| {
+    let Some((tool, outputs, warn, summary)) = with(|a| {
         let t = a.tab(tab_id)?;
         let Phase::Done(d) = &t.phase else { return None };
-        Some((t.tool, d.outcome.outputs.clone(), d.outcome.was_encrypted))
+        Some((t.tool, d.outcome.outputs.clone(), d.outcome.was_encrypted, d.outcome.summary.clone()))
     }) else {
         return;
     };
     let row = with(|a| a.tab_index(tab_id)).and_then(|i| tabs_model().row_data(i));
+    // Compress: the size reached, then the job's own line when it has one ("…as small as it gets").
     let text = match (&row, tool) {
-        (Some(r), ToolId::Compress) if !r.result_pct.is_empty() => sheaf_app::i18n::trf("Compressed to {} ({})", &[&r.size_after, &r.result_pct]),
+        (Some(r), ToolId::Compress) if !r.result_pct.is_empty() && summary.is_empty() => sheaf_app::i18n::trf("Compressed to {} ({})", &[&r.size_after, &r.result_pct]),
+        (Some(r), ToolId::Compress) if !r.result_pct.is_empty() => format!("{} {summary}", sheaf_app::i18n::trf("Compressed to {} ({})", &[&r.size_after, &r.result_pct])),
         (Some(r), ToolId::Compress) if !r.result_sub.is_empty() => r.result_sub.to_string(),
         (Some(r), _) if !r.result_sub.is_empty() => format!("{} {}", r.result_title, r.result_sub),
         (Some(r), _) => r.result_title.to_string(),
