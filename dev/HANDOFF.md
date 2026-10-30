@@ -21,23 +21,14 @@ The second session stopped mid-way; its branch `dev/annot-gaps` (C-annotate-001/
 attachments, craft-fonts) was rebased onto round 7 and is being finished here (its suite was red on in-place
 typing and Edit text).
 
-## Last landing (29/10/2026, rounds 39–40)
+## Last landing (30/10/2026, redesign)
 
-Verdict: ALL GREEN (bash scripts/test.sh, full run, round 40, 3772 s). Eight branches merged (int/r39): six
-interface languages; macOS iPhone/iPad capture (Continuity Camera), camera signatures, AppleScript dictionary;
-OCR on onnxruntime (1.41 s/page on MICI, Tesseract 2.3); RFC 3161 document time stamps; Check for Updates from
-GitHub releases; AI natural voices, bold non-Latin titles, category chips; BAMA design pass on every platform
-(theme, widgets, reader; smoke recalibrated). Linux needs glibc 2.39 (DECISIONS 29/10).
-Board: 325 closed at ≥9, 6 out of scope (cloud features), none open (29/10). Packages: .github/workflows/build.yml
-(push to build/*): DMG, Windows zip, Linux tarball as artifacts; MBP DMG in iCloud temp (Sheaf-0.2.1-r40-arm64.dmg).
-Open beyond the board: a public release needs Nassim's go.
-Fixed 29/10: the pages tests' SIGSEGV (about one full run in five) was a use-after-free, reproduced every time
-under Valgrind. pdfium-render's `PdfPage::flatten` and `transform_with_clip` reload the page (`reload_in_place`),
-but a PdfPage keeps its `boundaries`, `links` and `objects` on the handle it was made with, now freed: Change
-Page Size read the crop box and set the boxes through them. Now comments are drawn by PdfCraft
-(`pages::flattened`, also for Flip and Compare; PdfCraft's flatten takes inline /Annots, which PDFium writes) and
-resize gets the page again after the transform. Valgrind: pages 30/30 and compare 13/13, no invalid read. Test
-`pdfium_flatten_is_never_called`. Rule: after a pdfium-render call that reloads a page, get the page again.
+Verdict: full run 30/10 03:47 PASS lint, PASS gui; unit one CLI test red, fixed in 2db4cae, then PASS unit
+(final unit run 30/10). PDF Expert-style redesign with the BAMA method (docs/DESIGN.md, DESIGN-PLAN.md): Home as a
+library, reader with modes, rail, docked options bar, inspector, ⌘K Tools popover, sidebar/search/organiser,
+Settings window, print sheet, toasts with Undo; page themes (Night inverts only neutrals, photos kept; cream
+Sepia); PDFium use-after-free fixed (89fb63a); Continuity Camera reads only the iPhone's own representation.
+DMG: iCloud temp Sheaf-0.2.1-redesign-arm64.dmg (MBP build). Open: nothing known; Nassim is testing.
 
 ## Where things are
 
