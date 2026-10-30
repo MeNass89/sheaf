@@ -152,7 +152,7 @@ fn ai_error(e: sheaf_core::ai::AiError) -> OpdfError {
     match e {
         sheaf_core::ai::AiError::Cancelled => OpdfError::Cancelled,
         // The app's wording points at Preferences; here the flags are the place.
-        e => OpdfError::Engine(e.to_string().replace("in Preferences ▸ AI", "with --api-key or SHEAF_AI_KEY").replace("Preferences ▸ AI", "--provider and --base-url")),
+        e => OpdfError::Engine(e.to_string().replace("in Settings ▸ AI", "with --api-key or SHEAF_AI_KEY").replace("Settings ▸ AI", "--provider and --base-url")),
     }
 }
 
