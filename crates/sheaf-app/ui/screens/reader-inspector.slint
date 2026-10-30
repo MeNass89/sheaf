@@ -157,7 +157,7 @@ export component ReaderInspector inherits Rectangle {
                             width: 120px;
                             minimum: 61;
                             maximum: 163;
-                            value: root.tab.viewer-zoom;
+                            value: root.tab.viewer-grid-zoom;
                             released(v) => { ViewerBridge.zoom-to(root.id, round(v)); root.focus-pages(); }
                         }
                     }

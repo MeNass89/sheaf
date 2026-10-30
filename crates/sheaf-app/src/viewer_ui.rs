@@ -1142,6 +1142,7 @@ pub fn fill(tab: &mut ToolTab, v: &ViewerUi) {
     let actual = v.viewer.actual_percent(v.current());
     let step = viewer::ZOOMS.iter().copied().find(|z| (*z as f64 - actual).abs() <= (*z as f64) * 0.015);
     tab.viewer_zoom = step.map(|z| z as f64).unwrap_or(actual).round() as i32;
+    tab.viewer_grid_zoom = v.viewer.zoom() as i32;
     tab.viewer_scroll = len(v.scroll);
     tab.viewer_scroll_x = len(v.scroll_x.unwrap_or(-1.0));
     tab.viewer_scroll_seq = v.scroll_seq;

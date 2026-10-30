@@ -864,6 +864,8 @@ export struct ToolTab {
     viewer-thumbs-height: length,
     viewer-current: int,
     viewer-zoom: int,
+    // The viewer's own zoom (percent of the fit width; the organiser's thumbnail size), for the slider.
+    viewer-grid-zoom: int,
     // "" when the pages are shown; otherwise why not ("Opening…", an error).
     viewer-status: string,
     // Rust asks the viewer to scroll: the position, and a counter bumped on each request.
