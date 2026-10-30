@@ -16,7 +16,8 @@ component Section inherits VerticalLayout {
     padding-right: Space.lg;
     padding-bottom: Space.md;
     spacing: 0;
-    Rectangle {
+    // No title when the inspector's header already names the section (Document, Pages).
+    if root.title != "": Rectangle {
         height: Theme.row-height;
         Text { x: 0; text: root.title; font-size: Theme.fs-title-3; font-weight: Theme.weight-demibold; color: Theme.text; vertical-alignment: center; }
     }
@@ -83,7 +84,7 @@ export component ReaderInspector inherits Rectangle {
                 alignment: start;
                 padding-top: Space.sm;
                 if root.mode == 0: Section {
-                    title: @tr("Document");
+                    title: "";
                     Row { label: @tr("Title"); Value { text: root.tab.reader.title; } }
                     Row { label: @tr("Pages"); Value { text: root.tab.reader.page-count; } }
                     Row { label: @tr("Page"); Value { text: root.tab.reader.page-text; } }
@@ -147,7 +148,7 @@ export component ReaderInspector inherits Rectangle {
                 // Organize (DESIGN §5.7): the count, then the thumbnail size (120–320 px: the grid's
                 // 196-wide page at 61–163 %).
                 if root.mode == 4: Section {
-                    title: @tr("Pages");
+                    title: "";
                     Row { label: @tr("{} of {} selected", root.tab.reader.pages-selected, root.tab.reader.page-count); }
                     Row {
                         label: @tr("Thumbnail size");

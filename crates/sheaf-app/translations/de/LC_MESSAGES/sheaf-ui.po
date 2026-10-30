@@ -7736,3 +7736,311 @@ msgstr "Eigenschaften"
 #: ui/screens/reader-toolbar.slint
 msgid "Select something on the page to see its properties"
 msgstr "Wählen Sie etwas auf der Seite aus, um seine Eigenschaften zu sehen"
+
+#: (merged)
+msgid "Export To"
+msgstr "Exportieren als"
+
+#: (merged)
+msgid "Word…"
+msgstr "Word…"
+
+#: (merged)
+msgid "Excel…"
+msgstr "Excel…"
+
+#: (merged)
+msgid "PowerPoint…"
+msgstr "PowerPoint…"
+
+#: (merged)
+msgid "Images…"
+msgstr "Bilder…"
+
+#: (merged)
+msgid "Text or HTML…"
+msgstr "Text oder HTML…"
+
+#: (merged)
+msgid "PDF/A…"
+msgstr "PDF/A…"
+
+#: (merged)
+msgid "Hide Sidebar"
+msgstr "Seitenleiste ausblenden"
+
+#: (merged)
+msgid "Show Sidebar"
+msgstr "Seitenleiste einblenden"
+
+#: (merged)
+msgid "Hide Inspector"
+msgstr "Inspektor ausblenden"
+
+#: (merged)
+msgid "Show Inspector"
+msgstr "Inspektor einblenden"
+
+#: (merged)
+msgid "Sidebar"
+msgstr "Seitenleiste"
+
+#: (merged)
+msgid "Page Display"
+msgstr "Seitenanzeige"
+
+#: (merged)
+msgid "Page Theme"
+msgstr "Seitenthema"
+
+#: (merged)
+msgid "Add Bookmark"
+msgstr "Lesezeichen hinzufügen"
+
+#: (merged)
+msgid "Export Annotation Summary…"
+msgstr "Anmerkungsübersicht exportieren…"
+
+#: (merged)
+msgid "Add Link"
+msgstr "Link hinzufügen"
+
+#: (merged)
+msgid "Page Numbers, Header and Footer…"
+msgstr "Seitenzahlen, Kopf- und Fußzeile…"
+
+#: (merged)
+msgid "Add Watermark…"
+msgstr "Wasserzeichen hinzufügen…"
+
+#: (merged)
+msgid "Adjust Colours…"
+msgstr "Farben anpassen…"
+
+#: (merged)
+msgid "Crop Pages…"
+msgstr "Seiten zuschneiden…"
+
+#: (merged)
+msgid "Background…"
+msgstr "Hintergrund…"
+
+#: (merged)
+msgid "Forms"
+msgstr "Formulare"
+
+#: (merged)
+msgid "Detect Form Fields"
+msgstr "Formularfelder erkennen"
+
+#: (merged)
+msgid "Clear Form"
+msgstr "Formular leeren"
+
+#: (merged)
+msgid "Flatten Fields"
+msgstr "Felder einbetten"
+
+#: (merged)
+msgid "Flatten Fields and Comments"
+msgstr "Felder und Kommentare einbetten"
+
+#: (merged)
+msgid "Sign with Certificate…"
+msgstr "Mit Zertifikat signieren…"
+
+#: (merged)
+msgid "Manage Signatures…"
+msgstr "Signaturen verwalten…"
+
+#: (merged)
+msgid "Show All Pages"
+msgstr "Alle Seiten anzeigen"
+
+#: (merged)
+msgid "Rotate Left"
+msgstr "Nach links drehen"
+
+#: (merged)
+msgid "Rotate Right"
+msgstr "Nach rechts drehen"
+
+#: (merged)
+msgid "Duplicate Page"
+msgstr "Seite duplizieren"
+
+#: (merged)
+msgid "Insert Blank Page"
+msgstr "Leere Seite einfügen"
+
+#: (merged)
+msgid "Delete Page"
+msgstr "Seite löschen"
+
+#: (merged)
+msgid "Extract Pages…"
+msgstr "Seiten extrahieren…"
+
+#: (merged)
+msgid "Remove Pages…"
+msgstr "Seiten entfernen…"
+
+#: (merged)
+msgid "Split…"
+msgstr "Teilen…"
+
+#: (merged)
+msgid "Rotate All Pages…"
+msgstr "Alle Seiten drehen…"
+
+#: (merged)
+msgid "Protect"
+msgstr "Schützen"
+
+#: (merged)
+msgid "Set Password…"
+msgstr "Passwort festlegen…"
+
+#: (merged)
+msgid "Remove Password…"
+msgstr "Passwort entfernen…"
+
+#: (merged)
+msgid "Sanitize Document"
+msgstr "Dokument bereinigen"
+
+#: (merged)
+msgid "Encrypt with Certificates…"
+msgstr "Mit Zertifikaten verschlüsseln…"
+
+#: (merged)
+msgid "Security Policies…"
+msgstr "Sicherheitsrichtlinien…"
+
+#: (merged)
+msgid "All Tools…"
+msgstr "Alle Werkzeuge…"
+
+#: (merged)
+msgid "Compress…"
+msgstr "Komprimieren…"
+
+#: (merged)
+msgid "Recognize Text (OCR)…"
+msgstr "Text erkennen (OCR)…"
+
+#: (merged)
+msgid "Repair…"
+msgstr "Reparieren…"
+
+#: (merged)
+msgid "Compare…"
+msgstr "Vergleichen…"
+
+#: (merged)
+msgid "Export To…"
+msgstr "Exportieren als…"
+
+#: (merged)
+msgid "Developer"
+msgstr "Entwickler"
+
+#: (merged)
+msgid "JavaScript Console…"
+msgstr "JavaScript-Konsole…"
+
+#: (merged)
+msgid "Plugins…"
+msgstr "Plug-ins…"
+
+#: (merged)
+msgid "Ask AI…"
+msgstr "KI fragen…"
+
+#: (merged)
+msgid "Add a time stamp server in Settings ▸ Tools."
+msgstr "Fügen Sie unter Einstellungen ▸ Werkzeuge einen Zeitstempelserver hinzu."
+
+#: (merged)
+msgid "Close the tool"
+msgstr "Werkzeug schließen"
+
+#: (merged)
+msgid "Custom colour"
+msgstr "Eigene Farbe"
+
+#: (merged)
+msgid "Colour {}"
+msgstr "Farbe {}"
+
+#: (merged)
+msgid "{} of {} selected"
+msgstr "{} von {} ausgewählt"
+
+#: (merged)
+msgid "Thumbnail size"
+msgstr "Größe der Miniaturen"
+
+#: (merged)
+msgid "Sheet {} of {}"
+msgstr "Blatt {} von {}"
+
+#: (merged)
+msgid "One copy fewer"
+msgstr "Eine Kopie weniger"
+
+#: (merged)
+msgid "One copy more"
+msgstr "Eine Kopie mehr"
+
+#: (merged)
+msgid "Paper size"
+msgstr "Papierformat"
+
+#: (merged)
+msgid "Sheaf"
+msgstr "Sheaf"
+
+#: (merged)
+msgid "Print comments and forms"
+msgstr "Kommentare und Formulare drucken"
+
+#: (merged)
+msgid "No tool matches “{}”"
+msgstr "Kein Werkzeug passt zu „{}“"
+
+#: (merged)
+msgid "Page theme when a document opens"
+msgstr "Seitenthema beim Öffnen eines Dokuments"
+
+#: (merged)
+msgid "That plugin is missing or turned off (Settings ▸ Tools ▸ Plugins)"
+msgstr "Dieses Plug-in fehlt oder ist deaktiviert (Einstellungen ▸ Werkzeuge ▸ Plug-ins)"
+
+#: (merged)
+msgid "{} deleted"
+msgstr "{} gelöscht"
+
+#: (merged)
+msgid "Opens in a tool tab"
+msgstr "Öffnet sich in einem Werkzeug-Tab"
+
+#: (merged)
+msgid "Plugin"
+msgstr "Plug-in"
+
+#: (merged)
+msgid "Compressed to {} ({})"
+msgstr "Komprimiert auf {} ({})"
+
+#: (merged)
+msgid "{} is done"
+msgstr "{} ist fertig"
+
+#: (merged)
+msgid "Blocked by Settings ▸ Tools ▸ Security: the link was not opened"
+msgstr "Durch Einstellungen ▸ Werkzeuge ▸ Sicherheit blockiert: der Link wurde nicht geöffnet"
+
+#: (merged)
+msgid "Settings ▸ Tools ▸ Security keeps files that are not PDFs from opening in other apps"
+msgstr "Einstellungen ▸ Werkzeuge ▸ Sicherheit verhindert, dass Nicht-PDF-Dateien in anderen Apps geöffnet werden"

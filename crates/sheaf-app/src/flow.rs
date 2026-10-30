@@ -30,9 +30,20 @@ pub fn toast(ui: &AppWindow, text: &str) {
 
 /// A toast shown `secs` seconds, for a notice that must outlast a slow first draw.
 pub fn toast_for(ui: &AppWindow, text: &str, secs: u64) {
+    toast_with(ui, text, "", secs);
+}
+
+/// A toast with "Undo" (DESIGN §5.10): the action can be taken back with ⌘Z too; the word calls
+/// the active document's undo.
+pub fn toast_undo(ui: &AppWindow, text: &str) {
+    toast_with(ui, text, &sheaf_app::i18n::tr("Undo"), 4);
+}
+
+fn toast_with(ui: &AppWindow, text: &str, action: &str, secs: u64) {
     // Messages made elsewhere as plain English (an error text kept in a variable) are translated when they
     // are known; the rest arrive translated (`i18n::tr`, `i18n::trf`).
     ui.set_toast_text(sheaf_app::i18n::tr(text).into());
+    ui.set_toast_action(action.into());
     ui.set_toast_visible(true);
     let weak = ui.as_weak();
     let timer = slint::Timer::default();

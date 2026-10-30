@@ -139,7 +139,8 @@ pub fn without_comments(bytes: &[u8]) -> Result<Vec<u8>, String> {
 
 /// The first sheet `bytes` prints with `layout` (0–5 one, 2, 4, 6, 9, 16 pages a sheet; 6 a booklet),
 /// in `gray` or not, with or without `comments`: a picture about 300 px wide (RGBA, width, height).
-pub fn preview(bytes: &[u8], layout: i32, gray: bool, comments: bool) -> Result<(u32, u32, Vec<u8>), String> {
+/// Sheet `sheet` (0-based) of the document as it will print: the layout's n-up or booklet page.
+pub fn preview(bytes: &[u8], layout: i32, gray: bool, comments: bool, sheet: usize) -> Result<(u32, u32, Vec<u8>), String> {
     let b = if comments { bytes.to_vec() } else { without_comments(bytes)? };
     let per = [1u8, 2, 4, 6, 9, 16][layout.clamp(0, 5) as usize];
     let b = if layout == 6 {
@@ -153,9 +154,9 @@ pub fn preview(bytes: &[u8], layout: i32, gray: bool, comments: bool) -> Result<
     } else {
         b
     };
-    let png = sheaf_core::images::page_png_bytes(&b, 0.5).map_err(|e| e.to_string())?;
+    let png = sheaf_core::images::page_png_bytes_at(&b, sheet, 0.6).map_err(|e| e.to_string())?;
     let img = image::load_from_memory(&png).map_err(|e| e.to_string())?;
-    let img = img.thumbnail(300, 300);
+    let img = img.thumbnail(560, 560);
     let img = if gray { image::DynamicImage::ImageLuma8(img.to_luma8()) } else { img };
     let rgba = img.to_rgba8();
     Ok((rgba.width(), rgba.height(), rgba.into_raw()))
@@ -235,16 +236,16 @@ mod tests {
         image::RgbImage::from_pixel(300, 400, image::Rgb([220, 30, 30])).save(&png).unwrap();
         let pdf = sheaf_core::images::images_to_pdf(&[png.clone(), png], sheaf_core::images::PageLayout::FitImage, &t.path().join("two.pdf")).unwrap();
         let bytes = std::fs::read(pdf).unwrap();
-        let (w, h, _) = preview(&bytes, 0, false, true).unwrap();
+        let (w, h, _) = preview(&bytes, 0, false, true, 0).unwrap();
         assert!(h > w, "one page: tall ({w} × {h})");
-        let (w, h, px) = preview(&bytes, 1, true, true).unwrap();
+        let (w, h, px) = preview(&bytes, 1, true, true, 0).unwrap();
         assert!(w > h, "two a sheet: wide ({w} × {h})");
         assert!(px.as_chunks::<4>().0.iter().all(|p| p[0] == p[1] && p[1] == p[2]), "grey");
         // Sixteen a sheet (Sol, 27/10: the preview showed one page where sixteen print): the two
         // red pages fill two cells of sixteen, not the sheet.
         let red = |px: &[u8]| px.as_chunks::<4>().0.iter().filter(|p| p[0] > 150 && p[1] < 90).count() as f32 / (px.len() / 4) as f32;
-        let (_, _, one) = preview(&bytes, 0, false, true).unwrap();
-        let (w, h, px) = preview(&bytes, 5, false, true).unwrap();
+        let (_, _, one) = preview(&bytes, 0, false, true, 0).unwrap();
+        let (w, h, px) = preview(&bytes, 5, false, true, 0).unwrap();
         assert!(h > w, "four by four: tall ({w} × {h})");
         assert!(red(&one) > 0.8 && red(&px) > 0.04 && red(&px) < 0.2, "red: one {} sixteen {}", red(&one), red(&px));
     }

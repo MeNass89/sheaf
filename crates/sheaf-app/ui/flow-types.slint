@@ -968,7 +968,8 @@ export global ReaderBridge {
     // orientation (0 auto, 1 portrait, 2 landscape); cancel.
     callback print-open(int);
     // The print sheet's preview for a layout (0–6), grey or not, with comments or not.
-    callback print-preview(int, int, bool, bool);
+    // …and the sheet shown (0-based).
+    callback print-preview(int, int, bool, bool, int);
     // More ▸ Background…: open; then apply (action 0, colour and opacity as chosen), a picture (1),
     // remove the backgrounds (2) or cancel (3).
     callback background-open(int);

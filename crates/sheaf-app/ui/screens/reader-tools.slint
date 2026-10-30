@@ -80,8 +80,8 @@ export component ToolsPopover inherits PopoverFrame {
         if !root.rows[root.current + d].header { root.current = root.current + d; }
         else if root.current + 2 * d >= 0 && root.current + 2 * d < root.rows.length { root.current = root.current + 2 * d; }
         // The current row kept in sight.
-        if root.current * Theme.row-height < -list.viewport-y { list.viewport-y = -root.current * Theme.row-height; }
-        if (root.current + 1) * Theme.row-height > -list.viewport-y + list.visible-height { list.viewport-y = list.visible-height - (root.current + 1) * Theme.row-height; }
+        if root.current * Theme.row-height < -list.content-y { list.content-y = -root.current * Theme.row-height; }
+        if (root.current + 1) * Theme.row-height > -list.content-y + list.visible-height { list.content-y = list.visible-height - (root.current + 1) * Theme.row-height; }
     }
     function pick(i: int) {
         if i >= 0 && i < root.rows.length && !root.rows[i].header {
@@ -89,7 +89,7 @@ export component ToolsPopover inherits PopoverFrame {
             root.done();
         }
     }
-    changed rows => { root.current = root.first(); list.viewport-y = 0; }
+    changed rows => { root.current = root.first(); list.content-y = 0px; }
     init => { ReaderBridge.tools-query(""); search.focus(); }
     VerticalLayout {
         padding: Space.sm;
@@ -174,6 +174,32 @@ export component ToolInspector inherits VerticalLayout {
     in property <ToolTab> tab;
     in property <int> id;
     property <bool> running: root.tab.phase == 1;
+    // Add watermark: the first page it marks, drawn again as the options change (wm_preview.rs).
+    if root.tab.reader.tool-id == "watermark": Rectangle {
+        height: 230px + Space.md;
+        Rectangle {
+            x: Space.lg;
+            y: Space.md;
+            width: parent.width - 2 * Space.lg;
+            height: 230px;
+            background: Theme.canvas;
+            border-radius: Theme.r-sm;
+            if !root.tab.has-preview: Text {
+                text: root.tab.preview-note != "" ? root.tab.preview-note : @tr("Preview…");
+                width: parent.width - 2 * Space.md;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+                font-size: Theme.fs-callout;
+                color: Theme.text-2;
+            }
+            if root.tab.has-preview: Image {
+                width: parent.width - Space.md;
+                height: parent.height - Space.md;
+                source: root.tab.preview;
+                image-fit: contain;
+            }
+        }
+    }
     sv := ScrollView {
         property <length> inner: self.visible-width - 2 * Space.lg;
         vertical-stretch: 1;
@@ -183,9 +209,9 @@ export component ToolInspector inherits VerticalLayout {
             x: Space.lg;
             y: Space.md;
             width: sv.inner;
-            tool: root.tab.tool;
+            tool: root.tab.reader.tool-id;
             file-count: root.tab.files.length;
-            page-count: root.tab.tool == "split" ? root.tab.pages.length : 0;
+            page-count: root.tab.reader.tool-id == "split" ? root.tab.pages.length : 0;
             any-scanned: root.tab.any-scanned;
             any-locked: root.tab.any-locked;
             default-out: root.tab.default-out;
@@ -239,13 +265,6 @@ export component ToolInspector inherits VerticalLayout {
                 }
                 Button { text: @tr("Cancel"); enabled: !root.tab.cancelling; clicked => { ReaderBridge.cancel-tool(root.id); } }
             }
-        }
-        Text {
-            text: @tr("Runs on this computer. Nothing is uploaded.");
-            font-size: Theme.fs-subhead;
-            color: Theme.text-2;
-            horizontal-alignment: center;
-            wrap: word-wrap;
         }
     }
 }

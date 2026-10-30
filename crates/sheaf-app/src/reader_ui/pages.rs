@@ -71,7 +71,12 @@ pub fn page_op(ui: &AppWindow, tab_id: i32, op: i32) {
         Ok(Some(edit))
     });
     match made {
-        Some(Ok(Some(e))) => apply_structure(ui, tab_id, e),
+        Some(Ok(Some(e))) => {
+            if let Edit::DeletePages { pages } = &e {
+                crate::flow::toast_undo(ui, &sheaf_app::i18n::trf("{} deleted", &[&sheaf_core::tools::count(pages.len(), "page")]));
+            }
+            apply_structure(ui, tab_id, e)
+        }
         Some(Ok(None)) if op >= 10 => from_clipboard_or_device(ui, tab_id, op),
         Some(Ok(None)) => from_file(ui, tab_id, op),
         Some(Err(m)) if !m.is_empty() => crate::flow::toast(ui, &m),

@@ -13,7 +13,7 @@ pub fn print_open(tab_id: i32) {
 }
 
 /// The print sheet's preview drawn again for `layout`, `gray` and `comments` (off the UI thread).
-pub fn print_preview(ui: &AppWindow, tab_id: i32, layout: i32, gray: bool, comments: bool) {
+pub fn print_preview(ui: &AppWindow, tab_id: i32, layout: i32, gray: bool, comments: bool, sheet: i32) {
     let Some((bytes, password, seq)) = update(tab_id, |r, _| {
         r.print_seq += 1;
         (r.snap.bytes.clone(), r.snap.password.clone(), r.print_seq)
@@ -26,7 +26,7 @@ pub fn print_preview(ui: &AppWindow, tab_id: i32, layout: i32, gray: bool, comme
             Some(pw) => sheaf_app::print::unlocked(&bytes, &pw),
             None => Ok(bytes),
         };
-        let made = bytes.and_then(|b| sheaf_app::print::preview(&b, layout, gray, comments));
+        let made = bytes.and_then(|b| sheaf_app::print::preview(&b, layout, gray, comments, sheet.max(0) as usize));
         let _ = weak.upgrade_in_event_loop(move |_| {
             update(tab_id, |r, _| {
                 if r.print_seq == seq {

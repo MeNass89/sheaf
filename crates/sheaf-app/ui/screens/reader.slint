@@ -132,13 +132,13 @@ export component ReaderScreen inherits Rectangle {
             root.inspector-open = !root.inspector-open;
         }
     }
-    // A tool chosen in the Tools popover: the inspector opens on it, 320 wide so the tool's
-    // options panel keeps the width it has in a tool tab.
+    // A tool chosen in the Tools popover: the inspector opens on it, 292 wide so the tool's
+    // options panel keeps the width it has in a tool tab (DESIGN §5.5 allows 220–340).
     property <string> tool-id: root.tab.reader.tool-id;
     changed tool-id => {
         if root.tool-id != "" {
             root.inspector-open = true;
-            if root.inspector-width < 320px { root.inspector-width = 320px; }
+            if root.inspector-width < 292px { root.inspector-width = 292px; }
         }
     }
     // Pages panel drag: where the press was, and the drop line (−1: no drag).

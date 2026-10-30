@@ -1119,7 +1119,7 @@ unset SHEAF_TEST_MENU_BAR
 # Locate controls in the actual options scroller, then inspect the produced PDF, not just the UI.
 optimize_option() { local found=; for _ in $(seq 1 16); do found=$(at "$1" 310x640+965+90); [ -n "$found" ] && break; xdotool mousemove 1160 500 click 5 click 5; sleep 0.3; done; echo "$found"; }
 cp "$OUT/text.pdf" "$OUT/web.pdf"; launch "$OUT/web.pdf"; sleep 1
-click $WRENCH_X 61 1; click $TOOLS_SEARCH 0.4; xdotool type --delay 20 "compress"; key Return; sleep 2
+click $WRENCH_X 61 1; xdotool type --delay 20 "compress"; key Return; sleep 2
 OA=$(optimize_option Advanced); [ -n "$OA" ] && click $OA 0.5
 OF=$(optimize_option Flatten); [ -n "$OF" ] && click $OF 0.5
 OW=$(optimize_option Fast); [ -n "$OW" ] && click $OW 0.5
@@ -1222,7 +1222,7 @@ key Escape; quit
 convert -size 1000x200 xc:white -font DejaVu-Sans -pointsize 64 -fill black -gravity center -annotate 0 "Sheaf OCR test 2026" "$OUT/fast-ocr-input.png"
 convert "$OUT/fast-ocr-input.png" "$OUT/fast-ocr-input.pdf"
 launch "$OUT/fast-ocr-input.pdf"; sleep 1
-click $WRENCH_X 61 1; click $TOOLS_SEARCH 0.4; xdotool type --delay 20 "ocr"; key Return; sleep 2
+click $WRENCH_X 61 1; xdotool type --delay 20 "ocr"; key Return; sleep 2
 OR=$(optimize_option Require)
 shot 344-ocr-options
 click 1140 755 4

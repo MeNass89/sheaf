@@ -1,19 +1,20 @@
 import { PlatformBridge } from "../platform.slint";
-import { Theme } from "../theme.slint";
+import { Theme, Space, Motion } from "../theme.slint";
 import { PrimaryButton } from "../widgets/button.slint";
 import { TextField } from "../widgets/text-field.slint";
 
+// The secondary button of a dialog (DESIGN §4 Button, secondary): min 72×28, `fill-2`, no border.
 export component SecondaryButton inherits Rectangle {
     in property <string> text;
     in property <bool> enabled: true;
     callback clicked();
-    height: Theme.button-height;
-    min-width: label.preferred-width + 32px;
-    border-radius: Theme.radius-button;
-    border-width: 1px;
-    border-color: focus.has-focus && root.keyboard-focus && root.enabled ? Theme.text-secondary : Theme.input-border;
-    background: touch.has-hover && root.enabled ? Theme.popup-hover : Theme.card;
-    opacity: root.enabled ? 1 : 0.45;
+    height: Theme.control-height;
+    min-width: max(72px, label.preferred-width + 24px);
+    border-radius: Theme.r-sm;
+    border-width: focus.has-focus && root.keyboard-focus && root.enabled ? 2px : 0px;
+    border-color: Theme.focus-ring;
+    background: !root.enabled ? Theme.fill-1 : touch.pressed ? Theme.fill-3 : touch.has-hover ? Theme.fill-3 : Theme.fill-2;
+    animate background { duration: Motion.hover; }
     accessible-role: button;
     accessible-label: root.text;
     accessible-enabled: root.enabled;
@@ -29,9 +30,8 @@ export component SecondaryButton inherits Rectangle {
     }
     label := Text {
         text: root.text;
-        font-size: Theme.fs-button;
-        font-weight: 500;
-        color: Theme.text;
+        font-size: Theme.fs-body;
+        color: root.enabled ? Theme.text : Theme.text-disabled;
         horizontal-alignment: center;
         vertical-alignment: center;
     }
@@ -42,24 +42,31 @@ export component SecondaryButton inherits Rectangle {
     }
 }
 
-// Dimmed backdrop with a centred card.
+// Dialog (DESIGN §4): a 360-wide card (`window`, radius 12, the `sheet` shadow) centred on a
+// `scrim`; title 13/600, message 13, the buttons right; it rises 8 px and fades in.
 export component Modal inherits Rectangle {
-    in property <length> card-width: 380px;
+    in property <length> card-width: 360px;
     in property <length> shake;
+    property <bool> shown;
+    init => { self.shown = true; }
     background: Theme.scrim;
     TouchArea { }
     Rectangle {
         x: (parent.width - self.width) / 2 + root.shake;
-        y: (parent.height - self.height) / 2;
-        width: root.card-width;
+        y: (parent.height - self.height) / 2 - (root.shown ? 0px : 8px);
+        width: min(root.card-width, root.width - 2 * Space.xl);
         height: body.preferred-height;
-        border-radius: Theme.radius-card;
-        background: Theme.card;
-        drop-shadow-blur: 24px;
-        drop-shadow-color: #00000040;
+        opacity: root.shown ? 1 : 0;
+        animate opacity, y { duration: Motion.appear; }
+        border-radius: Theme.r-lg;
+        background: Theme.window;
+        drop-shadow-blur: Theme.sheet-blur;
+        drop-shadow-offset-y: Theme.sheet-y;
+        drop-shadow-color: Theme.sheet-shadow;
+        accessible-role: groupbox;
         body := VerticalLayout {
-            padding: 22px;
-            spacing: 14px;
+            padding: Space.xl;
+            spacing: Space.lg;
             @children
         }
     }
@@ -89,7 +96,7 @@ export component PasswordDialog inherits Modal {
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.certificate ? @tr("{} is encrypted for certificates", root.file-name) : @tr("{} is password protected", root.file-name);
-        font-size: Theme.fs-body-large;
+        font-size: Theme.fs-headline;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
         wrap: word-wrap;
@@ -131,7 +138,7 @@ export component PasswordDialog inherits Modal {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
-        spacing: 10px;
+        spacing: Space.sm;
         SecondaryButton {
             text: @tr("Skip");
             clicked => { root.skip(); }
@@ -152,22 +159,22 @@ export component ConfirmCloseDialog inherits Modal {
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: @tr("A task is still running");
-        font-size: Theme.fs-body-large;
+        font-size: Theme.fs-headline;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
     }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: @tr("Closing this tab cancels it. Files already written are kept.");
-        font-size: Theme.fs-label;
-        color: Theme.text-secondary;
+        font-size: Theme.fs-body;
+        color: Theme.text-2;
         wrap: word-wrap;
     }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
-        spacing: 10px;
+        spacing: Space.sm;
         SecondaryButton {
             text: @tr("Keep");
             clicked => { root.keep(); }
@@ -187,7 +194,7 @@ export component LaunchFileDialog inherits Modal {
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: @tr("Open “{}”?", root.name);
-        font-size: Theme.fs-body-large;
+        font-size: Theme.fs-headline;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
         wrap: word-wrap;
@@ -195,15 +202,15 @@ export component LaunchFileDialog inherits Modal {
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: @tr("The document links to this file. It opens in the app your system uses for it; open it only if you trust the document.");
-        font-size: Theme.fs-label;
-        color: Theme.text-secondary;
+        font-size: Theme.fs-body;
+        color: Theme.text-2;
         wrap: word-wrap;
     }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: end;
-        spacing: 10px;
+        spacing: Space.sm;
         SecondaryButton {
             text: @tr("Cancel");
             clicked => { root.answer(false); }
@@ -227,7 +234,7 @@ export component UnsavedDialog inherits Modal {
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.redact-marks > 0 ? @tr("Close “{}” without redacting?", root.file-name) : @tr("Save changes to “{}”?", root.file-name);
-        font-size: Theme.fs-body-large;
+        font-size: Theme.fs-headline;
         font-weight: Theme.weight-demibold;
         color: Theme.text;
         wrap: word-wrap;
@@ -237,15 +244,15 @@ export component UnsavedDialog inherits Modal {
         text: root.redact-marks == 1 ? @tr("1 mark is not applied: Redact applies it.")
             : root.redact-marks > 1 ? @tr("{} marks are not applied: Redact applies them.", root.redact-marks)
             : @tr("Your annotations will be lost if you don’t save them.");
-        font-size: Theme.fs-label;
-        color: Theme.text-secondary;
+        font-size: Theme.fs-body;
+        color: Theme.text-2;
         wrap: word-wrap;
     }
     FlexboxLayout {
         flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
         flex-wrap: FlexboxLayoutWrap.no-wrap;
         alignment: LayoutAlignment.stretch;
-        spacing: 10px;
+        spacing: Space.sm;
         if root.redact-marks == 0: SecondaryButton {
             text: @tr("Don’t Save");
             clicked => { root.discard(); }

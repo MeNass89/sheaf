@@ -165,9 +165,15 @@ pub fn render_png(input: &Input, page: usize, dpi: u32, out: &Path) -> Result<Pa
 /// The first page of PDF `bytes` as a PNG `scale` times its size in points, on a transparent
 /// background, its comments drawn: a stamp copied as the picture it shows.
 pub fn page_png_bytes(bytes: &[u8], scale: f32) -> Result<Vec<u8>> {
+    page_png_bytes_at(bytes, 0, scale)
+}
+
+/// [`page_png_bytes`] for page `page` (0-based; past the end, the last page).
+pub fn page_png_bytes_at(bytes: &[u8], page: usize, scale: f32) -> Result<Vec<u8>> {
     let _g = pdfium_lock();
     let doc = crate::engine::open_pdf_bytes(bytes, None)?;
-    let p = doc.pages().get(0)?;
+    let n = doc.pages().len() as usize;
+    let p = doc.pages().get(page.min(n.saturating_sub(1)) as i32)?;
     let px = (p.width().value * scale).round().clamp(1.0, 4096.0) as i32;
     let cfg = PdfRenderConfig::new().set_target_width(px).render_annotations(true).set_clear_color(PdfColor::new(255, 255, 255, 0));
     let img = p.render_with_config(&cfg)?.as_image()?;

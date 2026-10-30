@@ -365,7 +365,7 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_trust_signature(reader_ui::trust_signature);
     wire_global!(ui, rb, on_clear_signature, |ui, id, k| reader_ui::clear_signature(&ui, id, k));
     rb.on_print_cancel(reader_ui::print_cancel);
-    wire_global!(ui, rb, on_print_preview, |ui, id, layout, gray, comments| reader_ui::print_preview(&ui, id, layout, gray, comments));
+    wire_global!(ui, rb, on_print_preview, |ui, id, layout, gray, comments, sheet| reader_ui::print_preview(&ui, id, layout, gray, comments, sheet));
     wire_global!(ui, rb, on_print, |ui, id, p, c, m, r, f, t, paper, o, layout, gray, comments| reader_ui::print(&ui, id, p, c, m, &r, f, t, paper, o, layout, gray, comments));
     wire_global!(ui, rb, on_thumb_drop, |ui, id, y| reader_ui::thumb_drop(&ui, id, y));
 }
@@ -745,6 +745,7 @@ fn main() -> Result<(), slint::PlatformError> {
         home::create_digital_id(&ui, spec, password.into(), &confirm);
     });
     wire!(ui, on_make_default, |ui| flow::toast(&ui, &run::make_default_pdf_app()));
+    wire!(ui, on_toast_undo, |ui| if let Some((id, _)) = flow::active_tool(&ui) { reader_ui::undo(&ui, id, false) });
     let parse = ui.global::<sheaf_app::Parse>();
     parse.on_password_strength(|s| run::password_strength(&s));
     parse.on_mm(|s| run::parse_mm(&s).unwrap_or(0.0) as f32);
