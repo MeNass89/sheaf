@@ -206,11 +206,13 @@ export component PrintSheet inherits Rectangle {
                 if !root.tab.reader.has-print-preview: Text { text: @tr("Preparing the preview…"); font-size: Theme.fs-subhead; color: Theme.text-2; }
             }
             // "Page 1 of 7" capsule, ← → to page.
-            HorizontalLayout {
+            FlexboxLayout {
                 x: (parent.width - self.width) / 2;
                 y: parent.height - Space.xl - 28px;
                 width: self.preferred-width;
                 height: 28px;
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
                 spacing: Space.xs;
                 SmallButton { text: "‹"; enabled: sheet > 0; tip: @tr("Previous page"); clicked => { sheet = max(0, sheet - 1); } }
                 Rectangle {
@@ -302,7 +304,10 @@ export component PrintSheet inherits Rectangle {
                     }
                 }
             }
-            HorizontalLayout {
+            FlexboxLayout {
+                flex-direction: PlatformBridge.rtl ? FlexboxLayoutDirection.row-reverse : FlexboxLayoutDirection.row;
+                flex-wrap: FlexboxLayoutWrap.no-wrap;
+                alignment: LayoutAlignment.stretch;
                 spacing: Space.sm;
                 // These choices kept as how the sheet opens (Preview's Save Current Settings as Preset).
                 Button { text: @tr("Make Default"); clicked => { SettingsBridge.set-print-defaults(two-sided, paper, gray, comments, fit, orientation, layout); } }

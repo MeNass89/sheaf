@@ -50,7 +50,7 @@ pub fn fill(tab: &mut ToolTab, r: &ReaderUi, v: &ViewerUi) {
     // accent bar in the middle of the gap before page `g` (after the last one).
     let mut grid_cells = Vec::new();
     let mut grid_bar = sheaf_app::ReaderGridCell::default();
-    if r.grid_prev.is_some() {
+    if r.grid_prev.is_some() && v.viewer.spread() == 3 {
         for p in wanted.clone() {
             let [x, y, w, h] = v.viewer.page_rect(p);
             grid_cells.push(sheaf_app::ReaderGridCell { x: x as f32, y: y as f32, w: w as f32, h: h as f32, label: label(r, p).into(), selected: r.page_sel.contains(&p) });

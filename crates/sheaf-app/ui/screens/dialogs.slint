@@ -231,6 +231,15 @@ export component UnsavedDialog inherits Modal {
     callback save();
     callback discard();
     callback cancel();
+    // Return takes the default (Save, or Close for redact marks), Escape cancels (DESIGN §7).
+    FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Escape { root.cancel(); return accept; }
+            if e.text == Key.Return { if root.redact-marks > 0 { root.discard(); } else { root.save(); } return accept; }
+            reject
+        }
+    }
     Text {
         horizontal-alignment: PlatformBridge.rtl ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         text: root.redact-marks > 0 ? @tr("Close “{}” without redacting?", root.file-name) : @tr("Save changes to “{}”?", root.file-name);

@@ -1610,16 +1610,16 @@ export component ReaderScreen inherits Rectangle {
                 // ⌥⌘L: one column → two pages → cover alone (⌥L types ¬ on a Mac keyboard).
                 if (e.text == "l" || e.text == "¬") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
                 // ⌥⌘1…6: the sidebar's tabs (DESIGN §5.4); on a Mac ⌥ with a digit types a symbol.
-                if (e.text == "1" || e.text == "¡") && e.modifiers.alt && !PlatformBridge.rebound[46] { ReaderBridge.set-panel(root.id, 0); return accept; }
-                if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[47] { ReaderBridge.set-panel(root.id, 1); return accept; }
-                if (e.text == "3" || e.text == "£") && e.modifiers.alt && !PlatformBridge.rebound[48] { ReaderBridge.set-panel(root.id, 6); return accept; }
-                if (e.text == "4" || e.text == "¢") && e.modifiers.alt && !PlatformBridge.rebound[49] { ReaderBridge.set-panel(root.id, 2); return accept; }
-                if (e.text == "5" || e.text == "∞") && e.modifiers.alt && !PlatformBridge.rebound[50] { ReaderBridge.set-panel(root.id, 4); return accept; }
-                if (e.text == "6" || e.text == "§") && e.modifiers.alt && !PlatformBridge.rebound[51] { ReaderBridge.set-panel(root.id, 5); return accept; }
+                if (e.text == "1" || e.text == "¡") && e.modifiers.alt && !PlatformBridge.rebound[46] /* sidebar-thumbnails */ { ReaderBridge.set-panel(root.id, 0); return accept; }
+                if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[47] /* sidebar-outline */ { ReaderBridge.set-panel(root.id, 1); return accept; }
+                if (e.text == "3" || e.text == "£") && e.modifiers.alt && !PlatformBridge.rebound[48] /* sidebar-bookmarks */ { ReaderBridge.set-panel(root.id, 6); return accept; }
+                if (e.text == "4" || e.text == "¢") && e.modifiers.alt && !PlatformBridge.rebound[49] /* sidebar-annotations */ { ReaderBridge.set-panel(root.id, 2); return accept; }
+                if (e.text == "5" || e.text == "∞") && e.modifiers.alt && !PlatformBridge.rebound[50] /* sidebar-attachments */ { ReaderBridge.set-panel(root.id, 4); return accept; }
+                if (e.text == "6" || e.text == "§") && e.modifiers.alt && !PlatformBridge.rebound[51] /* sidebar-layers */ { ReaderBridge.set-panel(root.id, 5); return accept; }
                 // ⌥⌘D ⌥⌘S ⌥⌘N: the page theme (View ▸ Page Theme).
-                if (e.text == "d" || e.text == "∂") && e.modifiers.alt && !PlatformBridge.rebound[53] { ReaderBridge.set-theme(root.id, 0); return accept; }
-                if (e.text == "s" || e.text == "ß") && e.modifiers.alt && !PlatformBridge.rebound[54] { ReaderBridge.set-theme(root.id, 2); return accept; }
-                if (e.text == "n" || e.text == "˜") && e.modifiers.alt && !PlatformBridge.rebound[55] { ReaderBridge.set-theme(root.id, 1); return accept; }
+                if (e.text == "d" || e.text == "∂") && e.modifiers.alt && !PlatformBridge.rebound[53] /* theme-day */ { ReaderBridge.set-theme(root.id, 0); return accept; }
+                if (e.text == "s" || e.text == "ß") && e.modifiers.alt && !PlatformBridge.rebound[54] /* theme-sepia */ { ReaderBridge.set-theme(root.id, 2); return accept; }
+                if (e.text == "n" || e.text == "˜") && e.modifiers.alt && !PlatformBridge.rebound[55] /* theme-night */ { ReaderBridge.set-theme(root.id, 1); return accept; }
                 if e.text == "0" && !PlatformBridge.rebound[18] /* actual-size */ { ReaderBridge.zoom-fit(root.id, 2); return accept; }
                 if e.text == "9" && !PlatformBridge.rebound[20] /* fit-width */ { ReaderBridge.zoom-fit(root.id, 0); return accept; }
                 if e.text == "8" && !PlatformBridge.rebound[19] /* fit-page */ { ReaderBridge.zoom-fit(root.id, 1); return accept; }

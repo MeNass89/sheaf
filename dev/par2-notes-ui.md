@@ -516,3 +516,65 @@ horizontal-stretch room only with `alignment: stretch`). GUI layer GREEN on 2157
 
 Screenshots /tmp/f5/W5/ (self-snapshots, Xvfb :151–:153): every tab light and dark, the screen with Settings open at
 1280×800 and 1024×768.
+## Redesign W6: the Tools popover, the sheets and dialogs, the leftovers, the audit (30/10/2026, Fable)
+
+DESIGN.md §1 (command map), §3, §5.5, §5.9, §5.10; what W1–W5 named as not done. Branch wip/w6-finish (from int/redesign 09d7aff). Target dir
+`~/.cache/cargo-target/sheaf-w6` (the finished W3 dir renamed: a fresh copy filled the disk; W4's dirs went with it).
+
+- **Tools popover** (`ui/screens/reader-tools.slint`, `src/reader_ui/toolbox.rs`): 320×480 under the mode bar's wrench (⌘K, Tools ▸
+  All Tools…), its search field with the keyboard as it opens, the rows from Rust for what is typed (`ReaderBridge.tools-query` →
+  `tool-rows`): nothing typed, Favourites, then the catalogue's categories (only the tools that take a PDF: the converters to PDF
+  stay on Home ▸ All Tools), Plugins, Custom tools (ActionBridge.commands that apply to the open document); typed, the
+  catalogue's search order (`sheaf_core::tools::search`, so "cmprs" and "bates" still find their tool) then the plugins and custom
+  tools holding the words. ↑ ↓ move (headers skipped, the list scrolled to the row), ↩ chooses, Escape closes; the current row is
+  the accent fill, as a menu's.
+  - A chosen tool goes through `toolbox::pick` → `to_tools` (the document saved first, as the Tools button did) → `show`: a plugin
+    runs on the file (`plugins_ui::open_with`), a custom tool through `custom-current`, a tool that needs the page (Organize, Edit,
+    Sign, Redact) or more files (Merge, Compare) opens its tool tab with the document in it, every other catalogue tool shows its
+    options in the **inspector**: the reader's own `TabState` carries the tool (`tool`, `files`, `options`, `phase`), so the panel
+    is `OptionsPanel` (options.slint) itself, keyed on `reader.tool-id` (the row's `tool` string stays "read"), with one pinned
+    **Run** (`ReaderBridge.run-tool` → `run::run_tool`, the same job path) and a progress bar + Cancel while it runs. The inspector
+    opens by itself at 292 wide (the tool tab's panel width, so every option sits where the smoke measured it; DESIGN §5.5 allows
+    220–340), its × or Escape closes the tool (`toolbox::close`). Done (`run::on_done` → `toolbox::finished`): the result opens in
+    its own tab (a PDF) or is shown in its folder, a toast says "Compressed to 480 KB (64% smaller!)" or the tool's result title,
+    the reader's tool state is cleared. **Deviation from §3**: the result does not replace the document in its tab with an
+    "Undo Compress" (that is a document-level undo of a whole rewrite; the output file opens beside the original instead, as the
+    tool tab's result page did).
+  - The menu bar reaches every popover tool by name: File ▸ Export To ▸ (Word, Excel, PowerPoint, Images, Text or HTML, PDF/A),
+    Edit PDF ▸ (Page numbers…, Watermark…, Adjust colours…, Crop…), Pages ▸ (Extract…, Remove…, Split…, Rotate all…), Protect ▸
+    (Set / Remove password…), Tools ▸ (Compress…, OCR…, Repair…, Compare…), Forms ▸ Sign with Certificate…. The batch tool tab
+    stays behind Home ▸ All Tools (decision taken).
+- **Menu bar** (main.slint, DESIGN §1 and BAMA menus.md): File, Edit, View, Go, Annotate, Edit PDF, Forms, Pages, Protect, Tools,
+  Window, Help. View: Show/Hide Sidebar and Show/Hide Inspector (labels follow the state; the reader reports `inspector-open` to
+  Rust), Sidebar ▸ Thumbnails…Layers (⌥⌘1…6), Page Display ▸, Page Theme ▸ Day / Sepia / Night (⌥⌘D ⌥⌘S ⌥⌘N). Go ▸ Add
+  Bookmark ⌘D. `platform.rs` COMMANDS 45–55 added (inspector, six sidebar tabs, add-bookmark, three themes); Document Properties
+  moved from ⌘D to **⌘I**; Next Page Layout from ⌥⌘2 (now Outline) to **⌥⌘L**. The reader's key scope answers the same keys when
+  the menu bar is hidden (the smoke), with the Mac's ⌥-symbols (¡ ™ £ ¢ ∞ § ∂ ß ˜ ¬). ⌃⌘I (Ctrl+Alt+I) now works while the search
+  field has the keyboard (its key handler toggles the inspector).
+- **Mode bar: icons only, decided.** Both PDF Expert captures (05-annotate-toolbar.jpg, 07-edit-mode.jpg) show a mode bar of
+  icons without words; the spec (§2, §5.2) sizes it 7×48; BAMA toolbars.md says a symbol first, text only when no symbol fits. Seven
+  labelled segments (≈ 90 px each) would not fit between the page field and the "Aa" button at 1280 with the sidebar open (488 px),
+  and a label on the selected segment alone would shift the row on every mode change. Where am I is answered by the `fill-3` pill,
+  the rail, and the inspector's header naming the mode. Every segment has its tooltip and accessible label with the shortcut.
+- **Annotate inspector** (reader-inspector.slint): one section per property, the control alone under its title (the "Colour /
+  Colour" doubling is gone): Colour as W1 swatches, Stroke as four widths, Opacity as a slider with its value. Read and Organize
+  sections carry no title (the header already says Document / Pages). Organize: "3 of 7 selected" and a **Thumbnail size** slider
+  (61–163 % = 120–320 px of the grid's 196-wide page; `ViewerBridge.zoom-to`).
+- **Print sheet** (reader-sheets.slint, DESIGN §5.9, 12c-print-dialog.png): 864×640, a 320-wide preview column on `canvas` with the
+  page and a "Page 1 of 7" capsule (‹ › and ← → step the sheet: `print::preview` takes the sheet now, `images::page_png_bytes_at`),
+  the form on the right as rows (Printer, Copies, Pages, Paper size, Orientation, then a "Sheaf" group: Scale, Layout, Two-sided,
+  Colour, Comments) with W1 popups, radios and checkboxes; Make Default left, Cancel · Print right; Return prints, Escape cancels.
+- **Dialogs** (dialogs.slint `Modal`): 360 wide, `window`, radius 12, the `sheet` shadow, rising 8 px; title 13/600, message 13
+  `text-2`, buttons 8 apart; `SecondaryButton` on the token table (every dialog built on Modal follows).
+- **Toast** (main.slint, surfaces.slint `ToastView`): bottom centre 20 above the edge, 36 tall, an **Undo** word
+  (`flow::toast_undo`, the active document's undo); "3 pages deleted · Undo" on a page delete (pages.rs).
+- **Export / Protect / Sign sheets: not built as sheets.** Their options are the tools' panels, which now open in the inspector from
+  the popover and the menus (one surface per tool; a 480 sheet would be a second copy of options.slint with its own Run). Noted as a
+  deviation from §5.9.
+- **Settings ▸ Appearance ▸ Page theme when a document opens** (Day / Sepia / Night popup, `Prefs.page-theme`, `home::set_page_theme`;
+  the reader's own theme change pushes the pref too). Every "Preferences" text now says Settings (plugins, security, time stamp,
+  the AI errors in sheaf-core); the guide's Markdown and PDF regenerated (`make-guide.sh`).
+- Smoke recalibrated: `key ctrl+d` → `ctrl+i` (properties, 5 places), `ctrl+alt+2` → `ctrl+alt+l` (page layout, 5 places), 4-flows 340
+  and 344 no longer click the old page's search field (the popover's has the keyboard). Every wrench flow (`click $WRENCH_X 61;
+  type; Return`) now lands in the popover: the same first result, then the options at x 1004–1264 and Run at (1140, 755) as before.
+- 77 new texts in fr/de/es/it/pt (`missing.py` reports 0).

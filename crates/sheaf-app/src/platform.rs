@@ -749,11 +749,11 @@ mod tests {
     fn reset_refuses_keys_a_tool_has_taken() {
         let mut p = PlatformPrefs::default();
         let merge = launchers().iter().position(|(id, _)| *id == "merge").unwrap();
-        assign(&mut p, "save", "Control+Alt+S").unwrap();
+        assign(&mut p, "save", "Control+Alt+E").unwrap();
         assign_launch(&mut p, merge, "Control+S").unwrap();
         // Save's own Ctrl+S is Merge PDF's now: Reset says so and changes nothing.
         assert!(reset_command(&mut p, "save").unwrap_err().contains("Merge PDF"));
-        assert_eq!(effective(&p, command_index("save").unwrap()), "Control+Alt+S");
+        assert_eq!(effective(&p, command_index("save").unwrap()), "Control+Alt+E");
         assign_launch(&mut p, merge, "").unwrap();
         reset_command(&mut p, "save").unwrap();
         assert_eq!(effective(&p, command_index("save").unwrap()), "Control+S");

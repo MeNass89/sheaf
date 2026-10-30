@@ -63,7 +63,7 @@ pub fn rows(ui: &AppWindow, query: &str) -> Vec<ToolRow> {
         let favourites: Vec<ToolRow> = crate::home::favourites()
             .iter()
             .filter_map(|id| {
-                ToolId::from_str(id).map(|t| tools::find(t)).filter(|t| takes_pdf(t)).map(catalogue_row).or_else(|| plugins.iter().find(|p| p.id.as_str() == id).cloned())
+                ToolId::from_str(id).map(tools::find).filter(|t| takes_pdf(t)).map(catalogue_row).or_else(|| plugins.iter().find(|p| p.id.as_str() == id).cloned())
             })
             .collect();
         if !favourites.is_empty() {
