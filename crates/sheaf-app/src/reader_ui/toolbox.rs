@@ -172,10 +172,10 @@ fn reset(t: &mut TabState) {
 /// A tool's job on a document tab is done (run.rs): the result said in a toast and opened in its
 /// own tab (a PDF; another kind of file is shown in its folder), the reader's tool state cleared.
 pub fn finished(ui: &AppWindow, tab_id: i32) {
-    let Some((tool, outputs, warn, summary)) = with(|a| {
+    let Some((tool, outputs, warn, summary, note)) = with(|a| {
         let t = a.tab(tab_id)?;
         let Phase::Done(d) = &t.phase else { return None };
-        Some((t.tool, d.outcome.outputs.clone(), d.outcome.was_encrypted, d.outcome.summary.clone()))
+        Some((t.tool, d.outcome.outputs.clone(), d.outcome.was_encrypted, d.outcome.summary.clone(), d.outcome.notes.first().cloned()))
     }) else {
         return;
     };
@@ -188,6 +188,12 @@ pub fn finished(ui: &AppWindow, tab_id: i32) {
         (Some(r), _) if !r.result_sub.is_empty() => format!("{} {}", r.result_title, r.result_sub),
         (Some(r), _) => r.result_title.to_string(),
         (None, _) => sheaf_app::i18n::trf("{} is done", &[&tools::find(tool).name]),
+    };
+    // The job's first note (the tool tab listed them under the result): "x.pdf: 0.4 MB is as small as
+    // it gets without spoiling its pages".
+    let text = match note {
+        Some(n) => format!("{text} {n}"),
+        None => text,
     };
     with(|a| {
         if let Some(t) = a.tab(tab_id) {
