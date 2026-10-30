@@ -578,3 +578,17 @@ DESIGN.md §1 (command map), §3, §5.5, §5.9, §5.10; what W1–W5 named as no
   and 344 no longer click the old page's search field (the popover's has the keyboard). Every wrench flow (`click $WRENCH_X 61;
   type; Return`) now lands in the popover: the same first result, then the options at x 1004–1264 and Run at (1140, 755) as before.
 - 77 new texts in fr/de/es/it/pt (`missing.py` reports 0).
+- The GUI layer caught three real bugs on the way to green: a document tab's row never ran `fill_result`, so the
+  result toast had no words; a wrapping `Text`'s preferred width is its longest word's and an invisible action
+  still took the toast row's spacing, so short toasts broke their file name ("moved- away.pdf"); a non-PDF output
+  opened a file manager over the window (now the toast names the file). Smoke recalibrated besides: 4-flows 220
+  and 304 read the longer menu bar (1000 px), 250 finds Run under Clear output, 300 and 301 the new print sheet
+  (title band, radio dot 30 px left of Grey, the two-sided box 95 px right of its label, Make Default read on its
+  own row), 320 the 360 dialog's error line, 364 "API key in Settings"; 3-flows 39 opens Rotate's tool tab from Home
+  (the inspector has no card to measure), 66 reads the result toast inverted; 2-documents 11 the toast 20 px above
+  the edge.
+- Screenshots `/tmp/f5/W6/` (self-snapshots, Xvfb :170–:172): `*-1280x800-light`, `*-1280x800-dark`, `*-1024x768-light`
+  of alltools, settings-general, settings-appearance, reader-read(-inspector), reader-annotate-inspector,
+  reader-annotate-highlight, reader-organize-inspector, tools-popover (screen), tool-watermark-inspector,
+  tool-compress-inspector, print-sheet, reader-search, toast-deleted, dialog-unsaved, home. GUI layer: PASS gui on
+  7ef6f83 (fourth run; 1354 s).
