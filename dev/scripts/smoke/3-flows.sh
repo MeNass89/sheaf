@@ -334,8 +334,10 @@ quit
 
 # 39. Rotate: a portrait page's card shows it turned as chosen: wider than tall at Right 90° (the default),
 # taller than wide again at 180° (found by its label).
+# W6: the reader's Rotate runs in the inspector without a card, so the tool tab is opened from Home ▸ All Tools
+# with the open document (Open file → Open documents, as 21c).
 convert -size 300x420 xc:'#2040E0' "$OUT/turn.pdf"; launch "$OUT/turn.pdf"; sleep 1
-click $WRENCH_X 61 1.5; xdotool type --delay 20 "rotate"; key Return; sleep 2.5
+click 50 21 1; click $ALL_TOOLS_ROW 1; tile Rotate; click 494 405 1; click 460 527 2.5
 cardbox() { import -window root -crop 600x300+40+100 png:- 2>/dev/null | convert - -fuzz 20% -fill white +opaque '#2040E0' -trim -format '%w %h' info: 2>/dev/null; }
 read CW0 CH0 <<< "$(cardbox)"; HF=$(at 180 300x500+990+90); [ -n "$HF" ] && click $HF 1; read CW1 CH1 <<< "$(cardbox)"
 check "Rotate shows each file's page turned as chosen (${CW0:-?}x${CH0:-?} → ${CW1:-?}x${CH1:-?})" "[ -n \"$CW1\" ] && [ ${CW0:-0} -gt ${CH0:-0} ] && [ ${CH1:-0} -gt ${CW1:-0} ]"
@@ -638,7 +640,8 @@ cp "$OUT/text.pdf" "$OUT/target.pdf"; launch "$OUT/target.pdf"; sleep 1
 click $WRENCH_X 61 1.5; xdotool type --delay 20 "compress"; key Return; sleep 2
 # The "Largest file (MB)" field sits 80 px under the card.
 TS=$(at size 280x600+1000+40); [ -n "$TS" ] && { set -- $TS; click $1 $2 0.4; click $1 $(( $2 + 80 )) 0.4; xdotool type --delay 20 "0.001"; }
-click 1140 755 4; shot 66-target; TR=$(import -window root png:- | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' ')
+# W6: the result is a toast (white on dark, bottom centre, 8 s), read inverted until it is seen.
+click 1140 755 1; TR=; for _ in $(seq 1 40); do TR=$(import -window root -crop 700x44+290+740 png:- 2>/dev/null | convert - -negate -resize 200% png:- | tesseract stdin stdout --psm 7 2>/dev/null | tr '\n' ' '); echo "$TR" | grep -q 'as small' && break; sleep 0.2; done; shot 66-target
 check "Compress to a size out of reach keeps the smallest and says so (${TS:-no option}; $(ls $OUT/target-compressed*.pdf 2>/dev/null | wc -l) file)" "ls $OUT/target-compressed*.pdf >/dev/null 2>&1 && echo \"$TR\" | grep -q 'as small as it gets'"
 quit
 

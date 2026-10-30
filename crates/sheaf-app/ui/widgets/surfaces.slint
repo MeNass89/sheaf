@@ -125,8 +125,9 @@ export component ToastView inherits Rectangle {
     in property <string> text;
     in property <string> action;
     callback action-clicked();
-    height: 36px;
+    height: max(36px, lbl.preferred-height + 16px);
     min-width: 200px;
+    max-width: 640px;
     preferred-width: lbl.preferred-width + (root.action == "" ? 0px : act.preferred-width + 16px) + 32px;
     border-radius: Theme.r-pill;
     background: Theme.toast;
@@ -145,6 +146,8 @@ export component ToastView inherits Rectangle {
             font-size: Theme.fs-body;
             color: Theme.on-toast;
             vertical-alignment: center;
+            wrap: word-wrap;
+            max-width: 560px;
         }
         act := Text {
             visible: root.action != "";

@@ -105,7 +105,7 @@ quit
 printf '%%PDF-1.7\nnot really a pdf\n' > "$OUT/broken.pdf"
 # The toast (white on dark, bottom centre, 3 s) read inverted until it is seen (up to 30 reads).
 # Only the inside of the pill (dark, whatever is behind it), inverted to black on white.
-toastText() { import -window root -crop 380x26+450+742 png:- 2>/dev/null | convert - -negate -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
+toastText() { import -window root -crop 380x26+450+749 png:- 2>/dev/null | convert - -negate -resize 300% png:- | tesseract stdin stdout --psm 7 2>/dev/null; }
 # Read from the start, alongside launch: its wait for the first frame can outlast the toast's 3 s on a busy machine.
 ( for i in $(seq 1 30); do t=$(toastText); echo "$t"; echo "$t" | grep -qi damaged && break; sleep 0.1; done > "$OUT/toast.txt" ) & TP=$!
 launch "$OUT/broken.pdf"; wait $TP; BR=$(tr '\n' ' ' < "$OUT/toast.txt"); shot 11-broken

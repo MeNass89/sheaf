@@ -497,10 +497,10 @@ quit
 # from a reader tab shows Home.
 export SHEAF_TEST_MENU_BAR=1
 cp "$OUT/text.pdf" "$OUT/menubar.pdf"; launch "$OUT/menubar.pdf"; sleep 1
-MB=$(ocr 700x34+0+0)
+MB=$(ocr 1000x34+0+0)
 FX=$(at File 400x34+0+0); [ -n "$FX" ] && click $FX 0.8
 FM=$(ocr 420x420+0+24); key Escape; sleep 0.4
-read WX _ <<< "$(at Window 700x34+0+0)"
+read WX _ <<< "$(at Window 1000x34+0+0)"
 [ -n "$WX" ] && click $WX 14 0.8
 HM=$(at Home 320x160+$(( ${WX:-20} - 20 ))+24); [ -n "$HM" ] && click $HM 1.2
 HR=$(at Recents 400x400+0+40)
@@ -677,8 +677,8 @@ cp "$OUT/text.pdf" "$OUT/js-console.pdf"; launch "$OUT/js-console.pdf"; key ctrl
 JS_SOURCE_X=500; JS_SOURCE_Y=230
 click "$JS_SOURCE_X" "$JS_SOURCE_Y"; key ctrl+a
 xdotool type --clearmodifiers --delay 4 "console.println('JSCONSOLEPASS');"
-# Run (white on red) does not OCR, "Run selection" does: Run is 203 px left of Scripts.
-JR=$(at Scripts 700x500+290+100); JR=${JR:+$(set -- $JR; echo $(( $1 - 203 )) $2)}; [ -n "$JR" ] && click $JR 2
+# Run (white on the accent) does not OCR, nor its row (Run selection is dimmed): Run sits 44 px above Clear output.
+JR=$(at Clear 700x500+290+100); JR=${JR:+$(set -- $JR; echo $(( $1 - 2 )) $(( $2 - 44 )))}; [ -n "$JR" ] && click $JR 2
 JO=$(ocr 680x200+300+425)
 check "JavaScript console runs against the active PDF and shows its output (${JR:-no Run})" "echo \"$JO\" | grep -q JSCONSOLEPASS"
 quit
@@ -882,7 +882,7 @@ quit
 ENV=$(python3 -c 'import re, sys; b = open(sys.argv[1], "rb").read(); m = re.search(rb"/Recipients\s*\[(.*?)\]", b, re.S); print(len(re.findall(rb"<", m.group(1))) if m and b"Adobe.PubSec" in b else 0)' "$OUT/certenc.pdf" 2>/dev/null)
 launch "$OUT/certenc.pdf"; sleep 2
 xdotool type --delay 20 wrongpw; key Return; sleep 3
-shot 320-wrong; WR=$(ocr 380x40+455+432)
+shot 320-wrong; WR=$(ocr 420x44+455+412)
 key ctrl+a; xdotool type --delay 20 smokepw; key Return; sleep 4
 shot 320-opened
 TB=$(ocr 1280x80+0+0); QK=$(at quick 1020x700+250+90)
@@ -1025,9 +1025,11 @@ cp "$OUT/text.pdf" "$OUT/rtlprint.pdf"; launch "$OUT/rtlprint.pdf"; sleep 1
 key ctrl+p; sleep 1; shot 300b-rtl-print
 # The title read on the sheet's top row alone (on the whole sheet tesseract now misses it and finds "Printer's
 # default" first, which also starts with Print).
-read CX _ <<< "$(at Copies 1280x700+0+60)"; read PX _ <<< "$(at Print 720x40+280+206)"
+# W6: the preview column is on the left of the sheet left to right (DESIGN §5.9), so right to left the form
+# sits left of the preview: Copies' label (a row's trailing edge) and the title under x 760.
+read CX _ <<< "$(at Copies 1280x700+0+60)"; read PX _ <<< "$(at Print 720x44+200+112)"
 key Escape; sleep 0.3
-check "right to left mirrors the Tools page's title row and the print sheet (search x ${SX:-?} < Custom tools ${UX:-?}; Copies at x ${CX:-?}, Print title at ${PX:-?})" "[ -n \"$SX\" ] && [ -n \"$UX\" ] && [ \"$SX\" -lt \"$UX\" ] && [ \"${CX:-0}\" -gt 700 ] && [ \"${PX:-0}\" -gt 900 ]"
+check "right to left mirrors the Tools page's title row and the print sheet (search x ${SX:-?} < Custom tools ${UX:-?}; Copies at x ${CX:-?}, Print title at ${PX:-?})" "[ -n \"$SX\" ] && [ -n \"$UX\" ] && [ \"$SX\" -lt \"$UX\" ] && [ \"${CX:-0}\" -gt 600 ] && [ \"${CX:-0}\" -lt 760 ] && [ \"${PX:-0}\" -gt 600 ] && [ \"${PX:-0}\" -lt 760 ]"
 quit; platform_reset
 
 # 301. Settings ▸ Tools ▸ Printing (C-preferences-010, iLovePDF's Printer preferences: paper size, grayscale): Grey,
@@ -1048,13 +1050,13 @@ P1=$(settings_val 'p["settings"]["print"]')
 quit
 cp "$OUT/text.pdf" "$OUT/printdef.pdf"; launch "$OUT/printdef.pdf"; sleep 1
 key ctrl+p; sleep 1; shot 301-print-defaults
-# The chosen buttons are a tint with red labels (BAMA `on`): Grey, two-sided On, Colour and Make default are
-# found by their words.
+# W6 sheet: Grey is a radio (its dot 30 px left of the word), two-sided a check box ("Print on both sides", 95 px
+# right of the Two-sided label); the Colour radio sits 103 px left of Grey; Make Default is found by its word.
 read MX MY <<< "$(at Make 1280x700+0+60)"; read GX GY <<< "$(at Grey 1280x700+0+60)"
-read OX OY <<< "$(at On 1280x700+0+60)"; read CX CY <<< "$(at Colour 1280x700+0+60)"
+read OX OY <<< "$(at Two 1280x700+0+60)"; CX=${GX:+$(( GX - 103 ))}; CY=$GY
 GR=no; OR=no
 if [ -n "$MX" ] && [ -n "$GX" ] && [ -n "$CX" ]; then
-    red_at $GX $GY && GR=yes; [ -n "$OX" ] && red_at $OX $OY && OR=yes
+    red_at $(( GX - 30 )) $GY && GR=yes; [ -n "$OX" ] && red_at $(( OX + 95 )) $OY && OR=yes
     CL="$CX $CY"; click $CL 0.4; MD="$MX $MY"; click $MD 0.6
 fi
 P2=$(settings_val 'p["settings"]["print"]["gray"]')
@@ -1104,7 +1106,7 @@ quit; settings_reset
 # one zip with report.txt holding the subject, the message and the app's details (Sheaf's version).
 export SHEAF_TEST_MENU_BAR=1
 launch; sleep 0.5
-HX=$(at Help 700x34+0+0); [ -n "$HX" ] && click $HX 0.8
+HX=$(at Help 1000x34+0+0); [ -n "$HX" ] && click $HX 0.8
 RI=$(at Report 420x300+0+24); [ -n "$RI" ] && click $RI 1
 xdotool type --delay 20 "Saving freezes on big files"; sleep 0.4; shot 304-report
 answer "$PWD/$OUT/report.zip"
@@ -1571,8 +1573,8 @@ ai_wait 'API key'; E2=$(ai_text); shot ai-364b
 read OX OY <<< "$(ai_last Open)"; [ -n "$OY" ] && click $OX $OY 1.2
 # Settings ▸ AI in its own window: its form reads the AI card's Provider row.
 SWIN=$(xdotool search --onlyvisible --name '^Settings$' 2>/dev/null | tail -1); PG=; [ -n "$SWIN" ] && PG=$(import -window "$SWIN" png:- 2>/dev/null | convert - -resize 200% png:- | tesseract stdin stdout 2>/dev/null | tr '\n' ' '); shot ai-364c
-check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Preferences' | head -1); settings: $(echo "$PG" | grep -o Provider | head -1))" \
-    "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Preferences' && echo \"$PG\" | grep -q Provider"
+check "errors are said plainly with what to do (429: $(echo "$E1" | grep -o 'limiting requests[^.]*' | head -1); Try again $N3 → $N4 requests; no key: $(echo "$E2" | grep -o 'API key in Settings' | head -1); settings: $(echo "$PG" | grep -o Provider | head -1))" \
+    "echo \"$E1\" | grep -q 'limiting requests' && [ \"$N4\" = \$(( N3 + 1 )) ] && echo \"$E2\" | grep -q 'API key in Settings' && echo \"$PG\" | grep -q Provider"
 quit; ai_stop
 
 # 365. AI spaces renamed (C-ai-006, Acrobat's Rename space): New space, Rename, "Contracts" typed and Enter: the

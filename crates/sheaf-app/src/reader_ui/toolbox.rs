@@ -182,6 +182,8 @@ pub fn finished(ui: &AppWindow, tab_id: i32) {
     let row = with(|a| a.tab_index(tab_id)).and_then(|i| tabs_model().row_data(i));
     let text = match (&row, tool) {
         (Some(r), ToolId::Compress) if !r.result_pct.is_empty() => sheaf_app::i18n::trf("Compressed to {} ({})", &[&r.size_after, &r.result_pct]),
+        (Some(r), ToolId::Compress) if !r.result_sub.is_empty() => r.result_sub.to_string(),
+        (Some(r), _) if !r.result_sub.is_empty() => format!("{} {}", r.result_title, r.result_sub),
         (Some(r), _) => r.result_title.to_string(),
         (None, _) => sheaf_app::i18n::trf("{} is done", &[&tools::find(tool).name]),
     };
@@ -192,17 +194,16 @@ pub fn finished(ui: &AppWindow, tab_id: i32) {
         refresh(a, tab_id);
     });
     update(tab_id, |r, _| r.tool_chosen = None);
-    if warn {
-        crate::flow::toast_for(ui, &format!("{text} {}", crate::state::NOT_PROTECTED), 6);
-    } else {
-        crate::flow::toast(ui, &text);
-    }
+    // A file Sheaf does not read (Word, images, text) stays where it was written: the toast names it
+    // (the Tasks page finds it again; no file manager is opened over the window).
     let (pdfs, others): (Vec<PathBuf>, Vec<PathBuf>) = outputs.into_iter().partition(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf")));
+    let text = match others.first() {
+        Some(p) => format!("{text} {}", sheaf_app::i18n::trf("Saved {}", &[&file_name(p)])),
+        None => text,
+    };
+    crate::flow::toast_for(ui, &if warn { format!("{text} {}", crate::state::NOT_PROTECTED) } else { text }, 8);
     for p in pdfs {
         super::open(ui, p, None);
-    }
-    if let Some(p) = others.first() {
-        crate::run::reveal(p);
     }
     crate::viewer_ui::request(ui, tab_id);
 }
