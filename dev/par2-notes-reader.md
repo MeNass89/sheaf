@@ -262,3 +262,42 @@ rail's second item 282,148), 4-flows 83 (the Pen in the rail at 282,348), `ai_op
 Screenshots /tmp/f5/W3/ (self-snapshots, Xvfb :134–:136; `*-screen.png` are real captures for the popovers):
 reader-read / annotate / annotate-highlight-inspector / organize / redact × light, dark × 1280, 1024;
 theme-popover, more-menu, tools (the catalogue page the Tools segment opens).
+
+## Memory: a lean reader for weaker machines (30/10/2026, Opus, MBP)
+
+Measured with `footprint` on the MacBook Pro (Retina, 24 GB), the 192-page *Syllabus OAG Chirurgie* (5.4 MB),
+opened in a new instance, 60 × Page Down, then 20 s idle. Before = the installed 0.2.1 (94d62dc), after = wip/memory
+(two runs).
+
+| | before | after (run 1 / run 2) |
+|---|---|---|
+| After open | 512 MB | 287 / 263 MB |
+| After scrolling 60 screens | 613 MB | 347 / 335 MB |
+| 20 s idle | 599 MB | 335 / 323 MB |
+| Malloc Large (after scroll) | 243 MB | 126 / 113 MB |
+| IOAccelerator, GPU (after scroll) | 142 MB | 25 MB |
+| IOSurface (window buffers) | 78 MB | 78 MB |
+| Malloc Small (after scroll) | 84 MB | 63 / 64 MB |
+
+Where it went (found with `malloc_history`, `vmmap` and lldb reads of the large blocks; the binary is stripped):
+- **Page shadows (~115 MB of GPU memory).** femtovg draws a `drop-shadow` as a blurred texture the size of what casts
+  it: each page near the view had a page-sized shadow texture (about 18 MB on Retina) besides its render. `PageShadow`
+  (widgets/page-viewer.slint) casts the same shadow from the page's four edges, 12 px strips under the page: the
+  textures are thin. Used by the reader's two panes and the tools' page viewer.
+- **Harper's grammar rules (~60 MB Large + ~20 MB Small), built when the window opened.** Harper keeps its curated
+  dictionary in a static, so it can never be freed: it now starts on the first word typed in an editor (with
+  grammar on), during the 250 ms typing pause.
+- **The spelling word list** (`/usr/share/dict/words` on a Mac: 235,000 words) read at start for the Preferences
+  label: now read when Preferences opens or at the first check.
+- **Page renders.** `CACHE_BYTES` (96 MB) became `cache_bytes()`: 1/256 of the RAM, 24–64 MB, and the pages in or
+  near the view are never evicted for it (they were, and would only render again). `wanted` keeps half a screen
+  above and below the view instead of one above and two below. Thumbnails: as many as half the budget holds
+  (75–200, was 300).
+- **Freed renders stayed counted.** The view holds a dropped page's image until it redraws, so the relief asked at
+  eviction came too early: `release_soon()` asks 500 ms after the last render arrives. Some large free blocks still
+  stay resident (macOS's allocator keeps a few 15 MB blocks), which is the run-to-run spread above.
+
+Not changed: renders keep the device-pixel resolution (capped at 4 M pixels), so no page is blurrier; CPU idle
+stays at 0 %. Not checked by eye: the screen could not be captured over ssh (`screencapture`: "could not create
+image from display"), so the edge shadow and the absence of blank pages while scrolling still need a look in the app.
+Clippy and the unit tests of `sheaf-app` ran on the Mac (the VM had 1.5 GB free).

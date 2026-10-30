@@ -105,10 +105,12 @@ pub fn content_height(layout: &[(f64, f64)]) -> f64 {
     layout.last().map(|(y, h)| y + h + PAGE_GAP).unwrap_or(PAGE_GAP)
 }
 
-/// Pages within one screen above and below the viewport `[top, top + height)`: the pages
-/// worth rendering.
+/// Pages within half a screen above and below the viewport `[top, top + height)`: the pages
+/// worth rendering, and kept rendered. Half a screen is enough ahead for Page Down and the wheel
+/// (a page renders in well under the time a screen takes to scroll by); a wider margin held a
+/// 16 MB render, and its texture, for every page in it.
 pub fn wanted(layout: &[(f64, f64)], top: f64, height: f64) -> Range<usize> {
-    let (lo, hi) = (top - height, top + 2.0 * height);
+    let (lo, hi) = (top - height / 2.0, top + 1.5 * height);
     let first = layout.iter().position(|(y, h)| y + h >= lo).unwrap_or(layout.len());
     let end = layout.iter().rposition(|(y, _)| *y <= hi).map(|i| i + 1).unwrap_or(0);
     first..end.max(first)
@@ -563,9 +565,9 @@ impl Viewer {
         if !self.across() {
             return wanted(&self.layout, top, height);
         }
-        // Across: the pages within one view's width either side. They follow in reading order
+        // Across: the pages within half a view's width either side. They follow in reading order
         // however the strip runs, so those near make one run of indices.
-        let (lo, hi) = (left - self.fit_width, left + 2.0 * self.fit_width);
+        let (lo, hi) = (left - self.fit_width / 2.0, left + 1.5 * self.fit_width);
         let near = |i: &usize| {
             let r = self.rects[*i];
             r[0] + r[2] >= lo && r[0] <= hi
@@ -804,7 +806,7 @@ mod tests {
         assert_eq!(l[0], (16.0, 842.0));
         assert_eq!(l[1].0, 16.0 + 842.0 + 16.0);
         assert_eq!(content_height(&l), 300.0 * (842.0 + 16.0) + 16.0);
-        // Viewport on page 100 (index 99), 800 px high: one screen either side.
+        // Viewport on page 100 (index 99), 800 px high: half a screen either side.
         let top = l[99].0;
         let w = wanted(&l, top, 800.0);
         assert_eq!(w, 98..101, "page 101 starts 1716 px down: beyond one screen");

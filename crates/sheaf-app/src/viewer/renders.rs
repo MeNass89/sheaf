@@ -9,8 +9,8 @@ use sheaf_core::pdfcraft::render;
 
 use super::PageBox;
 
-/// Most page renders kept at once, whatever their size. Memory is bounded by [`CACHE_BYTES`]
-/// (96 MB), which in practice evicts long before this count is reached; the cap only matters
+/// Most page renders kept at once, whatever their size. Memory is bounded by [`cache_bytes`]
+/// (24–64 MB), which in practice evicts long before this count is reached; the cap only matters
 /// for small renders (low zoom, small pages). Thumbnails have their own cap.
 pub const CACHE_CAP: usize = 40;
 
@@ -95,17 +95,46 @@ impl<K: Hash + Eq + Clone, V> Lru<K, V> {
         self.order.clear();
     }
 
-    /// Removes and returns the least recently used entry.
-    pub fn pop_oldest(&mut self) -> Option<(K, V)> {
-        let k = self.order.pop_front()?;
+    /// Removes and returns the least recently used entry `spare` does not keep.
+    pub fn pop_oldest(&mut self, mut spare: impl FnMut(&K) -> bool) -> Option<(K, V)> {
+        let i = self.order.iter().position(|k| !spare(k))?;
+        let k = self.order.remove(i).expect("position is in range");
         self.map.remove(&k).map(|v| (k, v))
     }
 }
 
-/// Byte budget for page renders on top of the [`CACHE_CAP`] count. At fit width on a Retina
-/// screen one A4 page is about 15 MB (60 MB at 200 %), so 40 of them would not fit the memory a
-/// viewer may use; 96 MB still holds the 4–6 pages within a screen of the viewport.
-pub const CACHE_BYTES: usize = 96 << 20;
+/// Byte budget for page renders on top of the [`CACHE_CAP`] count: 1/256 of the machine's memory,
+/// 24–64 MB. The pages in and near the view are kept whatever it says ([`wanted`](super::wanted));
+/// the budget keeps a few more, the pages just left, so scrolling back shows them at once. At fit
+/// width on a Retina screen one A4 page is about 16 MB (the [`MAX_RENDER_PIXELS`] cap), so 64 MB
+/// is four pages; a 4 GB machine keeps a page and a half beyond the view's.
+pub fn cache_bytes() -> usize {
+    static BYTES: OnceLock<usize> = OnceLock::new();
+    *BYTES.get_or_init(|| ((system_memory() / 256) as usize).clamp(24 << 20, 64 << 20))
+}
+
+/// The machine's memory in bytes (8 GB when it cannot be read).
+pub fn system_memory() -> u64 {
+    const UNKNOWN: u64 = 8 << 30;
+    #[cfg(target_os = "macos")]
+    {
+        unsafe extern "C" {
+            fn sysctlbyname(name: *const std::ffi::c_char, old: *mut std::ffi::c_void, len: *mut usize, new: *mut std::ffi::c_void, new_len: usize) -> i32;
+        }
+        let (mut bytes, mut len) = (0u64, std::mem::size_of::<u64>());
+        // SAFETY: hw.memsize is a 64-bit integer; `len` says how much room `bytes` has.
+        let ok = unsafe { sysctlbyname(c"hw.memsize".as_ptr(), (&raw mut bytes).cast(), &mut len, std::ptr::null_mut(), 0) } == 0;
+        if ok && bytes > 0 { bytes } else { UNKNOWN }
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Linux: "MemTotal:  16314012 kB".
+        std::fs::read_to_string("/proc/meminfo")
+            .ok()
+            .and_then(|m| m.lines().find_map(|l| l.strip_prefix("MemTotal:")?.trim().strip_suffix("kB")?.trim().parse::<u64>().ok()))
+            .map_or(UNKNOWN, |kb| kb << 10)
+    }
+}
 
 /// Gives memory freed by the allocator back to the system. A page render allocates and frees
 /// large buffers; macOS keeps freed large blocks mapped (and counted against the app) until
@@ -590,8 +619,18 @@ mod tests {
             c.put(k, k as usize);
         }
         c.get(&0);
-        assert_eq!(c.pop_oldest(), Some((1, 1)));
+        assert_eq!(c.pop_oldest(|_| false), Some((1, 1)));
         assert_eq!(c.len(), 2);
+        // The pages in view are spared: the next oldest goes, and none when all are spared.
+        assert_eq!(c.pop_oldest(|k| *k == 2), Some((0, 0)));
+        assert_eq!(c.pop_oldest(|_| true), None);
+        assert_eq!(c.len(), 1);
+    }
+
+    #[test]
+    fn the_render_budget_scales_with_the_machine_within_its_bounds() {
+        assert!(system_memory() >= 1 << 30, "{}", system_memory());
+        assert!((24 << 20..=64 << 20).contains(&cache_bytes()));
     }
 
     #[test]

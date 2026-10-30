@@ -416,7 +416,8 @@ fn harper_thread() -> &'static std::sync::Mutex<std::sync::mpsc::Sender<GrammarR
     })
 }
 
-/// Starts building the grammar rule set in the background, so the first check while typing does not wait.
+/// Starts building the grammar rule set in the background (on the first word typed), so the check that
+/// follows the typing pause waits little. Built once, it stays: Harper keeps its dictionary in a static.
 pub fn warm_grammar() {
     let _ = harper_thread();
 }

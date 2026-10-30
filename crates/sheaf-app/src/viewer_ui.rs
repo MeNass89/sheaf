@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use sheaf_app::viewer::{self, Lru, RenderKey, Viewer, CACHE_BYTES, CACHE_CAP};
+use sheaf_app::viewer::{self, Lru, RenderKey, Viewer, CACHE_CAP};
 use sheaf_app::{AppWindow, RedactMarkItem, RedactResult, SignOverlay, ToolTab, ViewerOverlay, ViewerPage, ViewerThumb};
 use sheaf_core::pages::Input;
 use sheaf_core::pdfcraft::render;
@@ -15,8 +15,11 @@ use slint::{ComponentHandle, Image, ModelRc, VecModel};
 
 use crate::state::{refresh, with};
 
-/// Thumbnails kept (84 px wide at 2×, about 160 KB each).
-const THUMB_CAP: usize = 300;
+/// Thumbnails kept: as many as half the page renders' budget holds (84 px wide at 2×, about
+/// 160 KB each), 75 to about 200.
+fn thumb_cap() -> usize {
+    (viewer::cache_bytes() / 2 / (160 << 10)).max(75)
+}
 /// Pixels per logical pixel of a thumbnail render.
 const THUMB_SCALE: f64 = 2.0;
 
@@ -135,7 +138,7 @@ impl ViewerUi {
             strip_height: sh as f64,
             pages: Lru::new(CACHE_CAP),
             page_bytes: 0,
-            thumbs: Lru::new(THUMB_CAP),
+            thumbs: Lru::new(thumb_cap()),
             zoom_timer: None,
             zoom_settling: false,
             zoom_target: None,
@@ -509,6 +512,17 @@ fn update_doc(tab_id: i32, doc: u64, f: impl FnOnce(&mut ViewerUi)) {
     });
 }
 
+thread_local! {
+    static RELIEF: slint::Timer = slint::Timer::default();
+}
+
+/// Gives the memory of dropped renders back to the system a moment after the last render comes (see
+/// [`viewer::release_free_memory`]): the view holds a dropped page's image until it draws again, so
+/// asking at once left its pixels counted against the app (60 MB after a long scroll).
+fn release_soon() {
+    RELIEF.with(|t| t.start(slint::TimerMode::SingleShot, Duration::from_millis(500), viewer::release_free_memory));
+}
+
 fn image_bytes(i: &Image) -> usize {
     i.size().width as usize * i.size().height as usize * 4
 }
@@ -575,15 +589,16 @@ fn request_for(ui: &AppWindow, tab_id: i32, pane: bool) {
                     v.page_bytes += image_bytes(&image);
                     evicted.extend(v.pages.put(key, image));
                     v.page_bytes -= evicted.iter().map(|(_, i)| image_bytes(i)).sum::<usize>();
-                    let mut freed = !evicted.is_empty();
-                    while v.page_bytes > CACHE_BYTES && v.pages.len() > 1 {
-                        let Some((_, i)) = v.pages.pop_oldest() else { break };
+                    // Over the budget, the renders used longest ago go, but never one of the pages
+                    // in or near the view (it would only be rendered again).
+                    let near = v.wanted_pages();
+                    while v.page_bytes > viewer::cache_bytes() {
+                        let Some((_, i)) = v.pages.pop_oldest(|k| near.contains(&k.page)) else { break };
                         v.page_bytes -= image_bytes(&i);
-                        freed = true;
                     }
-                    if freed {
-                        viewer::release_free_memory();
-                    }
+                    // Each render frees the buffers it was made in, and the view lets go of the
+                    // images it no longer shows as it draws: once the renders stop coming.
+                    release_soon();
                     if std::env::var_os("SHEAF_VIEWER_DEBUG").is_some() {
                         eprintln!("viewer cache: {} pages, {} MB, {} thumbs", v.pages.len(), v.page_bytes >> 20, v.thumbs.len());
                     }

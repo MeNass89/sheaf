@@ -7,6 +7,54 @@ import { ScrollView } from "std-widgets.slint";
 import { Theme } from "../theme.slint";
 import { ViewerPage, ViewerThumb, ViewerOverlay, SignOverlay, EditOverlay } from "../flow-types.slint";
 
+// A page's drop shadow, cast by its four edges. A blurred shadow is a texture the size of what
+// casts it: a whole page's was as large as the page's render (about 18 MB a page on a Retina
+// screen, held while the page is near the view); the edges' are thin, and the shadow of what lies
+// further in is under the page. Top and bottom run across the whole width, left and right between
+// them, so no corner is shadowed twice. Placed before the page, it fills it.
+export component PageShadow {
+    in property <color> color: #00000040;
+    in property <length> blur: 6px;
+    // Twice the blur: the shadow of what lies further in than that does not reach past the edge.
+    property <length> edge: min(2 * root.blur, min(root.width, root.height) / 2);
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: root.width;
+        height: root.edge;
+        drop-shadow-blur: root.blur;
+        drop-shadow-color: root.color;
+        drop-shadow-offset-y: 1px;
+    }
+    Rectangle {
+        x: 0;
+        y: root.height - root.edge;
+        width: root.width;
+        height: root.edge;
+        drop-shadow-blur: root.blur;
+        drop-shadow-color: root.color;
+        drop-shadow-offset-y: 1px;
+    }
+    Rectangle {
+        x: 0;
+        y: root.edge;
+        width: root.edge;
+        height: root.height - 2 * root.edge;
+        drop-shadow-blur: root.blur;
+        drop-shadow-color: root.color;
+        drop-shadow-offset-y: 1px;
+    }
+    Rectangle {
+        x: root.width - root.edge;
+        y: root.edge;
+        width: root.edge;
+        height: root.height - 2 * root.edge;
+        drop-shadow-blur: root.blur;
+        drop-shadow-color: root.color;
+        drop-shadow-offset-y: 1px;
+    }
+}
+
 component ZoomButton inherits Rectangle {
     in property <string> text;
     callback clicked();
@@ -142,15 +190,21 @@ export component PageViewer inherits Rectangle {
             y: p.y;
             width: p.w;
             height: p.h;
-            background: Theme.thumb-placeholder;
-            drop-shadow-blur: 6px;
-            drop-shadow-color: Theme.thumb-shadow;
-            drop-shadow-offset-y: 1px;
-            if p.ready: Image {
+            PageShadow {
                 width: parent.width;
                 height: parent.height;
-                source: p.image;
-                image-fit: fill;
+                color: Theme.thumb-shadow;
+            }
+            Rectangle {
+                width: parent.width;
+                height: parent.height;
+                background: Theme.thumb-placeholder;
+                if p.ready: Image {
+                    width: parent.width;
+                    height: parent.height;
+                    source: p.image;
+                    image-fit: fill;
+                }
             }
         }
         for o in root.overlays: Rectangle {

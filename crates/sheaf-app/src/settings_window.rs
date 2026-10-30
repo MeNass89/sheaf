@@ -72,6 +72,9 @@ fn show(ui: &AppWindow, tab: i32) {
         let Ok(sw) = make(ui) else { return };
         WINDOW.with(|w| *w.borrow_mut() = Some(sw));
     }
+    if ui.global::<PlatformBridge>().get_spell_dictionary().is_empty() {
+        crate::platform_ui::load_dictionary(ui);
+    }
     sync(ui);
     with(|sw| {
         sw.set_tab(if tab >= 0 { tab } else { TAB.get() });

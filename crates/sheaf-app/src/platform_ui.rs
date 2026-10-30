@@ -202,6 +202,11 @@ fn spell_check(ui: &AppWindow, text: &str, typing: bool) {
     let weak = ui.as_weak();
     let text = text.to_string();
     let grammar = grammar_on();
+    // The grammar rules load on the first word typed, while the pause runs, not when the window
+    // opens: they hold about 80 MB for good, and most sessions only read.
+    if grammar {
+        sheaf_core::spell::warm_grammar();
+    }
     TIMER.with(|t| {
         t.start(slint::TimerMode::SingleShot, PAUSE, move || {
             let (weak, text) = (weak.clone(), text.clone());
@@ -334,9 +339,10 @@ fn set_language(ui: &AppWindow, pref: u8) {
 
 static LANGUAGE_SET: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// The dictionary read in the background as the window starts, so the first check is quick and
-/// Preferences ▸ Spelling says which one is used (or what is missing).
-fn load_dictionary(ui: &AppWindow) {
+/// The dictionary read in the background, so Preferences ▸ Spelling says which one is used (or what
+/// is missing): when Preferences opens, not as the window starts (a word list of 235,000 words
+/// held memory for the session; the first check reads it otherwise).
+pub fn load_dictionary(ui: &AppWindow) {
     let weak = ui.as_weak();
     std::thread::spawn(move || {
         let said = with_spell(|sp| match &sp.speller {
@@ -766,15 +772,12 @@ fn show_gallery(ui: &AppWindow) {
 
 /// Wires the global and fills it.
 pub fn install(ui: &AppWindow) {
-    // The grammar rules load while the window opens, not on the first word typed.
-    sheaf_core::spell::warm_grammar();
     let _ = LEARNED.set(home::prefs().platform.learned_words);
     if let Ok(mut c) = CHOSEN.lock() {
         *c = home::prefs().platform.dictionaries;
     }
     push_dictionaries(ui);
     push(ui);
-    load_dictionary(ui);
     let g = ui.global::<PlatformBridge>();
     g.set_mac(cfg!(target_os = "macos"));
     // The system accent on macOS (ui/theme.slint); the metrics are the same everywhere.
