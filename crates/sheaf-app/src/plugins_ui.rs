@@ -86,10 +86,16 @@ pub fn when_allowed(ui: &AppWindow, plugin: &Plugin, tool: &PluginTool, then: im
 /// A plugin card of the Tools page clicked: the PDFs (those dropped on Home, else picked) run
 /// through the tool, each output written beside its file and opened.
 pub fn open(ui: &AppWindow, id: &str) {
-    let Some((plugin, tool)) = plugins::find(&plugins::folder(), id) else {
-        return crate::flow::toast(ui, &i18n::tr("That plugin is missing or turned off (Preferences ▸ Plugins)"));
-    };
     let preload: Vec<PathBuf> = crate::state::with(|a| std::mem::take(&mut a.home_files)).into_iter().filter(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("pdf"))).collect();
+    open_with(ui, id, preload);
+}
+
+/// Plugin tool `id` run on `preload` (the open document from the reader's Tools popover), or on
+/// the PDFs picked when there are none.
+pub fn open_with(ui: &AppWindow, id: &str, preload: Vec<PathBuf>) {
+    let Some((plugin, tool)) = plugins::find(&plugins::folder(), id) else {
+        return crate::flow::toast(ui, &i18n::tr("That plugin is missing or turned off (Settings ▸ Tools ▸ Plugins)"));
+    };
     let (p2, t2, tool_name) = (plugin.clone(), tool.clone(), tool.name.clone());
     when_allowed(ui, &plugin, &tool, move |ui| {
         let run_on = move |ui: &AppWindow, files: Vec<PathBuf>| start(ui, p2, t2, files);

@@ -208,6 +208,13 @@ fn wire_reader(ui: &AppWindow) {
     rb.on_select_all(reader_ui::select_all);
     rb.on_history(reader_ui::history);
     wire_global!(ui, rb, on_to_tools, |ui, id| reader_ui::to_tools(&ui, id));
+    wire_global!(ui, rb, on_tools_query, |ui, q| reader_ui::toolbox::query(&ui, &q));
+    wire_global!(ui, rb, on_tool_pick, |ui, id, key| reader_ui::toolbox::pick(&ui, id, &key));
+    wire_global!(ui, rb, on_tool_close, |ui, id| reader_ui::toolbox::close(&ui, id));
+    wire_global!(ui, rb, on_run_tool, |ui, id, opts| run::run_tool(&ui, id, opts));
+    rb.on_cancel_tool(run::cancel);
+    wire_global!(ui, rb, on_crop_preview_step, |ui, id, d| flow::crop_preview_step(&ui, id, d));
+    wire_global!(ui, rb, on_inspector_shown, |ui, id, on| reader_ui::inspector_shown(&ui, id, on));
     wire_global!(ui, rb, on_redact, |ui, id| reader_ui::to_redact(&ui, id));
     wire_global!(ui, rb, on_link_urls, |ui, id| reader_ui::link_urls(&ui, id));
     rb.on_field_kind(reader_ui::field_kind);
@@ -386,6 +393,7 @@ fn wire_viewer(ui: &AppWindow) {
     vb.on_double_clicked(viewer_ui::double_clicked);
     vb.on_thumb_clicked(viewer_ui::thumb_clicked);
     with_ui!(on_zoom_step, |ui, id, d| viewer_ui::zoom_step(&ui, id, d));
+    with_ui!(on_zoom_to, |ui, id, z| viewer_ui::zoom_to(&ui, id, z.max(1) as u32));
     let weak = ui.as_weak();
     vb.on_zoom_at(move |id, pct, ax, ay, sx| weak.upgrade().map_or(sx, |ui| viewer_ui::zoom_at(&ui, id, pct, ax, ay, sx)));
     let weak = ui.as_weak();
@@ -715,6 +723,7 @@ fn main() -> Result<(), slint::PlatformError> {
     wire!(ui, on_set_theme, |ui, m| home::set_theme(&ui, m));
     wire!(ui, on_set_accent, |ui, i| home::set_accent(&ui, i));
     wire!(ui, on_set_backdrop, |ui, i| home::set_backdrop(&ui, i));
+    wire!(ui, on_set_page_theme, |ui, t| home::set_page_theme(&ui, t));
     wire!(ui, on_set_output, |ui, m| home::set_output(&ui, m));
     wire!(ui, on_choose_folder, |ui| home::choose_folder(&ui));
     wire!(ui, on_set_open_after, |ui, v| home::set_open_after(&ui, v));

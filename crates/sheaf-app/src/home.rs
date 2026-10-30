@@ -526,6 +526,7 @@ fn push_prefs(ui: &AppWindow) {
     ui.set_smooth(slint::ModelRc::new(slint::VecModel::from([0, 1, 2].map(|k| p.rough & (1 << k) == 0).to_vec())));
     ui.global::<Theme>().set_accent_choice(p.accent.min(5) as i32);
     ui.set_backdrop_pref(p.backdrop.min(4) as i32);
+    ui.set_page_theme(p.reader_theme);
     let rb = ui.global::<sheaf_app::ReaderBridge>();
     rb.set_panel_width(panel_width());
     rb.set_thumb_width(crate::reader_ui::reader_thumb(panel_width()) as f32);
@@ -564,6 +565,12 @@ pub fn set_accent(ui: &AppWindow, i: i32) {
 
 /// Preferences ▸ Appearance ▸ Background behind pages (Preview's window background); open
 /// documents take it at once.
+/// Settings ▸ Appearance ▸ Page theme when a document opens (0 Day, 1 Night, 2 Sepia).
+pub fn set_page_theme(ui: &AppWindow, theme: i32) {
+    set_reader_theme(theme.clamp(0, 2));
+    push_prefs(ui);
+}
+
 pub fn set_backdrop(ui: &AppWindow, i: i32) {
     update_prefs(ui, |p| p.backdrop = i.clamp(0, 4) as u8);
     crate::reader_ui::refresh_all();

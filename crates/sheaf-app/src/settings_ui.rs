@@ -60,7 +60,7 @@ pub fn quit_warning() -> bool {
 pub fn open_web_link(ui: &AppWindow, doc: &std::path::Path, url: &str) {
     match home::prefs().settings.trust.web_link(doc, url) {
         Verdict::Allow => crate::run::open_detached(url),
-        Verdict::Block => crate::flow::toast(ui, &sheaf_app::i18n::tr("Blocked by Preferences ▸ Security: the link was not opened")),
+        Verdict::Block => crate::flow::toast(ui, &sheaf_app::i18n::tr("Blocked by Settings ▸ Tools ▸ Security: the link was not opened")),
         Verdict::Ask => {
             let g = ui.global::<SettingsBridge>();
             g.set_ask_site(sheaf_app::settings::site(url).unwrap_or_default().into());
@@ -80,7 +80,7 @@ pub fn ask_other_app(ui: &AppWindow, doc: &std::path::Path, file: &std::path::Pa
             false
         }
         Verdict::Block => {
-            crate::flow::toast(ui, &sheaf_app::i18n::tr("Preferences ▸ Security keeps files that are not PDFs from opening in other apps"));
+            crate::flow::toast(ui, &sheaf_app::i18n::tr("Settings ▸ Tools ▸ Security keeps files that are not PDFs from opening in other apps"));
             false
         }
     }

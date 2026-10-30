@@ -325,7 +325,7 @@ pub fn run_bytes_configured(
             if !before(at, &mut step) { return Err(OpdfError::Cancelled); }
             if password.is_some() { return Err(invalid("Unlock the PDF before a plugin step: plugins get no password")); }
             let (plugin, tool) = crate::plugins::find(&crate::plugins::folder(), &step.argument)
-                .ok_or_else(|| invalid(format!("The plugin tool {} is missing or turned off (Preferences ▸ Plugins)", step.argument)))?;
+                .ok_or_else(|| invalid(format!("The plugin tool {} is missing or turned off (Settings ▸ Tools ▸ Plugins)", step.argument)))?;
             bytes = Arc::new(crate::plugins::run(&plugin, &tool, &bytes, &|| true).map_err(invalid)?);
             at += 1;
             continue;

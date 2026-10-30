@@ -54,6 +54,8 @@ const fn cmd(id: &'static str, menu: &'static str, title: &'static str, keys: &'
 /// Full screen: ⌃⌘F on a Mac (PDF Expert's, Preview's), F11 elsewhere (every Linux and Windows
 /// viewer's).
 const FULL_SCREEN: &str = if cfg!(target_os = "macos") { "Control+Meta+F" } else { "F11" };
+/// The inspector: ⌃⌘I on a Mac (SwiftUI's InspectorCommands), Ctrl+Alt+I elsewhere.
+const INSPECTOR: &str = if cfg!(target_os = "macos") { "Control+Meta+I" } else { "Control+Alt+I" };
 
 /// The menu bar's commands, in menu order. `ui/main.slint` reads each one's shortcut as
 /// `PlatformBridge.keys[<index here>]`: an entry is only ever added at the end (the test
@@ -68,7 +70,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("save", "File", "Save", "Control+S"),
     cmd("save-as", "File", "Save As…", "Control+Shift+S"),
     cmd("print", "File", "Print…", "Control+P"),
-    cmd("properties", "File", "Document Properties…", "Control+D"),
+    cmd("properties", "File", "Document Properties…", "Control+I"),
     cmd("close", "File", "Close Tab", "Control+W"),
     cmd("quit", "File", "Quit Sheaf", "Control+Q"),
     cmd("undo", "Edit", "Undo", "Control+Z"),
@@ -84,8 +86,8 @@ pub const COMMANDS: &[Command] = &[
     cmd("actual-size", "View", "Actual Size", "Control+Digit0"),
     cmd("fit-page", "View", "Zoom to Fit Page", "Control+Digit8"),
     cmd("fit-width", "View", "Zoom to Fit Width", "Control+Digit9"),
-    cmd("panel", "View", "Show or Hide Side Panel", "Control+Alt+Digit0"),
-    cmd("two-pages", "View", "Next Page Layout", "Control+Alt+Digit2"),
+    cmd("panel", "View", "Show Sidebar", "Control+Alt+Digit0"),
+    cmd("two-pages", "View", "Next Page Layout", "Control+Alt+L"),
     cmd("rotate-right", "View", "Rotate View Clockwise", ""),
     cmd("rotate-left", "View", "Rotate View Counterclockwise", ""),
     cmd("full-screen", "View", "Full Screen", FULL_SCREEN),
@@ -97,7 +99,7 @@ pub const COMMANDS: &[Command] = &[
     cmd("go-to-page", "Go", "Go to Page…", "Control+Alt+G"),
     cmd("back", "Go", "Back", "Control+OpenBracket"),
     cmd("forward", "Go", "Forward", "Control+CloseBracket"),
-    cmd("all-tools", "Tools", "All Tools", ""),
+    cmd("all-tools", "Tools", "All Tools…", ""),
     cmd("next-tab", "Window", "Next Tab", "Control+Tab"),
     cmd("previous-tab", "Window", "Previous Tab", "Control+Shift+Tab"),
     cmd("home", "Window", "Home", ""),
@@ -111,6 +113,19 @@ pub const COMMANDS: &[Command] = &[
     cmd("check-spelling", "Edit", "Check Spelling…", "F7"),
     // Preview's Edit ▸ Spelling and Grammar ▸ Check Grammar With Spelling.
     cmd("grammar", "Edit", "Check Grammar With Spelling", ""),
+    // DESIGN §1 command map (W6): the inspector (⌃⌘I), the sidebar's tabs (⌥⌘1…6), Add Bookmark
+    // (⌘D, as PDF Expert), the page themes (⌥⌘D ⌥⌘S ⌥⌘N).
+    cmd("inspector", "View", "Show Inspector", INSPECTOR),
+    cmd("sidebar-thumbnails", "View", "Thumbnails", "Control+Alt+Digit1"),
+    cmd("sidebar-outline", "View", "Outline", "Control+Alt+Digit2"),
+    cmd("sidebar-bookmarks", "View", "Bookmarks", "Control+Alt+Digit3"),
+    cmd("sidebar-annotations", "View", "Annotations", "Control+Alt+Digit4"),
+    cmd("sidebar-attachments", "View", "Attachments", "Control+Alt+Digit5"),
+    cmd("sidebar-layers", "View", "Layers", "Control+Alt+Digit6"),
+    cmd("add-bookmark", "Go", "Add Bookmark", "Control+D"),
+    cmd("theme-day", "View", "Day", "Control+Alt+D"),
+    cmd("theme-sepia", "View", "Sepia", "Control+Alt+S"),
+    cmd("theme-night", "View", "Night", "Control+Alt+N"),
 ];
 
 /// Commands that act by sending their usual keys (⌘Z ⇧⌘Z ⌘X ⌘C ⌘V ⌘A) to whatever has the

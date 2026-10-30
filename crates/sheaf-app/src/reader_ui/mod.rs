@@ -320,6 +320,12 @@ pub struct ReaderUi {
     copy_layout: Vec<[f64; 4]>,
     /// The tool it goes to then (Redact from the edit group), else the Tools page.
     tool_after_save: Option<sheaf_core::tools::ToolId>,
+    /// A row of the Tools popover chosen: opened once the document is saved (toolbox.rs).
+    tool_pending: Option<String>,
+    /// The tool whose options the inspector shows, running on this document (toolbox.rs).
+    tool_chosen: Option<sheaf_core::tools::ToolId>,
+    /// The inspector column is open (reader.slint says so; the View menu's label reads it).
+    inspector_open: bool,
     /// The Link editor's complaint about what was typed (not a page or an address).
     link_error: String,
     /// New links' look (the Link tool's options): a visible border, dashed; its colour and width
@@ -591,6 +597,9 @@ impl ReaderUi {
             comments_copied: Vec::new(),
             copy_layout: Vec::new(),
             tool_after_save: None,
+            tool_pending: None,
+            tool_chosen: None,
+            inspector_open: false,
             link_error: String::new(),
             link_visible: false,
             link_dashed: false,
@@ -1382,6 +1391,7 @@ pub use ai_doc::{ai_doc, ai_goto, ai_highlight, ai_page_texts};
 mod folder_search;
 mod pages;
 mod tools;
+pub mod toolbox;
 mod article_boxes;
 mod search;
 mod model;

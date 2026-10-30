@@ -117,7 +117,7 @@ check "Highlight form fields turns the fields' tint off and on ($T0 → $T1 → 
 quit
 qpdf --encrypt "" owner 256 --print=none --extract=n -- "$OUT/text.pdf" "$OUT/owner.pdf"
 # The sheet's fields scroll within the window: the About lines are further down.
-launch "$OUT/owner.pdf"; key ctrl+d; sleep 2; xdotool mousemove 640 400; for _ in $(seq 1 12); do xdotool click 5; sleep 0.05; done; sleep 0.8
+launch "$OUT/owner.pdf"; key ctrl+i; sleep 2; xdotool mousemove 640 400; for _ in $(seq 1 12); do xdotool click 5; sleep 0.05; done; sleep 0.8
 PR=$(ocr 440x700+420+50)
 check "Document properties say what the owner password forbids and the dates ($(echo $PR | cut -c1-80))" "echo \"$PR\" | grep -q 'Restricted: no printing' && echo \"$PR\" | grep -q 'PDF/A'"
 quit
@@ -570,11 +570,11 @@ shot 61-zoom-area; Q1=$(span quick 976x680+304+118); W1=$( [ -n "$Q1" ] && set -
 check "Zoom to area makes the box dragged fill the view (quick ${W0:-?} → ${W1:-?} px wide)" "[ -n \"$W1\" ] && [ \"$W1\" -ge \$(( ${W0:-1000} * 2 )) ]"
 quit
 
-# 62. Document Properties (⌘D) ▸ When opened (Acrobat's Initial View): page 3, Two pages; saved: /OpenAction to page 3
+# 62. Document Properties (⌘I) ▸ When opened (Acrobat's Initial View): page 3, Two pages; saved: /OpenAction to page 3
 # and /PageLayout /TwoColumnLeft. A copy never opened here opens as it asks: page 3 in view, not page 1.
 cp "$OUT/text.pdf" "$OUT/initial.pdf"; launch "$OUT/initial.pdf"; sleep 1
 # The page field sits under the "When opened" label, right of its "Page" (the page's own "Page 1" shows behind the sheet).
-key ctrl+d; sleep 1; read OX OY <<< "$(at opened 900x700+190+60)"; PG=${OY:+$(( OX + 20 )) $(( OY + 34 ))}; [ -n "$PG" ] && { click $PG 0.4; xdotool type --delay 20 "3"; }
+key ctrl+i; sleep 1; read OX OY <<< "$(at opened 900x700+190+60)"; PG=${OY:+$(( OX + 20 )) $(( OY + 34 ))}; [ -n "$PG" ] && { click $PG 0.4; xdotool type --delay 20 "3"; }
 TW=$(at Two 900x700+190+60); [ -n "$TW" ] && click $TW 0.4
 # Window ▸ Full screen (Acrobat's Open in Full Screen mode).
 FL=$(at Full 900x700+190+60); [ -n "$FL" ] && click $FL 0.4

@@ -364,7 +364,7 @@ key Escape
 click 36 106 0.8   # back to the Thumbnails tab
 
 # 6c-props. ⌘D: Document Properties; a title typed and Return is saved into the file's Info.
-key ctrl+d; sleep 0.5; xdotool key ctrl+a; xdotool type --delay 10 "Smoke Title"; key Return; sleep 1; key ctrl+s; sleep 1.5
+key ctrl+i; sleep 0.5; xdotool key ctrl+a; xdotool type --delay 10 "Smoke Title"; key Return; sleep 1; key ctrl+s; sleep 1.5
 check "Document Properties: the title typed is saved" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Smoke Title)'"
 
 # 6c-outline. Outline tab (71,106): + in its title row (224,146) adds the page in view; saved.
@@ -375,12 +375,12 @@ xdotool mousemove 120 183 click --repeat 2 --delay 80 1; sleep 0.8; xdotool wind
 check "a bookmark is renamed in place" "qpdf --qdf --object-streams=disable $OUT/shapes.pdf - 2>/dev/null | grep -aq '/Title (Renamed)'"
 click 36 106 0.8
 
-# 6d. Two pages side by side (⌥⌘2): the middle of the pages area shows the gap between
+# 6d. Two pages side by side (⌥⌘L): the middle of the pages area shows the gap between
 # the two pages instead of one page; two more clicks (cover alone, then one column) come back.
 mid() { import -window root -crop 6x200+767+300 png:- 2>/dev/null | convert - -format "%[fx:mean]" info:; }
 # Back to Read first (two Escapes: selection, then the mode): the canvas is then 260–1280 and the gap at 770,
 # as it is when the document reopens (6f).
-key Escape; key Escape; sleep 0.8; M1=$(mid); key ctrl+alt+2; sleep 2.5; M2=$(mid); key ctrl+alt+2; sleep 2.5; key ctrl+alt+2; sleep 2.5; M3=$(mid); shot 06d-spread
+key Escape; key Escape; sleep 0.8; M1=$(mid); key ctrl+alt+l; sleep 2.5; M2=$(mid); key ctrl+alt+l; sleep 2.5; key ctrl+alt+l; sleep 2.5; M3=$(mid); shot 06d-spread
 check "two pages side by side, then back to one column ($M1 → $M2 → $M3)" "python3 -c 'import sys; a, b, c = $M1, $M2, $M3; sys.exit(0 if abs(a - b) > 0.02 and abs(a - c) < 0.005 else 1)'"
 # 6e. Keyboard paging: End, Home, → and Space; ⌘A ⌘C copies the page in view, which tells which it is.
 inview() { echo -n | xclip -selection clipboard >/dev/null 2>&1; key Escape; key v; key ctrl+a; key ctrl+c; sleep 0.3; xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6; }
@@ -424,7 +424,7 @@ check "a drag with Space held moves the pages" "[ \"$PG1\" != \"$PG2\" ]"
 key ctrl+9; sleep 1
 
 # 6f. Closed in two pages, it reopens in two pages (and on the same page).
-key ctrl+alt+2; sleep 2.5; key ctrl+w; sleep 1; quit
+key ctrl+alt+l; sleep 2.5; key ctrl+w; sleep 1; quit
 launch "$OUT/shapes.pdf"; sleep 2; M4=$(mid)
 check "a document reopens as it was left: two pages ($M4)" "python3 -c 'import sys; sys.exit(0 if abs($M4 - $M2) < 0.005 else 1)'"
 quit
@@ -455,10 +455,10 @@ P0=$(bar); key ctrl+shift+p; sleep 1.2; P1=$(bar); key Escape; sleep 1; P2=$(bar
 check "Presentation hides the toolbar, Escape brings it back ($P0 → $P1 → $P2)" "python3 -c 'import sys; a, b, c = $P0, $P1, $P2; sys.exit(0 if abs(a - b) > 0.01 and abs(a - c) < 0.005 else 1)'"
 # Presenting from two pages, Space shows the next single page (links.pdf: page 2 is blank); hidden toolbar kept
 # after plain full screen.
-key ctrl+alt+2; sleep 1.5; key ctrl+shift+p; sleep 1.2; key space; sleep 1
+key ctrl+alt+l; sleep 1.5; key ctrl+shift+p; sleep 1.2; key space; sleep 1
 # Read while still presenting (inview presses Escape, which would end it).
 echo -n | xclip -selection clipboard >/dev/null 2>&1; key ctrl+a; key ctrl+c; sleep 0.3; PS=$(xclip -o -selection clipboard 2>/dev/null | head -1 | cut -c1-6)
-key Escape; sleep 0.8; key ctrl+alt+2; key ctrl+alt+2; sleep 1
+key Escape; sleep 0.8; key ctrl+alt+l; key ctrl+alt+l; sleep 1
 check "Space in a presentation turns to the next page ($PS)" "[ -z \"$PS\" ]"
 shifted t; sleep 0.5; key ctrl+super+f; sleep 0.5; key Escape; sleep 0.8; PH=$(bar); shifted t; sleep 0.5
 check "leaving full screen keeps the toolbar hidden ($PH)" "python3 -c 'import sys; sys.exit(0 if abs($PH - $P0) > 0.01 else 1)'"

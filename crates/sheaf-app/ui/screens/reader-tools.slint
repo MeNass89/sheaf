@@ -1,0 +1,251 @@
+// The Tools popover (DESIGN §3, §5.3 "Tools ⌘K"): 320×480 under the mode bar's wrench, a search
+// field with the keyboard, then every tool that takes the open document in groups (Favourites,
+// the catalogue's categories, Plugins, Custom tools); ↑ ↓ move, ↩ chooses, Escape closes. The
+// rows come from Rust (reader_ui/toolbox.rs) for what is typed. A chosen tool shows its options
+// in the inspector (`ToolInspector` below: the tool tab's panel with one pinned Run button) and
+// runs on this document; a tool that needs the page or more files opens its tool tab.
+import { ScrollView, ListView } from "std-widgets.slint";
+import { Theme, Space, Motion } from "../theme.slint";
+import { ToolTab, ToolRow, ReaderBridge } from "../flow-types.slint";
+import { PlatformBridge } from "../platform.slint";
+import { PopoverFrame } from "reader-parts.slint";
+import { OptionsPanel } from "options.slint";
+import { PrimaryButton } from "../widgets/button.slint";
+import { Button, ButtonKind } from "../widgets/button.slint";
+
+// One tool of the list: icon 16, name, its group or kind on the right in `text-3`; the current
+// row (keyboard or pointer) is the accent fill with `on-accent` text, as a menu's.
+component ToolRowView inherits Rectangle {
+    in property <ToolRow> item;
+    in property <bool> current;
+    callback activated();
+    callback entered();
+    height: Theme.row-height;
+    border-radius: Theme.r-sm;
+    background: root.current ? Theme.accent : transparent;
+    accessible-role: button;
+    accessible-label: root.item.name;
+    accessible-description: root.item.detail;
+    accessible-action-default => { root.activated(); }
+    property <color> ink: root.current ? Theme.on-accent : Theme.text;
+    Image {
+        x: Space.sm;
+        y: (parent.height - self.height) / 2;
+        width: Theme.icon-sm;
+        height: Theme.icon-sm;
+        source: root.item.icon;
+        colorize: root.ink;
+    }
+    Text {
+        x: Space.sm + Theme.icon-sm + Space.sm;
+        width: parent.width - self.x - Space.sm - (root.item.detail == "" ? 0px : detail.preferred-width + Space.sm);
+        text: root.item.name;
+        font-size: Theme.fs-body;
+        color: root.ink;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    detail := Text {
+        x: parent.width - self.width - Space.sm;
+        text: root.item.detail;
+        font-size: Theme.fs-subhead;
+        color: root.current ? Theme.on-accent : Theme.text-3;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        changed has-hover => { if self.has-hover { root.entered(); } }
+        clicked => { root.activated(); }
+    }
+}
+
+export component ToolsPopover inherits PopoverFrame {
+    in property <int> id;
+    // The popup closes (a tool chosen, Escape).
+    callback done();
+    width: 320px;
+    height: 480px;
+    property <[ToolRow]> rows: ReaderBridge.tool-rows;
+    // The row the keyboard is on (−1 none); every row, header or tool, is 28 tall.
+    property <int> current: -1;
+    property <bool> empty: search.text != "" && root.rows.length == 0;
+    function first() -> int {
+        if root.rows.length == 0 { return -1; }
+        if !root.rows[0].header { return 0; }
+        return root.rows.length > 1 ? 1 : -1;
+    }
+    function step(d: int) {
+        if root.rows.length == 0 { return; }
+        if root.current < 0 { root.current = root.first(); return; }
+        if root.current + d < 0 || root.current + d >= root.rows.length { return; }
+        if !root.rows[root.current + d].header { root.current = root.current + d; }
+        else if root.current + 2 * d >= 0 && root.current + 2 * d < root.rows.length { root.current = root.current + 2 * d; }
+        // The current row kept in sight.
+        if root.current * Theme.row-height < -list.viewport-y { list.viewport-y = -root.current * Theme.row-height; }
+        if (root.current + 1) * Theme.row-height > -list.viewport-y + list.visible-height { list.viewport-y = list.visible-height - (root.current + 1) * Theme.row-height; }
+    }
+    function pick(i: int) {
+        if i >= 0 && i < root.rows.length && !root.rows[i].header {
+            ReaderBridge.tool-pick(root.id, root.rows[i].id);
+            root.done();
+        }
+    }
+    changed rows => { root.current = root.first(); list.viewport-y = 0; }
+    init => { ReaderBridge.tools-query(""); search.focus(); }
+    VerticalLayout {
+        padding: Space.sm;
+        spacing: Space.sm;
+        // The search field (SearchField, DESIGN §4): 28 tall, magnifier 14, focused as the popover opens.
+        Rectangle {
+            height: Theme.control-height;
+            border-radius: Theme.r-sm;
+            border-width: search.has-focus ? 2px : 1px;
+            border-color: search.has-focus ? Theme.focus-ring : Theme.hairline;
+            background: Theme.field;
+            accessible-role: text;
+            accessible-label: @tr("Search tools");
+            Image {
+                x: Space.sm;
+                y: (parent.height - self.height) / 2;
+                width: 14px;
+                height: 14px;
+                source: @image-url("../icons/search.svg");
+                colorize: Theme.text-3;
+            }
+            Text {
+                x: 28px;
+                visible: search.text == "";
+                text: @tr("Search tools");
+                font-size: Theme.fs-body;
+                color: Theme.text-3;
+                vertical-alignment: center;
+            }
+            search := TextInput {
+                changed has-focus => { PlatformBridge.typing = self.has-focus; }
+                x: 28px;
+                width: parent.width - 28px - Space.sm;
+                font-size: Theme.fs-body;
+                color: Theme.text;
+                vertical-alignment: center;
+                single-line: true;
+                edited => { ReaderBridge.tools-query(self.text); }
+                accepted => { root.pick(root.current); }
+                key-pressed(e) => {
+                    if e.text == Key.Escape { root.done(); return accept; }
+                    if e.text == Key.DownArrow { root.step(1); return accept; }
+                    if e.text == Key.UpArrow { root.step(-1); return accept; }
+                    reject
+                }
+            }
+        }
+        list := ListView {
+            vertical-stretch: 1;
+            for row[i] in root.rows: Rectangle {
+                height: Theme.row-height;
+                if row.header: Text {
+                    x: Space.sm;
+                    y: parent.height - self.height - 2px;
+                    text: row.name;
+                    font-size: Theme.fs-subhead;
+                    font-weight: Theme.weight-demibold;
+                    color: Theme.text-2;
+                }
+                if !row.header: ToolRowView {
+                    item: row;
+                    current: root.current == i;
+                    entered => { root.current = i; }
+                    activated => { root.pick(i); }
+                }
+            }
+        }
+        if root.empty: Text {
+            text: @tr("No tool matches “{}”", search.text);
+            font-size: Theme.fs-callout;
+            color: Theme.text-2;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+// The chosen tool in the inspector (DESIGN §5.5): its options panel (the tool tab's, options.slint)
+// scrolling above one pinned Run button, "Runs on this computer. Nothing is uploaded." under it.
+// While it runs: a bar with the job's words and Cancel.
+export component ToolInspector inherits VerticalLayout {
+    in property <ToolTab> tab;
+    in property <int> id;
+    property <bool> running: root.tab.phase == 1;
+    sv := ScrollView {
+        property <length> inner: self.visible-width - 2 * Space.lg;
+        vertical-stretch: 1;
+        content-width: self.inner;
+        content-height: opts.preferred-height + 2 * Space.md;
+        opts := OptionsPanel {
+            x: Space.lg;
+            y: Space.md;
+            width: sv.inner;
+            tool: root.tab.tool;
+            file-count: root.tab.files.length;
+            page-count: root.tab.tool == "split" ? root.tab.pages.length : 0;
+            any-scanned: root.tab.any-scanned;
+            any-locked: root.tab.any-locked;
+            default-out: root.tab.default-out;
+            office-missing: root.tab.office-missing;
+            restore: root.tab.options;
+            has-restore: root.tab.has-options;
+            preview: root.tab.preview;
+            has-preview: root.tab.has-preview;
+            preview-w: root.tab.preview-w;
+            preview-h: root.tab.preview-h;
+            preview-page: root.tab.preview-page;
+            preview-pages: root.tab.preview-pages;
+            preview-step(d) => { ReaderBridge.crop-preview-step(root.id, d); }
+            tab-id: root.tab.id;
+        }
+    }
+    Rectangle { height: 1px; background: Theme.hairline; }
+    VerticalLayout {
+        padding: Space.lg;
+        spacing: Space.sm;
+        if !root.running: PrimaryButton {
+            height: 32px;
+            text: @tr("Run");
+            enabled: opts.valid && root.tab.files-ready && root.tab.files.length >= 1 && root.tab.phase == 0;
+            clicked => { ReaderBridge.run-tool(root.id, opts.options); }
+        }
+        if root.running: VerticalLayout {
+            spacing: Space.sm;
+            Rectangle {
+                height: 4px;
+                border-radius: 2px;
+                background: Theme.fill-2;
+                Rectangle {
+                    x: 0;
+                    width: parent.width * max(0.02, min(1, root.tab.progress));
+                    height: parent.height;
+                    border-radius: 2px;
+                    background: Theme.accent;
+                    animate width { duration: Motion.ui; }
+                }
+            }
+            HorizontalLayout {
+                spacing: Space.sm;
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.tab.progress-text;
+                    font-size: Theme.fs-subhead;
+                    color: Theme.text-2;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                Button { text: @tr("Cancel"); enabled: !root.tab.cancelling; clicked => { ReaderBridge.cancel-tool(root.id); } }
+            }
+        }
+        Text {
+            text: @tr("Runs on this computer. Nothing is uploaded.");
+            font-size: Theme.fs-subhead;
+            color: Theme.text-2;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}

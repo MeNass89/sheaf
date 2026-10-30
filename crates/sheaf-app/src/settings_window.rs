@@ -129,7 +129,7 @@ fn make(ui: &AppWindow) -> Result<SettingsWindow, slint::PlatformError> {
         slint::CloseRequestResponse::HideWindow
     });
     forward_root!(ui, sw;
-        set_theme(m), set_accent(i), set_backdrop(i), set_output(m), choose_folder(), set_open_after(v),
+        set_theme(m), set_accent(i), set_backdrop(i), set_page_theme(t), set_output(m), choose_folder(), set_open_after(v),
         set_author(n), set_default_zoom(z), set_default_spread(s), set_open_first_page(f), set_stamp_date(f),
         set_metric(m), set_guide_colour(k), set_gpu(on), set_page_display(w, on), set_smoothing(k, on),
         choose_display_profile(), reset_display_profile(), make_default(), signature_prefs(w, k),
@@ -168,7 +168,7 @@ fn sync(ui: &AppWindow) {
         copy!(ui, p;
             theme_pref, output_mode, fixed_folder, open_after, author_name, author_default, default_zoom,
             default_spread, open_first_page, stamp_date, metric, guide_colour, gpu, show_boxes,
-            physical_numbers, transparency_grid, smooth, display_profile, backdrop_pref, digital_ids,
+            physical_numbers, transparency_grid, smooth, display_profile, backdrop_pref, page_theme, digital_ids,
             trusted_certs,
         );
         let (from, to) = (ui.global::<Theme>(), sw.global::<Theme>());

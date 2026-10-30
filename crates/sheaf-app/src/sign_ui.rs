@@ -169,7 +169,7 @@ pub fn tsa(opts: &ToolOptions) -> Result<Option<String>> {
     }
     let url = opts.sign_tsa.trim();
     if url.is_empty() {
-        return Err(OpdfError::Unsupported("Add a time stamp server in Preferences ▸ Signatures first".into()));
+        return Err(OpdfError::Unsupported("Add a time stamp server in Settings ▸ Tools first".into()));
     }
     sheaf_core::timestamp::HttpAuthority::new(url)?;
     Ok(Some(url.to_string()))

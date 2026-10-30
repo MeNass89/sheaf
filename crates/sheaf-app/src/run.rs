@@ -530,12 +530,17 @@ pub fn on_done(ui: &AppWindow, tab_id: i32, r: Result<JobOutcome>, page_counts: 
                 .filter(|p| !outcome.failures.iter().any(|(f, _)| f == *p))
                 .map(|p| sheaf_app::files::file_size(p))
                 .collect();
-            with(|a| {
+            let document = with(|a| {
                 if let Some(t) = a.tab(tab_id) {
                     t.finish(Some(Done { outcome, page_counts, input_sizes }));
                 }
                 refresh(a, tab_id);
+                a.tab(tab_id).is_some_and(|t| t.reader.is_some())
             });
+            // A tool run from a document's inspector: its result opens beside the document.
+            if document {
+                crate::reader_ui::toolbox::finished(ui, tab_id);
+            }
         }
         Err(e) => {
             with(|a| {

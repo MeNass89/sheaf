@@ -29,11 +29,14 @@ export global Prefs {
     in property <[bool]> smooth: [true, true, true];
     in property <string> display-profile;
     in property <int> backdrop-pref;
+    // The reader's page theme a document opens with: 0 Day, 1 Night, 2 Sepia (src/reader.rs).
+    in property <int> page-theme;
     in property <[string]> digital-ids;
     in property <[string]> trusted-certs;
     callback set-theme(int);
     callback set-accent(int);
     callback set-backdrop(int);
+    callback set-page-theme(int);
     callback set-output(int);
     callback choose-folder();
     callback set-open-after(bool);

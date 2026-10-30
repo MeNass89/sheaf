@@ -11,7 +11,7 @@ This guide walks through what you will use most. Help ▸ Keyboard Shortcuts lis
   Convert from PDF, Edit, Security. Click a tool, add its files, choose the options, then press the
   button at the bottom. The result opens in a tab, or in its folder for files Sheaf does not read.
 - **Favourites**: the star on a tool keeps it at the top. Open Tool in the menu bar reaches every
-  tool from anywhere, and Preferences ▸ Keyboard shortcuts can give each one its own keys.
+  tool from anywhere, and Settings ▸ Shortcuts can give each one its own keys.
 - **History**: Home ▸ History lists what each tool made, with its files, so you can find a result
   again or run the same settings once more.
 
@@ -28,7 +28,7 @@ This guide walks through what you will use most. Help ▸ Keyboard Shortcuts lis
   and layers. Drag thumbnails to reorder pages.
 - **Search**: Ctrl+F finds words in the document. Search catalog… searches several documents or a
   folder at once, with whole words, match case, AND / OR / NOT and words near each other.
-- **Read aloud and night reading**: More ▸ Read aloud speaks from the page shown; Preferences ▸ Appearance
+- **Read aloud and night reading**: More ▸ Read aloud speaks from the page shown; Settings ▸ Appearance
   darkens the pages or shows them in sepia.
 
 ## 3. Marking up
@@ -45,7 +45,7 @@ Each reader tool has a letter; press it while the pages have focus.
 | Stamp | M | Approved, Draft and your own stamps |
 | Eraser | X | Remove the marks you drag over |
 
-Comments carry your name (Preferences ▸ Identity). The Comments panel lists them, sorts them by
+Comments carry your name (Settings ▸ Reading). The Comments panel lists them, sorts them by
 author or type, and lets you reply to them and set their status. Summarize Comments prints them beside their pages.
 
 ## 4. Editing
@@ -67,7 +67,7 @@ author or type, and lets you reply to them and set their status. Summarize Comme
   lists and signature fields yourself.
 - **Sign (S)**: draw, type or pick an image of your signature and initials once; Sheaf keeps
   them, encrypted, for the next time. Click where the signature goes.
-- **Digital signatures**: with a digital ID (a .p12 or .pfx file, Preferences ▸ Signatures) you can
+- **Digital signatures**: with a digital ID (a .p12 or .pfx file, Settings ▸ Tools) you can
   certify or sign a document so any change after signing shows. The Signatures panel checks the
   signatures a document already holds.
 
@@ -96,8 +96,8 @@ author or type, and lets you reply to them and set their status. Summarize Comme
 - **Watched folder**: every PDF dropped in a folder you choose goes through an action by itself.
 - **Library** keeps the documents you work with in one place and searches their text.
 
-## 9. Preferences
+## 9. Settings
 
-Edit ▸ Preferences (Ctrl+comma) holds the appearance and language direction, the zoom and layout new
+Settings (Ctrl+comma, Sheaf ▸ Settings… on a Mac) holds the appearance and language direction, the zoom and layout new
 documents open with, rendering, your name, signatures and digital IDs, and keyboard shortcuts.
 Every key in the menus can be changed there.

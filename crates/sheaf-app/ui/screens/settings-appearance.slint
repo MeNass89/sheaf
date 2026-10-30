@@ -3,7 +3,7 @@
 import { Theme, Space } from "../theme.slint";
 import { PlatformBridge } from "../platform.slint";
 import { SettingsBridge } from "../settings.slint";
-import { Radio } from "../widgets/controls.slint";
+import { Radio, PopupButton } from "../widgets/controls.slint";
 import { Prefs, SettingsCard, SettingsRow, SettingsSwitch, SettingsSwatch, RowValue } from "settings-form.slint";
 
 export component SettingsAppearance inherits VerticalLayout {
@@ -33,6 +33,17 @@ export component SettingsAppearance inherits VerticalLayout {
     }
     SettingsCard {
         title: @tr("Pages");
+        // The page theme a document opens with (View ▸ Page Theme changes it per document and
+        // remembers the last choice here).
+        SettingsRow {
+            label: @tr("Page theme when a document opens");
+            PopupButton {
+                tip: @tr("Page theme when a document opens");
+                options: [@tr("Day"), @tr("Sepia"), @tr("Night")];
+                current-index: Prefs.page-theme == 2 ? 1 : Prefs.page-theme == 1 ? 2 : 0;
+                selected(i) => { Prefs.set-page-theme(i == 1 ? 2 : i == 2 ? 1 : 0); }
+            }
+        }
         SettingsRow {
             label: @tr("Background behind pages");
             gap: 0;

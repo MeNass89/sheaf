@@ -84,7 +84,7 @@ impl Provider {
         }
     }
 
-    /// A model to start from; the user can name any other in Preferences ▸ AI.
+    /// A model to start from; the user can name any other in Settings ▸ AI.
     pub fn default_model(self) -> &'static str {
         match self {
             Provider::OpenAi => "gpt-5-mini",
@@ -177,17 +177,17 @@ impl Message {
 /// What went wrong, said plainly in the panel and by the CLI.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum AiError {
-    #[error("Choose an AI provider in Preferences ▸ AI (or start Ollama or a llama.cpp server on this computer).")]
+    #[error("Choose an AI provider in Settings ▸ AI (or start Ollama or a llama.cpp server on this computer).")]
     NotConfigured,
-    #[error("Add your {0} API key in Preferences ▸ AI.")]
+    #[error("Add your {0} API key in Settings ▸ AI.")]
     MissingKey(&'static str),
-    #[error("Give the address of the OpenAI-compatible server in Preferences ▸ AI.")]
+    #[error("Give the address of the OpenAI-compatible server in Settings ▸ AI.")]
     MissingBase,
     #[error("Cannot reach {0}: {1}. Check the connection or the server's address.")]
     Network(&'static str, String),
     #[error("{name} is limiting requests right now. Try again {when}.", name = .0, when = .1.map(|s| format!("in {s} s")).unwrap_or_else(|| "in a moment".into()))]
     RateLimited(&'static str, Option<u64>),
-    #[error("{0} refused the API key ({1}). Check it in Preferences ▸ AI.")]
+    #[error("{0} refused the API key ({1}). Check it in Settings ▸ AI.")]
     BadKey(&'static str, u16),
     #[error("{0} answered with an error ({1}): {2}")]
     Provider(&'static str, u16, String),
@@ -195,7 +195,7 @@ pub enum AiError {
     BadResponse(&'static str),
     #[error("This document has no text to send. If it is a scan, recognize its text first (OCR).")]
     NoText,
-    #[error("Sending text to AI is turned off. Turn it on in Preferences ▸ AI.")]
+    #[error("Sending text to AI is turned off. Turn it on in Settings ▸ AI.")]
     Off,
     #[error("Stopped.")]
     Cancelled,

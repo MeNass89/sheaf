@@ -101,6 +101,7 @@ export component ReaderScreen inherits Rectangle {
     }
     // The inspector column (⌃⌘I): closed until asked for; its width while this window lives.
     property <bool> inspector-open;
+    changed inspector-open => { ReaderBridge.inspector-shown(root.id, root.inspector-open); }
     property <length> inspector-width: Theme.inspector-default;
     // The options bar docks under the toolbar while a mode is on and the tool has options (and for
     // a form's or a kept signature's actions, which a reader uses without a mode).
@@ -123,6 +124,21 @@ export component ReaderScreen inherits Rectangle {
             toolbar.focus-page-field();
         } else if root.menu-command == "present" {
             root.present();
+        } else if root.menu-command == "tools" {
+            root.bare = false;
+            toolbar.show-tools();
+        } else if root.menu-command == "inspector" {
+            root.bare = false;
+            root.inspector-open = !root.inspector-open;
+        }
+    }
+    // A tool chosen in the Tools popover: the inspector opens on it, 320 wide so the tool's
+    // options panel keeps the width it has in a tool tab.
+    property <string> tool-id: root.tab.reader.tool-id;
+    changed tool-id => {
+        if root.tool-id != "" {
+            root.inspector-open = true;
+            if root.inspector-width < 320px { root.inspector-width = 320px; }
         }
     }
     // Pages panel drag: where the press was, and the drop line (−1: no drag).
@@ -1568,8 +1584,10 @@ export component ReaderScreen inherits Rectangle {
                 // The keys below that are also a menu command's (src/platform.rs COMMANDS) answer only
                 // while that command keeps its own keys: given new ones in Preferences, the old stop
                 // (`rebound[i]`; the menu bar takes the keys first anyway, these catch the variants).
-                // ⌘K: link the selected text (as in Word, Pages and PDF Expert).
+                // ⌘K: link the selected text (as in Word, Pages and PDF Expert); nothing selected,
+                // the Tools popover (DESIGN §3).
                 if e.text == "k" && root.tab.reader.has-selection { ReaderBridge.link-selection(root.id); return accept; }
+                if e.text == "k" { root.bare = false; toolbar.show-tools(); return accept; }
                 // ⌘/: the keyboard shortcuts (PDF Expert's).
                 if e.text == "/" && !PlatformBridge.rebound[38] /* shortcuts */ { ReaderBridge.show-help(root.id, true); return accept; }
                 // Acrobat's Rotate View: ⇧⌘+ clockwise, ⇧⌘− back.
@@ -1589,8 +1607,19 @@ export component ReaderScreen inherits Rectangle {
                 if e.text == "6" && !e.modifiers.alt { root.set-mode(6); return accept; }
                 // ⌃⌘I on macOS, Ctrl+Alt+I elsewhere (Slint's `meta` is the Super key there).
                 if (e.text == "i" || e.text == "I") && (e.modifiers.meta || (!Theme.mac && e.modifiers.alt)) { root.inspector-open = !root.inspector-open; return accept; }
-                // ⌥⌘2: one column → two pages → cover alone (⌥2 types ™ on a Mac keyboard).
-                if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
+                // ⌥⌘L: one column → two pages → cover alone (⌥L types ¬ on a Mac keyboard).
+                if (e.text == "l" || e.text == "¬") && e.modifiers.alt && !PlatformBridge.rebound[22] /* two-pages */ { ReaderBridge.cycle-spread(root.id); return accept; }
+                // ⌥⌘1…6: the sidebar's tabs (DESIGN §5.4); on a Mac ⌥ with a digit types a symbol.
+                if (e.text == "1" || e.text == "¡") && e.modifiers.alt && !PlatformBridge.rebound[46] { ReaderBridge.set-panel(root.id, 0); return accept; }
+                if (e.text == "2" || e.text == "™") && e.modifiers.alt && !PlatformBridge.rebound[47] { ReaderBridge.set-panel(root.id, 1); return accept; }
+                if (e.text == "3" || e.text == "£") && e.modifiers.alt && !PlatformBridge.rebound[48] { ReaderBridge.set-panel(root.id, 6); return accept; }
+                if (e.text == "4" || e.text == "¢") && e.modifiers.alt && !PlatformBridge.rebound[49] { ReaderBridge.set-panel(root.id, 2); return accept; }
+                if (e.text == "5" || e.text == "∞") && e.modifiers.alt && !PlatformBridge.rebound[50] { ReaderBridge.set-panel(root.id, 4); return accept; }
+                if (e.text == "6" || e.text == "§") && e.modifiers.alt && !PlatformBridge.rebound[51] { ReaderBridge.set-panel(root.id, 5); return accept; }
+                // ⌥⌘D ⌥⌘S ⌥⌘N: the page theme (View ▸ Page Theme).
+                if (e.text == "d" || e.text == "∂") && e.modifiers.alt && !PlatformBridge.rebound[53] { ReaderBridge.set-theme(root.id, 0); return accept; }
+                if (e.text == "s" || e.text == "ß") && e.modifiers.alt && !PlatformBridge.rebound[54] { ReaderBridge.set-theme(root.id, 2); return accept; }
+                if (e.text == "n" || e.text == "˜") && e.modifiers.alt && !PlatformBridge.rebound[55] { ReaderBridge.set-theme(root.id, 1); return accept; }
                 if e.text == "0" && !PlatformBridge.rebound[18] /* actual-size */ { ReaderBridge.zoom-fit(root.id, 2); return accept; }
                 if e.text == "9" && !PlatformBridge.rebound[20] /* fit-width */ { ReaderBridge.zoom-fit(root.id, 0); return accept; }
                 if e.text == "8" && !PlatformBridge.rebound[19] /* fit-page */ { ReaderBridge.zoom-fit(root.id, 1); return accept; }
@@ -1644,7 +1673,9 @@ export component ReaderScreen inherits Rectangle {
                     toolbar.search-for(root.tab.reader.selected-text);
                     return accept;
                 }
-                if e.text == "d" && !PlatformBridge.rebound[5] /* properties */ { ReaderBridge.props-open(root.id); return accept; }
+                // ⌘I Document Properties (⌃⌘I is the inspector, caught above); ⌘D Add Bookmark.
+                if e.text == "i" && !PlatformBridge.rebound[5] /* properties */ { ReaderBridge.props-open(root.id); return accept; }
+                if e.text == "d" && !PlatformBridge.rebound[52] /* add-bookmark */ { ReaderBridge.bookmark-op(root.id, 0, -1); return accept; }
                 if e.text == "," && !PlatformBridge.rebound[15] /* preferences */ { root.open-preferences(); return accept; }
                 if e.text == Key.UpArrow || e.text == Key.Home { ReaderBridge.page-step(root.id, -10); return accept; }
                 if e.text == Key.DownArrow || e.text == Key.End { ReaderBridge.page-step(root.id, 10); return accept; }
@@ -1660,6 +1691,8 @@ export component ReaderScreen inherits Rectangle {
             if root.presenting && (e.text == Key.LeftArrow || e.text == Key.UpArrow || e.text == Key.PageUp) { ReaderBridge.page-step(root.id, -1); return accept; }
             if e.text == Key.Escape && root.bare { root.bare = false; return accept; }
             if e.text == Key.Escape && root.hand { root.hand = false; return accept; }
+            // Escape with a tool in the inspector and nothing selected: the tool closes.
+            if e.text == Key.Escape && root.tool-id != "" && !root.tab.reader.has-selection && !root.tab.reader.selected-annot { ReaderBridge.tool-close(root.id); return accept; }
             // Escape with nothing selected and the Select tool: back to Read.
             if e.text == Key.Escape && root.mode != 0 && root.tab.reader.tool == 0 && !root.tab.reader.has-selection && !root.tab.reader.selected-annot && !root.tab.reader.has-picked && !root.tab.reader.selected-image { root.set-mode(0); return accept; }
             if e.text == Key.Escape { ReaderBridge.escape(root.id); return accept; }

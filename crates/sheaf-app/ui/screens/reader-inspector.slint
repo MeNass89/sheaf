@@ -2,11 +2,13 @@
 // hairline left. Header 36 with the title (the mode, or "Document") and a close ×; sections with a
 // 15/600 title, rows 28 tall, label left and control right. In Read it describes the document;
 // in Annotate it holds the tool's colour, stroke and opacity; the other modes say what to select.
-import { ScrollView } from "std-widgets.slint";
+import { ScrollView, Slider } from "std-widgets.slint";
 import { Theme, Space } from "../theme.slint";
 import { ResizeHandle } from "../widgets/resize-handle.slint";
 import { ToolButton, ColourDot, StrokeWidth, SmallButton } from "reader-parts.slint";
-import { ToolTab, ReaderBridge } from "../flow-types.slint";
+import { ToolTab, ReaderBridge, ViewerBridge } from "../flow-types.slint";
+import { Swatch } from "../widgets/controls.slint";
+import { ToolInspector } from "reader-tools.slint";
 
 component Section inherits VerticalLayout {
     in property <string> title;
@@ -48,6 +50,8 @@ export component ReaderInspector inherits Rectangle {
     in property <bool> light-tool;
     callback close();
     callback focus-pages();
+    // A tool chosen in the Tools popover (toolbox.rs): its options and Run take the column.
+    property <bool> tool-shown: root.tab.reader.tool-id != "";
     width: root.panel-width;
     background: Theme.window;
     clip: true;
@@ -57,16 +61,23 @@ export component ReaderInspector inherits Rectangle {
             height: 36px;
             Text {
                 x: Space.lg;
-                text: root.mode == 1 ? @tr("Annotate") : root.mode == 2 ? @tr("Edit") : root.mode == 3 ? @tr("Fill & Sign") : root.mode == 4 ? @tr("Pages") : root.mode == 5 ? @tr("Redact") : root.mode == 6 ? @tr("Measure") : @tr("Document");
+                width: parent.width - self.x - 44px;
+                overflow: elide;
+                text: root.tool-shown ? root.tab.reader.tool-name : root.mode == 1 ? @tr("Annotate") : root.mode == 2 ? @tr("Edit") : root.mode == 3 ? @tr("Fill & Sign") : root.mode == 4 ? @tr("Pages") : root.mode == 5 ? @tr("Redact") : root.mode == 6 ? @tr("Measure") : @tr("Document");
                 font-size: Theme.fs-title-3;
                 font-weight: Theme.weight-demibold;
                 color: Theme.text;
                 vertical-alignment: center;
             }
-            ToolButton { x: parent.width - self.width - Space.sm; y: (parent.height - self.height) / 2; icon: @image-url("../icons/x.svg"); tip: @tr("Close the inspector"); clicked => { root.close(); } }
+            ToolButton { x: parent.width - self.width - Space.sm; y: (parent.height - self.height) / 2; icon: @image-url("../icons/x.svg"); tip: root.tool-shown ? @tr("Close the tool") : @tr("Close the inspector"); clicked => { if root.tool-shown { ReaderBridge.tool-close(root.id); root.focus-pages(); } else { root.close(); } } }
         }
         Rectangle { height: 1px; background: Theme.hairline; }
-        ScrollView {
+        if root.tool-shown: ToolInspector {
+            vertical-stretch: 1;
+            tab: root.tab;
+            id: root.id;
+        }
+        if !root.tool-shown: ScrollView {
             vertical-stretch: 1;
             VerticalLayout {
                 alignment: start;
@@ -79,46 +90,76 @@ export component ReaderInspector inherits Rectangle {
                     Row { label: @tr("Zoom"); Value { text: root.tab.viewer-zoom + " %"; } }
                     Row { label: @tr("Page theme"); Value { text: root.tab.reader.theme == 0 ? @tr("Day") : root.tab.reader.theme == 2 ? @tr("Sepia") : @tr("Night"); } }
                 }
+                // Annotate (DESIGN §5.3): one section per property, the control alone under its
+                // title: Colour (the six swatches), Stroke (four widths), Opacity (a slider).
                 if root.mode == 1: Section {
                     title: @tr("Colour");
-                    Row {
-                        label: @tr("Colour");
-                        Rectangle { horizontal-stretch: 1; }
-                        if root.light-tool: HorizontalLayout {
-                            spacing: Space.xs;
-                            for c[k] in root.light-colours: Rectangle {
-                                width: 22px;
-                                ColourDot { colour: c; selected: root.tab.reader.colour == k; clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); } }
-                            }
-                        }
-                        if !root.light-tool: HorizontalLayout {
-                            spacing: Space.xs;
-                            for c[k] in root.ink-colours: Rectangle {
-                                width: 22px;
-                                ColourDot { colour: c; selected: root.tab.reader.colour == k; clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); } }
-                            }
-                        }
-                    }
-                    Row {
-                        label: @tr("Stroke");
-                        Rectangle { horizontal-stretch: 1; }
-                        for w[k] in [2px, 4px, 7px, 10px]: Rectangle {
-                            width: 22px;
-                            StrokeWidth { thickness: w; selected: root.tab.reader.pen-width == k; clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); } }
-                        }
-                    }
-                    Row {
-                        label: @tr("Opacity");
-                        Rectangle { horizontal-stretch: 1; }
-                        for p in [100, 50, 25]: Rectangle {
-                            width: 48px;
-                            SmallButton { text: p + " %"; on: root.tab.reader.opacity == p; clicked => { ReaderBridge.shape-option(root.id, 2, p); root.focus-pages(); } }
+                    HorizontalLayout {
+                        height: Theme.row-height;
+                        spacing: Space.sm;
+                        alignment: start;
+                        for c[k] in (root.light-tool ? root.light-colours : root.ink-colours): Swatch {
+                            colour: c;
+                            selected: root.tab.reader.colour == k;
+                            tip: k == 5 ? @tr("Custom colour") : @tr("Colour {}", k + 1);
+                            clicked => { ReaderBridge.set-colour(root.id, k); root.focus-pages(); }
                         }
                     }
                 }
+                if root.mode == 1: Section {
+                    title: @tr("Stroke");
+                    HorizontalLayout {
+                        height: Theme.row-height;
+                        spacing: Space.sm;
+                        alignment: start;
+                        for w[k] in [2px, 4px, 7px, 10px]: StrokeWidth {
+                            width: 26px;
+                            height: 26px;
+                            thickness: w;
+                            selected: root.tab.reader.pen-width == k;
+                            clicked => { ReaderBridge.set-pen-width(root.id, k); root.focus-pages(); }
+                        }
+                    }
+                }
+                if root.mode == 1: Section {
+                    title: @tr("Opacity");
+                    HorizontalLayout {
+                        height: Theme.row-height;
+                        spacing: Space.md;
+                        opacity-slider := Slider {
+                            horizontal-stretch: 1;
+                            minimum: 10;
+                            maximum: 100;
+                            step: 5;
+                            value: root.tab.reader.opacity == 0 ? 100 : root.tab.reader.opacity;
+                            released(v) => { ReaderBridge.shape-option(root.id, 2, round(v / 5) * 5); root.focus-pages(); }
+                        }
+                        Text {
+                            width: 44px;
+                            text: round(opacity-slider.value) + " %";
+                            font-size: Theme.fs-body;
+                            color: Theme.text-2;
+                            horizontal-alignment: right;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                // Organize (DESIGN §5.7): the count, then the thumbnail size (120–320 px: the grid's
+                // 196-wide page at 61–163 %).
                 if root.mode == 4: Section {
                     title: @tr("Pages");
-                    Row { label: @tr("Selected"); Value { text: @tr("{} of {}", root.tab.reader.pages-selected, root.tab.reader.page-count); } }
+                    Row { label: @tr("{} of {} selected", root.tab.reader.pages-selected, root.tab.reader.page-count); }
+                    Row {
+                        label: @tr("Thumbnail size");
+                        Rectangle { horizontal-stretch: 1; }
+                        Slider {
+                            width: 120px;
+                            minimum: 61;
+                            maximum: 163;
+                            value: root.tab.viewer-zoom;
+                            released(v) => { ViewerBridge.zoom-to(root.id, round(v)); root.focus-pages(); }
+                        }
+                    }
                 }
                 if root.mode >= 2 && root.mode != 4: Section {
                     title: @tr("Properties");

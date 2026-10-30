@@ -143,6 +143,9 @@ pub(super) fn tools_waiting(tab_id: i32) -> bool {
 }
 
 pub(super) fn hand_to_tools(ui: &AppWindow, tab_id: i32) {
+    if let Some(key) = update(tab_id, |r, _| r.tool_pending.take()).flatten() {
+        return super::toolbox::show(ui, tab_id, &key);
+    }
     let Some((path, tool)) = update(tab_id, |r, _| (r.path.clone(), r.tool_after_save.take())) else { return };
     if let Some(tool) = tool {
         crate::flow::open_tool(ui, tool, vec![path]);

@@ -173,6 +173,7 @@ export component AppWindow inherits Window {
     in property <[HistoryRow]> history;
     in property <int> theme-pref;
     in property <int> backdrop-pref;
+    in property <int> page-theme;
     in property <int> output-mode;
     in property <string> fixed-folder;
     in property <bool> open-after;
@@ -268,6 +269,7 @@ export component AppWindow inherits Window {
     callback set-theme(int);
     callback set-accent(int);
     callback set-backdrop(int);
+    callback set-page-theme(int);
     callback set-output(int);
     callback choose-folder();
     callback set-open-after(bool);
@@ -326,6 +328,8 @@ export component AppWindow inherits Window {
     // go on to the field or page that has the keyboard.
     property <bool> reader-on: root.active-tab >= 0 && root.active-tab < root.tabs.length && root.tabs[root.active-tab].is-reader;
     property <int> reader-id: root.reader-on ? root.tabs[root.active-tab].id : -1;
+    // The shown document's inspector is open (View ▸ Show / Hide Inspector).
+    property <bool> inspector-shown: root.reader-on && root.tabs[root.active-tab].reader.inspector-open;
     // A command run by the reader tab shown itself (Find, Go to Page, Present).
     property <int> menu-seq;
     property <string> menu-command;
@@ -393,10 +397,34 @@ export component AppWindow inherits Window {
             MenuItem { title: @tr("Zoom to Fit Page"); shortcut: PlatformBridge.keys[19]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 1); } }
             MenuItem { title: @tr("Zoom to Fit Width"); shortcut: PlatformBridge.keys[20]; enabled: root.reader-on; activated => { ReaderBridge.zoom-fit(root.reader-id, 0); } }
             MenuSeparator {}
-            MenuItem { title: @tr("Show or Hide Side Panel"); shortcut: PlatformBridge.keys[21]; enabled: root.reader-on; activated => { ReaderBridge.toggle-panel(root.reader-id); } }
-            MenuItem { title: @tr("Next Page Layout"); shortcut: PlatformBridge.keys[22]; enabled: root.reader-on; activated => { ReaderBridge.cycle-spread(root.reader-id); } }
-            MenuItem { title: @tr("Rotate View Clockwise"); shortcut: PlatformBridge.keys[23]; enabled: root.reader-on; activated => { ReaderBridge.rotate-view(root.reader-id, 1); } }
-            MenuItem { title: @tr("Rotate View Counterclockwise"); shortcut: PlatformBridge.keys[24]; enabled: root.reader-on; activated => { ReaderBridge.rotate-view(root.reader-id, -1); } }
+            // Show / Hide labels follow the state (BAMA menus.md); the sidebar's tabs ⌥⌘1…6.
+            MenuItem { title: root.reader-on && root.tabs[root.active-tab].reader.panel-open ? @tr("Hide Sidebar") : @tr("Show Sidebar"); shortcut: PlatformBridge.keys[21]; enabled: root.reader-on; activated => { ReaderBridge.toggle-panel(root.reader-id); } }
+            MenuItem { title: root.reader-on && root.inspector-shown ? @tr("Hide Inspector") : @tr("Show Inspector"); shortcut: PlatformBridge.keys[45]; enabled: root.reader-on; activated => { root.reader-command("inspector"); } }
+            Menu {
+                title: @tr("Sidebar");
+                enabled: root.reader-on;
+                MenuItem { title: @tr("Thumbnails"); shortcut: PlatformBridge.keys[46]; enabled: root.reader-on; activated => { ReaderBridge.set-panel(root.reader-id, 0); } }
+                MenuItem { title: @tr("Outline"); shortcut: PlatformBridge.keys[47]; enabled: root.reader-on; activated => { ReaderBridge.set-panel(root.reader-id, 1); } }
+                MenuItem { title: @tr("Bookmarks"); shortcut: PlatformBridge.keys[48]; enabled: root.reader-on; activated => { ReaderBridge.set-panel(root.reader-id, 6); } }
+                MenuItem { title: @tr("Annotations"); shortcut: PlatformBridge.keys[49]; enabled: root.reader-on; activated => { ReaderBridge.set-panel(root.reader-id, 2); } }
+                MenuItem { title: @tr("Attachments"); shortcut: PlatformBridge.keys[50]; enabled: root.reader-on; activated => { ReaderBridge.set-panel(root.reader-id, 4); } }
+                MenuItem { title: @tr("Layers"); shortcut: PlatformBridge.keys[51]; enabled: root.reader-on; activated => { ReaderBridge.set-panel(root.reader-id, 5); } }
+            }
+            MenuSeparator {}
+            Menu {
+                title: @tr("Page Display");
+                enabled: root.reader-on;
+                MenuItem { title: @tr("Next Page Layout"); shortcut: PlatformBridge.keys[22]; enabled: root.reader-on; activated => { ReaderBridge.cycle-spread(root.reader-id); } }
+                MenuItem { title: @tr("Rotate View Clockwise"); shortcut: PlatformBridge.keys[23]; enabled: root.reader-on; activated => { ReaderBridge.rotate-view(root.reader-id, 1); } }
+                MenuItem { title: @tr("Rotate View Counterclockwise"); shortcut: PlatformBridge.keys[24]; enabled: root.reader-on; activated => { ReaderBridge.rotate-view(root.reader-id, -1); } }
+            }
+            Menu {
+                title: @tr("Page Theme");
+                enabled: root.reader-on;
+                MenuItem { title: @tr("Day"); shortcut: PlatformBridge.keys[53]; enabled: root.reader-on; activated => { ReaderBridge.set-theme(root.reader-id, 0); } }
+                MenuItem { title: @tr("Sepia"); shortcut: PlatformBridge.keys[54]; enabled: root.reader-on; activated => { ReaderBridge.set-theme(root.reader-id, 2); } }
+                MenuItem { title: @tr("Night"); shortcut: PlatformBridge.keys[55]; enabled: root.reader-on; activated => { ReaderBridge.set-theme(root.reader-id, 1); } }
+            }
             MenuSeparator {}
             MenuItem { title: @tr("Full Screen"); shortcut: PlatformBridge.keys[25]; activated => { root.full-screen = !root.full-screen; } }
             MenuItem { title: @tr("Present"); shortcut: PlatformBridge.keys[26]; enabled: root.reader-on; activated => { root.reader-command("present"); } }
@@ -411,12 +439,81 @@ export component AppWindow inherits Window {
             MenuSeparator {}
             MenuItem { title: @tr("Back"); shortcut: PlatformBridge.keys[32]; enabled: root.reader-on; activated => { ReaderBridge.history(root.reader-id, -1); } }
             MenuItem { title: @tr("Forward"); shortcut: PlatformBridge.keys[33]; enabled: root.reader-on; activated => { ReaderBridge.history(root.reader-id, 1); } }
+            MenuSeparator {}
+            // PDF Expert's page bookmark (the sidebar's Bookmarks tab): the page in view, on or off.
+            MenuItem { title: @tr("Add Bookmark"); shortcut: PlatformBridge.keys[52]; enabled: root.reader-on; activated => { ReaderBridge.bookmark-op(root.reader-id, 0, -1); } }
+        }
+        // The modes' menus (DESIGN §1: Annotate, Edit PDF, Forms, Pages, Protect, then Tools), most
+        // general first. Items that need a document stay visible and disabled without one. The
+        // reader's tool letters are not menu shortcuts (typing keeps them).
+        Menu {
+            title: @tr("Annotate");
+            for t in [{ n: @tr("Select"), k: 0 }, { n: @tr("Highlight"), k: 1 }, { n: @tr("Underline"), k: 2 }, { n: @tr("Strikethrough"), k: 3 }, { n: @tr("Note"), k: 4 }, { n: @tr("Text Box"), k: 6 }, { n: @tr("Pen"), k: 5 }, { n: @tr("Eraser"), k: 11 }, { n: @tr("Shapes"), k: 10 }, { n: @tr("Stamp"), k: 12 }, { n: @tr("Link"), k: 13 }]: MenuItem {
+                title: t.n;
+                enabled: root.reader-on;
+                activated => { ReaderBridge.set-tool(root.reader-id, t.k); }
+            }
+            MenuSeparator {}
+            MenuItem { title: @tr("Export Annotation Summary…"); enabled: root.reader-on; activated => { ReaderBridge.notes-action(root.reader-id, 1); } }
+        }
+        Menu {
+            title: @tr("Edit PDF");
+            MenuItem { title: @tr("Edit Text and Images"); enabled: root.reader-on; activated => { ReaderBridge.set-tool(root.reader-id, 7); } }
+            MenuItem { title: @tr("Add Image"); enabled: root.reader-on; activated => { ReaderBridge.set-tool(root.reader-id, 8); } }
+            MenuItem { title: @tr("Add Link"); enabled: root.reader-on; activated => { ReaderBridge.set-tool(root.reader-id, 13); } }
+            MenuSeparator {}
+            // One-run tools of the Tools popover: their options open in the inspector.
+            MenuItem { title: @tr("Page Numbers, Header and Footer…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "page_numbers"); } }
+            MenuItem { title: @tr("Add Watermark…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "watermark"); } }
+            MenuItem { title: @tr("Adjust Colours…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "adjust_colours"); } }
+            MenuItem { title: @tr("Crop Pages…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "crop"); } }
+            MenuItem { title: @tr("Background…"); enabled: root.reader-on; activated => { ReaderBridge.background-open(root.reader-id); } }
+        }
+        Menu {
+            title: @tr("Forms");
+            MenuItem { title: @tr("Sign"); enabled: root.reader-on; activated => { ReaderBridge.set-tool(root.reader-id, 9); } }
+            MenuItem { title: @tr("Prepare Form"); enabled: root.reader-on; activated => { ReaderBridge.set-tool(root.reader-id, 14); } }
+            MenuItem { title: @tr("Detect Form Fields"); enabled: root.reader-on; activated => { ReaderBridge.detect-fields(root.reader-id); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Clear Form"); enabled: root.reader-on; activated => { ReaderBridge.form-op(root.reader-id, 0); } }
+            MenuItem { title: @tr("Flatten Fields"); enabled: root.reader-on; activated => { ReaderBridge.form-op(root.reader-id, 1); } }
+            MenuItem { title: @tr("Flatten Fields and Comments"); enabled: root.reader-on; activated => { ReaderBridge.form-op(root.reader-id, 2); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Sign with Certificate…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "sign"); } }
+            MenuItem { title: @tr("Manage Signatures…"); enabled: root.reader-on; activated => { ReaderBridge.signature-manager(root.reader-id); } }
+        }
+        Menu {
+            title: @tr("Pages");
+            MenuItem { title: @tr("Show All Pages"); enabled: root.reader-on; activated => { ReaderBridge.toggle-grid(root.reader-id); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Rotate Left"); enabled: root.reader-on; activated => { ReaderBridge.page-op(root.reader-id, 0); } }
+            MenuItem { title: @tr("Rotate Right"); enabled: root.reader-on; activated => { ReaderBridge.page-op(root.reader-id, 1); } }
+            MenuItem { title: @tr("Duplicate Page"); enabled: root.reader-on; activated => { ReaderBridge.page-op(root.reader-id, 3); } }
+            MenuItem { title: @tr("Insert Blank Page"); enabled: root.reader-on; activated => { ReaderBridge.page-op(root.reader-id, 5); } }
+            MenuItem { title: @tr("Delete Page"); enabled: root.reader-on; activated => { ReaderBridge.page-op(root.reader-id, 2); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Extract Pages…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "extract_pages"); } }
+            MenuItem { title: @tr("Remove Pages…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "remove_pages"); } }
+            MenuItem { title: @tr("Split…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "split"); } }
+            MenuItem { title: @tr("Rotate All Pages…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "rotate"); } }
+        }
+        Menu {
+            title: @tr("Protect");
+            MenuItem { title: @tr("Set Password…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "protect"); } }
+            MenuItem { title: @tr("Remove Password…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "unlock"); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Redact…"); enabled: root.reader-on; activated => { ReaderBridge.redact(root.reader-id); } }
+            MenuItem { title: @tr("Sanitize Document"); enabled: root.reader-on; activated => { ReaderBridge.sanitize(root.reader-id); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Encrypt with Certificates…"); enabled: root.reader-on; activated => { ReaderBridge.cert-open(root.reader-id); } }
+            MenuItem { title: @tr("Security Policies…"); enabled: root.reader-on; activated => { ReaderBridge.policy-open(root.reader-id); } }
         }
         Menu {
             title: @tr("Tools");
-            MenuItem { title: @tr("All Tools"); shortcut: PlatformBridge.keys[34]; activated => { root.active-tab = -1; root.page = Page.all-tools; } }
-            // Every tool of the Tools page, with the keys the user gave it (Preferences ▸ Keyboard
-            // shortcuts, Stirling's tool hotkeys).
+            // In a document: the Tools popover (⌘K); on Home: the All Tools page (batch runs).
+            MenuItem { title: @tr("All Tools…"); shortcut: PlatformBridge.keys[34]; activated => { if root.reader-on { root.reader-command("tools"); } else { root.active-tab = -1; root.page = Page.all-tools; } } }
+            // Every tool of the Tools page, with the keys the user gave it (Settings ▸ Shortcuts,
+            // Stirling's tool hotkeys).
             Menu {
                 title: @tr("Open Tool");
                 // Their keys are not menu shortcuts (those are taken even in a text field): main's
@@ -426,25 +523,23 @@ export component AppWindow inherits Window {
                     activated => { root.open-tool(t.id); }
                 }
             }
-            // The reader's tools (their letters work on the pages; not here, so typing keeps them).
-            Menu {
-                title: @tr("Annotate");
-                enabled: root.reader-on;
-                for t in [{ n: @tr("Select Text"), k: 0 }, { n: @tr("Highlight"), k: 1 }, { n: @tr("Underline"), k: 2 }, { n: @tr("Strikethrough"), k: 3 }, { n: @tr("Note"), k: 4 }, { n: @tr("Pen"), k: 5 }, { n: @tr("Shapes"), k: 10 }, { n: @tr("Eraser"), k: 11 }, { n: @tr("Stamp"), k: 12 }, { n: @tr("Text Box"), k: 6 }]: MenuItem {
-                    title: t.n;
-                    activated => { ReaderBridge.set-tool(root.reader-id, t.k); }
-                }
-            }
-            Menu {
-                title: @tr("Edit PDF");
-                enabled: root.reader-on;
-                for t in [{ n: @tr("Edit Text and Images"), k: 7 }, { n: @tr("Add Image"), k: 8 }, { n: @tr("Link"), k: 13 }, { n: @tr("Sign"), k: 9 }, { n: @tr("Prepare Form"), k: 14 }]: MenuItem {
-                    title: t.n;
-                    activated => { ReaderBridge.set-tool(root.reader-id, t.k); }
-                }
-            }
             MenuSeparator {}
-            // Starred tools (Home ▸ Tools' favourites).
+            MenuItem { title: @tr("Compress…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "compress"); } }
+            MenuItem { title: @tr("Recognize Text (OCR)…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "ocr"); } }
+            MenuItem { title: @tr("Repair…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "repair"); } }
+            MenuItem { title: @tr("Compare…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "compare"); } }
+            MenuItem { title: @tr("Export To…"); enabled: root.reader-on; activated => { ReaderBridge.tool-pick(root.reader-id, "pdf_to_word"); } }
+            MenuSeparator {}
+            MenuItem { title: @tr("Actions"); activated => { ActionBridge.open-page("actions"); } }
+            MenuItem { title: @tr("Custom Tools…"); activated => { ActionBridge.command("custom-tools", 0); } }
+            Menu {
+                title: @tr("Developer");
+                MenuItem { title: @tr("JavaScript Console…"); enabled: root.reader-on; activated => { JavaScriptBridge.open(root.reader-id); } }
+                MenuItem { title: @tr("Plugins…"); activated => { root.open-settings(3); } }
+            }
+            MenuItem { title: @tr("Ask AI…"); enabled: root.reader-on; activated => { AiBridge.toggle(root.reader-id); } }
+            MenuSeparator {}
+            // Starred tools (Home ▸ All Tools' favourites).
             for t in root.favourite-tools: MenuItem {
                 title: t.name;
                 activated => { root.open-tool(t.id); }

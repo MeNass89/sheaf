@@ -11,6 +11,7 @@ import { Theme, Space, Motion } from "../theme.slint";
 import { ToolbarButton, ModeSegment } from "../widgets/toolbar.slint";
 import { TipArea } from "../widgets/tooltip.slint";
 import { PopoverFrame } from "reader-parts.slint";
+import { ToolsPopover } from "reader-tools.slint";
 import { ToolTab, ViewerBridge, ReaderBridge } from "../flow-types.slint";
 import { PlatformBridge } from "../platform.slint";
 import { AiBridge } from "../ai.slint";
@@ -99,6 +100,8 @@ export component ReaderToolbar inherits Rectangle {
     public function focus-page-field() { page-in.focus(); page-in.select-all(); }
     // ⌘F: the search field, its text selected.
     public function focus-search() { search-in.focus(); search-in.select-all(); }
+    // ⌘K, Tools ▸ All Tools…: the Tools popover under the mode bar's wrench.
+    public function show-tools() { tools-popup.show(); }
     // The given words in the search field, searched.
     public function search-for(text: string) {
         search-in.text = text;
@@ -268,7 +271,15 @@ export component ReaderToolbar inherits Rectangle {
             ModeSegment { width: root.segment; icon: @image-url("../icons/layout-grid.svg"); selected: root.mode == 4; tip: @tr("Organize"); shortcut: root.mode-keys("4"); clicked => { root.set-mode(4); } }
             ModeSegment { width: root.segment; icon: @image-url("../icons/eye-off.svg"); selected: root.mode == 5; tip: @tr("Redact"); shortcut: root.mode-keys("5"); clicked => { root.set-mode(5); } }
             ModeSegment { width: root.segment; icon: @image-url("../icons/ruler.svg"); selected: root.mode == 6; tip: @tr("Measure"); shortcut: root.mode-keys("6"); clicked => { root.set-mode(6); } }
-            ModeSegment { width: root.segment; icon: @image-url("../icons/wrench.svg"); tip: @tr("All tools"); shortcut: root.mode-keys("K"); clicked => { ReaderBridge.to-tools(root.id); } }
+            ModeSegment { width: root.segment; icon: @image-url("../icons/wrench.svg"); tip: @tr("All tools"); shortcut: root.mode-keys("K"); clicked => { tools-popup.show(); } }
+        }
+        // The Tools popover (reader-tools.slint), 4 px under the wrench, its right edge 24 px past it.
+        tools-popup := PopupWindow {
+            x: PlatformBridge.rtl ? -Space.xxl : parent.width + Space.xxl - 320px;
+            y: parent.height + Space.xs;
+            width: 320px;
+            height: 480px;
+            ToolsPopover { id: root.id; done => { tools-popup.close(); root.focus-pages(); } }
         }
     }
 
@@ -377,6 +388,11 @@ export component ReaderToolbar inherits Rectangle {
                     // ⌘F again in the field: its words selected, ready to type a new search.
                     if e.modifiers.control && (e.text == "f" || e.text == "F") {
                         self.select-all();
+                        return accept;
+                    }
+                    // ⌃⌘I (Ctrl+Alt+I) works from the field too: the inspector, the keyboard kept.
+                    if e.modifiers.control && (e.text == "i" || e.text == "I") && (e.modifiers.meta || (!Theme.mac && e.modifiers.alt)) {
+                        root.toggle-inspector();
                         return accept;
                     }
                     if e.modifiers.control && (e.text == "g" || e.text == "G") {

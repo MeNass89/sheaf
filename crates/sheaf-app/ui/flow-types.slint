@@ -288,8 +288,25 @@ export struct FolderHit {
     line: string,
 }
 
+// A row of the reader's Tools popover (DESIGN §3): a catalogue tool (its key), a plugin tool
+// ("plugin:…") or a custom tool ("custom:n"); `header` rows are the group titles; `tab` tools open
+// a tool tab (they need the page or more files) instead of the inspector.
+export struct ToolRow {
+    id: string,
+    name: string,
+    detail: string,
+    icon: image,
+    header: bool,
+    tab: bool,
+}
+
 export struct ReaderState {
     title: string,
+    // The tool whose options the inspector shows (toolbox.rs): its key and name, "" for none.
+    tool-id: string,
+    tool-name: string,
+    // The inspector column is open (reader.slint tells Rust; the View menu reads it).
+    inspector-open: bool,
     // The document's When opened ▸ full screen and no toolbar, followed once per opening (open-seq).
     open-full-screen: bool,
     open-bare: bool,
@@ -1206,6 +1223,18 @@ export global ReaderBridge {
     callback history(int, int);
     // Tools page with this document ready for the tool picked.
     callback to-tools(int);
+    // The Tools popover (⌘K): its rows for what is typed; a row chosen; the inspector's tool
+    // closed; its Run (the same job as a tool tab's) and Cancel.
+    in property <[ToolRow]> tool-rows;
+    callback tools-query(string);
+    callback tool-pick(int, string);
+    callback tool-close(int);
+    callback run-tool(int, ToolOptions);
+    callback cancel-tool(int);
+    // Crop's preview in the inspector: the page shown stepped (±1).
+    callback crop-preview-step(int, int);
+    // The inspector opened or closed (the View menu's Show / Hide Inspector label).
+    callback inspector-shown(int, bool);
     // ⌘W: close the document (asks first when there are unsaved edits).
     callback close(int);
     // ⌥⌘W: every tab, documents with unsaved edits asked about in turn.
@@ -1261,6 +1290,8 @@ export global ViewerBridge {
     callback thumb-clicked(int, int);
     // +1 / −1 one zoom step, 0 fit width.
     callback zoom-step(int, int);
+    // A zoom in percent of actual size (the organiser's thumbnail size slider).
+    callback zoom-to(int, int);
     // Pinch and ⌘ + wheel: a zoom in percent of actual size, keeping the view point (x, y) on the
     // same point of its page; the last value is the horizontal scroll, the new one is returned.
     callback zoom-at(int, float, float, float, float) -> float;

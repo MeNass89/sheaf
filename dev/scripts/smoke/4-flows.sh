@@ -17,7 +17,7 @@ quit
 
 # 80. Document properties (⌘D) ▸ Copy report (Acrobat's PDF info): the clipboard holds the description, the facts and
 # the fonts, each said embedded or not (text.pdf: Helvetica, one of the standard fonts, not embedded).
-cp "$OUT/text.pdf" "$OUT/report.pdf"; launch "$OUT/report.pdf"; sleep 1; key ctrl+d; sleep 2
+cp "$OUT/text.pdf" "$OUT/report.pdf"; launch "$OUT/report.pdf"; sleep 1; key ctrl+i; sleep 2
 # Copy report starts the sheet's bottom row (read on that strip: the dimmed page around confuses tesseract).
 CR=$(at Copy 300x44+400+722); [ -n "$CR" ] && click $CR 1
 RP=$(xclip -selection clipboard -o 2>/dev/null | tr '\n' '|')
@@ -190,7 +190,7 @@ check "the loupe shows the words under the pointer, magnified (${LP:-no item}; $
 quit
 
 # 98. Document properties (⌘D) ▸ Save report… (Acrobat's PDF info report, saved): a JSON file with the facts and fonts.
-cp "$OUT/text.pdf" "$OUT/report2.pdf"; launch "$OUT/report2.pdf"; sleep 1; key ctrl+d; sleep 2
+cp "$OUT/text.pdf" "$OUT/report2.pdf"; launch "$OUT/report2.pdf"; sleep 1; key ctrl+i; sleep 2
 answer "$PWD/$OUT/report.json"; SR=$(at Save 400x44+400+722); [ -n "$SR" ] && click $SR 1; answer ""
 RJ=$(python3 -c 'import json,sys; v=json.load(open(sys.argv[1])); print(v["file"], v["facts"].get("Pages"), v["fonts"][0]["name"])' "$OUT/report.json" 2>/dev/null)
 check "Save report writes the properties as JSON (${SR:-no button}; $RJ)" "[ \"$RJ\" = 'report2.pdf 4 Helvetica' ]"

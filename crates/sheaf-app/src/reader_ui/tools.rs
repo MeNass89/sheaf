@@ -616,7 +616,13 @@ pub fn set_theme(ui: &AppWindow, tab_id: i32, theme: i32) {
             v.all_changed();
         }
     });
-    crate::home::set_reader_theme(theme);
+    crate::home::set_page_theme(ui, theme);
+    crate::viewer_ui::request(ui, tab_id);
+}
+
+/// The inspector column opened or closed (reader.slint): kept for the View menu's label.
+pub fn inspector_shown(ui: &AppWindow, tab_id: i32, on: bool) {
+    update(tab_id, |r, _| r.inspector_open = on);
     crate::viewer_ui::request(ui, tab_id);
 }
 
