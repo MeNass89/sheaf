@@ -1052,7 +1052,7 @@ cp "$OUT/text.pdf" "$OUT/printdef.pdf"; launch "$OUT/printdef.pdf"; sleep 1
 key ctrl+p; sleep 1; shot 301-print-defaults
 # W6 sheet: Grey is a radio (its dot 30 px left of the word), two-sided a check box ("Print on both sides", 95 px
 # right of the Two-sided label); the Colour radio sits 103 px left of Grey; Make Default is found by its word.
-read MX MY <<< "$(at Make 1280x700+0+60)"; read GX GY <<< "$(at Grey 1280x700+0+60)"
+read MX MY <<< "$(at Make 520x60+530+680)"; read GX GY <<< "$(at Grey 1280x700+0+60)"   # the sheet's last row, read alone (tesseract drops it from the whole)
 read OX OY <<< "$(at Two 1280x700+0+60)"; CX=${GX:+$(( GX - 103 ))}; CY=$GY
 GR=no; OR=no
 if [ -n "$MX" ] && [ -n "$GX" ] && [ -n "$CX" ]; then
@@ -1107,7 +1107,8 @@ quit; settings_reset
 export SHEAF_TEST_MENU_BAR=1
 launch; sleep 0.5
 HX=$(at Help 1000x34+0+0); [ -n "$HX" ] && click $HX 0.8
-RI=$(at Report 420x300+0+24); [ -n "$RI" ] && click $RI 1
+# The Help menu opens under its title, past the modes' menus (W6: File … Protect, Tools, Window, Help).
+RI=$(at Report 420x300+$(( ${HX%% *} - 60 ))+24); [ -n "$RI" ] && click $RI 1
 xdotool type --delay 20 "Saving freezes on big files"; sleep 0.4; shot 304-report
 answer "$PWD/$OUT/report.zip"
 # Save report… read on the dialog's lower half (the whole screen's OCR misses its button row).

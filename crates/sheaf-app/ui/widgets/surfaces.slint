@@ -128,7 +128,10 @@ export component ToastView inherits Rectangle {
     height: max(36px, lbl.preferred-height + 16px);
     min-width: 200px;
     max-width: 640px;
-    preferred-width: lbl.preferred-width + (root.action == "" ? 0px : act.preferred-width + 16px) + 32px;
+    // Measured unwrapped (a wrapping Text's preferred width is its longest word's): one line when it
+    // fits in 640, wrapped past that.
+    preferred-width: measure.preferred-width + (root.action == "" ? 0px : act.preferred-width + 16px) + 32px;
+    measure := Text { visible: false; text: root.text; font-size: Theme.fs-body; }
     border-radius: Theme.r-pill;
     background: Theme.toast;
     drop-shadow-blur: Theme.toast-blur;
@@ -147,7 +150,6 @@ export component ToastView inherits Rectangle {
             color: Theme.on-toast;
             vertical-alignment: center;
             wrap: word-wrap;
-            max-width: 560px;
         }
         act := Text {
             visible: root.action != "";

@@ -1920,7 +1920,7 @@ msgstr "À la page"
 msgid "Last"
 msgstr "Dernière"
 
-#: ui/screens/options-parts.slint ui/screens/tool-flow.slint
+#: ui/screens/options-parts.slint ui/screens/reader-tools.slint ui/screens/tool-flow.slint
 msgid "Preview…"
 msgstr "Aperçu…"
 
@@ -6468,7 +6468,7 @@ msgstr "Le presse-papiers n’est pas disponible"
 msgid "Save the answer"
 msgstr "Enregistrer la réponse"
 
-#: src/ai_ui.rs
+#: src/ai_ui.rs src/reader_ui/toolbox.rs
 msgid "Saved {}"
 msgstr "{} enregistré"
 

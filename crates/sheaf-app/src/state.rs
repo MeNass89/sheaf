@@ -545,6 +545,10 @@ pub fn build(t: &TabState) -> ToolTab {
         crate::split::fill(&mut tab, t);
         tab.tool = "read".into();
         tab.icon = crate::state::reader_icon();
+        // A tool run from the inspector (reader_ui/toolbox.rs): its result words for the toast.
+        if let Phase::Done(d) = &t.phase {
+            fill_result(&mut tab, t, d);
+        }
         return tab;
     }
     if let Some(v) = &t.viewer {
