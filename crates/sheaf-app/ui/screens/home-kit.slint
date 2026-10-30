@@ -40,7 +40,8 @@ export global HomeMetrics {
     out property <length> tile-height: 108px;
     out property <length> card-width: 152px;
     out property <length> card-height: 180px;
-    out property <length> card-thumb-width: 96px;
+    // Narrow enough for the corner buttons to sit beside it, not on it.
+    out property <length> card-thumb-width: 88px;
     out property <length> card-thumb-height: 124px;
     out property <length> search-width: 200px;
     out property <length> empty-glyph: 48px;
@@ -203,6 +204,7 @@ export component LibraryTile inherits Rectangle {
             height: parent.height;
             icon: root.tool.icon;
             text: root.tool.name;
+            tile: root.tool.tile;
             clicked => { if root.tool.enabled { root.clicked(root.tool.id); } }
         }
         if root.highlighted: Rectangle {
@@ -359,13 +361,6 @@ export component HomeFileCard inherits Rectangle {
                 menu.show();
             }
         }
-        changed has-hover => {
-            if self.has-hover {
-                TooltipBridge.hover(root.absolute-position.x, root.absolute-position.y, root.width, root.height, root.file.name, "", false);
-            } else {
-                TooltipBridge.leave();
-            }
-        }
         // Inside the area so hovering them keeps the card hovered.
         if touch.has-hover: IconButton {
             x: Space.xs;
@@ -381,10 +376,10 @@ export component HomeFileCard inherits Rectangle {
             tip: @tr("Remove from Recents");
             clicked => { root.remove(); }
         }
-        // The star: on hover, and always once starred.
+        // The star: on hover, and always once starred; under the ×, beside the thumbnail (it sat on it).
         Rectangle {
-            x: (parent.width - self.width) / 2;
-            y: Space.xs;
+            x: parent.width - self.width - Space.xs;
+            y: Space.xs + Theme.control-height + Space.xs;
             width: Theme.control-height;
             height: Theme.control-height;
             border-radius: Theme.r-sm;

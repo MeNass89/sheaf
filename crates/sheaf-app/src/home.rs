@@ -255,7 +255,8 @@ fn tile_card(id: &str) -> Option<ToolCard> {
             name: tile_name(ANNOTATE).into(),
             category: 0,
             icon: Image::load_from_svg_data(include_bytes!("../ui/icons/highlighter.svg")).unwrap_or_default(),
-            tile: slint::Color::default(),
+            // Annotating is editing: the Edit tools' colour.
+            tile: tools::catalogue().iter().find(|t| t.id == ToolId::Edit).map(|t| crate::tool_card(t).tile).unwrap_or_default(),
             enabled: true,
             favourite: false,
         });

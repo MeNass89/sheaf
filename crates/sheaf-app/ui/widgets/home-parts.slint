@@ -11,6 +11,8 @@ export component ToolTile inherits Rectangle {
     in property <image> icon;
     in property <string> text;
     in property <string> tip;
+    // The tool's own colour (its category's): the icon on it in white, as on the Tools page.
+    in property <color> tile: transparent;
     callback clicked();
     width: 152px;
     height: 108px;
@@ -27,12 +29,12 @@ export component ToolTile inherits Rectangle {
         width: 40px;
         height: 40px;
         border-radius: Theme.r-md;
-        background: Theme.window;
+        background: root.tile.alpha > 0 ? root.tile : Theme.window;
         Image {
             width: 24px;
             height: 24px;
             source: root.icon;
-            colorize: Theme.text;
+            colorize: root.tile.alpha > 0 ? #ffffff : Theme.text;
         }
     }
     Text {
